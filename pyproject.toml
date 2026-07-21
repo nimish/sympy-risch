@@ -1,0 +1,25 @@
+[project]
+name = "sympy-risch"
+version = "0.1.0"
+description = "An upstream-oriented implementation of the Risch algorithm built directly on SymPy"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "sympy>=1.14",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
