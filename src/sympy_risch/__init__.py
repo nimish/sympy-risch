@@ -1,5 +1,6 @@
 """Risch integration algorithms built directly on SymPy."""
 
+from .lrt import lazard_rioboo_trager
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
@@ -15,5 +16,6 @@ __all__ = [
     "integrate_polynomial",
     "integrate_rational",
     "integrate_rational_real",
+    "lazard_rioboo_trager",
     "rothstein_trager_residue_polynomial",
 ]

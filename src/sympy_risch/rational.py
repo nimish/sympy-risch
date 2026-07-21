@@ -11,12 +11,12 @@ from sympy.functions.elementary.complexes import Abs
 from sympy.functions.elementary.exponential import log
 from sympy.functions.elementary.miscellaneous import sqrt
 from sympy.functions.elementary.trigonometric import atan
-from sympy.integrals.rationaltools import ratint_logpart
 from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly, cancel, invert, resultant
 from sympy.polys.rootoftools import RootSum
 from sympy.solvers.solvers import solve
 
+from .lrt import lazard_rioboo_trager
 from .polynomial import integrate_polynomial
 
 
@@ -138,7 +138,7 @@ def integrate_rational(f: Expr, x: Symbol) -> Expr:
     residue = Dummy("z")
     logarithmic_terms = []
 
-    for logand, residue_factor in ratint_logpart(
+    for logand, residue_factor in lazard_rioboo_trager(
         numerator,
         denominator,
         x,
