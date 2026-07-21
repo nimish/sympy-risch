@@ -13,6 +13,10 @@ algebraic function families.
 
 The repository currently provides:
 
+- immutable differential towers with explicit level-bound derivations;
+- monomial extensions ``K(t)`` with ``Dt`` in ``K[t]``;
+- recursive coefficient, polynomial, and fraction differentiation over native
+  SymPy domains;
 - polynomial integration over `QQ[x]`;
 - Horowitz--Ostrogradsky rational Hermite reduction;
 - Rothstein--Trager residue polynomials;
@@ -93,6 +97,13 @@ QQ
 ```
 
 uses the same level mechanism throughout.
+
+Consecutive transcendental levels are stored physically in a flat native
+SymPy fraction field. Thus the mathematical level `QQ(x)(t)` is represented by
+`QQ.frac_field(x, t)`, while the tower metadata and each derivative polynomial
+retain the coefficient-field boundary between `x` and `t`. This avoids known
+coercion failures during normalization of deeply nested SymPy fraction fields
+without introducing wrapper elements.
 
 Algorithms operate at an explicit level. A lower-field operation receives a
 lower-level `Derivation`; the tower itself never needs `increment_level()` or
@@ -413,15 +424,16 @@ its own commit.
 
 ### 1. Differential tower foundation
 
-- Add the open extension hierarchy through algebraic-extension descriptors.
-- Implement immutable `DifferentialTower` construction.
-- Implement level-bound coefficient, polynomial, and quotient derivations.
-- Use SymPy fraction fields directly.
-- Add classification of primitive, hyperexponential, hypertangent, and general
+- [ ] Add the open extension hierarchy through algebraic-extension descriptors.
+- [x] Implement immutable `DifferentialTower` construction.
+- [x] Implement level-bound coefficient, polynomial, and quotient derivations.
+- [x] Use SymPy fraction fields directly.
+- [ ] Add classification of primitive, hyperexponential, hypertangent, and general
   polynomial derivative laws.
-- Add named `LogExtension`, `ExpExtension`, and `TanExtension` factories.
-- Test `x`, `log(x)`, `exp(x + 1)`, `tan(log(x))`, and nested levels.
-- Property-test linearity, Leibniz, quotient, and chain rules.
+- [ ] Add named `LogExtension`, `ExpExtension`, and `TanExtension` factories.
+- [x] Test manually constructed `x`, `log(x)`, and nested monomial levels.
+- [ ] Test named `exp(x + 1)` and `tan(log(x))` levels.
+- [x] Property-test linearity, Leibniz, quotient, and chain rules.
 
 ### 2. Rational-field recognition base cases
 

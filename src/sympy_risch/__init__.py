@@ -8,14 +8,24 @@ from .rational import (
     integrate_rational_real,
     rothstein_trager_residue_polynomial,
 )
+from .tower import (
+    Derivation,
+    DifferentialExtension,
+    DifferentialTower,
+    MonomialExtension,
+)
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "Derivation",
+    "DifferentialExtension",
+    "DifferentialTower",
     "hermite_reduce_rational",
     "integrate_polynomial",
     "integrate_rational",
     "integrate_rational_real",
     "lazard_rioboo_trager",
+    "MonomialExtension",
     "rothstein_trager_residue_polynomial",
 ]
