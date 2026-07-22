@@ -226,9 +226,11 @@ than represented as zero-derivative tower levels.
 The first algebraic Hermite reducer operates over a one-variable rational
 parent field and takes an explicit `IntegralBasis`. It verifies that the given
 elements are a field basis, but the caller currently asserts that they span
-the full integral closure. Automatic integral-basis computation and lazy
-basis refinement remain separate milestones; `IntegralBasis.power_basis()` is
-valid only when the power basis is already known to be integral and complete.
+the full integral closure. Lazy Hermite reduction can refine an incomplete
+basis when one of Bronstein's three certificates exposes a missing integral
+element; automatic full integral-basis computation remains a separate
+milestone. `IntegralBasis.power_basis()` is valid only when the power basis is
+already known to be integral and complete.
 
 Simple radical extensions `y**n = a`, with `a` in the one-variable rational
 parent field, have a specialized basis constructor. It removes `n`-th-power

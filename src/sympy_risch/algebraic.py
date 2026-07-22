@@ -679,7 +679,7 @@ def lazy_hermite_reduce_algebraic(
 ) -> tuple[Any, Any, IntegralBasis]:
     r"""Hermite-reduce while refining denominator-obstructed integral bases.
 
-    This implements the second lazy-refinement theorem in Manuel Bronstein,
+    This implements the three lazy-refinement theorems in Manuel Bronstein,
     *Symbolic Integration Tutorial*, ISSAC 1998, section 2.1, which summarizes
     the fuller treatment in *The Lazy Hermite Reduction*, INRIA RR-3562.
     """
