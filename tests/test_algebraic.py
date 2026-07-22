@@ -393,6 +393,7 @@ def test_generated_lazy_reductions_handle_mixed_algebraic_relations(
     assert derivation(exact) + remainder == integrand
 
 
+@pytest.mark.slow
 def test_lazy_hermite_handles_a_degree_eight_extension() -> None:
     # The normalized generator z = y/(x + 1) satisfies z**8 = x + 2.  Thus
     # z is integral even though it is absent from the power basis in y.
@@ -425,6 +426,7 @@ def test_lazy_hermite_handles_a_degree_eight_extension() -> None:
     )
 
 
+@pytest.mark.slow
 def test_lazy_hermite_handles_a_dense_nonradical_relation() -> None:
     # Begin with the integral, non-radical relation
     #
