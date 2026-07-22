@@ -13,6 +13,7 @@ from .lrt import lazard_rioboo_trager
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
+    hermite_reduce_rational_recursive,
     integrate_rational,
     integrate_rational_real,
     rothstein_trager_residue_polynomial,
@@ -34,6 +35,7 @@ __all__ = [
     "DifferentialExtension",
     "DifferentialTower",
     "hermite_reduce_rational",
+    "hermite_reduce_rational_recursive",
     "hermite_reduce_algebraic",
     "lazy_hermite_reduce_algebraic",
     "integrate_polynomial",

@@ -113,6 +113,66 @@ def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
     return exact_part + rational_part, reduced_remainder
 
 
+def hermite_reduce_rational_recursive(
+    f: Expr,
+    x: Symbol,
+) -> tuple[Expr, Expr]:
+    r"""Classically Hermite-reduce ``f`` one repeated factor at a time.
+
+    If the current denominator is ``D = U*V**m`` with ``V`` square-free and
+    ``m > 1``, extended Euclidean reduction computes ``B`` such that
+    subtracting ``D(B/V**(m - 1))`` lowers the multiplicity of ``V``.  The
+    process terminates when the remaining denominator is square-free.
+
+    This is an independent recursive counterpart to the global
+    Horowitz--Ostrogradsky system in :func:`hermite_reduce_rational`.
+    """
+    numerator, denominator = _as_reduced_fraction(f, x)
+    polynomial_part, numerator = numerator.div(denominator)
+    exact_part = integrate_polynomial(polynomial_part, x)
+
+    if numerator.is_zero:
+        return exact_part, S.Zero
+
+    while denominator.gcd(denominator.diff()).degree() > 0:
+        repeated_factors = [
+            (factor, multiplicity)
+            for factor, multiplicity in denominator.sqf_list()[1]
+            if multiplicity > 1
+        ]
+        factor, multiplicity = max(
+            repeated_factors,
+            key=lambda item: item[1],
+        )
+        cofactor = denominator.exquo(factor**multiplicity)
+
+        # Bronstein, ISSAC'98 section 1.2: solve
+        # A/(1-m) = B*U*V' + C*V with deg(B) < deg(V).
+        scaled_numerator = numerator.mul_ground(QQ(1, 1 - multiplicity))
+        modular_coefficient = cofactor*factor.diff()
+        correction_numerator = (
+            scaled_numerator*invert(modular_coefficient, factor)
+        ).rem(factor)
+        quotient_numerator = (
+            scaled_numerator - correction_numerator*modular_coefficient
+        ).exquo(factor)
+
+        exact_part += cancel(
+            correction_numerator.as_expr()
+            / factor.as_expr()**(multiplicity - 1),
+        )
+        numerator = (
+            quotient_numerator.mul_ground(1 - multiplicity)
+            - cofactor*correction_numerator.diff()
+        )
+        denominator = cofactor*factor**(multiplicity - 1)
+        coefficient, numerator, denominator = numerator.cancel(denominator)
+        numerator = numerator.mul_ground(coefficient)
+
+    remainder = cancel(numerator.as_expr()/denominator.as_expr())
+    return exact_part, remainder
+
+
 def rothstein_trager_residue_polynomial(
     f: Expr,
     x: Symbol,

@@ -23,6 +23,7 @@ The repository currently provides:
   basis;
 - polynomial integration over `QQ[x]`;
 - Horowitz--Ostrogradsky rational Hermite reduction;
+- classical recursive rational Hermite reduction as an independent check;
 - Rothstein--Trager residue polynomials;
 - an independent Lazard--Rioboo--Trager logarithmic-part implementation;
 - complex logarithmic rational integration through exact `RootSum` objects;
