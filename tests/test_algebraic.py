@@ -349,6 +349,7 @@ def test_generated_lazy_reductions_rediscover_hidden_radicals(
     distinct_linear_shifts,
 )
 @settings(max_examples=6, deadline=None)
+@pytest.mark.slow
 def test_generated_lazy_reductions_handle_mixed_algebraic_relations(
     degree,
     shifts,

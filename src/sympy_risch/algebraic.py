@@ -6,13 +6,12 @@ from dataclasses import dataclass, field as dataclass_field
 from typing import Any
 
 from sympy.core.symbol import Symbol
-from sympy.matrices.immutable import ImmutableMatrix
-from sympy.matrices.exceptions import NonInvertibleMatrixError
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.matrices import DomainMatrix
+from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.matrices.normalforms import smith_normal_decomp
-from sympy.polys.polytools import Poly, cancel, invert
+from sympy.polys.polytools import Poly, invert
 
 from .tower import AlgebraicExtension, Derivation
 
@@ -93,7 +92,7 @@ class IntegralBasis:
 
     extension: AlgebraicExtension
     elements: tuple[Any, ...]
-    _power_inverse: ImmutableMatrix = dataclass_field(
+    _power_inverse: DomainMatrix = dataclass_field(
         init=False,
         repr=False,
         compare=False,
@@ -112,13 +111,20 @@ class IntegralBasis:
 
         columns = [self._power_coordinates(element) for element in elements]
         parent = self.extension.parent_field
-        matrix = ImmutableMatrix([
-            [parent.to_sympy(columns[column][row]) for column in range(rank)]
-            for row in range(rank)
-        ])
+        # Keep the change-of-basis matrix over the native parent domain.  An
+        # expression Matrix would repeatedly convert QQ(x) elements to SymPy
+        # expressions and call cancel during every coordinate transformation.
+        matrix = DomainMatrix(
+            [
+                [columns[column][row] for column in range(rank)]
+                for row in range(rank)
+            ],
+            (rank, rank),
+            parent,
+        )
         try:
             inverse = matrix.inv()
-        except NonInvertibleMatrixError as exc:
+        except DMNonInvertibleMatrixError as exc:
             raise ValueError("integral basis elements are linearly dependent") from exc
         object.__setattr__(self, "_power_inverse", inverse)
 
@@ -128,11 +134,7 @@ class IntegralBasis:
         return cls(extension, extension.field.basis)
 
     def _power_coordinates(self, element: Any) -> tuple[Any, ...]:
-        representative = Poly(
-            _extension_element(self.extension, element).as_expr(),
-            self.extension.generator,
-            domain=self.extension.parent_field,
-        )
+        representative = _extension_element(self.extension, element).rep
         return tuple(
             representative.nth(degree)
             for degree in range(self.extension.field.rank)
@@ -142,12 +144,14 @@ class IntegralBasis:
         """Return the coordinates of ``element`` in this basis."""
         parent = self.extension.parent_field
         power_coordinates = self._power_coordinates(element)
-        vector = ImmutableMatrix([
-            parent.to_sympy(coefficient)
-            for coefficient in power_coordinates
-        ])
+        rank = len(power_coordinates)
+        vector = DomainMatrix(
+            [[coefficient] for coefficient in power_coordinates],
+            (rank, 1),
+            parent,
+        )
         result = self._power_inverse*vector
-        return tuple(parent.from_sympy(cancel(coefficient)) for coefficient in result)
+        return tuple(row[0] for row in result.to_list())
 
     def element(self, coordinates: tuple[Any, ...]) -> Any:
         """Construct a field element from integral-basis coordinates."""
@@ -282,14 +286,18 @@ def simple_radical_integral_basis(
 def _coordinate_matrix(
     basis: IntegralBasis,
     elements: tuple[Any, ...],
-) -> ImmutableMatrix:
+) -> DomainMatrix:
     parent = basis.extension.parent_field
     rank = len(basis.elements)
     columns = [basis.coordinates(element) for element in elements]
-    return ImmutableMatrix([
-        [parent.to_sympy(columns[column][row]) for column in range(rank)]
-        for row in range(rank)
-    ])
+    return DomainMatrix(
+        [
+            [columns[column][row] for column in range(rank)]
+            for row in range(rank)
+        ],
+        (rank, rank),
+        parent,
+    )
 
 
 def _denominator_excess(denominator: Poly) -> int:
@@ -415,20 +423,27 @@ def _hermite_reduce_algebraic(
         system = _coordinate_matrix(basis, scaled_derivatives)
         numerator_element = remainder*_embed_parent(extension, denominator)
         numerator_coordinates = basis.coordinates(numerator_element)
-        right_hand_side = ImmutableMatrix([
-            parent.to_sympy(coordinate)
-            for coordinate in numerator_coordinates
-        ])
+        rank = len(numerator_coordinates)
+        right_hand_side = DomainMatrix(
+            [[coordinate] for coordinate in numerator_coordinates],
+            (rank, 1),
+            parent,
+        )
 
         try:
-            solution_expressions = system.inv()*right_hand_side
-        except NonInvertibleMatrixError as exc:
+            # Fraction-free solving retains one common denominator.  Besides
+            # avoiding expression swell, that denominator is exactly what the
+            # lazy-refinement test below must compare with V.
+            solution_numerators_matrix, solution_denominator_element = (
+                system.solve_den(right_hand_side)
+            )
+        except DMNonInvertibleMatrixError as exc:
             raise ValueError(
                 "the supplied integral basis does not support Hermite reduction",
             ) from exc
         solution = tuple(
-            parent.from_sympy(cancel(coefficient))
-            for coefficient in solution_expressions
+            row[0]/solution_denominator_element
+            for row in solution_numerators_matrix.to_list()
         )
 
         solution_denominator = _common_denominator(
