@@ -17,6 +17,10 @@ The repository currently provides:
 - monomial extensions ``K(t)`` with ``Dt`` in ``K[t]``;
 - recursive coefficient, polynomial, and fraction differentiation over native
   SymPy domains;
+- validated finite algebraic extensions with implicitly derived generator
+  derivatives;
+- algebraic Hermite reduction over `QQ(x)` with a caller-supplied integral
+  basis;
 - polynomial integration over `QQ[x]`;
 - Horowitz--Ostrogradsky rational Hermite reduction;
 - Rothstein--Trager residue polynomials;
@@ -217,6 +221,13 @@ For `m(t) = t**2 - x`, this gives `Dt = 1/(2*t)`.
 
 Algebraic constants should normally be adjoined to the constant domain rather
 than represented as zero-derivative tower levels.
+
+The first algebraic Hermite reducer operates over a one-variable rational
+parent field and takes an explicit `IntegralBasis`. It verifies that the given
+elements are a field basis, but the caller currently asserts that they span
+the full integral closure. Automatic integral-basis computation and lazy
+basis refinement remain separate milestones; `IntegralBasis.power_basis()` is
+valid only when the power basis is already known to be integral and complete.
 
 ## Derivation
 
@@ -481,12 +492,15 @@ its own commit.
 
 ### 7. Algebraic differential fields
 
-- Construct validated SymPy `FiniteExtension` domains over lower function
+- [x] Construct validated SymPy `FiniteExtension` domains over lower function
   fields.
-- Derive and test algebraic generator derivatives.
-- Implement algebraic Hermite reduction, integral bases/places as required,
-  residue computation, and the algebraic Risch equation.
-- Support mixed towers with algebraic levels below and between transcendental
+- [x] Derive and test algebraic generator derivatives.
+- [x] Implement algebraic Hermite reduction over `QQ(x)` for a supplied
+  integral basis.
+- [ ] Compute integral bases and implement lazy basis refinement.
+- [ ] Generalize algebraic Hermite reduction to monomial parent fields.
+- [ ] Implement places, residue computation, and the algebraic Risch equation.
+- [ ] Support mixed towers with algebraic levels below and between transcendental
   levels.
 
 ### 8. Complete real rational and algebraic presentation

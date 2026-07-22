@@ -14,6 +14,7 @@ from typing import Any, Protocol
 
 from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
+from sympy.polys.agca.extensions import FiniteExtension
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.polyerrors import CoercionFailed
@@ -51,7 +52,7 @@ def _coerce(domain: Domain, element: Any) -> Any:
     """
     try:
         return domain.convert(element)
-    except CoercionFailed:
+    except (CoercionFailed, ValueError):
         if isinstance(element, Expr):
             expression = element
         else:
@@ -210,6 +211,107 @@ class MonomialExtension:
         return self.field.from_sympy(
             result_numerator.as_expr()/result_denominator.as_expr()
         )
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicExtension:
+    r"""A finite algebraic extension ``K[y]/(m(y))``.
+
+    The minimal polynomial must be monic and irreducible over the parent
+    field.  The derivative of the generator is computed by implicit
+    differentiation whenever the extension derivation is evaluated.
+    """
+
+    minimal_polynomial: Poly
+    _field: Domain = dataclass_field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        modulus = self.minimal_polynomial
+
+        if not isinstance(modulus, Poly):
+            raise TypeError("minimal_polynomial must be a SymPy Poly")
+        if len(modulus.gens) != 1:
+            raise ValueError("an algebraic extension needs exactly one generator")
+        if not modulus.domain.is_Field:
+            raise ValueError("the parent domain must be a field")
+        if modulus.domain.characteristic() != 0:
+            raise ValueError("differential towers require characteristic zero")
+        if modulus.degree() < 2:
+            raise ValueError("an algebraic extension must have degree at least two")
+        if modulus.LC() != modulus.domain.one:
+            raise ValueError("the minimal polynomial must be monic")
+        if modulus.gcd(modulus.diff()).degree() != 0:
+            raise ValueError("the minimal polynomial must be square-free")
+        if modulus.is_irreducible is not True:
+            raise ValueError("the minimal polynomial must be irreducible")
+        if self.generator in _domain_symbols(self.parent_field):
+            raise ValueError(f"generator {self.generator} already occurs in the parent field")
+
+        object.__setattr__(self, "_field", FiniteExtension(modulus))
+
+    @property
+    def generator(self) -> Symbol:
+        """The algebraic generator ``y``."""
+        return self.minimal_polynomial.gens[0]
+
+    @property
+    def parent_field(self) -> Domain:
+        """The coefficient field ``K``."""
+        return self.minimal_polynomial.domain
+
+    @property
+    def field(self) -> Domain:
+        """The native SymPy finite-extension field."""
+        return self._field
+
+    def _differentiate_coefficients(
+        self,
+        polynomial: Poly,
+        coefficient_derivation: Callable[[Any], Any],
+    ) -> Poly:
+        return Poly.from_dict(
+            {
+                monomial: coefficient_derivation(coefficient)
+                for monomial, coefficient in polynomial.terms()
+            },
+            self.generator,
+            domain=self.parent_field,
+        )
+
+    def generator_derivative(
+        self,
+        coefficient_derivation: Callable[[Any], Any],
+    ) -> Any:
+        r"""Return ``Dy = -D_K(m)/partial_y(m)``."""
+        coefficient_part = self._differentiate_coefficients(
+            self.minimal_polynomial,
+            coefficient_derivation,
+        )
+        partial_generator = self.minimal_polynomial.diff()
+        return -self.field.from_sympy(coefficient_part.as_expr()) / self.field.from_sympy(
+            partial_generator.as_expr()
+        )
+
+    def differentiate(
+        self,
+        element: Any,
+        coefficient_derivation: Callable[[Any], Any],
+    ) -> Any:
+        """Differentiate a reduced representative modulo the minimal polynomial."""
+        representative = Poly(
+            element.as_expr(),
+            self.generator,
+            domain=self.parent_field,
+        )
+        coefficient_part = self._differentiate_coefficients(
+            representative,
+            coefficient_derivation,
+        )
+        generator_part = (
+            self.field.from_sympy(representative.diff().as_expr())
+            * self.generator_derivative(coefficient_derivation)
+        )
+        return self.field.from_sympy(coefficient_part.as_expr()) + generator_part
 
 
 @dataclass(frozen=True, slots=True)
