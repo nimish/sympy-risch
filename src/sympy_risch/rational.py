@@ -67,14 +67,17 @@ def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
     unknown_count = len(columns)
     system = DomainMatrix(
         [
-            [column.nth(degree) for column in columns]
+            [QQ.convert(column.nth(degree)) for column in columns]
             for degree in range(unknown_count)
         ],
         (unknown_count, unknown_count),
         QQ,
     )
     right_hand_side = DomainMatrix(
-        [[proper_numerator.nth(degree)] for degree in range(unknown_count)],
+        [
+            [QQ.convert(proper_numerator.nth(degree))]
+            for degree in range(unknown_count)
+        ],
         (unknown_count, 1),
         QQ,
     )
