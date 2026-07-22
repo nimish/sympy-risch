@@ -586,7 +586,10 @@ foundation.
 ## Primary references
 
 - Manuel Bronstein, *Symbolic Integration I: Transcendental Functions*.
-- Manuel Bronstein, *Symbolic Integration Tutorial*, ISSAC 1998.
+- Manuel Bronstein, [*Symbolic Integration Tutorial*](https://www-sop.inria.fr/cafe/Manuel.Bronstein/publications/issac98.pdf),
+  ISSAC 1998.
+- Manuel Bronstein, [*The Lazy Hermite Reduction*](https://inria.hal.science/inria-00073121),
+  INRIA RR-3562, 1998.
 - Robert Risch, *The Problem of Integration in Finite Terms*.
 - Daniel Lazard and Renaud Rioboo, *Integration of Rational Functions:
   Rational Computation of the Logarithmic Part*.

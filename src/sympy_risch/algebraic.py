@@ -222,6 +222,8 @@ def recognize_simple_radical(
     radicand = parent.convert(-modulus.nth(0))
     numerator = Poly(radicand.numer.as_expr(), variable, domain=constants)
     denominator = Poly(radicand.denom.as_expr(), variable, domain=constants)
+    # If y**n = A/D, then (y*D)**n = A*D**(n-1).  Split the latter as
+    # F**n*H by writing each factor multiplicity as n*q + r, 0 <= r < n.
     powered_radicand = numerator*denominator**(degree - 1)
 
     unit, factors = powered_radicand.sqf_list()
@@ -252,7 +254,12 @@ def recognize_simple_radical(
 def simple_radical_integral_basis(
     extension: AlgebraicExtension,
 ) -> IntegralBasis:
-    r"""Construct Bronstein's explicit integral basis for ``y**n = a``."""
+    r"""Construct Bronstein's explicit integral basis for ``y**n = a``.
+
+    For normalized ``z**n = product(H_j**j)``, section 2.2, equation (11) of
+    Bronstein's ISSAC'98 tutorial gives
+    ``w_(r+1) = z**r/product(H_j**floor(r*j/n))``.
+    """
     radical = recognize_simple_radical(extension)
     if radical is None:
         raise ValueError("the algebraic extension is not a simple radical")
@@ -306,7 +313,15 @@ def _adjoin_integral_element(
     numerators: tuple[Poly, ...],
     denominator: Poly,
 ) -> IntegralBasis:
-    """Return a basis for ``K[x] basis + K[x] (numerators*basis)/denominator``."""
+    r"""Adjoin ``w0 = (C_1*w_1 + ... + C_n*w_n)/F`` to the basis module.
+
+    Relative to ``(w_1/F, ..., w_n/F)``, the old basis and ``w0`` are the
+    rows of ``[F*I; C]``.  Bronstein reduces this matrix by Hermitian row
+    reduction after Theorem 3 in section 2.1 of his ISSAC'98 tutorial.  A
+    Smith decomposition performs equivalent unimodular row operations over
+    the PID ``K[x]``; the nonzero rows of ``left*[F*I; C]`` are therefore a
+    basis of the enlarged module.
+    """
     extension = basis.extension
     parent, constants, variable = _base_polynomial_ring(extension)
     polynomial_ring = constants.poly_ring(variable)
@@ -350,6 +365,13 @@ def _hermite_reduce_algebraic(
     *,
     lazy: bool,
 ) -> tuple[Any, Any, IntegralBasis]:
+    r"""Implement equations (7)--(9) of Bronstein's ISSAC'98 tutorial.
+
+    For denominator ``D = U*V**m``, the algorithm seeks ``B`` such that
+    subtracting ``derivation(B/V**(m-1))`` removes the poles of order ``m``.
+    The lazy branch currently implements the missing-integral-element
+    certificate from Theorem 2; Theorems 1 and 3 remain separate checkpoints.
+    """
     extension = basis.extension
     if derivation.level < 0 or derivation.tower.levels[derivation.level] != extension:
         raise ValueError("the derivation must be bound to the algebraic extension")
@@ -382,6 +404,8 @@ def _hermite_reduce_algebraic(
             extension,
             candidate_denominator,
         )
+        # Bronstein (8)--(9): S_i = U*V**m * D(w_i/V**(m-1)).
+        # Solving sum(f_i*S_i) = numerator determines the correction modulo V.
         scaled_derivatives = tuple(
             scale_element*derivation(
                 basis_element/candidate_denominator_element,
@@ -427,6 +451,12 @@ def _hermite_reduce_algebraic(
         shared_factor = solution_denominator.gcd(repeated_factor)
         if shared_factor.degree() != 0:
             if lazy:
+                # Bronstein, Theorem 2: for f_i = T_i/Q and G = gcd(V, Q),
+                #
+                #     w0 = U*(V/G)/G * sum(T_i*w_i)
+                #
+                # is integral but absent from the current K[x]-module.  Its
+                # adjunction strictly enlarges that module before we retry V.
                 multiplier = cofactor*repeated_factor.exquo(shared_factor)
                 basis = _adjoin_integral_element(
                     basis,
@@ -437,6 +467,8 @@ def _hermite_reduce_algebraic(
             raise ValueError(
                 "the supplied basis is not an integral basis at the repeated factor",
             )
+        # When gcd(Q, V) = 1, Q has an inverse modulo V.  Taking
+        # B_i = Q**(-1)*T_i mod V gives B/V**(m-1), the exact part in (7).
         inverse = invert(solution_denominator, repeated_factor)
         correction_coordinates = tuple(
             parent.from_sympy(
@@ -479,7 +511,12 @@ def lazy_hermite_reduce_algebraic(
     derivation: Derivation,
     basis: IntegralBasis,
 ) -> tuple[Any, Any, IntegralBasis]:
-    r"""Hermite-reduce while refining denominator-obstructed integral bases."""
+    r"""Hermite-reduce while refining denominator-obstructed integral bases.
+
+    This implements the second lazy-refinement theorem in Manuel Bronstein,
+    *Symbolic Integration Tutorial*, ISSAC 1998, section 2.1, which summarizes
+    the fuller treatment in *The Lazy Hermite Reduction*, INRIA RR-3562.
+    """
     return _hermite_reduce_algebraic(
         integrand,
         derivation,
