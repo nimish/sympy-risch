@@ -10,6 +10,7 @@ from sympy_risch import (
     IntegralBasis,
     MonomialExtension,
     hermite_reduce_algebraic,
+    lazy_hermite_reduce_algebraic,
     recognize_simple_radical,
     simple_radical_integral_basis,
 )
@@ -142,6 +143,46 @@ def test_algebraic_hermite_uses_the_simple_radical_integral_basis() -> None:
     assert derivation(exact) + remainder == integrand
     assert remainder == field.zero
     assert basis.fraction(remainder).is_square_free
+
+
+def test_lazy_algebraic_hermite_refines_bronsteins_example() -> None:
+    tower, extension, power_basis = algebraic_tower(
+        y**4 + (x**2 + x)*y - x**2,
+    )
+    field = extension.field
+    derivation = tower.derivation()
+    integrand = field.from_sympy(y**3/x**2)
+
+    with pytest.raises(ValueError, match="not an integral basis"):
+        hermite_reduce_algebraic(integrand, derivation, power_basis)
+
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        power_basis,
+    )
+
+    expected_basis = IntegralBasis(
+        extension,
+        (
+            field.one,
+            field.generator,
+            field.generator**2,
+            field.from_sympy(y**3/x),
+        ),
+    )
+    assert all(
+        expected_basis.fraction(element).denominator.degree() == 0
+        for element in refined_basis.elements
+    )
+    assert all(
+        refined_basis.fraction(element).denominator.degree() == 0
+        for element in expected_basis.elements
+    )
+    assert exact == field.zero
+    assert remainder == integrand
+    assert refined_basis.fraction(remainder).denominator == Poly(x, x, domain=QQ)
+    assert derivation(exact) + remainder == integrand
 
 
 @given(

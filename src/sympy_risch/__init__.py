@@ -5,6 +5,7 @@ from .algebraic import (
     IntegralBasis,
     SimpleRadicalData,
     hermite_reduce_algebraic,
+    lazy_hermite_reduce_algebraic,
     recognize_simple_radical,
     simple_radical_integral_basis,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "DifferentialTower",
     "hermite_reduce_rational",
     "hermite_reduce_algebraic",
+    "lazy_hermite_reduce_algebraic",
     "integrate_polynomial",
     "integrate_rational",
     "integrate_rational_real",

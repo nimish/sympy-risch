@@ -10,6 +10,8 @@ from sympy.matrices.immutable import ImmutableMatrix
 from sympy.matrices.exceptions import NonInvertibleMatrixError
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.matrices import DomainMatrix
+from sympy.polys.matrices.normalforms import smith_normal_decomp
 from sympy.polys.polytools import Poly, cancel, invert
 
 from .tower import AlgebraicExtension, Derivation
@@ -299,18 +301,55 @@ def _embed_parent(extension: AlgebraicExtension, element: Any) -> Any:
     return extension.field.from_sympy(parent.to_sympy(element))
 
 
-def hermite_reduce_algebraic(
+def _adjoin_integral_element(
+    basis: IntegralBasis,
+    numerators: tuple[Poly, ...],
+    denominator: Poly,
+) -> IntegralBasis:
+    """Return a basis for ``K[x] basis + K[x] (numerators*basis)/denominator``."""
+    extension = basis.extension
+    parent, constants, variable = _base_polynomial_ring(extension)
+    polynomial_ring = constants.poly_ring(variable)
+    rank = len(basis.elements)
+    denominator_coefficient = polynomial_ring.from_sympy(denominator.as_expr())
+    zero = polynomial_ring.zero
+    rows = [
+        [denominator_coefficient if row == column else zero for column in range(rank)]
+        for row in range(rank)
+    ]
+    rows.append([
+        polynomial_ring.from_sympy(numerator.as_expr())
+        for numerator in numerators
+    ])
+    generators = DomainMatrix(rows, (rank + 1, rank), polynomial_ring)
+    _, left, _ = smith_normal_decomp(generators)
+    reduced_rows = [
+        row
+        for row in (left*generators).to_list()
+        if any(coefficient != zero for coefficient in row)
+    ]
+    if len(reduced_rows) != rank:
+        raise ValueError("integral-element adjunction changed the field rank")
+
+    denominator_element = parent.from_sympy(denominator.as_expr())
+    elements = tuple(
+        basis.element(tuple(
+            parent.from_sympy(polynomial_ring.to_sympy(coefficient))
+            / denominator_element
+            for coefficient in row
+        ))
+        for row in reduced_rows
+    )
+    return IntegralBasis(extension, elements)
+
+
+def _hermite_reduce_algebraic(
     integrand: Any,
     derivation: Derivation,
     basis: IntegralBasis,
-) -> tuple[Any, Any]:
-    r"""Write ``integrand = D(g) + h`` with square-free finite denominator.
-
-    This implements Trager--Bronstein algebraic Hermite reduction for a
-    caller-supplied integral basis over a one-variable rational function
-    field.  Integral-basis discovery and Bronstein's lazy basis refinement are
-    deliberately outside this first implementation.
-    """
+    *,
+    lazy: bool,
+) -> tuple[Any, Any, IntegralBasis]:
     extension = basis.extension
     if derivation.level < 0 or derivation.tower.levels[derivation.level] != extension:
         raise ValueError("the derivation must be bound to the algebraic extension")
@@ -327,7 +366,7 @@ def hermite_reduce_algebraic(
             if multiplicity > 1
         ]
         if not repeated_factors:
-            return exact_part, remainder
+            return exact_part, remainder, basis
 
         repeated_factor, multiplicity = max(
             repeated_factors,
@@ -373,27 +412,37 @@ def hermite_reduce_algebraic(
             constants,
             variable,
         )
-        if solution_denominator.gcd(repeated_factor).degree() != 0:
+        solution_denominator_element = parent.from_sympy(
+            solution_denominator.as_expr(),
+        )
+        solution_numerators = tuple(
+            _parent_element_polynomial(
+                coefficient*solution_denominator_element,
+                parent,
+                constants,
+                variable,
+            )
+            for coefficient in solution
+        )
+        shared_factor = solution_denominator.gcd(repeated_factor)
+        if shared_factor.degree() != 0:
+            if lazy:
+                multiplier = cofactor*repeated_factor.exquo(shared_factor)
+                basis = _adjoin_integral_element(
+                    basis,
+                    tuple(multiplier*numerator for numerator in solution_numerators),
+                    shared_factor,
+                )
+                continue
             raise ValueError(
                 "the supplied basis is not an integral basis at the repeated factor",
             )
         inverse = invert(solution_denominator, repeated_factor)
-        solution_denominator_element = parent.from_sympy(
-            solution_denominator.as_expr(),
-        )
         correction_coordinates = tuple(
             parent.from_sympy(
-                (
-                    inverse
-                    * _parent_element_polynomial(
-                        coefficient*solution_denominator_element,
-                        parent,
-                        constants,
-                        variable,
-                    )
-                ).rem(repeated_factor).as_expr(),
+                (inverse*numerator).rem(repeated_factor).as_expr(),
             )
-            for coefficient in solution
+            for numerator in solution_numerators
         )
         correction = basis.element(correction_coordinates) / candidate_denominator_element
 
@@ -408,3 +457,32 @@ def hermite_reduce_algebraic(
 
         exact_part += correction
         remainder = new_remainder
+
+
+def hermite_reduce_algebraic(
+    integrand: Any,
+    derivation: Derivation,
+    basis: IntegralBasis,
+) -> tuple[Any, Any]:
+    r"""Write ``integrand = D(g) + h`` using a supplied integral basis."""
+    exact, remainder, _ = _hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        basis,
+        lazy=False,
+    )
+    return exact, remainder
+
+
+def lazy_hermite_reduce_algebraic(
+    integrand: Any,
+    derivation: Derivation,
+    basis: IntegralBasis,
+) -> tuple[Any, Any, IntegralBasis]:
+    r"""Hermite-reduce while refining denominator-obstructed integral bases."""
+    return _hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        basis,
+        lazy=True,
+    )

@@ -506,7 +506,11 @@ its own commit.
   integral basis.
 - [x] Recognize simple radical extensions and construct their explicit
   integral bases.
-- [ ] Compute integral bases and implement lazy basis refinement.
+- [x] Lazily refine a basis when the Hermite-system solution denominator
+  intersects the repeated factor (Bronstein's second refinement theorem).
+- [ ] Handle the remaining lazy-refinement certificates: a dependent Hermite
+  system and nonsquarefree basis-derivative denominators.
+- [ ] Compute full integral bases when later algorithms require them.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
 - [ ] Implement places, residue computation, and the algebraic Risch equation.
 - [ ] Support mixed towers with algebraic levels below and between transcendental
