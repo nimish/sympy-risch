@@ -210,7 +210,10 @@ def recognize_simple_radical(
     """
     modulus = extension.minimal_polynomial
     degree = modulus.degree()
-    if any(modulus.nth(power) != 0 for power in range(1, degree)):
+    expected = extension.generator**degree + extension.parent_field.to_sympy(
+        modulus.TC(),
+    )
+    if modulus.as_expr() != expected:
         return None
 
     parent, constants, variable = _base_polynomial_ring(extension)
