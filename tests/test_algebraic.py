@@ -1,3 +1,5 @@
+from math import prod
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -17,6 +19,22 @@ from sympy_risch import (
 
 
 x, y = symbols("x y")
+distinct_linear_shifts = st.tuples(
+    st.integers(min_value=-3, max_value=3),
+    st.integers(min_value=-3, max_value=3),
+).filter(lambda shifts: shifts[0] != shifts[1])
+
+
+@st.composite
+def hidden_radical_parameters(draw):
+    factor_count = draw(st.integers(min_value=1, max_value=2))
+    shifts = draw(st.lists(
+        st.integers(min_value=-3, max_value=3),
+        min_size=factor_count + 1,
+        max_size=factor_count + 1,
+        unique=True,
+    ))
+    return shifts[:-1], shifts[-1]
 
 
 def algebraic_tower(modulus):
@@ -239,10 +257,7 @@ def test_lazy_algebraic_hermite_refines_bronsteins_example() -> None:
 
 @given(
     st.integers(min_value=2, max_value=4),
-    st.tuples(
-        st.integers(min_value=-3, max_value=3),
-        st.integers(min_value=-3, max_value=3),
-    ).filter(lambda shifts: shifts[0] != shifts[1]),
+    distinct_linear_shifts,
 )
 @settings(max_examples=12, deadline=None)
 def test_generated_simple_radicals_remove_exact_power_factors(degree, shifts) -> None:
@@ -265,6 +280,68 @@ def test_generated_simple_radicals_remove_exact_power_factors(degree, shifts) ->
         field.from_sympy((y/power_factor)**power)
         for power in range(degree)
     )
+
+
+@given(
+    st.integers(min_value=2, max_value=4),
+    hidden_radical_parameters(),
+)
+@settings(max_examples=18, deadline=None)
+def test_generated_lazy_reductions_rediscover_hidden_radicals(
+    degree,
+    parameters,
+) -> None:
+    # Generate z**degree = h and a squarefree p with one or two factors, then
+    # hide the integral generator as y = p*z.  The power basis in y misses z.
+    factor_shifts, radicand_shift = parameters
+    power_factor = prod(x + shift for shift in factor_shifts)
+    reduced_radicand = x + radicand_shift
+    tower, extension, power_basis = algebraic_tower(
+        y**degree - power_factor**degree*reduced_radicand,
+    )
+    field = extension.field
+    derivation = tower.derivation()
+    hidden_generator = field.from_sympy(y/power_factor)
+
+    # y/p**2 = z/p only appears to have a double pole before refinement.
+    simple_pole = field.from_sympy(y/power_factor**2)
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        simple_pole,
+        derivation,
+        power_basis,
+    )
+
+    assert exact == field.zero
+    assert remainder == simple_pole
+    assert refined_basis.fraction(hidden_generator).denominator.degree() == 0
+    assert refined_basis.fraction(remainder).denominator == Poly(
+        power_factor,
+        x,
+        domain=QQ,
+    )
+
+    # Since z' = z/(degree*h),
+    # z*p'/p**2 = D(-z/p) + z/(degree*h*p).
+    repeated_pole = field.from_sympy(
+        y*power_factor.diff(x)/power_factor**3,
+    )
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        repeated_pole,
+        derivation,
+        power_basis,
+    )
+
+    assert exact == field.from_sympy(-y/power_factor**2)
+    assert remainder == field.from_sympy(
+        y/(degree*reduced_radicand*power_factor**2),
+    )
+    assert refined_basis.fraction(remainder).denominator == Poly(
+        power_factor*reduced_radicand,
+        x,
+        domain=QQ,
+    )
+    assert derivation(exact) + remainder == repeated_pole
+    assert refined_basis.fraction(remainder).is_square_free
 
 
 def test_algebraic_hermite_reduces_a_quadratic_example() -> None:
