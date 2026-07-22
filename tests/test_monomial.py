@@ -1,13 +1,14 @@
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, symbols
+from sympy import Poly, cancel, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
     hermite_reduce_monomial,
+    hermite_reduce_rational_recursive,
     split_normal_special,
 )
 
@@ -117,13 +118,26 @@ def test_normal_special_decomposition_validates_its_polynomial() -> None:
 
 
 def denominator_parts(element, tower: DifferentialTower) -> tuple[Poly, Poly]:
+    extension = tower.levels[tower.top]
+    assert isinstance(extension, MonomialExtension)
     _, denominator_expression = element.as_expr().as_numer_denom()
     denominator = Poly(
         denominator_expression,
-        t,
-        domain=tower.field(0),
+        extension.generator,
+        domain=extension.parent_field,
     )
     return split_normal_special(denominator, tower.derivation())
+
+
+def assert_normal_part_is_square_free(
+    element,
+    tower: DifferentialTower,
+) -> None:
+    normal, _ = denominator_parts(element, tower)
+    assert all(
+        multiplicity == 1
+        for _, multiplicity in normal.sqf_list()[1]
+    )
 
 
 def test_monomial_hermite_reduces_a_logarithmic_repeated_pole() -> None:
@@ -203,3 +217,161 @@ def test_monomial_hermite_requires_a_monomial_level() -> None:
 
     with pytest.raises(TypeError, match="monomial level"):
         hermite_reduce_monomial(QQ.one, constants.derivation())
+
+
+@given(
+    generator_derivative=st.sampled_from((1/x, t, 1 + t**2, t**3 + x)),
+    left_power=st.integers(min_value=1, max_value=5),
+    right_power=st.integers(min_value=1, max_value=5),
+    coefficient=st.integers(min_value=-4, max_value=4),
+)
+@settings(max_examples=40, deadline=None)
+def test_generated_planted_derivatives_across_monomial_families(
+    generator_derivative,
+    left_power,
+    right_power,
+    coefficient,
+) -> None:
+    tower = monomial_tower(generator_derivative)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted_exact = field.from_sympy(
+        (coefficient*x + 1)/(t - 1)**left_power
+        + (x - coefficient)/(t + 1)**right_power,
+    )
+    integrand = derivation(planted_exact)
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+
+    assert exact == planted_exact
+    assert remainder == field.zero
+    assert derivation(exact) + remainder == integrand
+
+
+@given(
+    family=st.sampled_from(
+        (
+            (t, t),
+            (1 + t**2, 1 + t**2),
+            (t**3, t),
+        ),
+    ),
+    special_power=st.integers(min_value=1, max_value=4),
+    normal_power=st.integers(min_value=1, max_value=4),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_mixed_special_and_normal_denominators(
+    family,
+    special_power,
+    normal_power,
+) -> None:
+    generator_derivative, special_factor = family
+    tower = monomial_tower(generator_derivative)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted_exact = field.from_sympy(
+        1/(special_factor**special_power*(t - 1)**normal_power),
+    )
+    integrand = derivation(planted_exact)
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+    normal, special = denominator_parts(remainder, tower)
+    expected_special = Poly(
+        special_factor**special_power,
+        t,
+        domain=tower.field(0),
+    )
+
+    assert derivation(exact) + remainder == integrand
+    assert all(
+        multiplicity == 1
+        for _, multiplicity in normal.sqf_list()[1]
+    )
+    assert expected_special.rem(special).is_zero
+
+    second_exact, second_remainder = hermite_reduce_monomial(
+        remainder,
+        derivation,
+    )
+    assert second_exact == field.zero
+    assert second_remainder == remainder
+
+
+@given(
+    left_power=st.integers(min_value=2, max_value=5),
+    right_power=st.integers(min_value=2, max_value=5),
+    linear=st.integers(min_value=-5, max_value=5),
+    constant=st.integers(min_value=-5, max_value=5),
+)
+@settings(max_examples=30, deadline=None)
+def test_monomial_reducer_agrees_with_classical_rational_hermite_reduction(
+    left_power,
+    right_power,
+    linear,
+    constant,
+) -> None:
+    tower = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(1, x, domain=QQ)),
+    )
+    integrand = (linear*x + constant) / (
+        (x - 1)**left_power*(x + 1)**right_power
+    )
+
+    exact, remainder = hermite_reduce_monomial(
+        integrand,
+        tower.derivation(),
+    )
+    rational_exact, rational_remainder = hermite_reduce_rational_recursive(
+        integrand,
+        x,
+    )
+
+    assert cancel(exact.as_expr() - rational_exact) == 0
+    assert cancel(remainder.as_expr() - rational_remainder) == 0
+    assert_normal_part_is_square_free(remainder, tower)
+
+
+def test_monomial_hermite_handles_multiple_multiplicities_and_lower_terms() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted_exact = field.from_sympy(
+        (x + 1)/(t - 2)**4 + (x - 1)/(t + 2)**2,
+    )
+    planted_remainder = field.from_sympy(
+        t**2 + 1/x**2 + 1/(t - 1),
+    )
+    integrand = derivation(planted_exact) + planted_remainder
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+
+    assert exact == planted_exact
+    assert remainder == planted_remainder
+    assert derivation(exact) + remainder == integrand
+    assert_normal_part_is_square_free(remainder, tower)
+
+
+@pytest.mark.parametrize(
+    ("generator_derivative", "normal_factor"),
+    [
+        (1/x, t**2 + x),
+        (t, t**2 + t + 1),
+        (1 + t**2, t**2 + t + 2),
+        (t**3 + x, t**2 + x*t + 1),
+    ],
+)
+def test_monomial_hermite_reduces_nonlinear_normal_factors(
+    generator_derivative,
+    normal_factor,
+) -> None:
+    tower = monomial_tower(generator_derivative)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted_exact = field.from_sympy((x + 1)/normal_factor**3)
+    integrand = derivation(planted_exact)
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+
+    assert exact == planted_exact
+    assert remainder == field.zero
+    assert derivation(exact) + remainder == integrand
