@@ -300,6 +300,33 @@ def _coordinate_matrix(
     )
 
 
+def _primitive_polynomial_vector(
+    elements: tuple[Any, ...],
+    parent: FractionField,
+    constants: Domain,
+    variable: Symbol,
+) -> tuple[Poly, ...]:
+    """Clear denominators and remove the polynomial gcd from a vector."""
+    denominator = _common_denominator(elements, constants, variable)
+    denominator_element = parent.from_sympy(denominator.as_expr())
+    numerators = tuple(
+        _parent_element_polynomial(
+            element*denominator_element,
+            parent,
+            constants,
+            variable,
+        )
+        for element in elements
+    )
+    common_factor = Poly(0, variable, domain=constants)
+    for numerator in numerators:
+        common_factor = common_factor.gcd(numerator)
+    if common_factor.is_zero:
+        raise ValueError("expected a nonzero polynomial relation")
+    common_factor = common_factor.monic()
+    return tuple(numerator.exquo(common_factor) for numerator in numerators)
+
+
 def _denominator_excess(denominator: Poly) -> int:
     return sum(
         (multiplicity - 1)*factor.degree()
@@ -387,6 +414,8 @@ def _hermite_reduce_algebraic(
     parent, constants, variable = _base_polynomial_ring(extension)
     remainder = _extension_element(extension, integrand)
     exact_part = extension.field.zero
+    differentiated_basis: IntegralBasis | None = None
+    derivative_matrix: DomainMatrix | None = None
 
     while True:
         representation = basis.fraction(remainder)
@@ -407,23 +436,51 @@ def _hermite_reduce_algebraic(
         scale = cofactor*repeated_factor**multiplicity
         candidate_denominator = repeated_factor**(multiplicity - 1)
 
-        scale_element = _embed_parent(extension, scale)
+        if basis is not differentiated_basis:
+            # D(w_i) depends only on the basis and derivation, not on the pole
+            # currently being reduced.  Cache its coordinate matrix until a
+            # lazy refinement replaces the basis.
+            derivative_matrix = _coordinate_matrix(
+                basis,
+                tuple(derivation(element) for element in basis.elements),
+            )
+            differentiated_basis = basis
+        assert derivative_matrix is not None
+
+        scale_parent = parent.from_sympy(scale.as_expr())
+        candidate_denominator_parent = parent.from_sympy(
+            candidate_denominator.as_expr(),
+        )
+        candidate_denominator_derivative = derivation.lower()(
+            candidate_denominator_parent,
+        )
         candidate_denominator_element = _embed_parent(
             extension,
             candidate_denominator,
         )
         # Bronstein (8)--(9): S_i = U*V**m * D(w_i/V**(m-1)).
         # Solving sum(f_i*S_i) = numerator determines the correction modulo V.
-        scaled_derivatives = tuple(
-            scale_element*derivation(
-                basis_element/candidate_denominator_element,
-            )
-            for basis_element in basis.elements
+        derivative_scale = scale_parent/candidate_denominator_parent
+        diagonal_scale = (
+            scale_parent*candidate_denominator_derivative
+            / candidate_denominator_parent**2
         )
-        system = _coordinate_matrix(basis, scaled_derivatives)
+        derivative_rows = derivative_matrix.to_list()
+        rank = len(basis.elements)
+        system = DomainMatrix(
+            [
+                [
+                    derivative_scale*derivative_rows[row][column]
+                    - (diagonal_scale if row == column else parent.zero)
+                    for column in range(rank)
+                ]
+                for row in range(rank)
+            ],
+            (rank, rank),
+            parent,
+        )
         numerator_element = remainder*_embed_parent(extension, denominator)
         numerator_coordinates = basis.coordinates(numerator_element)
-        rank = len(numerator_coordinates)
         right_hand_side = DomainMatrix(
             [[coordinate] for coordinate in numerator_coordinates],
             (rank, 1),
@@ -438,6 +495,27 @@ def _hermite_reduce_algebraic(
                 system.solve_den(right_hand_side)
             )
         except DMNonInvertibleMatrixError as exc:
+            if lazy:
+                # Bronstein, Theorem 1: a primitive polynomial relation
+                # sum(T_i*S_i) = 0 exposes the missing integral element
+                # U/V * sum(T_i*w_i).
+                relations = system.nullspace().to_list()
+                if not relations:
+                    raise ValueError(
+                        "the singular Hermite system has no nullspace",
+                    ) from exc
+                relation = _primitive_polynomial_vector(
+                    tuple(relations[0]),
+                    parent,
+                    constants,
+                    variable,
+                )
+                basis = _adjoin_integral_element(
+                    basis,
+                    tuple(cofactor*coefficient for coefficient in relation),
+                    repeated_factor,
+                )
+                continue
             raise ValueError(
                 "the supplied integral basis does not support Hermite reduction",
             ) from exc

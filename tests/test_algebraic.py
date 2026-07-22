@@ -183,6 +183,34 @@ def test_lazy_hermite_exposes_a_hidden_quadratic_integral_element() -> None:
     assert refined_basis.fraction(remainder).denominator == Poly(x, x, domain=QQ)
 
 
+def test_lazy_hermite_refines_a_singular_system() -> None:
+    # Put z = y/x.  The relation y**2 = 2*x**2 says z**2 = 2, so Dz = 0.
+    # For V=x and m=2, Bronstein's S_y column is therefore
+    # x**2*D(y/x) = 0.  The resulting kernel relation exposes the missing
+    # integral element y/x through Theorem 1 of the lazy Hermite reduction.
+    tower, extension, power_basis = algebraic_tower(y**2 - 2*x**2)
+    field = extension.field
+    derivation = tower.derivation()
+    hidden_constant = field.from_sympy(y/x)
+    integrand = field.from_sympy(y/x**2)
+
+    with pytest.raises(ValueError, match="does not support Hermite reduction"):
+        hermite_reduce_algebraic(integrand, derivation, power_basis)
+
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        power_basis,
+    )
+
+    assert exact == field.zero
+    assert remainder == integrand
+    assert derivation(hidden_constant) == field.zero
+    assert refined_basis.fraction(hidden_constant).denominator.degree() == 0
+    assert refined_basis.fraction(remainder).denominator == Poly(x, x, domain=QQ)
+    assert derivation(exact) + remainder == integrand
+
+
 def test_lazy_hermite_reduces_after_quadratic_basis_refinement() -> None:
     # With z = y/x and z**2 = x + 1,
     #

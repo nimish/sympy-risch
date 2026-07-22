@@ -12,9 +12,10 @@ from sympy.functions.elementary.exponential import log
 from sympy.functions.elementary.miscellaneous import sqrt
 from sympy.functions.elementary.trigonometric import atan
 from sympy.polys.domains import QQ
+from sympy.polys.matrices import DomainMatrix
+from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.polytools import Poly, cancel, invert, resultant
 from sympy.polys.rootoftools import RootSum
-from sympy.solvers.solvers import solve
 
 from .lrt import lazard_rioboo_trager
 from .polynomial import integrate_polynomial
@@ -51,36 +52,60 @@ def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
 
     rational_degree = repeated_part.degree()
     remainder_degree = square_free_part.degree()
-    rational_coeffs = [Dummy(f"a{i}") for i in range(rational_degree)]
-    remainder_coeffs = [Dummy(f"b{i}") for i in range(remainder_degree)]
-
-    rational_numerator = Add(*(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(rational_coeffs)
-    ))
-    remainder_numerator = Add(*(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(remainder_coeffs)
-    ))
-
     correction = (repeated_part.diff()*square_free_part).quo(repeated_part)
-    identity = Poly(
-        proper_numerator.as_expr()
-        - rational_numerator.diff(x)*square_free_part.as_expr()
-        + rational_numerator*correction.as_expr()
-        - remainder_numerator*repeated_part.as_expr(),
-        x,
+    rational_columns = []
+    for degree in range(rational_degree):
+        monomial = Poly(x**degree, x, domain=QQ)
+        rational_columns.append(
+            monomial.diff()*square_free_part - monomial*correction,
+        )
+    remainder_columns = [
+        Poly(x**degree, x, domain=QQ)*repeated_part
+        for degree in range(remainder_degree)
+    ]
+    columns = rational_columns + remainder_columns
+    unknown_count = len(columns)
+    system = DomainMatrix(
+        [
+            [column.nth(degree) for column in columns]
+            for degree in range(unknown_count)
+        ],
+        (unknown_count, unknown_count),
+        QQ,
     )
-
-    unknowns = rational_coeffs + remainder_coeffs
-    solutions = solve(identity.all_coeffs(), unknowns, dict=True)
-
-    if len(solutions) != 1:
-        raise ValueError("Hermite reduction did not produce a unique solution")
-
-    solution = solutions[0]
-    rational_numerator = rational_numerator.subs(solution)
-    remainder_numerator = remainder_numerator.subs(solution)
+    right_hand_side = DomainMatrix(
+        [[proper_numerator.nth(degree)] for degree in range(unknown_count)],
+        (unknown_count, 1),
+        QQ,
+    )
+    try:
+        solution_numerators, solution_denominator = system.solve_den(
+            right_hand_side,
+        )
+    except DMNonInvertibleMatrixError as exc:
+        raise ValueError(
+            "Hermite reduction did not produce a unique solution",
+        ) from exc
+    solution = [
+        row[0]/solution_denominator
+        for row in solution_numerators.to_list()
+    ]
+    rational_numerator = Poly.from_dict(
+        {
+            (degree,): coefficient
+            for degree, coefficient in enumerate(solution[:rational_degree])
+        },
+        x,
+        domain=QQ,
+    ).as_expr()
+    remainder_numerator = Poly.from_dict(
+        {
+            (degree,): coefficient
+            for degree, coefficient in enumerate(solution[rational_degree:])
+        },
+        x,
+        domain=QQ,
+    ).as_expr()
 
     rational_part = cancel(rational_numerator/repeated_part.as_expr())
     reduced_remainder = cancel(remainder_numerator/square_free_part.as_expr())

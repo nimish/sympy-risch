@@ -296,6 +296,7 @@ class AlgebraicExtension:
         self,
         element: Any,
         coefficient_derivation: Callable[[Any], Any],
+        generator_derivative: Any | None = None,
     ) -> Any:
         """Differentiate a reduced representative modulo the minimal polynomial."""
         representative = Poly(
@@ -307,10 +308,13 @@ class AlgebraicExtension:
             representative,
             coefficient_derivation,
         )
-        generator_part = (
-            self.field.from_sympy(representative.diff().as_expr())
-            * self.generator_derivative(coefficient_derivation)
-        )
+        if generator_derivative is None:
+            generator_derivative = self.generator_derivative(
+                coefficient_derivation,
+            )
+        generator_part = self.field.from_sympy(
+            representative.diff().as_expr(),
+        )*generator_derivative
         return self.field.from_sympy(coefficient_part.as_expr()) + generator_part
 
 
@@ -384,10 +388,40 @@ class Derivation:
 
     tower: DifferentialTower
     level: int
+    _lower_derivation: Derivation | None = dataclass_field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
+    _algebraic_generator_derivative: Any | None = dataclass_field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         if not -1 <= self.level <= self.tower.top:
             raise IndexError(f"tower level {self.level} is out of range")
+
+        if self.level == -1:
+            object.__setattr__(self, "_lower_derivation", None)
+            object.__setattr__(self, "_algebraic_generator_derivative", None)
+            return
+
+        lower_derivation = Derivation(self.tower, self.level - 1)
+        object.__setattr__(self, "_lower_derivation", lower_derivation)
+
+        extension = self.tower.levels[self.level]
+        generator_derivative = None
+        if isinstance(extension, AlgebraicExtension):
+            generator_derivative = extension.generator_derivative(
+                lower_derivation,
+            )
+        object.__setattr__(
+            self,
+            "_algebraic_generator_derivative",
+            generator_derivative,
+        )
 
     @property
     def field(self) -> Domain:
@@ -396,9 +430,9 @@ class Derivation:
 
     def lower(self) -> Derivation:
         """Return the derivation on the next lower field."""
-        if self.level == -1:
+        if self._lower_derivation is None:
             raise ValueError("the constant field has no lower derivation")
-        return Derivation(self.tower, self.level - 1)
+        return self._lower_derivation
 
     def __call__(self, element: Any) -> Any:
         """Differentiate ``element`` and return a native domain element."""
@@ -408,6 +442,12 @@ class Derivation:
             return self.field.zero
 
         extension = self.tower.levels[self.level]
+        if isinstance(extension, AlgebraicExtension):
+            return extension.differentiate(
+                element,
+                self.lower(),
+                self._algebraic_generator_derivative,
+            )
         return extension.differentiate(element, self.lower())
 
     def coefficients(self, polynomial: Poly) -> Poly:

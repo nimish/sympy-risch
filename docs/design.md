@@ -508,8 +508,10 @@ its own commit.
   integral bases.
 - [x] Lazily refine a basis when the Hermite-system solution denominator
   intersects the repeated factor (Bronstein's second refinement theorem).
-- [ ] Handle the remaining lazy-refinement certificates: a dependent Hermite
-  system and nonsquarefree basis-derivative denominators.
+- [x] Refine a basis from a primitive kernel relation when the Hermite system
+  is dependent (Bronstein's first refinement theorem).
+- [ ] Refine a basis when a basis derivative has a nonsquarefree denominator
+  (Bronstein's third refinement theorem).
 - [ ] Compute full integral bases when later algorithms require them.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
 - [ ] Implement places, residue computation, and the algebraic Risch equation.
