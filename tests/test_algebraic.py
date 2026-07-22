@@ -10,6 +10,8 @@ from sympy_risch import (
     IntegralBasis,
     MonomialExtension,
     hermite_reduce_algebraic,
+    recognize_simple_radical,
+    simple_radical_integral_basis,
 )
 
 
@@ -82,6 +84,93 @@ def test_integral_basis_round_trip() -> None:
         Poly(1, x, domain=QQ),
         Poly(x**2 + x, x, domain=QQ),
         Poly(2*x, x, domain=QQ),
+    )
+
+
+def test_simple_radical_recognition_normalizes_hidden_square_factors() -> None:
+    _, extension, _ = algebraic_tower(y**2 - x**2*(x + 1))
+    field = extension.field
+
+    radical = recognize_simple_radical(extension)
+
+    assert radical is not None
+    assert radical.degree == 2
+    assert radical.radicand == extension.parent_field.from_sympy(x**2*(x + 1))
+    assert radical.extracted_factor == Poly(x, x, domain=QQ)
+    assert radical.normalized_radicand == Poly(x + 1, x, domain=QQ)
+    assert radical.normalized_generator == field.from_sympy(y/x)
+    assert radical.normalized_generator**2 == field.from_sympy(x + 1)
+
+
+def test_simple_radical_basis_handles_a_rational_radicand() -> None:
+    _, extension, _ = algebraic_tower(y**3 - x/(x + 1))
+    field = extension.field
+    z = field.from_sympy(y*(x + 1))
+
+    radical = recognize_simple_radical(extension)
+    basis = simple_radical_integral_basis(extension)
+
+    assert radical is not None
+    assert radical.extracted_factor == Poly(1, x, domain=QQ)
+    assert radical.normalized_radicand == Poly(x*(x + 1)**2, x, domain=QQ)
+    assert radical.normalized_generator == z
+    assert basis.elements == (
+        field.one,
+        z,
+        field.from_sympy(y**2*(x + 1)),
+    )
+
+
+def test_simple_radical_recognition_rejects_a_mixed_minimal_polynomial() -> None:
+    _, extension, _ = algebraic_tower(y**3 - y - x)
+
+    assert recognize_simple_radical(extension) is None
+    with pytest.raises(ValueError, match="not a simple radical"):
+        simple_radical_integral_basis(extension)
+
+
+def test_algebraic_hermite_uses_the_simple_radical_integral_basis() -> None:
+    tower, extension, _ = algebraic_tower(y**2 - x**2*(x + 1))
+    field = extension.field
+    derivation = tower.derivation()
+    basis = simple_radical_integral_basis(extension)
+    planted_exact = field.from_sympy(y/x**2)
+    integrand = derivation(planted_exact)
+
+    exact, remainder = hermite_reduce_algebraic(integrand, derivation, basis)
+
+    assert derivation(exact) + remainder == integrand
+    assert remainder == field.zero
+    assert basis.fraction(remainder).is_square_free
+
+
+@given(
+    st.integers(min_value=2, max_value=4),
+    st.tuples(
+        st.integers(min_value=-3, max_value=3),
+        st.integers(min_value=-3, max_value=3),
+    ).filter(lambda shifts: shifts[0] != shifts[1]),
+)
+@settings(max_examples=12, deadline=None)
+def test_generated_simple_radicals_remove_exact_power_factors(degree, shifts) -> None:
+    power_shift, radicand_shift = shifts
+    power_factor = x + power_shift
+    reduced_radicand = x + radicand_shift
+    _, extension, _ = algebraic_tower(
+        y**degree - power_factor**degree*reduced_radicand,
+    )
+    field = extension.field
+
+    radical = recognize_simple_radical(extension)
+    basis = simple_radical_integral_basis(extension)
+
+    assert radical is not None
+    assert radical.extracted_factor == Poly(power_factor, x, domain=QQ)
+    assert radical.normalized_radicand == Poly(reduced_radicand, x, domain=QQ)
+    assert radical.normalized_generator == field.from_sympy(y/power_factor)
+    assert basis.elements == tuple(
+        field.from_sympy((y/power_factor)**power)
+        for power in range(degree)
     )
 
 

@@ -180,6 +180,93 @@ class IntegralBasis:
         return AlgebraicFraction(numerators, denominator)
 
 
+@dataclass(frozen=True, slots=True)
+class SimpleRadicalData:
+    r"""Normalized data for a simple radical extension ``y**n = a``.
+
+    ``normalized_generator`` satisfies ``z**n = normalized_radicand``.  The
+    latter is ``n``-th-power-free as a polynomial: every factor in its
+    square-free factorization has multiplicity strictly smaller than ``n``.
+    """
+
+    extension: AlgebraicExtension
+    degree: int
+    radicand: Any
+    numerator: Poly
+    denominator: Poly
+    extracted_factor: Poly
+    normalized_radicand: Poly
+    normalized_generator: Any
+
+
+def recognize_simple_radical(
+    extension: AlgebraicExtension,
+) -> SimpleRadicalData | None:
+    r"""Recognize and normalize ``K(x)[y]/(y**n - a)``.
+
+    Return ``None`` when the minimal polynomial is not a pure radical.  This
+    first implementation uses a one-variable rational parent field, matching
+    the current scope of algebraic Hermite reduction.
+    """
+    modulus = extension.minimal_polynomial
+    degree = modulus.degree()
+    if any(modulus.nth(power) != 0 for power in range(1, degree)):
+        return None
+
+    parent, constants, variable = _base_polynomial_ring(extension)
+    radicand = parent.convert(-modulus.nth(0))
+    numerator = Poly(radicand.numer.as_expr(), variable, domain=constants)
+    denominator = Poly(radicand.denom.as_expr(), variable, domain=constants)
+    powered_radicand = numerator*denominator**(degree - 1)
+
+    unit, factors = powered_radicand.sqf_list()
+    extracted_factor = Poly(1, variable, domain=constants)
+    normalized_radicand = Poly(unit, variable, domain=constants)
+    for factor, multiplicity in factors:
+        quotient, remainder = divmod(multiplicity, degree)
+        extracted_factor *= factor**quotient
+        normalized_radicand *= factor**remainder
+
+    normalized_generator = (
+        extension.field.generator
+        * _embed_parent(extension, denominator)
+        / _embed_parent(extension, extracted_factor)
+    )
+    return SimpleRadicalData(
+        extension=extension,
+        degree=degree,
+        radicand=radicand,
+        numerator=numerator,
+        denominator=denominator,
+        extracted_factor=extracted_factor,
+        normalized_radicand=normalized_radicand,
+        normalized_generator=normalized_generator,
+    )
+
+
+def simple_radical_integral_basis(
+    extension: AlgebraicExtension,
+) -> IntegralBasis:
+    r"""Construct Bronstein's explicit integral basis for ``y**n = a``."""
+    radical = recognize_simple_radical(extension)
+    if radical is None:
+        raise ValueError("the algebraic extension is not a simple radical")
+
+    _, factors = radical.normalized_radicand.sqf_list()
+    elements = []
+    for power in range(radical.degree):
+        basis_denominator = radical.normalized_radicand.one
+        for factor, multiplicity in factors:
+            basis_denominator *= factor**(
+                (power*multiplicity) // radical.degree
+            )
+        elements.append(
+            radical.normalized_generator**power
+            / _embed_parent(extension, basis_denominator),
+        )
+    return IntegralBasis(extension, tuple(elements))
+
+
 def _coordinate_matrix(
     basis: IntegralBasis,
     elements: tuple[Any, ...],

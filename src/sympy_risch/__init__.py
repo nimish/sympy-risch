@@ -3,7 +3,10 @@
 from .algebraic import (
     AlgebraicFraction,
     IntegralBasis,
+    SimpleRadicalData,
     hermite_reduce_algebraic,
+    recognize_simple_radical,
+    simple_radical_integral_basis,
 )
 from .lrt import lazard_rioboo_trager
 from .polynomial import integrate_polynomial
@@ -38,4 +41,7 @@ __all__ = [
     "lazard_rioboo_trager",
     "MonomialExtension",
     "rothstein_trager_residue_polynomial",
+    "SimpleRadicalData",
+    "recognize_simple_radical",
+    "simple_radical_integral_basis",
 ]

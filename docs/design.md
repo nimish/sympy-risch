@@ -229,6 +229,13 @@ the full integral closure. Automatic integral-basis computation and lazy
 basis refinement remain separate milestones; `IntegralBasis.power_basis()` is
 valid only when the power basis is already known to be integral and complete.
 
+Simple radical extensions `y**n = a`, with `a` in the one-variable rational
+parent field, have a specialized basis constructor. It removes `n`-th-power
+factors from the radicand and applies the explicit integral-basis formula from
+Bronstein's tutorial. This supplies the existing algebraic Hermite reducer
+with a complete non-power basis without invoking general integral-basis or
+lazy-refinement machinery.
+
 ## Derivation
 
 A level-bound derivation is a callable object:
@@ -497,6 +504,8 @@ its own commit.
 - [x] Derive and test algebraic generator derivatives.
 - [x] Implement algebraic Hermite reduction over `QQ(x)` for a supplied
   integral basis.
+- [x] Recognize simple radical extensions and construct their explicit
+  integral bases.
 - [ ] Compute integral bases and implement lazy basis refinement.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
 - [ ] Implement places, residue computation, and the algebraic Risch equation.
