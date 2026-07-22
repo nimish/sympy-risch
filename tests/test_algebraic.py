@@ -211,6 +211,46 @@ def test_lazy_hermite_refines_a_singular_system() -> None:
     assert derivation(exact) + remainder == integrand
 
 
+def test_lazy_hermite_refines_a_nonsquarefree_basis_derivative() -> None:
+    # Here y**3 = 2, so Dy = 0, but the deliberately incomplete integral basis
+    # (1, x*y, y + x**2*y**2) makes
+    #
+    #   D(y + x**2*y**2) = 2*x*y**2
+    #                      = -2/x**2*(x*y) + 2/x*(y + x**2*y**2).
+    #
+    # Its coordinate denominator x**2 is not squarefree.  Bronstein's
+    # Theorem 3 uses x*D(w_3) to expose a missing integral element.
+    tower, extension, _ = algebraic_tower(y**3 - 2)
+    field = extension.field
+    derivation = tower.derivation()
+    basis = IntegralBasis(
+        extension,
+        (
+            field.one,
+            field.from_sympy(x*y),
+            field.from_sympy(y + x**2*y**2),
+        ),
+    )
+    integrand = field.from_sympy((y + x**2*y**2)/x**2)
+
+    derivative_fraction = basis.fraction(derivation(basis.elements[2]))
+    assert derivative_fraction.denominator == Poly(x**2, x, domain=QQ)
+    assert not derivative_fraction.is_square_free
+
+    with pytest.raises(ValueError, match="does not support Hermite reduction"):
+        hermite_reduce_algebraic(integrand, derivation, basis)
+
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        basis,
+    )
+
+    assert remainder == field.zero
+    assert refined_basis.fraction(field.generator).denominator.degree() == 0
+    assert derivation(exact) + remainder == integrand
+
+
 def test_lazy_hermite_reduces_after_quadratic_basis_refinement() -> None:
     # With z = y/x and z**2 = x + 1,
     #

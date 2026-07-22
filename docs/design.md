@@ -510,7 +510,7 @@ its own commit.
   intersects the repeated factor (Bronstein's second refinement theorem).
 - [x] Refine a basis from a primitive kernel relation when the Hermite system
   is dependent (Bronstein's first refinement theorem).
-- [ ] Refine a basis when a basis derivative has a nonsquarefree denominator
+- [x] Refine a basis when a basis derivative has a nonsquarefree denominator
   (Bronstein's third refinement theorem).
 - [ ] Compute full integral bases when later algorithms require them.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.

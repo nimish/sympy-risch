@@ -278,6 +278,10 @@ class AlgebraicExtension:
             domain=self.parent_field,
         )
 
+    def _from_polynomial(self, polynomial: Poly) -> Any:
+        """Embed a native parent-domain polynomial without an Expr round trip."""
+        return self.field.dtype(polynomial.rep.rem(self.field.mod), self.field)
+
     def generator_derivative(
         self,
         coefficient_derivation: Callable[[Any], Any],
@@ -288,8 +292,8 @@ class AlgebraicExtension:
             coefficient_derivation,
         )
         partial_generator = self.minimal_polynomial.diff()
-        return -self.field.from_sympy(coefficient_part.as_expr()) / self.field.from_sympy(
-            partial_generator.as_expr()
+        return -self._from_polynomial(coefficient_part) / self._from_polynomial(
+            partial_generator,
         )
 
     def differentiate(
@@ -312,10 +316,11 @@ class AlgebraicExtension:
             generator_derivative = self.generator_derivative(
                 coefficient_derivation,
             )
-        generator_part = self.field.from_sympy(
-            representative.diff().as_expr(),
-        )*generator_derivative
-        return self.field.from_sympy(coefficient_part.as_expr()) + generator_part
+        generator_part = (
+            self._from_polynomial(representative.diff())
+            * generator_derivative
+        )
+        return self._from_polynomial(coefficient_part) + generator_part
 
 
 @dataclass(frozen=True, slots=True)

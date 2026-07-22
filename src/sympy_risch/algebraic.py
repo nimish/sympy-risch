@@ -11,6 +11,7 @@ from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.matrices.normalforms import smith_normal_decomp
+from sympy.polys.polyclasses import DMP
 from sympy.polys.polytools import Poly, invert
 
 from .tower import AlgebraicExtension, Derivation
@@ -45,10 +46,31 @@ def _parent_element_polynomial(
     variable: Symbol,
 ) -> Poly:
     element = parent.convert(element)
-    denominator = Poly(element.denom.as_expr(), variable, domain=constants)
-    if denominator.degree() > 0:
+    denominator_terms = element.denom.to_dict()
+    if any(
+        any(exponent != 0 for exponent in monomial)
+        for monomial in denominator_terms
+    ):
         raise ValueError("expected a polynomial element of the parent field")
-    return Poly(element.as_expr(), variable, domain=constants)
+    denominator_constant = denominator_terms.get((0,), constants.one)
+    return Poly.from_dict(
+        {
+            monomial: coefficient/denominator_constant
+            for monomial, coefficient in element.numer.to_dict().items()
+        },
+        variable,
+        domain=constants,
+    )
+
+
+def _polynomial_parent_element(
+    polynomial: Poly,
+    parent: FractionField,
+) -> Any:
+    """Embed a polynomial directly into its fraction field."""
+    ring = parent.field.ring
+    numerator = ring.from_dict(polynomial.rep.to_dict())
+    return parent.dtype(numerator, ring.one)
 
 
 def _common_denominator(
@@ -58,8 +80,8 @@ def _common_denominator(
 ) -> Poly:
     denominator = Poly(1, variable, domain=constants)
     for element in elements:
-        element_denominator = Poly(
-            element.denom.as_expr(),
+        element_denominator = Poly.from_dict(
+            element.denom.to_dict(),
             variable,
             domain=constants,
         )
@@ -159,21 +181,19 @@ class IntegralBasis:
             raise ValueError("coordinate vector has the wrong length")
 
         parent = self.extension.parent_field
-        result = self.extension.field.zero
+        field = self.extension.field
+        result = field.zero.rep
         for coefficient, basis_element in zip(coordinates, self.elements, strict=True):
             coefficient = parent.convert(coefficient)
-            embedded = self.extension.field.from_sympy(
-                parent.to_sympy(coefficient),
-            )
-            result += embedded*basis_element
-        return result
+            result += basis_element.rep.mul_ground(coefficient)
+        return field.dtype(result, field)
 
     def fraction(self, element: Any) -> AlgebraicFraction:
         """Return the normalized common-denominator representation."""
         parent, constants, variable = _base_polynomial_ring(self.extension)
         coordinates = self.coordinates(element)
         denominator = _common_denominator(coordinates, constants, variable)
-        denominator_element = parent.from_sympy(denominator.as_expr())
+        denominator_element = _polynomial_parent_element(denominator, parent)
         numerators = tuple(
             _parent_element_polynomial(
                 coefficient*denominator_element,
@@ -308,7 +328,7 @@ def _primitive_polynomial_vector(
 ) -> tuple[Poly, ...]:
     """Clear denominators and remove the polynomial gcd from a vector."""
     denominator = _common_denominator(elements, constants, variable)
-    denominator_element = parent.from_sympy(denominator.as_expr())
+    denominator_element = _polynomial_parent_element(denominator, parent)
     numerators = tuple(
         _parent_element_polynomial(
             element*denominator_element,
@@ -337,10 +357,11 @@ def _denominator_excess(denominator: Poly) -> int:
 def _embed_parent(extension: AlgebraicExtension, element: Any) -> Any:
     parent = extension.parent_field
     if isinstance(element, Poly):
-        element = parent.from_sympy(element.as_expr())
+        element = _polynomial_parent_element(element, parent)
     else:
         element = parent.convert(element)
-    return extension.field.from_sympy(parent.to_sympy(element))
+    representative = DMP([element], parent, 0)
+    return extension.field.dtype(representative, extension.field)
 
 
 def _adjoin_integral_element(
@@ -381,7 +402,7 @@ def _adjoin_integral_element(
     if len(reduced_rows) != rank:
         raise ValueError("integral-element adjunction changed the field rank")
 
-    denominator_element = parent.from_sympy(denominator.as_expr())
+    denominator_element = _polynomial_parent_element(denominator, parent)
     elements = tuple(
         basis.element(tuple(
             parent.from_sympy(polynomial_ring.to_sympy(coefficient))
@@ -404,8 +425,9 @@ def _hermite_reduce_algebraic(
 
     For denominator ``D = U*V**m``, the algorithm seeks ``B`` such that
     subtracting ``derivation(B/V**(m-1))`` removes the poles of order ``m``.
-    The lazy branch currently implements the missing-integral-element
-    certificate from Theorem 2; Theorems 1 and 3 remain separate checkpoints.
+    The lazy branch implements Bronstein's three missing-integral-element
+    certificates: dependent ``S_i``, a solution denominator intersecting
+    ``V``, and a nonsquarefree basis-derivative denominator.
     """
     extension = basis.extension
     if derivation.level < 0 or derivation.tower.levels[derivation.level] != extension:
@@ -415,6 +437,7 @@ def _hermite_reduce_algebraic(
     remainder = _extension_element(extension, integrand)
     exact_part = extension.field.zero
     differentiated_basis: IntegralBasis | None = None
+    basis_derivatives: tuple[Any, ...] | None = None
     derivative_matrix: DomainMatrix | None = None
 
     while True:
@@ -440,16 +463,65 @@ def _hermite_reduce_algebraic(
             # D(w_i) depends only on the basis and derivation, not on the pole
             # currently being reduced.  Cache its coordinate matrix until a
             # lazy refinement replaces the basis.
+            basis_derivatives = tuple(
+                derivation(element)
+                for element in basis.elements
+            )
             derivative_matrix = _coordinate_matrix(
                 basis,
-                tuple(derivation(element) for element in basis.elements),
+                basis_derivatives,
             )
             differentiated_basis = basis
+        assert basis_derivatives is not None
         assert derivative_matrix is not None
+        derivative_rows = derivative_matrix.to_list()
 
-        scale_parent = parent.from_sympy(scale.as_expr())
-        candidate_denominator_parent = parent.from_sympy(
-            candidate_denominator.as_expr(),
+        if lazy:
+            refined_from_derivative = False
+            for column, basis_derivative in enumerate(basis_derivatives):
+                derivative_denominator = _common_denominator(
+                    tuple(
+                        derivative_rows[row][column]
+                        for row in range(len(basis.elements))
+                    ),
+                    constants,
+                    variable,
+                )
+                if derivative_denominator.gcd(
+                    derivative_denominator.diff(),
+                ).degree() == 0:
+                    continue
+
+                # Bronstein, Theorem 3: if F = product(F_j**j) is the
+                # nonsquarefree denominator of D(w_i), then
+                # product(F_j)*D(w_i) is integral but missing from the current
+                # K[x]-module.
+                squarefree_part = Poly(1, variable, domain=constants)
+                for factor, _ in derivative_denominator.sqf_list()[1]:
+                    squarefree_part *= factor
+                integral_element = (
+                    _embed_parent(extension, squarefree_part)
+                    * basis_derivative
+                )
+                integral_fraction = basis.fraction(integral_element)
+                if integral_fraction.denominator.degree() == 0:
+                    raise ValueError(
+                        "nonsquarefree derivative did not enlarge the basis module",
+                    )
+                basis = _adjoin_integral_element(
+                    basis,
+                    integral_fraction.numerators,
+                    integral_fraction.denominator,
+                )
+                refined_from_derivative = True
+                break
+            if refined_from_derivative:
+                continue
+
+        scale_parent = _polynomial_parent_element(scale, parent)
+        candidate_denominator_parent = _polynomial_parent_element(
+            candidate_denominator,
+            parent,
         )
         candidate_denominator_derivative = derivation.lower()(
             candidate_denominator_parent,
@@ -465,7 +537,6 @@ def _hermite_reduce_algebraic(
             scale_parent*candidate_denominator_derivative
             / candidate_denominator_parent**2
         )
-        derivative_rows = derivative_matrix.to_list()
         rank = len(basis.elements)
         system = DomainMatrix(
             [
@@ -529,8 +600,9 @@ def _hermite_reduce_algebraic(
             constants,
             variable,
         )
-        solution_denominator_element = parent.from_sympy(
-            solution_denominator.as_expr(),
+        solution_denominator_element = _polynomial_parent_element(
+            solution_denominator,
+            parent,
         )
         solution_numerators = tuple(
             _parent_element_polynomial(
@@ -564,8 +636,9 @@ def _hermite_reduce_algebraic(
         # B_i = Q**(-1)*T_i mod V gives B/V**(m-1), the exact part in (7).
         inverse = invert(solution_denominator, repeated_factor)
         correction_coordinates = tuple(
-            parent.from_sympy(
-                (inverse*numerator).rem(repeated_factor).as_expr(),
+            _polynomial_parent_element(
+                (inverse*numerator).rem(repeated_factor),
+                parent,
             )
             for numerator in solution_numerators
         )
