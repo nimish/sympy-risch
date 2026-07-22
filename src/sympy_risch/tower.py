@@ -238,7 +238,7 @@ class AlgebraicExtension:
             raise ValueError("differential towers require characteristic zero")
         if modulus.degree() < 2:
             raise ValueError("an algebraic extension must have degree at least two")
-        if modulus.LC() != modulus.domain.one:
+        if modulus.domain.convert(modulus.LC()) != modulus.domain.one:
             raise ValueError("the minimal polynomial must be monic")
         if modulus.gcd(modulus.diff()).degree() != 0:
             raise ValueError("the minimal polynomial must be square-free")

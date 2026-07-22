@@ -3,7 +3,7 @@ from math import prod
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, symbols
+from sympy import Poly, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -37,9 +37,9 @@ def hidden_radical_parameters(draw):
     return shifts[:-1], shifts[-1]
 
 
-def algebraic_tower(modulus):
-    rational = DifferentialTower(QQ).extend(
-        MonomialExtension(Poly(1, x, domain=QQ)),
+def algebraic_tower(modulus, constants=QQ):
+    rational = DifferentialTower(constants).extend(
+        MonomialExtension(Poly(1, x, domain=constants)),
     )
     extension = AlgebraicExtension(
         Poly(modulus, y, domain=rational.field()),
@@ -342,6 +342,69 @@ def test_generated_lazy_reductions_rediscover_hidden_radicals(
     )
     assert derivation(exact) + remainder == repeated_pole
     assert refined_basis.fraction(remainder).is_square_free
+
+
+@given(
+    st.integers(min_value=2, max_value=4),
+    distinct_linear_shifts,
+)
+@settings(max_examples=6, deadline=None)
+def test_generated_lazy_reductions_handle_mixed_algebraic_relations(
+    degree,
+    shifts,
+) -> None:
+    # Start with the non-radical relation z**degree - z - h = 0 and hide z as
+    # y = p*z.  Multiplication by p**degree gives the transformed monic
+    # polynomial below, which contains a nonzero linear y term.  Unlike a
+    # simple radical, Dz = Dh/(degree*z**(degree - 1) - 1) mixes basis powers.
+    power_shift, relation_shift = shifts
+    power_factor = x + power_shift
+    relation_term = x + relation_shift
+    tower, extension, power_basis = algebraic_tower(
+        y**degree
+        - power_factor**(degree - 1)*y
+        - relation_term*power_factor**degree,
+    )
+    field = extension.field
+    derivation = tower.derivation()
+    hidden_integral_element = field.from_sympy(
+        y**(degree - 1)/power_factor**(degree - 1),
+    )
+    integrand = field.from_sympy(y**(degree - 1)/power_factor**degree)
+
+    assert recognize_simple_radical(extension) is None
+    with pytest.raises(ValueError, match="not an integral basis"):
+        hermite_reduce_algebraic(integrand, derivation, power_basis)
+
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        power_basis,
+    )
+
+    assert exact == field.zero
+    assert remainder == integrand
+    assert refined_basis.fraction(hidden_integral_element).denominator.degree() == 0
+    assert refined_basis.fraction(remainder).denominator == Poly(
+        power_factor,
+        x,
+        domain=QQ,
+    )
+    assert derivation(exact) + remainder == integrand
+
+
+def test_algebraic_hermite_over_an_algebraic_constant_field() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, basis = algebraic_tower(y**2 - x, constants)
+    field = extension.field
+    derivation = tower.derivation()
+    integrand = field.from_sympy((sqrt(2) + y)/x**2)
+
+    exact, remainder = hermite_reduce_algebraic(integrand, derivation, basis)
+
+    assert exact == field.from_sympy(-sqrt(2)/x - 2*y/x)
+    assert remainder == field.zero
+    assert derivation(exact) - integrand == field.zero
 
 
 def test_algebraic_hermite_reduces_a_quadratic_example() -> None:
