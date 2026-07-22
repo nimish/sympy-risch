@@ -173,6 +173,11 @@ Generic construction from a derivative law produces the appropriate
 mathematical parent class. Named constructors additionally preserve the
 original function.
 
+For denominator reduction, square-free factors are classified by the total
+tower derivative: `p` is normal when `gcd(p, Dp) = 1` and special when
+`p | Dp`. The normal/special decomposition retains each factor's ordinary
+square-free multiplicity and is independent of the named function provenance.
+
 ### Named elementary extensions
 
 Named classes construct their derivative from their argument using the parent
@@ -471,7 +476,7 @@ its own commit.
 
 - Generalize Hermite reduction from `QQ(x)` to `K(t)` using the tower
   derivation.
-- Implement normal/special denominator splitting using `gcd(p, Dp)`.
+- [x] Implement normal/special denominator splitting using `gcd(p, Dp)`.
 - Implement polynomial reduction in a primitive extension.
 - Implement the recursive in-field exact-derivative problem.
 - Prove nonexistence when the reduced obstruction is nonzero.

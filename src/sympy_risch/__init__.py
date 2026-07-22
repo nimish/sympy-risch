@@ -10,6 +10,7 @@ from .algebraic import (
     simple_radical_integral_basis,
 )
 from .lrt import lazard_rioboo_trager
+from .monomial import split_normal_special
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
@@ -48,6 +49,7 @@ __all__ = [
     "MonomialFamily",
     "rothstein_trager_residue_polynomial",
     "SimpleRadicalData",
+    "split_normal_special",
     "recognize_simple_radical",
     "simple_radical_integral_basis",
 ]
