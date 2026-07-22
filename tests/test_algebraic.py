@@ -393,6 +393,80 @@ def test_generated_lazy_reductions_handle_mixed_algebraic_relations(
     assert derivation(exact) + remainder == integrand
 
 
+def test_lazy_hermite_handles_a_degree_eight_extension() -> None:
+    # The normalized generator z = y/(x + 1) satisfies z**8 = x + 2.  Thus
+    # z is integral even though it is absent from the power basis in y.
+    degree = 8
+    power_factor = x + 1
+    tower, extension, power_basis = algebraic_tower(
+        y**degree - power_factor**degree*(x + 2),
+    )
+    field = extension.field
+    derivation = tower.derivation()
+    hidden_generator = field.from_sympy(y/power_factor)
+    integrand = field.from_sympy(y/power_factor**2)
+
+    with pytest.raises(ValueError, match="not an integral basis"):
+        hermite_reduce_algebraic(integrand, derivation, power_basis)
+
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        power_basis,
+    )
+
+    assert exact == field.zero
+    assert remainder == integrand
+    assert refined_basis.fraction(hidden_generator).denominator.degree() == 0
+    assert refined_basis.fraction(remainder).denominator == Poly(
+        power_factor,
+        x,
+        domain=QQ,
+    )
+
+
+def test_lazy_hermite_handles_a_dense_nonradical_relation() -> None:
+    # Begin with the integral, non-radical relation
+    #
+    #   z**3 + x*(x**2 + 1)*z**2 + x*(x**3 + x + 1)*z + x*(x + 1) = 0.
+    #
+    # It is Eisenstein at x: every lower coefficient is divisible by x, while
+    # the constant coefficient is not divisible by x**2.  Substituting
+    # y = (x + 2)*z and clearing denominators gives the dense polynomial below.
+    power_factor = x + 2
+    modulus = (
+        y**3
+        + x*(x**2 + 1)*power_factor*y**2
+        + x*(x**3 + x + 1)*power_factor**2*y
+        + x*(x + 1)*power_factor**3
+    )
+    tower, extension, power_basis = algebraic_tower(modulus)
+    field = extension.field
+    derivation = tower.derivation()
+    hidden_integral_element = field.from_sympy(y**2/power_factor**2)
+    integrand = field.from_sympy(y**2/power_factor**3)
+
+    assert recognize_simple_radical(extension) is None
+    with pytest.raises(ValueError, match="not an integral basis"):
+        hermite_reduce_algebraic(integrand, derivation, power_basis)
+
+    exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
+        integrand,
+        derivation,
+        power_basis,
+    )
+
+    assert exact == field.zero
+    assert remainder == integrand
+    assert refined_basis.fraction(hidden_integral_element).denominator.degree() == 0
+    assert refined_basis.fraction(remainder).denominator == Poly(
+        power_factor,
+        x,
+        domain=QQ,
+    )
+    assert derivation(exact) + remainder == integrand
+
+
 def test_algebraic_hermite_over_an_algebraic_constant_field() -> None:
     constants = QQ.algebraic_field(sqrt(2))
     tower, extension, basis = algebraic_tower(y**2 - x, constants)
