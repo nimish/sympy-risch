@@ -6,7 +6,12 @@ from hypothesis import strategies as st
 from sympy import Poly, cancel, diff, symbols
 from sympy.polys.domains import GF, QQ, ZZ
 
-from sympy_risch import Derivation, DifferentialTower, MonomialExtension
+from sympy_risch import (
+    Derivation,
+    DifferentialTower,
+    MonomialExtension,
+    MonomialFamily,
+)
 
 
 x, t, u = symbols("x t u")
@@ -84,6 +89,27 @@ def test_monomial_extension_rejects_a_generator_already_in_parent() -> None:
 
     with pytest.raises(ValueError, match="already occurs"):
         MonomialExtension(Poly(1, x, domain=kxt))
+
+
+@pytest.mark.parametrize(
+    ("derivative", "family"),
+    [
+        (1/x, MonomialFamily.PRIMITIVE),
+        (t/(x + 1), MonomialFamily.HYPEREXPONENTIAL),
+        ((1 + t**2)/x, MonomialFamily.HYPERTANGENT),
+        (t - 1, MonomialFamily.POLYNOMIAL),
+        (1 + t + t**2, MonomialFamily.POLYNOMIAL),
+        (t**3, MonomialFamily.POLYNOMIAL),
+    ],
+)
+def test_monomial_family_is_derived_from_the_derivative_shape(
+    derivative,
+    family,
+) -> None:
+    parent = QQ.frac_field(x)
+    extension = MonomialExtension(Poly(derivative, t, domain=parent))
+
+    assert extension.family is family
 
 
 def test_level_access_and_derivations_are_explicit() -> None:

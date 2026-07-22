@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field as dataclass_field
+from enum import Enum
 from typing import Any, Protocol
 
 from sympy.core.expr import Expr
@@ -88,6 +89,15 @@ def _adjoin_transcendental(parent_field: Domain, generator: Symbol) -> Domain:
     return parent_field.frac_field(generator)
 
 
+class MonomialFamily(Enum):
+    """Structural family determined by the polynomial derivative law."""
+
+    PRIMITIVE = "primitive"
+    HYPEREXPONENTIAL = "hyperexponential"
+    HYPERTANGENT = "hypertangent"
+    POLYNOMIAL = "polynomial"
+
+
 @dataclass(frozen=True, slots=True)
 class MonomialExtension:
     r"""A transcendental extension ``K(t)`` with ``Dt`` in ``K[t]``.
@@ -142,6 +152,30 @@ class MonomialExtension:
     def field(self) -> Domain:
         """The rational function field ``K(t)``."""
         return self._field
+
+    @property
+    def family(self) -> MonomialFamily:
+        r"""Classify the exact shape of ``Dt`` in the chosen generator.
+
+        The primitive, hyperexponential, and hypertangent forms are
+        respectively ``Dt = a``, ``Dt = a*t``, and ``Dt = a*(1 + t**2)``
+        for nonzero ``a`` in the parent field.  Other polynomial derivative
+        laws remain general polynomial monomials.
+        """
+        derivative = self.generator_derivative
+        degree = derivative.degree()
+
+        if degree == 0:
+            return MonomialFamily.PRIMITIVE
+        if degree == 1 and derivative.nth(0) == self.parent_field.zero:
+            return MonomialFamily.HYPEREXPONENTIAL
+        if (
+            degree == 2
+            and derivative.nth(1) == self.parent_field.zero
+            and derivative.nth(0) == derivative.nth(2)
+        ):
+            return MonomialFamily.HYPERTANGENT
+        return MonomialFamily.POLYNOMIAL
 
     def _validate_polynomial(self, polynomial: Poly) -> None:
         if polynomial.gens != (self.generator,):

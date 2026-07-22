@@ -449,7 +449,7 @@ its own commit.
 - [x] Implement immutable `DifferentialTower` construction.
 - [x] Implement level-bound coefficient, polynomial, and quotient derivations.
 - [x] Use SymPy fraction fields directly.
-- [ ] Add classification of primitive, hyperexponential, hypertangent, and general
+- [x] Add classification of primitive, hyperexponential, hypertangent, and general
   polynomial derivative laws.
 - [ ] Add named `LogExtension`, `ExpExtension`, and `TanExtension` factories.
 - [x] Test manually constructed `x`, `log(x)`, and nested monomial levels.

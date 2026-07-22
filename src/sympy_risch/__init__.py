@@ -24,6 +24,7 @@ from .tower import (
     DifferentialExtension,
     DifferentialTower,
     MonomialExtension,
+    MonomialFamily,
 )
 
 __version__ = "0.1.0"
@@ -44,6 +45,7 @@ __all__ = [
     "IntegralBasis",
     "lazard_rioboo_trager",
     "MonomialExtension",
+    "MonomialFamily",
     "rothstein_trager_residue_polynomial",
     "SimpleRadicalData",
     "recognize_simple_radical",
