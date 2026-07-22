@@ -4,7 +4,12 @@ from hypothesis import strategies as st
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
-from sympy_risch import DifferentialTower, MonomialExtension, split_normal_special
+from sympy_risch import (
+    DifferentialTower,
+    MonomialExtension,
+    hermite_reduce_monomial,
+    split_normal_special,
+)
 
 
 x, t = symbols("x t")
@@ -109,3 +114,92 @@ def test_normal_special_decomposition_validates_its_polynomial() -> None:
         )
     with pytest.raises(ValueError, match="generator does not match"):
         split_normal_special(Poly(x + 1, x, domain=QQ), tower.derivation())
+
+
+def denominator_parts(element, tower: DifferentialTower) -> tuple[Poly, Poly]:
+    _, denominator_expression = element.as_expr().as_numer_denom()
+    denominator = Poly(
+        denominator_expression,
+        t,
+        domain=tower.field(0),
+    )
+    return split_normal_special(denominator, tower.derivation())
+
+
+def test_monomial_hermite_reduces_a_logarithmic_repeated_pole() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    derivation = tower.derivation()
+    integrand = field.from_sympy(1/(x*t**2))
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+
+    assert exact == field.from_sympy(-1/t)
+    assert remainder == field.zero
+    assert derivation(exact) + remainder == integrand
+
+
+def test_monomial_hermite_preserves_an_exponential_special_part() -> None:
+    tower = monomial_tower(t)
+    field = tower.field()
+    derivation = tower.derivation()
+    integrand = field.from_sympy(1/(t**2*(t - 1)**2))
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+    normal, special = denominator_parts(remainder, tower)
+
+    assert derivation(exact) + remainder == integrand
+    assert normal == Poly(t - 1, t, domain=tower.field(0))
+    assert special == Poly(t**2, t, domain=tower.field(0))
+
+
+def test_monomial_hermite_preserves_a_tangent_special_part() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    derivation = tower.derivation()
+    integrand = field.from_sympy(1/(t**2*(1 + t**2)**2))
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+    normal, special = denominator_parts(remainder, tower)
+
+    assert derivation(exact) + remainder == integrand
+    assert normal == Poly(1, t, domain=tower.field(0))
+    assert special == Poly((1 + t**2)**2, t, domain=tower.field(0))
+
+
+@pytest.mark.parametrize("expression", [t**3 + x*t, 1/t**3, 1/(t - 1)])
+def test_monomial_hermite_leaves_polynomial_and_special_terms_for_later(
+    expression,
+) -> None:
+    tower = monomial_tower(t)
+    field = tower.field()
+    integrand = field.from_sympy(expression)
+
+    exact, remainder = hermite_reduce_monomial(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert exact == field.zero
+    assert remainder == integrand
+
+
+@given(st.integers(min_value=1, max_value=6))
+def test_generated_logarithmic_exact_derivatives_are_recovered(power) -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted_exact = field.from_sympy(t**(-power))
+    integrand = derivation(planted_exact)
+
+    exact, remainder = hermite_reduce_monomial(integrand, derivation)
+
+    assert exact == planted_exact
+    assert remainder == field.zero
+
+
+def test_monomial_hermite_requires_a_monomial_level() -> None:
+    constants = DifferentialTower(QQ)
+
+    with pytest.raises(TypeError, match="monomial level"):
+        hermite_reduce_monomial(QQ.one, constants.derivation())

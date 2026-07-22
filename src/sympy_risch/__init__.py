@@ -10,7 +10,7 @@ from .algebraic import (
     simple_radical_integral_basis,
 )
 from .lrt import lazard_rioboo_trager
-from .monomial import split_normal_special
+from .monomial import hermite_reduce_monomial, split_normal_special
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
@@ -39,6 +39,7 @@ __all__ = [
     "hermite_reduce_rational",
     "hermite_reduce_rational_recursive",
     "hermite_reduce_algebraic",
+    "hermite_reduce_monomial",
     "lazy_hermite_reduce_algebraic",
     "integrate_polynomial",
     "integrate_rational",

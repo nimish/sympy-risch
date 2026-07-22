@@ -177,6 +177,9 @@ For denominator reduction, square-free factors are classified by the total
 tower derivative: `p` is normal when `gcd(p, Dp) = 1` and special when
 `p | Dp`. The normal/special decomposition retains each factor's ordinary
 square-free multiplicity and is independent of the named function provenance.
+The monomial Hermite reducer then lowers repeated normal factors one at a time,
+leaving a square-free normal denominator while retaining polynomial terms and
+special factors for the family-specific reduction.
 
 ### Named elementary extensions
 
@@ -474,7 +477,7 @@ its own commit.
 
 ### 3. Primitive-extension reduction
 
-- Generalize Hermite reduction from `QQ(x)` to `K(t)` using the tower
+- [x] Generalize Hermite reduction from `QQ(x)` to `K(t)` using the tower
   derivation.
 - [x] Implement normal/special denominator splitting using `gcd(p, Dp)`.
 - Implement polynomial reduction in a primitive extension.
