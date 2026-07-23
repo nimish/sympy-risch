@@ -329,6 +329,9 @@ def solve_rational_logarithmic_derivative(
     logarithmic argument, but the certificate records why squaring a
     hyperexponential candidate can reveal an algebraic dependency.
     """
+    if not isinstance(x, Symbol):
+        raise TypeError("the differentiation variable must be a Symbol")
+
     numerator, denominator = _as_reduced_fraction(f, x)
     polynomial_part, proper_numerator = numerator.div(denominator)
     denominator_factors = tuple(denominator.factor_list()[1])

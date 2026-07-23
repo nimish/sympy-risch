@@ -201,6 +201,44 @@ def test_generated_integer_valuations_reconstruct_rational_arguments(
 
 
 @given(
+    numerator_coefficients=st.lists(
+        st.integers(min_value=-4, max_value=4),
+        min_size=1,
+        max_size=5,
+    ),
+    denominator_coefficients=st.lists(
+        st.integers(min_value=-4, max_value=4),
+        min_size=1,
+        max_size=5,
+    ),
+)
+@settings(max_examples=45, deadline=None)
+def test_generated_arbitrary_rational_arguments_are_recognized(
+    numerator_coefficients,
+    denominator_coefficients,
+) -> None:
+    numerator = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(numerator_coefficients)
+    )
+    denominator = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(denominator_coefficients)
+    )
+    assume(numerator != 0 and denominator != 0)
+    argument = cancel(numerator/denominator)
+    integrand = cancel(argument.diff(x)/argument)
+
+    result = solve_rational_logarithmic_derivative(integrand, x)
+
+    assert result.has_solution
+    assert cancel(result.argument.diff(x)/result.argument - integrand) == 0
+    assert cancel((result.argument/argument).diff(x)) == 0
+    for certificate in result.factors:
+        assert certificate.has_integral_multiplicity
+
+
+@given(
     numerator=st.integers(min_value=-8, max_value=8).filter(bool),
     denominator=st.integers(min_value=2, max_value=8),
     root=st.integers(min_value=-5, max_value=5),
@@ -275,3 +313,12 @@ def test_mixed_obstructions_are_reported_independently() -> None:
 def test_nonrational_coefficients_are_rejected(integrand) -> None:
     with pytest.raises((CoercionFailed, PolynomialError)):
         solve_rational_logarithmic_derivative(integrand, x)
+
+
+@pytest.mark.parametrize("variable", [x + 1, 1, "x", None])
+def test_nonsymbol_differentiation_variables_are_rejected(variable) -> None:
+    with pytest.raises(
+        TypeError,
+        match="differentiation variable must be a Symbol",
+    ):
+        solve_rational_logarithmic_derivative(1/x, variable)
