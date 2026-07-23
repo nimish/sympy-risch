@@ -3,7 +3,7 @@ from math import prod
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, sqrt, symbols
+from sympy import Poly, diff, invert, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -68,6 +68,38 @@ def test_algebraic_extension_differentiates_a_mixed_cubic_basis() -> None:
     assert tower.derivation()(field.generator**2) == field.from_sympy(
         (-12*x - 4*y + 18*x*y**2)/delta,
     )
+
+
+@given(
+    st.lists(
+        st.integers(min_value=-4, max_value=4),
+        min_size=5,
+        max_size=5,
+    ),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_algebraic_derivatives_match_implicit_differentiation(
+    coefficients,
+) -> None:
+    tower, extension, _ = algebraic_tower(y**3 - y - x)
+    field = extension.field
+    a, b, c, d, e = coefficients
+    expression = (
+        a + b*x + c*y + d*x*y + e*y**2
+    )/(x + 2)
+    generator_derivative = invert(
+        3*y**2 - 1,
+        y**3 - y - x,
+        y,
+    )
+    expected = (
+        diff(expression, x)
+        + diff(expression, y)*generator_derivative
+    )
+
+    result = tower.derivation()(field.from_sympy(expression))
+
+    assert result == field.from_sympy(expected)
 
 
 def test_algebraic_extension_validates_the_minimal_polynomial() -> None:
