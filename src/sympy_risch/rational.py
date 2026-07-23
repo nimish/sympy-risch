@@ -3,6 +3,7 @@ r"""Rational-function integration over :math:`\mathbb{Q}`."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from sympy.core.add import Add
 from sympy.core.expr import Expr
@@ -48,6 +49,86 @@ class RationalExactDerivativeResult:
     def antiderivative(self) -> Expr | None:
         """Return the rational antiderivative, or ``None`` if none exists."""
         return self.exact_part if self.has_solution else None
+
+
+@dataclass(frozen=True, slots=True)
+class RationalLogDerivativeFactor:
+    r"""One irreducible denominator factor in a logarithmic-derivative test.
+
+    For a square-free denominator factor ``p``, ``partial_numerator`` is the
+    numerator of the corresponding partial fraction.  A rational logarithmic
+    derivative must have the form
+
+    ``multiplicity*p.diff()/p``
+
+    at that factor.  ``multiplicity`` is ``None`` when the partial numerator
+    is not a constant multiple of ``p.diff()``.
+    """
+
+    factor: Poly
+    partial_numerator: Poly
+    multiplicity: Any | None
+
+    @property
+    def has_logarithmic_residue(self) -> bool:
+        """Whether the residue has the required multiple-of-``p'`` shape."""
+        return self.multiplicity is not None
+
+    @property
+    def has_integral_multiplicity(self) -> bool:
+        """Whether the residue is the valuation of a rational function."""
+        return (
+            self.multiplicity is not None
+            and QQ.denom(QQ.convert(self.multiplicity)) == 1
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RationalLogDerivativeResult:
+    r"""Certified solution of ``Du/u = f`` in :math:`\mathbb{Q}(x)`.
+
+    A rational logarithmic derivative has no polynomial part, only simple
+    poles, and an integer valuation at every irreducible denominator factor.
+    ``argument`` is the canonical product of those monic factors; its
+    arbitrary nonzero rational constant multiplier is normalized to one.
+    """
+
+    argument: Expr | None
+    polynomial_part: Poly
+    denominator_factors: tuple[tuple[Poly, int], ...]
+    factors: tuple[RationalLogDerivativeFactor, ...]
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether a nonzero rational ``u`` satisfies ``Du/u = f``."""
+        return self.argument is not None
+
+    @property
+    def has_polynomial_obstruction(self) -> bool:
+        """Whether a nonzero polynomial part prevents a solution."""
+        return not self.polynomial_part.is_zero
+
+    @property
+    def has_repeated_pole_obstruction(self) -> bool:
+        """Whether some finite pole has order greater than one."""
+        return any(
+            multiplicity > 1
+            for _, multiplicity in self.denominator_factors
+        )
+
+    @property
+    def has_nonlogarithmic_residue_obstruction(self) -> bool:
+        """Whether some residue is not a constant multiple of ``p'``."""
+        return any(not factor.has_logarithmic_residue for factor in self.factors)
+
+    @property
+    def has_nonintegral_residue_obstruction(self) -> bool:
+        """Whether some logarithmic residue is rational but not integral."""
+        return any(
+            factor.has_logarithmic_residue
+            and not factor.has_integral_multiplicity
+            for factor in self.factors
+        )
 
 
 def _as_reduced_fraction(f: Expr, x: Symbol) -> tuple[Poly, Poly]:
@@ -225,6 +306,90 @@ def solve_rational_exact_derivative(
     """
     exact_part, obstruction = hermite_reduce_rational(f, x)
     return RationalExactDerivativeResult(exact_part, obstruction)
+
+
+def solve_rational_logarithmic_derivative(
+    f: Expr,
+    x: Symbol,
+) -> RationalLogDerivativeResult:
+    r"""Decide whether ``f = Du/u`` for a nonzero ``u`` in ``QQ(x)``.
+
+    Write the proper part of ``f`` over its factored denominator.  At an
+    irreducible factor ``p``, the logarithmic derivative of a rational
+    function has partial numerator ``n*p'``, where the integer ``n`` is the
+    order of a zero or pole of ``u`` along ``p``.  Thus a solution exists
+    exactly when:
+
+    1. the polynomial part of ``f`` vanishes;
+    2. its denominator is square-free;
+    3. every partial numerator is an integer multiple of ``p'``.
+
+    The factor certificates retain rational noninteger multiples.  For
+    example, ``1/(2*x)`` has multiplicity ``1/2``: it has no rational
+    logarithmic argument, but the certificate records why squaring a
+    hyperexponential candidate can reveal an algebraic dependency.
+    """
+    numerator, denominator = _as_reduced_fraction(f, x)
+    polynomial_part, proper_numerator = numerator.div(denominator)
+    denominator_factors = tuple(denominator.factor_list()[1])
+
+    if proper_numerator.is_zero:
+        argument = S.One if polynomial_part.is_zero else None
+        return RationalLogDerivativeResult(
+            argument,
+            polynomial_part,
+            denominator_factors,
+            (),
+        )
+
+    if any(multiplicity > 1 for _, multiplicity in denominator_factors):
+        return RationalLogDerivativeResult(
+            None,
+            polynomial_part,
+            denominator_factors,
+            (),
+        )
+
+    factor_certificates: list[RationalLogDerivativeFactor] = []
+    argument: Expr = S.One
+    for factor, _ in denominator_factors:
+        cofactor = denominator.exquo(factor)
+        partial_numerator = (
+            proper_numerator*invert(cofactor, factor)
+        ).rem(factor)
+        quotient, remainder = partial_numerator.div(factor.diff())
+        multiplicity = None
+        if remainder.is_zero and quotient.degree() <= 0:
+            multiplicity = QQ.convert(quotient.nth(0))
+            if QQ.denom(multiplicity) == 1:
+                argument *= factor.as_expr()**int(QQ.numer(multiplicity))
+
+        factor_certificates.append(
+            RationalLogDerivativeFactor(
+                factor,
+                partial_numerator,
+                multiplicity,
+            )
+        )
+
+    factors = tuple(factor_certificates)
+    has_solution = (
+        polynomial_part.is_zero
+        and all(factor.has_integral_multiplicity for factor in factors)
+    )
+    if not has_solution:
+        argument = None
+    elif cancel(argument.diff(x)/argument - f) != 0:
+        raise ValueError(
+            "rational logarithmic-derivative reconstruction failed"
+        )
+
+    return RationalLogDerivativeResult(
+        argument,
+        polynomial_part,
+        denominator_factors,
+        factors,
+    )
 
 
 def rothstein_trager_residue_polynomial(
