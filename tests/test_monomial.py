@@ -11,6 +11,7 @@ from sympy_risch import (
     hermite_reduce_monomial,
     hermite_reduce_rational_recursive,
     polynomial_reduce_monomial,
+    residue_reduce_monomial,
     split_normal_special,
 )
 
@@ -650,6 +651,12 @@ def test_bronstein_criterion_requires_prior_hermite_reduction() -> None:
             tower.field().from_sympy(1/t**2),
             tower.derivation(),
         )
+    with pytest.raises(ValueError, match="new over the tower field"):
+        bronstein_residue_criterion(
+            tower.field().from_sympy(1/t),
+            tower.derivation(),
+            x,
+        )
 
 
 @pytest.mark.parametrize(
@@ -708,3 +715,173 @@ def test_generated_bronstein_criterion_matches_planted_residues(
     )
 
     assert certificate.all_residues_constant is (slope == 0)
+
+
+def test_residue_reduction_extracts_log_log_term() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    z = symbols("z")
+    integrand = field.from_sympy(1/(x*t))
+
+    reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
+
+    assert len(reduction.logarithmic_parts) == 1
+    logand, residue_factor = reduction.logarithmic_parts[0]
+    assert logand == Poly(t, t, domain=tower.field(0))
+    assert residue_factor == Poly(z - 1, z, domain=tower.field(0))
+    assert reduction.logarithmic_derivative == integrand
+    assert reduction.remainder == field.zero
+    assert reduction.all_normal_residues_removed
+
+
+def test_residue_reduction_preserves_nonconstant_residue_obstruction() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    integrand = field.from_sympy(1/t)
+
+    reduction = residue_reduce_monomial(integrand, tower.derivation())
+
+    assert reduction.logarithmic_parts == ()
+    assert reduction.logarithmic_derivative == field.zero
+    assert reduction.remainder == integrand
+    assert not reduction.all_normal_residues_removed
+
+
+def test_residue_reduction_extracts_only_constant_residue_roots() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    z = symbols("z")
+    integrand = field.from_sympy(1/(x*t) + 1/(t - 1))
+
+    reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
+
+    assert len(reduction.logarithmic_parts) == 1
+    logand, residue_factor = reduction.logarithmic_parts[0]
+    assert logand.as_expr() == t
+    assert residue_factor == Poly(z - 1, z, domain=tower.field(0))
+    assert reduction.logarithmic_derivative == field.from_sympy(1/(x*t))
+    assert reduction.remainder == field.from_sympy(1/(t - 1))
+    assert not reduction.all_normal_residues_removed
+
+    remaining_certificate = bronstein_residue_criterion(
+        reduction.remainder,
+        tower.derivation(),
+        z,
+    )
+    assert remaining_certificate.factors[0].constant_factor.is_one
+    assert remaining_certificate.factors[0].nonconstant_factor == Poly(
+        z - x,
+        z,
+        domain=tower.field(0),
+    )
+
+
+def test_residue_reduction_traces_algebraic_constant_residues() -> None:
+    # The residues are +/-i/2.  Their encoded logarithmic sum differentiates
+    # to the input without constructing either algebraic constant explicitly.
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    z = symbols("z")
+    integrand = field.from_sympy(1/(x*(t**2 + 1)))
+
+    reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
+
+    assert len(reduction.logarithmic_parts) == 1
+    logand, residue_factor = reduction.logarithmic_parts[0]
+    assert logand.as_expr() == t + 2*z
+    assert residue_factor == Poly(z**2 + 1/4, z, domain=tower.field(0))
+    assert reduction.logarithmic_derivative == integrand
+    assert reduction.remainder == field.zero
+    assert reduction.all_normal_residues_removed
+
+
+def test_residue_reduction_traces_degree_five_constant_residues() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    integrand = field.from_sympy(
+        (t**2 + 1)/(x*(t**5 + t + 1)),
+    )
+
+    reduction = residue_reduce_monomial(integrand, tower.derivation())
+
+    assert len(reduction.logarithmic_parts) == 1
+    logand, residue_factor = reduction.logarithmic_parts[0]
+    assert logand.degree() == 1
+    assert residue_factor.degree() == 5
+    assert reduction.logarithmic_derivative == integrand
+    assert reduction.remainder == field.zero
+    assert reduction.all_normal_residues_removed
+
+
+def test_residue_reduction_groups_repeated_equal_residues() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    z = symbols("z")
+    normal_factor = field.from_sympy(t*(t - 1))
+    integrand = tower.derivation()(normal_factor)/normal_factor
+
+    reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
+
+    assert len(reduction.logarithmic_parts) == 1
+    logand, residue_factor = reduction.logarithmic_parts[0]
+    assert logand == Poly(t*(t - 1), t, domain=tower.field(0))
+    assert residue_factor == Poly(z - 1, z, domain=tower.field(0))
+    assert reduction.certificate.factors[0].multiplicity == 2
+    assert reduction.logarithmic_derivative == integrand
+    assert reduction.remainder == field.zero
+
+
+def test_residue_reduction_leaves_only_exponential_special_terms() -> None:
+    tower = monomial_tower(t)
+    field = tower.field()
+    integrand = field.from_sympy(1/(t*(t - 1)))
+
+    reduction = residue_reduce_monomial(integrand, tower.derivation())
+
+    assert reduction.logarithmic_derivative == field.from_sympy(t/(t - 1))
+    assert reduction.remainder == field.from_sympy(-1 - 1/t)
+    assert reduction.logarithmic_derivative + reduction.remainder == integrand
+    remaining_certificate = bronstein_residue_criterion(
+        reduction.remainder,
+        tower.derivation(),
+    )
+    assert remaining_certificate.normal_denominator.is_one
+
+
+@given(
+    example=st.sampled_from(
+        (
+            (1/x, t**2 + 1),
+            (t, t**2 - 1),
+            (1 + t**2, t),
+            (t**3 + x, t - 1),
+        ),
+    ),
+    residue_value=st.integers(min_value=-4, max_value=4),
+    background_constant=st.integers(min_value=-4, max_value=4),
+    background_linear=st.integers(min_value=-4, max_value=4),
+)
+@settings(max_examples=40, deadline=None)
+def test_generated_residue_reductions_reconstruct_planted_logarithms(
+    example,
+    residue_value,
+    background_constant,
+    background_linear,
+) -> None:
+    generator_derivative, normal_factor_expression = example
+    tower = monomial_tower(generator_derivative)
+    field = tower.field()
+    derivation = tower.derivation()
+    normal_factor = field.from_sympy(normal_factor_expression)
+    planted_logarithmic_derivative = (
+        residue_value*derivation(normal_factor)/normal_factor
+    )
+    background = field.from_sympy(background_linear*t + background_constant)
+    integrand = planted_logarithmic_derivative + background
+
+    reduction = residue_reduce_monomial(integrand, derivation)
+
+    assert reduction.logarithmic_derivative == planted_logarithmic_derivative
+    assert reduction.remainder == background
+    assert reduction.logarithmic_derivative + reduction.remainder == integrand
+    assert reduction.all_normal_residues_removed

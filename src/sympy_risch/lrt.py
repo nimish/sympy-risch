@@ -5,6 +5,7 @@ from __future__ import annotations
 from sympy.core.expr import Expr
 from sympy.core.singleton import S
 from sympy.core.symbol import Dummy, Symbol
+from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.polytools import Poly, resultant
 
 
@@ -45,6 +46,96 @@ def _make_monic_modulo(
         normalized_terms[monomial] = normalized.as_expr()
 
     return Poly.from_dict(normalized_terms, x)
+
+
+def _differential_lazard_rioboo_trager(
+    numerator: Poly,
+    denominator: Poly,
+    denominator_derivative: Poly,
+    residue_factors: tuple[tuple[Poly, int], ...],
+    x: Symbol,
+    residue: Symbol,
+) -> list[tuple[Poly, Poly]]:
+    r"""Recover selected generalized RT logands with a subresultant PRS.
+
+    ``residue_factors`` contains square-free factors of the generalized
+    resultant together with their multiplicities.  Callers use Bronstein's
+    coefficient derivation first and pass only factors whose roots are
+    constants.  Keeping this helper separate preserves the simpler public
+    rational LRT interface below.
+    """
+    if not (
+        numerator.gens
+        == denominator.gens
+        == denominator_derivative.gens
+        == (x,)
+    ):
+        raise ValueError("generalized LRT polynomials must share their generator")
+    if not (
+        numerator.domain
+        == denominator.domain
+        == denominator_derivative.domain
+    ):
+        raise ValueError("generalized LRT polynomials must share their domain")
+
+    coefficient_field = denominator.domain
+    if isinstance(coefficient_field, FractionField):
+        residue_field = coefficient_field.domain.frac_field(
+            *coefficient_field.symbols,
+            residue,
+        )
+    else:
+        residue_field = coefficient_field.frac_field(residue)
+
+    denominator_with_residue = Poly(
+        denominator.as_expr(),
+        x,
+        domain=residue_field,
+    )
+    numerator_with_residue = Poly(
+        numerator.as_expr() - residue*denominator_derivative.as_expr(),
+        x,
+        domain=residue_field,
+    )
+    _, remainder_sequence = resultant(
+        denominator_with_residue,
+        numerator_with_residue,
+        x,
+        includePRS=True,
+    )
+    subresultants_by_degree = {
+        polynomial.degree(): polynomial
+        for polynomial in remainder_sequence
+    }
+
+    logarithmic_parts = []
+    for residue_factor, multiplicity in residue_factors:
+        if residue_factor.degree() <= 0:
+            continue
+        if multiplicity == denominator.degree():
+            logand = denominator.monic()
+        else:
+            try:
+                logand = subresultants_by_degree[multiplicity]
+            except KeyError as exc:
+                raise ValueError(
+                    "the generalized LRT subresultant degree is missing"
+                ) from exc
+            logand = _remove_vanishing_leading_factors(
+                logand,
+                residue_factor,
+                residue,
+                x,
+            )
+            logand = _make_monic_modulo(
+                logand,
+                residue_factor,
+                residue,
+                x,
+            )
+        logarithmic_parts.append((logand, residue_factor))
+
+    return logarithmic_parts
 
 
 def lazard_rioboo_trager(

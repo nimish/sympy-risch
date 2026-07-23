@@ -13,9 +13,11 @@ from .lrt import lazard_rioboo_trager
 from .monomial import (
     BronsteinResidueCertificate,
     BronsteinResidueFactor,
+    BronsteinResidueReduction,
     bronstein_residue_criterion,
     hermite_reduce_monomial,
     polynomial_reduce_monomial,
+    residue_reduce_monomial,
     split_normal_special,
 )
 from .polynomial import integrate_polynomial
@@ -42,6 +44,7 @@ __all__ = [
     "AlgebraicFraction",
     "BronsteinResidueCertificate",
     "BronsteinResidueFactor",
+    "BronsteinResidueReduction",
     "bronstein_residue_criterion",
     "Derivation",
     "DifferentialExtension",
@@ -59,6 +62,7 @@ __all__ = [
     "MonomialExtension",
     "MonomialFamily",
     "polynomial_reduce_monomial",
+    "residue_reduce_monomial",
     "rothstein_trager_residue_polynomial",
     "SimpleRadicalData",
     "split_normal_special",

@@ -486,8 +486,9 @@ its own commit.
   Rothstein--Trager resultant and coefficient derivation `kappa`.
 - [x] Return the square-free factors `R_i`, constant parts
   `gcd(R_i, kappa(R_i))`, and explicit nonconstant-residue obstructions.
-- [ ] Extract the accepted logarithmic terms with a generalized LRT
-  subresultant computation.
+- [x] Extract accepted constant-residue logarithmic terms with a generalized
+  LRT subresultant computation, and reconstruct their derivative by a
+  quotient-ring trace without adjoining algebraic constants explicitly.
 - Implement polynomial reduction in a primitive extension.
 - Implement the recursive in-field exact-derivative problem.
 - Prove nonexistence when the reduced obstruction is nonzero.
