@@ -13,6 +13,7 @@ from sympy_risch import (
     hermite_reduce_rational_recursive,
     polynomial_reduce_monomial,
     reduce_monomial_reduced_function,
+    reduce_nonlinear_monomial,
     residue_reduce_monomial,
     split_normal_special,
 )
@@ -557,6 +558,237 @@ def test_generated_reduced_function_logarithms_reconstruct_input(
     assert reduction.logarithmic_derivative + reduction.remainder == integrand
     assert reduction.remainder == field.from_sympy(background)
     assert not reduction.has_infinity_obstruction
+    assert not reduction.needs_special_polynomial
+
+
+def test_nonlinear_pipeline_combines_every_common_reduction_stage() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    derivation = tower.derivation()
+    repeated_pole_exact = field.from_sympy((x + 1)/(t - 1)**2)
+    polynomial_exact = field.from_sympy(t**5)
+    normal_factor = field.from_sympy(t - 2)
+    normal_logarithmic_derivative = (
+        3*derivation(normal_factor)/normal_factor
+    )
+    infinity_logarithmic_derivative = field.from_sympy(4*t)
+    final_remainder = field.from_sympy(3 + 1/(1 + t**2))
+    integrand = (
+        derivation(repeated_pole_exact + polynomial_exact)
+        + normal_logarithmic_derivative
+        + infinity_logarithmic_derivative
+        + final_remainder
+    )
+
+    reduction = reduce_nonlinear_monomial(integrand, derivation)
+
+    assert reduction.hermite_exact_part == repeated_pole_exact
+    assert reduction.polynomial_exact_part == Poly(
+        t**5,
+        t,
+        domain=tower.field(0),
+    )
+    assert reduction.polynomial_remainder == Poly(
+        4*t + 3,
+        t,
+        domain=tower.field(0),
+    )
+    assert reduction.exact_part == repeated_pole_exact + polynomial_exact
+    assert reduction.residue_reduction.logarithmic_derivative == (
+        normal_logarithmic_derivative
+    )
+    assert reduction.reduced_function_reduction is not None
+    assert reduction.reduced_function_reduction.logarithmic_derivative == (
+        infinity_logarithmic_derivative
+    )
+    assert reduction.logarithmic_derivative == (
+        normal_logarithmic_derivative
+        + infinity_logarithmic_derivative
+    )
+    assert reduction.remainder == final_remainder
+    assert (
+        derivation(reduction.exact_part)
+        + reduction.logarithmic_derivative
+        + reduction.remainder
+        == integrand
+    )
+    assert not reduction.has_obstruction
+    assert not reduction.needs_special_polynomial
+
+    second = reduce_nonlinear_monomial(reduction.remainder, derivation)
+    assert second.exact_part == field.zero
+    assert second.logarithmic_derivative == field.zero
+    assert second.remainder == reduction.remainder
+
+
+def test_nonlinear_pipeline_stops_after_a_finite_residue_obstruction() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    derivation = tower.derivation()
+    normal_factor = field.from_sympy(t - 1)
+    finite_obstruction = (
+        field.from_sympy(x)*derivation(normal_factor)/normal_factor
+    )
+    polynomial_exact = field.from_sympy(t**4)
+    integrand = derivation(polynomial_exact) + finite_obstruction
+
+    reduction = reduce_nonlinear_monomial(integrand, derivation)
+
+    assert reduction.has_finite_residue_obstruction
+    assert reduction.has_obstruction
+    assert not reduction.has_infinity_obstruction
+    assert reduction.reduced_function_reduction is None
+    assert reduction.polynomial_exact_part == Poly(
+        t**4,
+        t,
+        domain=tower.field(0),
+    )
+    assert (
+        reduction.polynomial_remainder.is_zero
+        or reduction.polynomial_remainder.degree()
+        < tower.levels[-1].generator_derivative.degree()
+    )
+    assert (
+        derivation(reduction.exact_part)
+        + reduction.logarithmic_derivative
+        + reduction.remainder
+        == integrand
+    )
+
+
+def test_nonlinear_pipeline_reports_the_infinity_obstruction() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    integrand = field.from_sympy(x*t + 3)
+
+    reduction = reduce_nonlinear_monomial(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert not reduction.has_finite_residue_obstruction
+    assert reduction.has_infinity_obstruction
+    assert reduction.has_obstruction
+    assert reduction.remainder == integrand
+
+
+def test_nonlinear_pipeline_records_an_unknown_special_polynomial() -> None:
+    tower = monomial_tower(t**2 + x)
+    field = tower.field()
+    integrand = field.from_sympy(t)
+
+    reduction = reduce_nonlinear_monomial(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert not reduction.has_obstruction
+    assert reduction.needs_special_polynomial
+    assert reduction.remainder == integrand
+
+
+def test_nonlinear_pipeline_accepts_a_supplied_special_polynomial() -> None:
+    tower = monomial_tower(t**2 - x*t + 1)
+    parent = tower.field(0)
+    field = tower.field()
+    special = Poly(t - x, t, domain=parent)
+    integrand = field.from_sympy(t)
+
+    reduction = reduce_nonlinear_monomial(
+        integrand,
+        tower.derivation(),
+        special_polynomial=special,
+    )
+
+    assert reduction.reduced_function_reduction is not None
+    assert reduction.reduced_function_reduction.logarithmic_argument == special
+    assert reduction.logarithmic_derivative == integrand
+    assert reduction.remainder == field.zero
+    assert not reduction.needs_special_polynomial
+
+
+def test_nonlinear_pipeline_enforces_its_family_and_constant_hypotheses() -> None:
+    primitive_tower = monomial_tower(1/x)
+    with pytest.raises(ValueError, match=r"degree\(Dt\) >= 2"):
+        reduce_nonlinear_monomial(
+            primitive_tower.field().from_sympy(t),
+            primitive_tower.derivation(),
+        )
+
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    unknown = rational.extend(
+        MonomialExtension(
+            Poly(1 + t**2, t, domain=rational.field()),
+        ),
+    )
+    with pytest.raises(ValueError, match="status is unknown"):
+        reduce_nonlinear_monomial(
+            unknown.field().from_sympy(t),
+            unknown.derivation(),
+        )
+
+
+@given(
+    example=st.sampled_from(
+        (
+            (1 + t**2, t - 1),
+            (t + t**3, t - 1),
+            (t**2 + x, t - 1),
+        ),
+    ),
+    fraction_coefficient=st.integers(min_value=-3, max_value=3),
+    fraction_power=st.integers(min_value=2, max_value=4),
+    polynomial_coefficient=st.integers(min_value=-3, max_value=3),
+    polynomial_power=st.integers(min_value=1, max_value=5),
+    residue_value=st.integers(min_value=-3, max_value=3),
+    final_constant=st.integers(min_value=-3, max_value=3),
+)
+@settings(max_examples=35, deadline=None)
+def test_generated_nonlinear_pipelines_reconstruct_planted_stages(
+    example,
+    fraction_coefficient,
+    fraction_power,
+    polynomial_coefficient,
+    polynomial_power,
+    residue_value,
+    final_constant,
+) -> None:
+    generator_derivative, normal_factor_expression = example
+    tower = monomial_tower(generator_derivative)
+    field = tower.field()
+    derivation = tower.derivation()
+    fraction_exact = field.from_sympy(
+        fraction_coefficient/(t - 2)**fraction_power,
+    )
+    polynomial_exact = field.from_sympy(
+        polynomial_coefficient*t**polynomial_power,
+    )
+    normal_factor = field.from_sympy(normal_factor_expression)
+    planted_logarithmic_derivative = (
+        residue_value*derivation(normal_factor)/normal_factor
+    )
+    final_remainder = field.from_sympy(final_constant)
+    integrand = (
+        derivation(fraction_exact + polynomial_exact)
+        + planted_logarithmic_derivative
+        + final_remainder
+    )
+
+    reduction = reduce_nonlinear_monomial(integrand, derivation)
+
+    assert (
+        derivation(reduction.exact_part)
+        + reduction.logarithmic_derivative
+        + reduction.remainder
+        == integrand
+    )
+    assert reduction.remainder == final_remainder
+    assert not reduction.has_obstruction
     assert not reduction.needs_special_polynomial
 
 

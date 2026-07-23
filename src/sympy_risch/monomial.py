@@ -110,6 +110,59 @@ class ReducedFunctionReduction:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class NonlinearMonomialReduction:
+    r"""End-to-end common reduction of a nonlinear monomial integrand.
+
+    The nested results retain the finite-residue and residue-at-infinity
+    certificates.  The flattened ``exact_part``, ``logarithmic_derivative``,
+    and ``remainder`` satisfy
+
+    ``f = D(exact_part) + logarithmic_derivative + remainder``.
+
+    Family-specific reduction of the final special part is deliberately a
+    later step.
+    """
+
+    hermite_exact_part: Any
+    residue_reduction: BronsteinResidueReduction
+    polynomial_exact_part: Poly
+    polynomial_remainder: Poly
+    reduced_function_reduction: ReducedFunctionReduction | None
+    exact_part: Any
+    logarithmic_derivative: Any
+    remainder: Any
+
+    @property
+    def has_finite_residue_obstruction(self) -> bool:
+        """Whether a nonconstant normal residue proves non-elementarity."""
+        return not self.residue_reduction.all_normal_residues_removed
+
+    @property
+    def has_infinity_obstruction(self) -> bool:
+        """Whether the reduced polynomial has a nonconstant infinity residue."""
+        return (
+            self.reduced_function_reduction is not None
+            and self.reduced_function_reduction.has_infinity_obstruction
+        )
+
+    @property
+    def has_obstruction(self) -> bool:
+        """Whether either common structure theorem proves non-elementarity."""
+        return (
+            self.has_finite_residue_obstruction
+            or self.has_infinity_obstruction
+        )
+
+    @property
+    def needs_special_polynomial(self) -> bool:
+        """Whether infinity reduction awaits a known nontrivial special."""
+        return (
+            self.reduced_function_reduction is not None
+            and self.reduced_function_reduction.needs_special_polynomial
+        )
+
+
 def split_normal_special(
     polynomial: Poly,
     derivation: Derivation,
@@ -705,6 +758,94 @@ def reduce_monomial_reduced_function(
         logarithmic_argument=logarithmic_argument,
         logarithmic_derivative=logarithmic_derivative,
         reduced_remainder=reduced_remainder,
+    )
+
+
+def reduce_nonlinear_monomial(
+    integrand: Any,
+    derivation: Derivation,
+    *,
+    residue: Symbol | None = None,
+    special_polynomial: Poly | None = None,
+) -> NonlinearMonomialReduction:
+    r"""Apply all common reductions for a nonlinear monomial extension.
+
+    The stages are, in order:
+
+    1. Hermite reduction of repeated normal poles;
+    2. generalized residue reduction of the simple normal fraction;
+    3. nonlinear polynomial reduction;
+    4. residue-at-infinity reduction when no finite obstruction remains.
+
+    The function requires the top extension to record the no-new-constants
+    hypothesis.  It does not perform the final primitive, hyperexponential,
+    hypertangent, or nonlinear-no-special family reduction.
+    """
+    if derivation.level < 0:
+        raise TypeError("nonlinear reduction requires a monomial level")
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("nonlinear reduction requires a monomial level")
+    extension.require_preserved_constants("nonlinear monomial reduction")
+    if extension.generator_derivative.degree() < 2:
+        raise ValueError("nonlinear reduction requires degree(Dt) >= 2")
+
+    field = extension.field
+    element = _coerce(field, integrand)
+    hermite_exact_part, hermite_remainder = hermite_reduce_monomial(
+        element,
+        derivation,
+    )
+    residue_reduction = residue_reduce_monomial(
+        hermite_remainder,
+        derivation,
+        residue,
+    )
+
+    polynomial_part, _, _ = _polynomial_and_proper_fraction(
+        residue_reduction.remainder,
+        extension,
+    )
+    polynomial_exact_part, polynomial_remainder = polynomial_reduce_monomial(
+        polynomial_part,
+        derivation,
+    )
+    polynomial_exact_element = _coerce(
+        field,
+        polynomial_exact_part.as_expr(),
+    )
+    exact_part = hermite_exact_part + polynomial_exact_element
+    after_polynomial_reduction = (
+        residue_reduction.remainder
+        - derivation(polynomial_exact_element)
+    )
+
+    reduced_function_reduction = None
+    infinity_logarithmic_derivative = field.zero
+    remainder = after_polynomial_reduction
+    if residue_reduction.all_normal_residues_removed:
+        reduced_function_reduction = reduce_monomial_reduced_function(
+            after_polynomial_reduction,
+            derivation,
+            special_polynomial,
+        )
+        infinity_logarithmic_derivative = (
+            reduced_function_reduction.logarithmic_derivative
+        )
+        remainder = reduced_function_reduction.remainder
+
+    return NonlinearMonomialReduction(
+        hermite_exact_part,
+        residue_reduction,
+        polynomial_exact_part,
+        polynomial_remainder,
+        reduced_function_reduction,
+        exact_part,
+        (
+            residue_reduction.logarithmic_derivative
+            + infinity_logarithmic_derivative
+        ),
+        remainder,
     )
 
 
