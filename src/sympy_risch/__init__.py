@@ -9,6 +9,11 @@ from .algebraic import (
     recognize_simple_radical,
     simple_radical_integral_basis,
 )
+from .dependency import (
+    HyperexponentialDependency,
+    HyperexponentialDependencyKind,
+    analyze_hyperexponential_extension,
+)
 from .exact import ExactDerivativeResult, solve_exact_derivative
 from .lrt import lazard_rioboo_trager
 from .monomial import (
@@ -69,6 +74,8 @@ __all__ = [
     "BronsteinResidueReduction",
     "ConstantFieldStatus",
     "ExactDerivativeResult",
+    "HyperexponentialDependency",
+    "HyperexponentialDependencyKind",
     "NonlinearMonomialReduction",
     "NonlinearNoSpecialReduction",
     "NonlinearNoSpecialStatus",
@@ -81,6 +88,7 @@ __all__ = [
     "RationalLogDerivativeFactor",
     "RationalLogDerivativeResult",
     "bronstein_residue_criterion",
+    "analyze_hyperexponential_extension",
     "Derivation",
     "DifferentialExtension",
     "DifferentialTower",
