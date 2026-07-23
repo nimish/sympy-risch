@@ -7,6 +7,7 @@ from sympy.polys.domains import QQ
 from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
+    bronstein_residue_criterion,
     hermite_reduce_monomial,
     hermite_reduce_rational_recursive,
     split_normal_special,
@@ -375,3 +376,193 @@ def test_monomial_hermite_reduces_nonlinear_normal_factors(
     assert exact == planted_exact
     assert remainder == field.zero
     assert derivation(exact) + remainder == integrand
+
+
+def test_bronstein_criterion_rejects_the_logarithmic_integral_residue() -> None:
+    # With t = log(x), 1/t has residue x because D(t) = 1/x.  Since Dx != 0,
+    # Liouville's theorem rules out an elementary logarithmic term.
+    tower = monomial_tower(1/x)
+    z = symbols("z")
+
+    certificate = bronstein_residue_criterion(
+        tower.field().from_sympy(1/t),
+        tower.derivation(),
+        z,
+    )
+
+    assert certificate.normal_numerator == Poly(1, t, domain=tower.field(0))
+    assert certificate.normal_denominator == Poly(t, t, domain=tower.field(0))
+    assert certificate.residue_polynomial == Poly(z - x, z, domain=tower.field(0))
+    assert certificate.kappa_residue_polynomial == Poly(
+        -1,
+        z,
+        domain=tower.field(0),
+    )
+    assert not certificate.all_residues_constant
+    assert certificate.factors[0].constant_factor == Poly(
+        1,
+        z,
+        domain=tower.field(0),
+    )
+    assert certificate.factors[0].nonconstant_factor == Poly(
+        z - x,
+        z,
+        domain=tower.field(0),
+    )
+
+
+def test_bronstein_criterion_accepts_log_log_residue() -> None:
+    # 1/(x*t) has the constant residue 1 and integrates to log(t).
+    tower = monomial_tower(1/x)
+    z = symbols("z")
+
+    certificate = bronstein_residue_criterion(
+        tower.field().from_sympy(1/(x*t)),
+        tower.derivation(),
+        z,
+    )
+
+    assert certificate.normal_numerator == Poly(1/x, t, domain=tower.field(0))
+    assert certificate.normal_denominator == Poly(t, t, domain=tower.field(0))
+    assert certificate.residue_polynomial == Poly(z - 1, z, domain=tower.field(0))
+    assert certificate.kappa_residue_polynomial.is_zero
+    assert certificate.all_residues_constant
+    assert certificate.factors[0].constant_factor == Poly(
+        z - 1,
+        z,
+        domain=tower.field(0),
+    )
+    assert certificate.factors[0].nonconstant_factor == Poly(
+        1,
+        z,
+        domain=tower.field(0),
+    )
+
+
+def test_bronstein_criterion_splits_constant_and_nonconstant_roots() -> None:
+    tower = monomial_tower(1/x)
+    z = symbols("z")
+    # The residues at t=0 and t=1 are respectively 1 and x.
+    remainder = tower.field().from_sympy(
+        1/(x*t) + 1/(t - 1),
+    )
+
+    certificate = bronstein_residue_criterion(
+        remainder,
+        tower.derivation(),
+        z,
+    )
+
+    factor = certificate.factors[0]
+    assert certificate.residue_polynomial == Poly(
+        (z - 1)*(z - x),
+        z,
+        domain=tower.field(0),
+    )
+    assert factor.constant_factor == Poly(z - 1, z, domain=tower.field(0))
+    assert factor.nonconstant_factor == Poly(z - x, z, domain=tower.field(0))
+    assert not certificate.all_residues_constant
+
+
+def test_bronstein_criterion_isolates_normal_from_special_fraction() -> None:
+    # For Dt=t, t is special and t-1 is normal:
+    # 1/(t*(t-1)) = 1/(t-1) - 1/t.
+    tower = monomial_tower(t)
+    z = symbols("z")
+
+    certificate = bronstein_residue_criterion(
+        tower.field().from_sympy(1/(t*(t - 1))),
+        tower.derivation(),
+        z,
+    )
+
+    assert certificate.normal_numerator == Poly(1, t, domain=tower.field(0))
+    assert certificate.normal_denominator == Poly(t - 1, t, domain=tower.field(0))
+    assert certificate.residue_polynomial == Poly(z - 1, z, domain=tower.field(0))
+    assert certificate.all_residues_constant
+
+
+def test_bronstein_criterion_ignores_polynomial_and_special_only_parts() -> None:
+    tower = monomial_tower(t)
+    z = symbols("z")
+
+    certificate = bronstein_residue_criterion(
+        tower.field().from_sympy(t**2 + 1/t),
+        tower.derivation(),
+        z,
+    )
+
+    assert certificate.normal_numerator.is_zero
+    assert certificate.normal_denominator.is_one
+    assert certificate.residue_polynomial.is_one
+    assert certificate.kappa_residue_polynomial.is_zero
+    assert certificate.factors == ()
+    assert certificate.all_residues_constant
+
+
+def test_bronstein_criterion_requires_prior_hermite_reduction() -> None:
+    tower = monomial_tower(1/x)
+
+    with pytest.raises(ValueError, match="Hermite-reduced normal denominator"):
+        bronstein_residue_criterion(
+            tower.field().from_sympy(1/t**2),
+            tower.derivation(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("generator_derivative", "normal_factor"),
+    [
+        (1/x, t),
+        (t, t - 1),
+        (1 + t**2, t),
+        (t**3 + x, t - 1),
+    ],
+)
+def test_bronstein_criterion_across_monomial_families(
+    generator_derivative,
+    normal_factor,
+) -> None:
+    tower = monomial_tower(generator_derivative)
+    field = tower.field()
+    logarithmic_derivative = tower.derivation()(field.from_sympy(normal_factor))
+    logarithmic_derivative /= field.from_sympy(normal_factor)
+
+    constant_certificate = bronstein_residue_criterion(
+        2*logarithmic_derivative,
+        tower.derivation(),
+    )
+    variable_certificate = bronstein_residue_criterion(
+        field.from_sympy(x)*logarithmic_derivative,
+        tower.derivation(),
+    )
+
+    assert constant_certificate.all_residues_constant
+    assert not variable_certificate.all_residues_constant
+
+
+@given(
+    constant_residue=st.integers(min_value=-3, max_value=3),
+    slope=st.integers(min_value=-3, max_value=3),
+    intercept=st.integers(min_value=-3, max_value=3),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_bronstein_criterion_matches_planted_residues(
+    constant_residue,
+    slope,
+    intercept,
+) -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    variable_residue = slope*x + intercept
+    remainder = field.from_sympy(
+        constant_residue/(x*t)
+        + variable_residue/(x*(t - 1)),
+    )
+
+    certificate = bronstein_residue_criterion(
+        remainder,
+        tower.derivation(),
+    )
+
+    assert certificate.all_residues_constant is (slope == 0)

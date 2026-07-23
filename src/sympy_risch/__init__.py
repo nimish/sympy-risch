@@ -10,7 +10,13 @@ from .algebraic import (
     simple_radical_integral_basis,
 )
 from .lrt import lazard_rioboo_trager
-from .monomial import hermite_reduce_monomial, split_normal_special
+from .monomial import (
+    BronsteinResidueCertificate,
+    BronsteinResidueFactor,
+    bronstein_residue_criterion,
+    hermite_reduce_monomial,
+    split_normal_special,
+)
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
@@ -33,6 +39,9 @@ __version__ = "0.1.0"
 __all__ = [
     "AlgebraicExtension",
     "AlgebraicFraction",
+    "BronsteinResidueCertificate",
+    "BronsteinResidueFactor",
+    "bronstein_residue_criterion",
     "Derivation",
     "DifferentialExtension",
     "DifferentialTower",
