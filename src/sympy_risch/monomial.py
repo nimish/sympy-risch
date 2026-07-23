@@ -7,11 +7,13 @@ from enum import Enum
 from typing import Any
 
 from sympy.core.symbol import Dummy, Symbol
+from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
-from sympy.polys.polytools import resultant
+from sympy.polys.polytools import cancel, invert, resultant
 from sympy.simplify.radsimp import fraction
 
 from .lrt import _differential_lazard_rioboo_trager
+from .rational import solve_rational_exact_derivative
 from .tower import Derivation, MonomialExtension, _coerce, _domain_symbols
 
 
@@ -198,6 +200,47 @@ class NonlinearNoSpecialReduction:
         return not self.reduced_to_lower_field
 
 
+@dataclass(frozen=True, slots=True)
+class PrimitivePolynomialStep:
+    r"""One coefficient reduction modulo ``D(K) + C*Dt``.
+
+    For the current coefficient ``a``, the fields record
+
+    ``a = D(exact_coefficient) + eta_multiple*Dt + obstruction``.
+
+    All field-valued entries are native elements of the parent SymPy domain.
+    """
+
+    degree: int
+    coefficient: Any
+    exact_coefficient: Any
+    eta_multiple: Any
+    obstruction: Any
+
+
+@dataclass(frozen=True, slots=True)
+class PrimitivePolynomialReduction:
+    r"""Certified polynomial reduction in a primitive extension."""
+
+    exact_part: Poly
+    remainder: Poly
+    steps: tuple[PrimitivePolynomialStep, ...]
+
+    @property
+    def has_obstruction(self) -> bool:
+        """Whether the polynomial is not an exact derivative in the extension."""
+        return not self.remainder.is_zero
+
+
+@dataclass(frozen=True, slots=True)
+class _RationalObstructionPivot:
+    """One nonzero rational residue coordinate used to quotient by ``C*eta``."""
+
+    factor: Poly
+    degree: int
+    value: Any
+
+
 def split_normal_special(
     polynomial: Poly,
     derivation: Derivation,
@@ -296,6 +339,243 @@ def polynomial_reduce_monomial(
         remainder = new_remainder
 
     return exact_part, remainder
+
+
+def _standard_rational_base_variable(derivation: Derivation) -> Symbol:
+    """Return ``x`` when ``derivation`` is the standard ``d/dx`` on ``QQ(x)``."""
+    if derivation.level != 0:
+        raise NotImplementedError(
+            "primitive polynomial reduction currently requires the lower "
+            "field QQ(x)"
+        )
+    extension = derivation.tower.levels[0]
+    if (
+        not isinstance(extension, MonomialExtension)
+        or extension.parent_field != QQ
+        or extension.generator_derivative
+        != Poly(1, extension.generator, domain=QQ)
+    ):
+        raise NotImplementedError(
+            "primitive polynomial reduction currently requires QQ(x) "
+            "with Dx = 1"
+        )
+    return extension.generator
+
+
+def _qq_reduced_fraction(
+    expression: Any,
+    variable: Symbol,
+) -> tuple[Poly, Poly]:
+    """Return a fraction over ``QQ`` with a monic denominator."""
+    numerator_expression, denominator_expression = cancel(
+        expression,
+    ).as_numer_denom()
+    numerator = Poly(numerator_expression, variable, domain=QQ)
+    denominator = Poly(denominator_expression, variable, domain=QQ)
+    coefficient, numerator, denominator = numerator.cancel(denominator)
+    numerator = numerator.mul_ground(coefficient)
+    leading_inverse = QQ.one/denominator.LC()
+    return numerator.mul_ground(leading_inverse), denominator.monic()
+
+
+def _partial_numerator(
+    obstruction: Any,
+    factor: Poly,
+    variable: Symbol,
+) -> Poly:
+    r"""Return the numerator of the ``1/factor`` partial-fraction component."""
+    numerator, denominator = _qq_reduced_fraction(
+        obstruction.as_expr(),
+        variable,
+    )
+    if not denominator.rem(factor).is_zero:
+        return factor.zero
+    cofactor = denominator.exquo(factor)
+    return (numerator*invert(cofactor, factor)).rem(factor)
+
+
+def _rational_obstruction_pivot(
+    eta_obstruction: Any,
+    variable: Symbol,
+) -> _RationalObstructionPivot:
+    """Choose a deterministic nonzero coordinate of the class of ``eta``."""
+    _, denominator = _qq_reduced_fraction(
+        eta_obstruction.as_expr(),
+        variable,
+    )
+    factors = denominator.factor_list()[1]
+    if not factors:
+        raise ValueError("a nonzero rational obstruction needs a pole")
+    factor = factors[0][0]
+    partial_numerator = _partial_numerator(
+        eta_obstruction,
+        factor,
+        variable,
+    )
+    (degree,), value = partial_numerator.terms()[0]
+    return _RationalObstructionPivot(
+        factor,
+        degree,
+        QQ.convert(value),
+    )
+
+
+def _rational_coefficient_reduction(
+    coefficient: Any,
+    eta_exact_part: Any,
+    eta_obstruction: Any,
+    pivot: _RationalObstructionPivot,
+    parent: Any,
+    variable: Symbol,
+) -> tuple[Any, Any, Any]:
+    r"""Return ``b, c, r`` such that ``a = Db + c*eta + r``."""
+    result = solve_rational_exact_derivative(
+        coefficient.as_expr(),
+        variable,
+    )
+    coefficient_exact_part = _coerce(parent, result.exact_part)
+    coefficient_obstruction = _coerce(parent, result.obstruction)
+
+    if coefficient_obstruction == parent.zero:
+        eta_multiple = QQ.zero
+    else:
+        coordinate = _partial_numerator(
+            coefficient_obstruction,
+            pivot.factor,
+            variable,
+        ).nth(pivot.degree)
+        eta_multiple = QQ.exquo(
+            QQ.convert(coordinate),
+            pivot.value,
+        )
+
+    exact_coefficient = (
+        coefficient_exact_part
+        - parent.convert(eta_multiple)*eta_exact_part
+    )
+    obstruction = (
+        coefficient_obstruction
+        - parent.convert(eta_multiple)*eta_obstruction
+    )
+    return exact_coefficient, eta_multiple, obstruction
+
+
+def polynomial_reduce_primitive(
+    polynomial: Poly,
+    derivation: Derivation,
+) -> PrimitivePolynomialReduction:
+    r"""Reduce a polynomial over a primitive ``QQ(x)(t)`` extension.
+
+    Let ``Dt = eta``.  At each degree this solves
+
+    .. math::
+
+        a = Db + c\eta + r,\qquad b\in\mathbb{Q}(x),\ c\in\mathbb{Q},
+
+    using rational Hermite remainders as canonical representatives modulo
+    derivatives.  It then subtracts
+
+    .. math::
+
+        D\left(bt^n + \frac{c}{n+1}t^{n+1}\right).
+
+    The returned fields satisfy ``polynomial = D(exact_part) + remainder``.
+    Every nonzero coefficient of ``remainder`` is reduced modulo
+    ``D(QQ(x)) + QQ*eta``.
+
+    This first recursive base case deliberately requires the standard lower
+    field ``QQ(x)`` with ``Dx = 1``.  Later exact-derivative dispatch will
+    replace that restriction for deeper towers.
+    """
+    if not isinstance(polynomial, Poly):
+        raise TypeError("polynomial must be a SymPy Poly")
+    if derivation.level < 0:
+        raise TypeError("primitive polynomial reduction requires a monomial level")
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("primitive polynomial reduction requires a monomial level")
+
+    derivation.polynomial(polynomial)
+    if extension.generator_derivative.degree() != 0:
+        raise ValueError("primitive polynomial reduction requires Dt in K")
+    extension.require_preserved_constants("primitive polynomial reduction")
+
+    lower_derivation = derivation.lower()
+    variable = _standard_rational_base_variable(lower_derivation)
+    parent = extension.parent_field
+    eta = parent.convert(extension.generator_derivative.nth(0))
+    eta_result = solve_rational_exact_derivative(eta.as_expr(), variable)
+    if eta_result.has_solution:
+        raise ValueError(
+            "constant-field status is preserved, but Dt is exact in the "
+            "lower field"
+        )
+    eta_exact_part = _coerce(parent, eta_result.exact_part)
+    eta_obstruction = _coerce(parent, eta_result.obstruction)
+    pivot = _rational_obstruction_pivot(
+        eta_obstruction,
+        variable,
+    )
+
+    exact_part = polynomial.zero
+    remainder = polynomial.zero
+    working = polynomial
+    steps: list[PrimitivePolynomialStep] = []
+
+    while not working.is_zero:
+        degree = working.degree()
+        coefficient = parent.convert(working.nth(degree))
+        exact_coefficient, eta_multiple, obstruction = (
+            _rational_coefficient_reduction(
+                coefficient,
+                eta_exact_part,
+                eta_obstruction,
+                pivot,
+                parent,
+                variable,
+            )
+        )
+        correction = Poly.from_dict(
+            {
+                (degree,): exact_coefficient,
+                (degree + 1,): parent.convert(
+                    eta_multiple/QQ.convert(degree + 1)
+                ),
+            },
+            extension.generator,
+            domain=parent,
+        )
+        obstruction_term = Poly.from_dict(
+            {(degree,): obstruction},
+            extension.generator,
+            domain=parent,
+        )
+        new_working = (
+            working
+            - derivation.polynomial(correction)
+            - obstruction_term
+        )
+        if not new_working.is_zero and new_working.degree() >= degree:
+            raise ValueError("primitive polynomial reduction did not lower the degree")
+
+        exact_part += correction
+        remainder += obstruction_term
+        steps.append(
+            PrimitivePolynomialStep(
+                degree,
+                coefficient,
+                exact_coefficient,
+                eta_multiple,
+                obstruction,
+            )
+        )
+        working = new_working
+
+    return PrimitivePolynomialReduction(
+        exact_part,
+        remainder,
+        tuple(steps),
+    )
 
 
 def _reduced_polynomial_fraction(

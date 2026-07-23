@@ -14,6 +14,7 @@ from sympy_risch import (
     hermite_reduce_monomial,
     hermite_reduce_rational_recursive,
     polynomial_reduce_monomial,
+    polynomial_reduce_primitive,
     reduce_monomial_reduced_function,
     reduce_nonlinear_monomial,
     reduce_nonlinear_no_special,
@@ -325,6 +326,360 @@ def test_generated_nonlinear_polynomial_reductions_reconstruct_input(
     delta = tower.levels[-1].generator_derivative.degree()
     assert derivation.polynomial(exact) + remainder == polynomial
     assert remainder.is_zero or remainder.degree() < delta
+
+
+@pytest.mark.parametrize(
+    ("polynomial_expression", "expected_exact_expression"),
+    [
+        (t, x*t - x),
+        (t**2, x*(t**2 - 2*t + 2)),
+        (t**3/x, t**4/4),
+    ],
+)
+def test_primitive_polynomial_reduction_basic_logarithmic_examples(
+    polynomial_expression,
+    expected_exact_expression,
+) -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    polynomial = Poly(polynomial_expression, t, domain=parent)
+
+    result = polynomial_reduce_primitive(polynomial, tower.derivation())
+
+    assert result.exact_part == Poly(
+        expected_exact_expression,
+        t,
+        domain=parent,
+    )
+    assert result.remainder.is_zero
+    assert not result.has_obstruction
+    assert tower.derivation().polynomial(result.exact_part) == polynomial
+
+
+def test_primitive_polynomial_reduction_records_the_eta_direction() -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    polynomial = Poly(t**5/x, t, domain=parent)
+
+    result = polynomial_reduce_primitive(polynomial, tower.derivation())
+
+    assert result.exact_part == Poly(t**6/6, t, domain=parent)
+    assert result.remainder.is_zero
+    assert len(result.steps) == 1
+    step = result.steps[0]
+    assert step.degree == 5
+    assert step.exact_coefficient == parent.zero
+    assert step.eta_multiple == QQ.one
+    assert step.obstruction == parent.zero
+
+
+@pytest.mark.parametrize(
+    "eta",
+    [
+        1/x - 1/(x - 1)**2,
+        1/x + 2/(x - 1),
+        1/(x**2 + 1),
+    ],
+)
+def test_primitive_polynomial_reduction_handles_general_rational_eta(
+    eta,
+) -> None:
+    tower = monomial_tower(eta)
+    parent = tower.field(0)
+    polynomial = Poly(eta*t**4, t, domain=parent)
+
+    result = polynomial_reduce_primitive(polynomial, tower.derivation())
+
+    assert result.exact_part == Poly(t**5/5, t, domain=parent)
+    assert result.remainder.is_zero
+    assert result.steps[0].eta_multiple == QQ.one
+
+
+def test_primitive_polynomial_reduction_uses_one_residue_coordinate_as_pivot() -> None:
+    # In QQ[x]/(x**2 + 1), the residue numerators 1 and x are independent
+    # over QQ.  Quotienting by C*eta removes the constant coordinate while
+    # retaining the x coordinate as a canonical obstruction.
+    eta = 1/(x**2 + 1)
+    tower = monomial_tower(eta)
+    parent = tower.field(0)
+    independent_obstruction = parent.from_sympy(x/(x**2 + 1))
+    polynomial = Poly((x + 3)*t**2/(x**2 + 1), t, domain=parent)
+
+    result = polynomial_reduce_primitive(polynomial, tower.derivation())
+    leading_step = result.steps[0]
+
+    assert leading_step.eta_multiple == QQ(3)
+    assert leading_step.obstruction == independent_obstruction
+    assert parent.convert(result.remainder.nth(2)) == independent_obstruction
+    assert (
+        tower.derivation().polynomial(result.exact_part)
+        + result.remainder
+        == polynomial
+    )
+
+    second = polynomial_reduce_primitive(
+        result.remainder,
+        tower.derivation(),
+    )
+    assert second.exact_part.is_zero
+    assert second.remainder == result.remainder
+
+
+def test_primitive_polynomial_reduction_exposes_a_nonproportional_class() -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    polynomial = Poly(t**3/(x - 1), t, domain=parent)
+
+    result = polynomial_reduce_primitive(polynomial, tower.derivation())
+
+    assert result.exact_part.is_zero
+    assert result.remainder == polynomial
+    assert result.has_obstruction
+    assert len(result.steps) == 1
+    step = result.steps[0]
+    assert step.exact_coefficient == parent.zero
+    assert step.eta_multiple == QQ.zero
+    assert step.obstruction == parent.from_sympy(1/(x - 1))
+
+    # The obstruction has a pole at x=1 while eta=1/x does not, so no
+    # rational constant multiple of eta can cancel its residue class.
+    assert cancel(
+        step.obstruction.as_expr()/(parent.from_sympy(1/x)).as_expr()
+    ) == x/(x - 1)
+
+    second = polynomial_reduce_primitive(
+        result.remainder,
+        tower.derivation(),
+    )
+    assert second.exact_part.is_zero
+    assert second.remainder == result.remainder
+
+
+def test_primitive_polynomial_reduction_separates_all_three_components() -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    derivation = tower.derivation()
+    exact_coefficient = parent.from_sympy(1/(x - 2))
+    eta = parent.from_sympy(1/x)
+    obstruction = parent.from_sympy(1/(x - 1))
+    coefficient = (
+        derivation.lower()(exact_coefficient)
+        + 2*eta
+        + obstruction
+    )
+    polynomial = Poly.from_dict({(2,): coefficient}, t, domain=parent)
+
+    result = polynomial_reduce_primitive(polynomial, derivation)
+    leading_step = result.steps[0]
+
+    assert leading_step.degree == 2
+    assert leading_step.coefficient == coefficient
+    assert leading_step.exact_coefficient == exact_coefficient
+    assert leading_step.eta_multiple == QQ(2)
+    assert leading_step.obstruction == obstruction
+    assert derivation.polynomial(result.exact_part) + result.remainder == polynomial
+    assert parent.convert(result.remainder.nth(2)) == obstruction
+
+
+def test_primitive_polynomial_steps_are_independently_reconstructible() -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    derivation = tower.derivation()
+    eta = parent.from_sympy(1/x)
+    polynomial = Poly(
+        (1/(x - 1) - 1/(x - 2)**2 + 3/x)*t**3
+        + (x + 1)*t,
+        t,
+        domain=parent,
+    )
+
+    result = polynomial_reduce_primitive(polynomial, derivation)
+
+    assert derivation.polynomial(result.exact_part) + result.remainder == polynomial
+    for step in result.steps:
+        assert step.coefficient == (
+            derivation.lower()(step.exact_coefficient)
+            + parent.convert(step.eta_multiple)*eta
+            + step.obstruction
+        )
+
+
+def test_primitive_polynomial_reduction_handles_zero() -> None:
+    tower = monomial_tower(1/x)
+    zero = Poly(0, t, domain=tower.field(0))
+
+    result = polynomial_reduce_primitive(zero, tower.derivation())
+
+    assert result.exact_part.is_zero
+    assert result.remainder.is_zero
+    assert result.steps == ()
+
+
+@pytest.mark.parametrize("eta", [1, 1/x**2, 2*x + 1])
+def test_primitive_polynomial_reduction_rejects_an_exact_Dt(eta) -> None:
+    # If eta = Du in QQ(x), then D(t-u)=0, contradicting the asserted
+    # no-new-constants hypothesis.
+    tower = monomial_tower(eta)
+
+    with pytest.raises(
+        ValueError,
+        match="Dt is exact in the lower field",
+    ):
+        polynomial_reduce_primitive(
+            Poly(t, t, domain=tower.field(0)),
+            tower.derivation(),
+        )
+
+
+def test_primitive_polynomial_reduction_requires_constant_field_evidence() -> None:
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    unknown = rational.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=rational.field()),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="status is unknown"):
+        polynomial_reduce_primitive(
+            Poly(t, t, domain=rational.field()),
+            unknown.derivation(),
+        )
+
+
+def test_primitive_polynomial_reduction_validates_family_and_base() -> None:
+    hyperexponential = monomial_tower(t)
+    with pytest.raises(ValueError, match="requires Dt in K"):
+        polynomial_reduce_primitive(
+            Poly(t, t, domain=hyperexponential.field(0)),
+            hyperexponential.derivation(),
+        )
+
+    scaled_base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(2, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    primitive = scaled_base.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=scaled_base.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    with pytest.raises(NotImplementedError, match=r"Dx = 1"):
+        polynomial_reduce_primitive(
+            Poly(t, t, domain=scaled_base.field()),
+            primitive.derivation(),
+        )
+
+    with pytest.raises(TypeError, match="SymPy Poly"):
+        polynomial_reduce_primitive(
+            t,  # type: ignore[arg-type]
+            monomial_tower(1/x).derivation(),
+        )
+
+
+@given(
+    eta=st.sampled_from(
+        (
+            1/x,
+            1/x - 1/(x - 1)**2,
+            1/x + 2/(x - 1),
+            1/(x**2 + 1),
+        )
+    ),
+    numerator_x=st.integers(min_value=-4, max_value=4),
+    numerator_constant=st.integers(min_value=-4, max_value=4),
+    pole_root=st.integers(min_value=1, max_value=5),
+    pole_power=st.integers(min_value=1, max_value=4),
+    degree=st.integers(min_value=0, max_value=6),
+    raised_coefficient=st.integers(min_value=-4, max_value=4),
+)
+@settings(max_examples=45, deadline=None)
+def test_generated_exact_primitive_polynomials_reduce_to_zero(
+    eta,
+    numerator_x,
+    numerator_constant,
+    pole_root,
+    pole_power,
+    degree,
+    raised_coefficient,
+) -> None:
+    tower = monomial_tower(eta)
+    parent = tower.field(0)
+    derivation = tower.derivation()
+    coefficient = (
+        parent.from_sympy(
+            (numerator_x*x + numerator_constant)/(x - pole_root)**pole_power
+        )
+    )
+    planted_exact = Poly.from_dict(
+        {
+            (degree,): coefficient,
+            (degree + 1,): parent.convert(raised_coefficient),
+        },
+        t,
+        domain=parent,
+    )
+    polynomial = derivation.polynomial(planted_exact)
+
+    result = polynomial_reduce_primitive(polynomial, derivation)
+
+    assert derivation.polynomial(result.exact_part) == polynomial
+    assert result.remainder.is_zero
+    assert not result.has_obstruction
+
+
+@given(
+    exact_numerator=st.integers(min_value=-3, max_value=3),
+    exact_root=st.integers(min_value=-5, max_value=-1),
+    exact_power=st.integers(min_value=1, max_value=4),
+    obstruction_residue=st.integers(min_value=-4, max_value=4).filter(bool),
+    obstruction_root=st.integers(min_value=1, max_value=5),
+    obstruction_degree=st.integers(min_value=0, max_value=5),
+)
+@settings(max_examples=45, deadline=None)
+def test_generated_nonproportional_primitive_obstructions_are_canonical(
+    exact_numerator,
+    exact_root,
+    exact_power,
+    obstruction_residue,
+    obstruction_root,
+    obstruction_degree,
+) -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    derivation = tower.derivation()
+    planted_exact = Poly(
+        exact_numerator*t**(obstruction_degree + 1)
+        /(x - exact_root)**exact_power,
+        t,
+        domain=parent,
+    )
+    planted_obstruction = Poly(
+        obstruction_residue*t**obstruction_degree/(x - obstruction_root),
+        t,
+        domain=parent,
+    )
+    polynomial = (
+        derivation.polynomial(planted_exact)
+        + planted_obstruction
+    )
+
+    result = polynomial_reduce_primitive(polynomial, derivation)
+
+    assert derivation.polynomial(result.exact_part) + result.remainder == polynomial
+    assert result.remainder == planted_obstruction
+    assert result.has_obstruction
+
+    second = polynomial_reduce_primitive(result.remainder, derivation)
+    assert second.exact_part.is_zero
+    assert second.remainder == result.remainder
 
 
 def test_tangent_reduced_function_extracts_the_logarithm_at_infinity() -> None:
