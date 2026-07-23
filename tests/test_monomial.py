@@ -789,6 +789,17 @@ def test_residue_algorithms_require_preserved_constants() -> None:
         residue_reduce_monomial(integrand, tower.derivation())
 
 
+def test_bronstein_criterion_requires_a_symbolic_residue_indeterminate() -> None:
+    tower = monomial_tower(1/x)
+
+    with pytest.raises(TypeError, match="must be a Symbol"):
+        bronstein_residue_criterion(
+            tower.field().from_sympy(1/t),
+            tower.derivation(),
+            0,  # type: ignore[arg-type]
+        )
+
+
 def test_bronstein_criterion_rejects_the_logarithmic_integral_residue() -> None:
     # With t = log(x), 1/t has residue x because D(t) = 1/x.  Since Dx != 0,
     # Liouville's theorem rules out an elementary logarithmic term.

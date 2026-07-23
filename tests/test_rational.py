@@ -175,6 +175,8 @@ def test_rothstein_trager_rejects_repeated_denominator() -> None:
 def test_rothstein_trager_requires_a_distinct_residue_symbol() -> None:
     with pytest.raises(ValueError, match="must differ"):
         rothstein_trager_residue_polynomial(1/(x + 1), x, x)
+    with pytest.raises(TypeError, match="must be a Symbol"):
+        rothstein_trager_residue_polynomial(1/(x + 1), x, 0)  # type: ignore[arg-type]
 
 
 def test_integrate_rational_real_uses_arctangent() -> None:

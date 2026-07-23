@@ -179,7 +179,7 @@ def lazard_rioboo_trager(
     if denominator.gcd(denominator.diff()).degree() > 0:
         raise ValueError("LRT requires a square-free denominator")
 
-    residue = residue or Dummy("z")
+    residue = Dummy("z") if residue is None else residue
 
     if not isinstance(residue, Symbol):
         raise TypeError("the residue indeterminate must be a Symbol")

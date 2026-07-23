@@ -189,7 +189,7 @@ def rothstein_trager_residue_polynomial(
     ``resultant_x(D, A - residue*D')``.
     """
     numerator, denominator = _as_reduced_fraction(f, x)
-    residue = residue or Dummy("z")
+    residue = Dummy("z") if residue is None else residue
     if not isinstance(residue, Symbol):
         raise TypeError("the residue indeterminate must be a Symbol")
     if residue == x:

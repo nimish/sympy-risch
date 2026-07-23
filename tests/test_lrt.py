@@ -62,6 +62,8 @@ def test_lrt_rejects_inputs_outside_its_preconditions(
 def test_lrt_requires_a_residue_symbol_new_over_the_coefficients() -> None:
     with pytest.raises(ValueError, match="coefficient field"):
         lazard_rioboo_trager(z, x + 1, x, z)
+    with pytest.raises(TypeError, match="must be a Symbol"):
+        lazard_rioboo_trager(1, x + 1, x, 0)  # type: ignore[arg-type]
 
 
 @st.composite

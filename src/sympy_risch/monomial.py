@@ -404,7 +404,9 @@ def bronstein_residue_criterion(
         raise TypeError("the residue criterion requires a monomial level")
     extension.require_preserved_constants("the residue criterion")
 
-    residue = residue or Dummy("z")
+    residue = Dummy("z") if residue is None else residue
+    if not isinstance(residue, Symbol):
+        raise TypeError("the residue indeterminate must be a Symbol")
     tower_symbols = _domain_symbols(extension.field) | {
         level.generator for level in derivation.tower.levels
     }
