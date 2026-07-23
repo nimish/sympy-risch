@@ -90,6 +90,71 @@ def split_normal_special(
     return normal, special
 
 
+def polynomial_reduce_monomial(
+    polynomial: Poly,
+    derivation: Derivation,
+) -> tuple[Poly, Poly]:
+    r"""Reduce a polynomial at a nonlinear monomial level.
+
+    For ``delta = degree(Dt) >= 2``, return ``(q, r)`` satisfying
+
+    ``polynomial = D(q) + r`` and ``degree(r) < delta``.
+
+    This is the polynomial reduction of Bronstein, *Symbolic Integration I*,
+    Section 5.4.  Primitive and hyperexponential polynomial reductions need
+    lower-field integration problems and are handled separately later.
+    """
+    if not isinstance(polynomial, Poly):
+        raise TypeError("polynomial must be a SymPy Poly")
+    if derivation.level < 0:
+        raise TypeError("polynomial reduction requires a monomial level")
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("polynomial reduction requires a monomial level")
+
+    # Validate both the generator and coefficient domain before inspecting
+    # leading terms.  This also validates the zero polynomial.
+    derivation.polynomial(polynomial)
+    generator_derivative = extension.generator_derivative
+    delta = generator_derivative.degree()
+    if delta < 2:
+        raise ValueError(
+            "nonlinear monomial polynomial reduction requires degree(Dt) >= 2"
+        )
+
+    domain = polynomial.domain
+    derivative_leading_coefficient = domain.convert(
+        generator_derivative.LC(),
+    )
+    exact_part = polynomial.zero
+    remainder = polynomial
+
+    while not remainder.is_zero and remainder.degree() >= delta:
+        degree = remainder.degree()
+        correction_degree = degree - delta + 1
+        leading_coefficient = domain.convert(remainder.LC())
+        leading_derivative_coefficient = (
+            domain.convert(correction_degree)*derivative_leading_coefficient
+        )
+        correction_coefficient = domain.exquo(
+            leading_coefficient,
+            leading_derivative_coefficient,
+        )
+        correction = Poly.from_dict(
+            {(correction_degree,): correction_coefficient},
+            extension.generator,
+            domain=domain,
+        )
+        new_remainder = remainder - derivation.polynomial(correction)
+        if not new_remainder.is_zero and new_remainder.degree() >= degree:
+            raise ValueError("polynomial reduction did not lower the degree")
+
+        exact_part += correction
+        remainder = new_remainder
+
+    return exact_part, remainder
+
+
 def _reduced_polynomial_fraction(
     element: Any,
     extension: MonomialExtension,

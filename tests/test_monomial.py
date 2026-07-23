@@ -10,6 +10,7 @@ from sympy_risch import (
     bronstein_residue_criterion,
     hermite_reduce_monomial,
     hermite_reduce_rational_recursive,
+    polynomial_reduce_monomial,
     split_normal_special,
 )
 
@@ -116,6 +117,147 @@ def test_normal_special_decomposition_validates_its_polynomial() -> None:
         )
     with pytest.raises(ValueError, match="generator does not match"):
         split_normal_special(Poly(x + 1, x, domain=QQ), tower.derivation())
+
+
+def test_tangent_polynomial_reduction() -> None:
+    tower = monomial_tower(1 + t**2)
+    parent = tower.field(0)
+    polynomial = Poly(t**4, t, domain=parent)
+
+    exact, remainder = polynomial_reduce_monomial(
+        polynomial,
+        tower.derivation(),
+    )
+
+    assert exact == Poly(t**3/3 - t, t, domain=parent)
+    assert remainder == Poly(1, t, domain=parent)
+    assert tower.derivation().polynomial(exact) + remainder == polynomial
+
+
+def test_polynomial_reduction_differentiates_lower_field_coefficients() -> None:
+    tower = monomial_tower(1 + t**2)
+    parent = tower.field(0)
+    polynomial = Poly(x*t**3, t, domain=parent)
+
+    exact, remainder = polynomial_reduce_monomial(
+        polynomial,
+        tower.derivation(),
+    )
+
+    assert exact == Poly(x*t**2/2 - t/2, t, domain=parent)
+    assert remainder == Poly(-x*t + 1/2, t, domain=parent)
+    assert tower.derivation().polynomial(exact) + remainder == polynomial
+
+
+@pytest.mark.parametrize(
+    "generator_derivative",
+    [1 + t**2, t**3 + x, x*t**2 + t + 1],
+)
+def test_nonlinear_polynomial_reduction_reaches_the_degree_bound(
+    generator_derivative,
+) -> None:
+    tower = monomial_tower(generator_derivative)
+    parent = tower.field(0)
+    polynomial = Poly((x + 1)*t**8 + x*t**5 + t + 1, t, domain=parent)
+    delta = tower.levels[-1].generator_derivative.degree()
+
+    exact, remainder = polynomial_reduce_monomial(
+        polynomial,
+        tower.derivation(),
+    )
+
+    assert tower.derivation().polynomial(exact) + remainder == polynomial
+    assert remainder.is_zero or remainder.degree() < delta
+
+    second_exact, second_remainder = polynomial_reduce_monomial(
+        remainder,
+        tower.derivation(),
+    )
+    assert second_exact.is_zero
+    assert second_remainder == remainder
+
+
+def test_nonlinear_polynomial_reduction_handles_zero_and_low_degree() -> None:
+    tower = monomial_tower(t**3 + x)
+    parent = tower.field(0)
+
+    for polynomial in (
+        Poly(0, t, domain=parent),
+        Poly(x*t**2 + 1, t, domain=parent),
+    ):
+        exact, remainder = polynomial_reduce_monomial(
+            polynomial,
+            tower.derivation(),
+        )
+
+        assert exact.is_zero
+        assert remainder == polynomial
+
+
+@pytest.mark.parametrize("generator_derivative", [1/x, t, t + 1])
+def test_nonlinear_polynomial_reduction_rejects_linear_families(
+    generator_derivative,
+) -> None:
+    tower = monomial_tower(generator_derivative)
+
+    with pytest.raises(ValueError, match=r"degree\(Dt\) >= 2"):
+        polynomial_reduce_monomial(
+            Poly(t**3, t, domain=tower.field(0)),
+            tower.derivation(),
+        )
+
+
+def test_nonlinear_polynomial_reduction_validates_the_polynomial() -> None:
+    tower = monomial_tower(1 + t**2)
+
+    with pytest.raises(TypeError, match="SymPy Poly"):
+        polynomial_reduce_monomial(t**3, tower.derivation())  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="generator does not match"):
+        polynomial_reduce_monomial(
+            Poly(x**3, x, domain=QQ),
+            tower.derivation(),
+        )
+
+
+@given(
+    generator_derivative=st.sampled_from(
+        (1 + t**2, t**3 + x, x*t**2 + t + 1),
+    ),
+    coefficient=st.integers(min_value=-4, max_value=4),
+    constant=st.integers(min_value=-4, max_value=4),
+    exponent=st.integers(min_value=0, max_value=7),
+    remainder_linear=st.integers(min_value=-4, max_value=4),
+    remainder_constant=st.integers(min_value=-4, max_value=4),
+)
+@settings(max_examples=40, deadline=None)
+def test_generated_nonlinear_polynomial_reductions_reconstruct_input(
+    generator_derivative,
+    coefficient,
+    constant,
+    exponent,
+    remainder_linear,
+    remainder_constant,
+) -> None:
+    tower = monomial_tower(generator_derivative)
+    parent = tower.field(0)
+    derivation = tower.derivation()
+    planted_exact = Poly(
+        (coefficient*x + constant)*t**exponent,
+        t,
+        domain=parent,
+    )
+    planted_remainder = Poly(
+        remainder_linear*t + remainder_constant,
+        t,
+        domain=parent,
+    )
+    polynomial = derivation.polynomial(planted_exact) + planted_remainder
+
+    exact, remainder = polynomial_reduce_monomial(polynomial, derivation)
+
+    delta = tower.levels[-1].generator_derivative.degree()
+    assert derivation.polynomial(exact) + remainder == polynomial
+    assert remainder.is_zero or remainder.degree() < delta
 
 
 def denominator_parts(element, tower: DifferentialTower) -> tuple[Poly, Poly]:

@@ -475,11 +475,13 @@ its own commit.
   possible.
 - Property-test reconstructed derivative identities and negative cases.
 
-### 3. Primitive-extension reduction
+### 3. Shared monomial and primitive-extension reduction
 
 - [x] Generalize Hermite reduction from `QQ(x)` to `K(t)` using the tower
   derivation.
 - [x] Implement normal/special denominator splitting using `gcd(p, Dp)`.
+- [x] Implement Bronstein Section 5.4 polynomial reduction for nonlinear
+  monomials, including the degree bound `deg(r) < deg(Dt)`.
 - [x] Apply Liouville's theorem at normal poles through Bronstein's generalized
   Rothstein--Trager resultant and coefficient derivation `kappa`.
 - [x] Return the square-free factors `R_i`, constant parts

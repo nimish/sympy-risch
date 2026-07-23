@@ -15,6 +15,7 @@ from .monomial import (
     BronsteinResidueFactor,
     bronstein_residue_criterion,
     hermite_reduce_monomial,
+    polynomial_reduce_monomial,
     split_normal_special,
 )
 from .polynomial import integrate_polynomial
@@ -57,6 +58,7 @@ __all__ = [
     "lazard_rioboo_trager",
     "MonomialExtension",
     "MonomialFamily",
+    "polynomial_reduce_monomial",
     "rothstein_trager_residue_polynomial",
     "SimpleRadicalData",
     "split_normal_special",
