@@ -12,6 +12,7 @@ from sympy_risch import (
     integrate_rational,
     integrate_rational_real,
     rothstein_trager_residue_polynomial,
+    solve_rational_exact_derivative,
 )
 
 
@@ -137,6 +138,118 @@ def test_recursive_and_horowitz_ostrogradsky_reductions_agree(integrand) -> None
     )
     assert second_exact == 0
     assert cancel(second_remainder - global_remainder) == 0
+
+
+@pytest.mark.parametrize(
+    "antiderivative",
+    [
+        0,
+        x**5 - 3*x + 2,
+        1/x,
+        (x + 1)/(x - 2)**3,
+        (x**3 + 1)/(x**2 + 1),
+    ],
+)
+def test_rational_exact_derivative_solver_recovers_planted_solutions(
+    antiderivative,
+) -> None:
+    integrand = cancel(antiderivative).diff(x)
+
+    result = solve_rational_exact_derivative(integrand, x)
+
+    assert result.has_solution
+    assert result.antiderivative == result.exact_part
+    assert result.obstruction == 0
+    assert cancel(result.exact_part.diff(x) - integrand) == 0
+
+
+@pytest.mark.parametrize(
+    "integrand",
+    [
+        1/x,
+        1/(x**2 + 1),
+        x/(x**2 + 1),
+        1/x + 2/(x - 1),
+    ],
+)
+def test_rational_exact_derivative_solver_returns_simple_pole_obstruction(
+    integrand,
+) -> None:
+    result = solve_rational_exact_derivative(integrand, x)
+
+    assert not result.has_solution
+    assert result.antiderivative is None
+    assert result.exact_part == 0
+    assert cancel(result.obstruction - integrand) == 0
+
+    numerator, denominator = cancel(result.obstruction).as_numer_denom()
+    denominator = Poly(denominator, x, domain="QQ")
+    assert numerator != 0
+    assert denominator.gcd(denominator.diff()).degree() == 0
+
+
+@given(
+    polynomial_coefficients=st.lists(
+        st.integers(min_value=-4, max_value=4),
+        min_size=1,
+        max_size=6,
+    ),
+    pole_root=st.integers(min_value=-4, max_value=4),
+    pole_power=st.integers(min_value=1, max_value=5),
+    pole_numerator=st.integers(min_value=-4, max_value=4),
+)
+@settings(max_examples=40, deadline=None)
+def test_generated_rational_derivatives_have_zero_obstruction(
+    polynomial_coefficients,
+    pole_root,
+    pole_power,
+    pole_numerator,
+) -> None:
+    antiderivative = (
+        sum(
+            coefficient*x**degree
+            for degree, coefficient in enumerate(polynomial_coefficients)
+        )
+        + pole_numerator/(x - pole_root)**pole_power
+    )
+    integrand = cancel(antiderivative.diff(x))
+
+    result = solve_rational_exact_derivative(integrand, x)
+
+    assert result.has_solution
+    assert result.antiderivative is not None
+    assert cancel(result.antiderivative.diff(x) - integrand) == 0
+
+
+@given(
+    exact_root=st.integers(min_value=-5, max_value=-1),
+    obstruction_root=st.integers(min_value=1, max_value=5),
+    exact_numerator=st.integers(min_value=-4, max_value=4),
+    exact_power=st.integers(min_value=1, max_value=5),
+    residue=st.integers(min_value=-5, max_value=5).filter(bool),
+)
+@settings(max_examples=40, deadline=None)
+def test_generated_simple_poles_are_exact_derivative_obstructions(
+    exact_root,
+    obstruction_root,
+    exact_numerator,
+    exact_power,
+    residue,
+) -> None:
+    planted_exact_part = exact_numerator/(x - exact_root)**exact_power
+    planted_obstruction = residue/(x - obstruction_root)
+    integrand = cancel(planted_exact_part.diff(x) + planted_obstruction)
+
+    result = solve_rational_exact_derivative(integrand, x)
+
+    assert not result.has_solution
+    assert result.antiderivative is None
+    assert cancel(result.exact_part.diff(x) + result.obstruction - integrand) == 0
+    assert cancel(result.obstruction - planted_obstruction) == 0
+
+    second = solve_rational_exact_derivative(result.obstruction, x)
+    assert second.exact_part == 0
+    assert cancel(second.obstruction - result.obstruction) == 0
 
 
 def test_rothstein_trager_residue_polynomial() -> None:

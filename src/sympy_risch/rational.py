@@ -2,6 +2,8 @@ r"""Rational-function integration over :math:`\mathbb{Q}`."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from sympy.core.add import Add
 from sympy.core.expr import Expr
 from sympy.core.function import Lambda
@@ -19,6 +21,33 @@ from sympy.polys.rootoftools import RootSum
 
 from .lrt import lazard_rioboo_trager
 from .polynomial import integrate_polynomial
+
+
+@dataclass(frozen=True, slots=True)
+class RationalExactDerivativeResult:
+    r"""Certified result of the exact-derivative problem in ``QQ(x)``.
+
+    The fields satisfy
+
+    ``f = derivative(exact_part, x) + obstruction``.
+
+    Hermite reduction makes ``obstruction`` canonical: it is zero exactly
+    when ``f`` is the derivative of another rational function.  Otherwise its
+    square-free denominator exposes the simple-pole obstruction.
+    """
+
+    exact_part: Expr
+    obstruction: Expr
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether a rational antiderivative exists."""
+        return self.obstruction == 0
+
+    @property
+    def antiderivative(self) -> Expr | None:
+        """Return the rational antiderivative, or ``None`` if none exists."""
+        return self.exact_part if self.has_solution else None
 
 
 def _as_reduced_fraction(f: Expr, x: Symbol) -> tuple[Poly, Poly]:
@@ -174,6 +203,28 @@ def hermite_reduce_rational_recursive(
 
     remainder = cancel(numerator.as_expr()/denominator.as_expr())
     return exact_part, remainder
+
+
+def solve_rational_exact_derivative(
+    f: Expr,
+    x: Symbol,
+) -> RationalExactDerivativeResult:
+    r"""Decide whether ``f`` is a derivative in :math:`\mathbb{Q}(x)`.
+
+    Rational Hermite reduction writes
+
+    .. math::
+
+        f = Dv + r,
+
+    where ``r`` has a square-free denominator.  Derivatives of rational
+    functions have no simple poles, so a rational ``v`` with ``Dv = f``
+    exists if and only if ``r = 0``.  A nonzero ``r`` is therefore both the
+    reduced remainder and a certificate that the exact-derivative equation
+    has no rational solution.
+    """
+    exact_part, obstruction = hermite_reduce_rational(f, x)
+    return RationalExactDerivativeResult(exact_part, obstruction)
 
 
 def rothstein_trager_residue_polynomial(

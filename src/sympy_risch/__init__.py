@@ -29,11 +29,13 @@ from .monomial import (
 )
 from .polynomial import integrate_polynomial
 from .rational import (
+    RationalExactDerivativeResult,
     hermite_reduce_rational,
     hermite_reduce_rational_recursive,
     integrate_rational,
     integrate_rational_real,
     rothstein_trager_residue_polynomial,
+    solve_rational_exact_derivative,
 )
 from .tower import (
     AlgebraicExtension,
@@ -59,6 +61,7 @@ __all__ = [
     "NonlinearNoSpecialReduction",
     "NonlinearNoSpecialStatus",
     "ReducedFunctionReduction",
+    "RationalExactDerivativeResult",
     "bronstein_residue_criterion",
     "Derivation",
     "DifferentialExtension",
@@ -81,6 +84,7 @@ __all__ = [
     "reduce_monomial_reduced_function",
     "residue_reduce_monomial",
     "rothstein_trager_residue_polynomial",
+    "solve_rational_exact_derivative",
     "SimpleRadicalData",
     "SpecialPolynomialStatus",
     "split_normal_special",
