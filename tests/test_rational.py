@@ -172,6 +172,11 @@ def test_rothstein_trager_rejects_repeated_denominator() -> None:
         rothstein_trager_residue_polynomial(1/x**2, x, z)
 
 
+def test_rothstein_trager_requires_a_distinct_residue_symbol() -> None:
+    with pytest.raises(ValueError, match="must differ"):
+        rothstein_trager_residue_polynomial(1/(x + 1), x, x)
+
+
 def test_integrate_rational_real_uses_arctangent() -> None:
     assert integrate_rational_real(1/(x**2 + 1), x) == atan(x)
 

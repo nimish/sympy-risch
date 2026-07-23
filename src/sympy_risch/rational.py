@@ -189,9 +189,13 @@ def rothstein_trager_residue_polynomial(
     ``resultant_x(D, A - residue*D')``.
     """
     numerator, denominator = _as_reduced_fraction(f, x)
+    residue = residue or Dummy("z")
+    if not isinstance(residue, Symbol):
+        raise TypeError("the residue indeterminate must be a Symbol")
+    if residue == x:
+        raise ValueError("the residue symbol must differ from the variable")
 
     if numerator.is_zero:
-        residue = residue or Dummy("z")
         return Poly(1, residue, domain=QQ)
 
     if numerator.degree() >= denominator.degree():
@@ -200,7 +204,6 @@ def rothstein_trager_residue_polynomial(
     if denominator.gcd(denominator.diff()).degree() > 0:
         raise ValueError("Rothstein--Trager requires a square-free denominator")
 
-    residue = residue or Dummy("z")
     residue_polynomial = resultant(
         denominator,
         numerator - Poly(residue, x)*denominator.diff(),

@@ -181,8 +181,16 @@ def lazard_rioboo_trager(
 
     residue = residue or Dummy("z")
 
+    if not isinstance(residue, Symbol):
+        raise TypeError("the residue indeterminate must be a Symbol")
     if residue == x:
         raise ValueError("the residue symbol must differ from the variable")
+    coefficient_symbols = (
+        numerator.as_expr().free_symbols
+        | denominator.as_expr().free_symbols
+    ) - {x}
+    if residue in coefficient_symbols:
+        raise ValueError("the residue symbol must be new over the coefficient field")
 
     residue_polynomial, remainder_sequence = resultant(
         denominator,

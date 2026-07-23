@@ -1,7 +1,7 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, cancel, symbols
+from sympy import Poly, Rational, cancel, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -310,8 +310,14 @@ def test_reduced_function_handles_a_nonunit_derivative_leading_coefficient() -> 
     assert reduction.remainder == field.zero
 
 
-@given(st.integers(min_value=-5, max_value=5).filter(bool))
-def test_reduced_function_rejects_new_constant_counterexamples(scale) -> None:
+@given(
+    scale=st.integers(min_value=-5, max_value=5).filter(bool),
+    exponent=st.integers(min_value=1, max_value=4),
+)
+def test_structure_theorems_reject_new_constant_counterexamples(
+    scale,
+    exponent,
+) -> None:
     rational = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -320,21 +326,33 @@ def test_reduced_function_rejects_new_constant_counterexamples(scale) -> None:
     )
     tower = rational.extend(
         MonomialExtension(
-            Poly(scale*t**2, t, domain=rational.field()),
+            Poly(scale*t**(exponent + 1), t, domain=rational.field()),
             ConstantFieldStatus.ENLARGED,
         ),
     )
     field = tower.field()
     derivation = tower.derivation()
     generator = field.from_sympy(t)
-    new_constant = field.from_sympy(x + 1/(scale*t))
-    integrand = field.from_sympy(scale*x*t)
+    new_constant = field.from_sympy(
+        x + 1/(exponent*scale*t**exponent),
+    )
+    integrand = field.from_sympy(scale*x*t**exponent)
+    normal_factor = field.from_sympy(t - 1)
+    logarithmic_integrand = (
+        new_constant*derivation(normal_factor)/normal_factor
+    )
 
     assert derivation(new_constant) == field.zero
-    # Formally differentiating new_constant*log(t) - x gives this identity.
-    assert new_constant*derivation(generator)/generator - 1 == integrand
+    # D(new_constant*log(t) - x/exponent) equals the polynomial integrand.
+    assert (
+        new_constant*derivation(generator)/generator
+        - field.from_sympy(Rational(1, exponent))
+        == integrand
+    )
     with pytest.raises(ValueError, match=r"Const\(K\(t\)\) = Const\(K\)"):
         reduce_monomial_reduced_function(integrand, derivation)
+    with pytest.raises(ValueError, match=r"Const\(K\(t\)\) = Const\(K\)"):
+        bronstein_residue_criterion(logarithmic_integrand, derivation)
 
 
 def test_reduced_function_certifies_a_nonconstant_infinity_residue() -> None:

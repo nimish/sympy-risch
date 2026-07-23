@@ -59,6 +59,11 @@ def test_lrt_rejects_inputs_outside_its_preconditions(
         lazard_rioboo_trager(numerator, denominator, x, z)
 
 
+def test_lrt_requires_a_residue_symbol_new_over_the_coefficients() -> None:
+    with pytest.raises(ValueError, match="coefficient field"):
+        lazard_rioboo_trager(z, x + 1, x, z)
+
+
 @st.composite
 def rational_functions_with_rational_poles(draw):
     roots = draw(st.lists(
@@ -170,6 +175,20 @@ def test_lrt_parts_reconstruct_residue_resultant(example) -> None:
 
     for _, residue_factor in parts:
         assert residue_factor.gcd(residue_factor.diff()).degree() == 0
+
+
+@pytest.mark.parametrize(
+    "integrand",
+    (
+        1/(x**3 + x + 1),
+        (x**2 + 1)/(x**4 + x + 1),
+        (x**2 + 1)/(x**5 + x + 1),
+    ),
+)
+def test_integrate_rational_with_higher_degree_algebraic_poles(integrand) -> None:
+    antiderivative = integrate_rational(integrand, x)
+
+    assert cancel(antiderivative.diff(x) - integrand) == 0
 
 
 @given(rational_functions_with_rational_poles())
