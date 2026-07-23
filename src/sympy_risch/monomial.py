@@ -233,6 +233,52 @@ class PrimitivePolynomialReduction:
 
 
 @dataclass(frozen=True, slots=True)
+class PrimitiveMonomialReduction:
+    r"""End-to-end reduction at a primitive monomial level.
+
+    The flattened fields satisfy
+
+    ``f = D(exact_part) + logarithmic_derivative + remainder``.
+
+    A nonconstant normal residue or a positive-degree polynomial remainder
+    proves non-elementarity.  Otherwise ``lower_remainder`` is the remaining
+    element of the parent field for recursive integration.
+    """
+
+    hermite_exact_part: Any
+    residue_reduction: BronsteinResidueReduction
+    polynomial_reduction: PrimitivePolynomialReduction
+    exact_part: Any
+    logarithmic_derivative: Any
+    remainder: Any
+    lower_remainder: Any | None
+
+    @property
+    def has_finite_residue_obstruction(self) -> bool:
+        """Whether a nonconstant normal residue proves non-elementarity."""
+        return not self.residue_reduction.all_normal_residues_removed
+
+    @property
+    def has_polynomial_obstruction(self) -> bool:
+        """Whether a positive-degree reduced polynomial remains."""
+        polynomial = self.polynomial_reduction.remainder
+        return not polynomial.is_zero and polynomial.degree() > 0
+
+    @property
+    def is_non_elementary(self) -> bool:
+        """Whether this level has supplied a Liouville obstruction."""
+        return (
+            self.has_finite_residue_obstruction
+            or self.has_polynomial_obstruction
+        )
+
+    @property
+    def reduced_to_lower_field(self) -> bool:
+        """Whether only recursive integration in the parent field remains."""
+        return not self.is_non_elementary and self.lower_remainder is not None
+
+
+@dataclass(frozen=True, slots=True)
 class _RationalObstructionPivot:
     """One nonzero rational residue coordinate used to quotient by ``C*eta``."""
 
@@ -1161,6 +1207,106 @@ def reduce_nonlinear_monomial(
             + infinity_logarithmic_derivative
         ),
         remainder,
+    )
+
+
+def reduce_primitive_monomial(
+    integrand: Any,
+    derivation: Derivation,
+    *,
+    residue: Symbol | None = None,
+) -> PrimitiveMonomialReduction:
+    r"""Apply the complete reduction for a primitive monomial over ``QQ(x)``.
+
+    The stages are:
+
+    1. Hermite reduction of repeated normal poles;
+    2. generalized residue reduction of the simple normal fraction;
+    3. primitive polynomial reduction modulo ``D(K) + C*Dt``;
+    4. reduction to the parent field when no obstruction remains.
+
+    In a primitive extension with preserved constants there are no
+    nonconstant special polynomials.  Consequently, after all constant normal
+    residues have been removed, no proper fraction may remain.  A polynomial
+    remainder of positive degree in ``t`` is non-elementary; a constant
+    polynomial belongs to the parent field and is returned for recursion.
+    """
+    if derivation.level < 0:
+        raise TypeError("primitive reduction requires a monomial level")
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("primitive reduction requires a monomial level")
+    if extension.generator_derivative.degree() != 0:
+        raise ValueError("primitive reduction requires Dt in K")
+    extension.require_preserved_constants("primitive reduction")
+
+    field = extension.field
+    element = _coerce(field, integrand)
+    hermite_exact_part, hermite_remainder = hermite_reduce_monomial(
+        element,
+        derivation,
+    )
+    residue_reduction = residue_reduce_monomial(
+        hermite_remainder,
+        derivation,
+        residue,
+    )
+
+    polynomial_part, _, _ = _polynomial_and_proper_fraction(
+        residue_reduction.remainder,
+        extension,
+    )
+    polynomial_reduction = polynomial_reduce_primitive(
+        polynomial_part,
+        derivation,
+    )
+    polynomial_exact_element = _coerce(
+        field,
+        polynomial_reduction.exact_part.as_expr(),
+    )
+    exact_part = hermite_exact_part + polynomial_exact_element
+    remainder = (
+        residue_reduction.remainder
+        - derivation(polynomial_exact_element)
+    )
+    final_polynomial, proper_numerator, proper_denominator = (
+        _polynomial_and_proper_fraction(remainder, extension)
+    )
+    if final_polynomial != polynomial_reduction.remainder:
+        raise ValueError("primitive reduction produced an inconsistent remainder")
+
+    lower_remainder = None
+    if residue_reduction.all_normal_residues_removed:
+        if not proper_numerator.is_zero:
+            normal_denominator, special_denominator = split_normal_special(
+                proper_denominator,
+                derivation,
+            )
+            if special_denominator.degree() > 0:
+                raise ValueError(
+                    "a primitive extension with preserved constants cannot "
+                    "have a nonconstant special denominator"
+                )
+            if normal_denominator.degree() > 0:
+                raise ValueError(
+                    "residue reduction left an unexpected normal fraction"
+                )
+
+        if final_polynomial.is_zero:
+            lower_remainder = extension.parent_field.zero
+        elif final_polynomial.degree() == 0:
+            lower_remainder = extension.parent_field.convert(
+                final_polynomial.nth(0)
+            )
+
+    return PrimitiveMonomialReduction(
+        hermite_exact_part,
+        residue_reduction,
+        polynomial_reduction,
+        exact_part,
+        residue_reduction.logarithmic_derivative,
+        remainder,
+        lower_remainder,
     )
 
 

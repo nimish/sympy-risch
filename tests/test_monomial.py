@@ -13,11 +13,13 @@ from sympy_risch import (
     bronstein_residue_criterion,
     hermite_reduce_monomial,
     hermite_reduce_rational_recursive,
+    integrate_rational,
     polynomial_reduce_monomial,
     polynomial_reduce_primitive,
     reduce_monomial_reduced_function,
     reduce_nonlinear_monomial,
     reduce_nonlinear_no_special,
+    reduce_primitive_monomial,
     residue_reduce_monomial,
     split_normal_special,
 )
@@ -680,6 +682,333 @@ def test_generated_nonproportional_primitive_obstructions_are_canonical(
     second = polynomial_reduce_primitive(result.remainder, derivation)
     assert second.exact_part.is_zero
     assert second.remainder == result.remainder
+
+
+@pytest.mark.parametrize(
+    ("integrand_expression", "expected_exact_expression"),
+    [
+        (t, x*t - x),
+        (t**2, x*(t**2 - 2*t + 2)),
+        (t**4/x, t**5/5),
+    ],
+)
+def test_primitive_pipeline_integrates_polynomial_examples(
+    integrand_expression,
+    expected_exact_expression,
+) -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+
+    result = reduce_primitive_monomial(
+        field.from_sympy(integrand_expression),
+        tower.derivation(),
+    )
+
+    assert result.exact_part == field.from_sympy(expected_exact_expression)
+    assert result.logarithmic_derivative == field.zero
+    assert result.remainder == field.zero
+    assert result.lower_remainder == tower.field(0).zero
+    assert result.reduced_to_lower_field
+    assert not result.is_non_elementary
+
+
+def test_primitive_pipeline_extracts_log_log_x() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    integrand = field.from_sympy(1/(x*t))
+
+    result = reduce_primitive_monomial(integrand, tower.derivation())
+
+    assert result.exact_part == field.zero
+    assert result.logarithmic_derivative == integrand
+    assert result.remainder == field.zero
+    assert result.lower_remainder == tower.field(0).zero
+    assert result.residue_reduction.logarithmic_parts
+    assert result.reduced_to_lower_field
+
+
+def test_primitive_pipeline_certifies_one_over_log_x_non_elementary() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    integrand = field.from_sympy(1/t)
+
+    result = reduce_primitive_monomial(integrand, tower.derivation())
+
+    assert result.has_finite_residue_obstruction
+    assert not result.has_polynomial_obstruction
+    assert result.is_non_elementary
+    assert not result.reduced_to_lower_field
+    assert result.lower_remainder is None
+    assert result.remainder == integrand
+    assert not result.residue_reduction.certificate.all_residues_constant
+
+    second = reduce_primitive_monomial(result.remainder, tower.derivation())
+    assert second.exact_part == field.zero
+    assert second.logarithmic_derivative == field.zero
+    assert second.remainder == result.remainder
+
+
+def test_primitive_pipeline_certifies_a_positive_degree_obstruction() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    integrand = field.from_sympy(t/(x - 1))
+
+    result = reduce_primitive_monomial(integrand, tower.derivation())
+
+    assert not result.has_finite_residue_obstruction
+    assert result.has_polynomial_obstruction
+    assert result.is_non_elementary
+    assert result.lower_remainder is None
+    assert result.remainder == integrand
+
+    second = reduce_primitive_monomial(result.remainder, tower.derivation())
+    assert second.exact_part == field.zero
+    assert second.logarithmic_derivative == field.zero
+    assert second.remainder == result.remainder
+
+
+def test_primitive_pipeline_returns_a_constant_polynomial_to_the_lower_field() -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    field = tower.field()
+    integrand = field.from_sympy(1/(x - 1))
+
+    result = reduce_primitive_monomial(integrand, tower.derivation())
+
+    assert result.reduced_to_lower_field
+    assert not result.is_non_elementary
+    assert result.lower_remainder == parent.from_sympy(1/(x - 1))
+    lower_integral = integrate_rational(
+        result.lower_remainder.as_expr(),
+        x,
+    )
+    assert cancel(lower_integral.diff(x) - integrand.as_expr()) == 0
+
+
+def test_primitive_pipeline_combines_every_reduction_stage() -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    field = tower.field()
+    derivation = tower.derivation()
+    repeated_pole_exact = field.from_sympy((x + 1)/(t - 2)**2)
+    polynomial_exact = field.from_sympy(t**4)
+    normal_factor = field.from_sympy(t - 1)
+    logarithmic_derivative = 3*derivation(normal_factor)/normal_factor
+    lower_remainder = parent.from_sympy(1/(x - 3))
+    integrand = (
+        derivation(repeated_pole_exact + polynomial_exact)
+        + logarithmic_derivative
+        + field.convert(lower_remainder)
+    )
+
+    result = reduce_primitive_monomial(integrand, derivation)
+
+    assert result.hermite_exact_part == repeated_pole_exact
+    assert result.exact_part == repeated_pole_exact + polynomial_exact
+    assert result.logarithmic_derivative == logarithmic_derivative
+    assert result.lower_remainder == lower_remainder
+    assert result.reduced_to_lower_field
+    assert (
+        derivation(result.exact_part)
+        + result.logarithmic_derivative
+        + result.remainder
+        == integrand
+    )
+
+
+def test_primitive_pipeline_preserves_simultaneous_obstructions() -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    derivation = tower.derivation()
+    normal_factor = field.from_sympy(t - 1)
+    finite_obstruction = (
+        field.from_sympy(x)*derivation(normal_factor)/normal_factor
+    )
+    polynomial_obstruction = field.from_sympy(t/(x - 2))
+    integrand = finite_obstruction + polynomial_obstruction
+
+    result = reduce_primitive_monomial(integrand, derivation)
+
+    assert result.has_finite_residue_obstruction
+    assert result.has_polynomial_obstruction
+    assert result.is_non_elementary
+    assert result.lower_remainder is None
+    assert (
+        derivation(result.exact_part)
+        + result.logarithmic_derivative
+        + result.remainder
+        == integrand
+    )
+
+
+def test_primitive_pipeline_enforces_public_preconditions() -> None:
+    hyperexponential = monomial_tower(t)
+    with pytest.raises(ValueError, match="requires Dt in K"):
+        reduce_primitive_monomial(
+            hyperexponential.field().from_sympy(t),
+            hyperexponential.derivation(),
+        )
+
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    unknown = rational.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=rational.field()),
+        ),
+    )
+    with pytest.raises(ValueError, match="status is unknown"):
+        reduce_primitive_monomial(
+            unknown.field().from_sympy(t),
+            unknown.derivation(),
+        )
+
+    exact_eta = monomial_tower(1)
+    with pytest.raises(ValueError, match="Dt is exact in the lower field"):
+        reduce_primitive_monomial(
+            exact_eta.field().from_sympy(1),
+            exact_eta.derivation(),
+        )
+
+    residue_collision = monomial_tower(1/x)
+    with pytest.raises(ValueError, match="residue symbol must be new"):
+        reduce_primitive_monomial(
+            residue_collision.field().from_sympy(1/t),
+            residue_collision.derivation(),
+            residue=x,
+        )
+
+
+@given(
+    repeated_coefficient=st.integers(min_value=-3, max_value=3),
+    repeated_power=st.integers(min_value=2, max_value=4),
+    polynomial_coefficient=st.integers(min_value=-3, max_value=3),
+    polynomial_power=st.integers(min_value=1, max_value=6),
+    logarithmic_residue=st.integers(min_value=-3, max_value=3),
+    lower_residue=st.integers(min_value=-3, max_value=3),
+)
+@settings(max_examples=35, deadline=None)
+def test_generated_primitive_pipelines_reconstruct_successful_stages(
+    repeated_coefficient,
+    repeated_power,
+    polynomial_coefficient,
+    polynomial_power,
+    logarithmic_residue,
+    lower_residue,
+) -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted_exact = field.from_sympy(
+        repeated_coefficient/(t - 2)**repeated_power
+        + polynomial_coefficient*t**polynomial_power
+    )
+    normal_factor = field.from_sympy(t - 1)
+    planted_logarithmic_derivative = (
+        logarithmic_residue*derivation(normal_factor)/normal_factor
+    )
+    lower_remainder = parent.from_sympy(lower_residue/(x - 3))
+    integrand = (
+        derivation(planted_exact)
+        + planted_logarithmic_derivative
+        + field.convert(lower_remainder)
+    )
+
+    result = reduce_primitive_monomial(integrand, derivation)
+
+    assert result.reduced_to_lower_field
+    assert result.lower_remainder == lower_remainder
+    assert (
+        derivation(result.exact_part)
+        + result.logarithmic_derivative
+        + result.remainder
+        == integrand
+    )
+
+
+@given(
+    residue_x_coefficient=st.integers(min_value=-4, max_value=4).filter(bool),
+    residue_constant=st.integers(min_value=-4, max_value=4),
+    factor_shift=st.integers(min_value=1, max_value=5),
+    exact_coefficient=st.integers(min_value=-3, max_value=3),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_primitive_finite_residue_obstructions_are_preserved(
+    residue_x_coefficient,
+    residue_constant,
+    factor_shift,
+    exact_coefficient,
+) -> None:
+    tower = monomial_tower(1/x)
+    field = tower.field()
+    derivation = tower.derivation()
+    factor = field.from_sympy(t - factor_shift)
+    residue_value = field.from_sympy(
+        residue_x_coefficient*x + residue_constant
+    )
+    finite_obstruction = residue_value*derivation(factor)/factor
+    planted_exact = field.from_sympy(exact_coefficient/(t + 1)**2)
+    integrand = derivation(planted_exact) + finite_obstruction
+
+    result = reduce_primitive_monomial(integrand, derivation)
+
+    assert result.has_finite_residue_obstruction
+    assert result.is_non_elementary
+    assert result.lower_remainder is None
+    assert (
+        derivation(result.exact_part)
+        + result.logarithmic_derivative
+        + result.remainder
+        == integrand
+    )
+
+
+@given(
+    obstruction_residue=st.integers(min_value=-4, max_value=4).filter(bool),
+    obstruction_root=st.integers(min_value=1, max_value=5),
+    obstruction_degree=st.integers(min_value=1, max_value=5),
+    exact_coefficient=st.integers(min_value=-3, max_value=3),
+    exact_power=st.integers(min_value=1, max_value=6),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_primitive_polynomial_obstructions_are_preserved(
+    obstruction_residue,
+    obstruction_root,
+    obstruction_degree,
+    exact_coefficient,
+    exact_power,
+) -> None:
+    tower = monomial_tower(1/x)
+    parent = tower.field(0)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted_exact = field.from_sympy(exact_coefficient*t**exact_power)
+    planted_obstruction = Poly(
+        obstruction_residue*t**obstruction_degree/(x - obstruction_root),
+        t,
+        domain=parent,
+    )
+    integrand = (
+        derivation(planted_exact)
+        + field.from_sympy(planted_obstruction.as_expr())
+    )
+
+    result = reduce_primitive_monomial(integrand, derivation)
+
+    assert not result.has_finite_residue_obstruction
+    assert result.has_polynomial_obstruction
+    assert result.is_non_elementary
+    assert result.polynomial_reduction.remainder == planted_obstruction
+    assert (
+        derivation(result.exact_part)
+        + result.logarithmic_derivative
+        + result.remainder
+        == integrand
+    )
 
 
 def test_tangent_reduced_function_extracts_the_logarithm_at_infinity() -> None:
