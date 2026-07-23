@@ -12,6 +12,7 @@ from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
     MonomialFamily,
+    SpecialPolynomialStatus,
 )
 
 
@@ -88,6 +89,11 @@ def test_monomial_extension_validates_its_derivative_law() -> None:
             Poly(1, x, domain=QQ),
             "preserved",  # type: ignore[arg-type]
         )
+    with pytest.raises(TypeError, match="SpecialPolynomialStatus"):
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            special_polynomial_status="absent",  # type: ignore[arg-type]
+        )
 
 
 def test_monomial_constant_field_status_is_explicit_and_immutable() -> None:
@@ -104,6 +110,22 @@ def test_monomial_constant_field_status_is_explicit_and_immutable() -> None:
     preserved.require_preserved_constants("test algorithm")
     with pytest.raises(FrozenInstanceError):
         preserved.constant_field_status = ConstantFieldStatus.ENLARGED  # type: ignore[misc]
+
+
+def test_monomial_special_polynomial_status_is_explicit_and_immutable() -> None:
+    unknown = MonomialExtension(Poly(1, x, domain=QQ))
+    absent = MonomialExtension(
+        Poly(1, x, domain=QQ),
+        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
+    )
+
+    assert unknown.special_polynomial_status is SpecialPolynomialStatus.UNKNOWN
+    assert absent.special_polynomial_status is SpecialPolynomialStatus.ABSENT
+    with pytest.raises(ValueError, match="status is unknown"):
+        unknown.require_no_special_polynomials("test algorithm")
+    absent.require_no_special_polynomials("test algorithm")
+    with pytest.raises(FrozenInstanceError):
+        absent.special_polynomial_status = SpecialPolynomialStatus.PRESENT  # type: ignore[misc]
 
 
 def test_monomial_extension_rejects_a_generator_already_in_parent() -> None:

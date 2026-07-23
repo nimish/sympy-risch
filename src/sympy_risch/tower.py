@@ -112,6 +112,21 @@ class ConstantFieldStatus(Enum):
     ENLARGED = "enlarged"
 
 
+class SpecialPolynomialStatus(Enum):
+    r"""Knowledge about nonconstant special polynomials at a monomial level.
+
+    A polynomial :math:`p\in K[t]` is special when :math:`p\mid Dp`.
+    Bronstein's nonlinear no-special case assumes that no nonconstant
+    irreducible special polynomial exists.  Until a tower builder proves that
+    structure theorem hypothesis, a manually constructed level must record it
+    explicitly.
+    """
+
+    UNKNOWN = "unknown"
+    ABSENT = "absent"
+    PRESENT = "present"
+
+
 @dataclass(frozen=True, slots=True)
 class MonomialExtension:
     r"""A transcendental extension ``K(t)`` with ``Dt`` in ``K[t]``.
@@ -134,6 +149,9 @@ class MonomialExtension:
 
     generator_derivative: Poly
     constant_field_status: ConstantFieldStatus = ConstantFieldStatus.UNKNOWN
+    special_polynomial_status: SpecialPolynomialStatus = (
+        SpecialPolynomialStatus.UNKNOWN
+    )
     _field: Domain = dataclass_field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -152,6 +170,10 @@ class MonomialExtension:
         if not isinstance(self.constant_field_status, ConstantFieldStatus):
             raise TypeError(
                 "constant_field_status must be a ConstantFieldStatus"
+            )
+        if not isinstance(self.special_polynomial_status, SpecialPolynomialStatus):
+            raise TypeError(
+                "special_polynomial_status must be a SpecialPolynomialStatus"
             )
         if self.generator in _domain_symbols(self.parent_field):
             raise ValueError(f"generator {self.generator} already occurs in the parent field")
@@ -183,6 +205,15 @@ class MonomialExtension:
             raise ValueError(
                 f"{algorithm} requires Const(K(t)) = Const(K); "
                 f"constant-field status is {self.constant_field_status.value}"
+            )
+
+    def require_no_special_polynomials(self, algorithm: str) -> None:
+        r"""Require :math:`S^{\mathrm{irr}}=\varnothing`."""
+        if self.special_polynomial_status is not SpecialPolynomialStatus.ABSENT:
+            raise ValueError(
+                f"{algorithm} requires no nonconstant special polynomials; "
+                f"special-polynomial status is "
+                f"{self.special_polynomial_status.value}"
             )
 
     @property

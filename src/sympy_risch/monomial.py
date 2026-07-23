@@ -3,6 +3,7 @@ r"""Reduction helpers for transcendental monomial extensions."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from sympy.core.symbol import Dummy, Symbol
@@ -161,6 +162,40 @@ class NonlinearMonomialReduction:
             self.reduced_function_reduction is not None
             and self.reduced_function_reduction.needs_special_polynomial
         )
+
+
+class NonlinearNoSpecialStatus(Enum):
+    """Conclusion of the nonlinear no-special decision procedure."""
+
+    REDUCED_TO_LOWER_FIELD = "reduced_to_lower_field"
+    FINITE_RESIDUE_OBSTRUCTION = "finite_residue_obstruction"
+    INFINITY_RESIDUE_OBSTRUCTION = "infinity_residue_obstruction"
+    NONCONSTANT_REDUCED_POLYNOMIAL = "nonconstant_reduced_polynomial"
+
+
+@dataclass(frozen=True, slots=True)
+class NonlinearNoSpecialReduction:
+    r"""Decision result for Bronstein's nonlinear no-special case.
+
+    ``common_reduction`` reconstructs the input as an exact derivative, a
+    logarithmic derivative, and a reduced remainder.  When ``status`` is
+    ``REDUCED_TO_LOWER_FIELD``, ``lower_remainder`` is that remainder coerced
+    to :math:`K`; otherwise the status identifies a Liouville obstruction.
+    """
+
+    common_reduction: NonlinearMonomialReduction
+    status: NonlinearNoSpecialStatus
+    lower_remainder: Any | None = None
+
+    @property
+    def reduced_to_lower_field(self) -> bool:
+        """Whether integration has recursively reduced from ``K(t)`` to ``K``."""
+        return self.status is NonlinearNoSpecialStatus.REDUCED_TO_LOWER_FIELD
+
+    @property
+    def is_non_elementary(self) -> bool:
+        """Whether the result contains a proof of non-elementarity."""
+        return not self.reduced_to_lower_field
 
 
 def split_normal_special(
@@ -846,6 +881,96 @@ def reduce_nonlinear_monomial(
             + infinity_logarithmic_derivative
         ),
         remainder,
+    )
+
+
+def reduce_nonlinear_no_special(
+    integrand: Any,
+    derivation: Derivation,
+    *,
+    residue: Symbol | None = None,
+) -> NonlinearNoSpecialReduction:
+    r"""Decide the nonlinear case with no nonconstant special polynomials.
+
+    This is the corollary following Theorem 5.11 in Bronstein, *Symbolic
+    Integration I*.  After the common Hermite, residue, polynomial, and
+    residue-at-infinity reductions, an elementary remainder must belong to
+    the lower field :math:`K` when
+    :math:`S^{\mathrm{irr}}=\varnothing`.  A remaining nonconstant polynomial
+    in ``t`` therefore proves non-elementarity.
+
+    The absence of special polynomials and preservation of constants are
+    structure-theorem hypotheses, not facts inferable from one integrand.
+    They must be recorded on the immutable top extension.
+    """
+    if derivation.level < 0:
+        raise TypeError("nonlinear no-special reduction requires a monomial level")
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("nonlinear no-special reduction requires a monomial level")
+    extension.require_no_special_polynomials("nonlinear no-special reduction")
+
+    # This inexpensive check catches inconsistent manually supplied metadata.
+    # It is not intended to replace a structure-theorem proof: special
+    # polynomials need not divide Dt.
+    _, obvious_special = split_normal_special(
+        extension.generator_derivative,
+        derivation,
+    )
+    if obvious_special.degree() > 0:
+        raise ValueError(
+            "special-polynomial status is absent, but Dt has a "
+            "nonconstant special factor"
+        )
+
+    common = reduce_nonlinear_monomial(
+        integrand,
+        derivation,
+        residue=residue,
+    )
+    if common.has_finite_residue_obstruction:
+        return NonlinearNoSpecialReduction(
+            common,
+            NonlinearNoSpecialStatus.FINITE_RESIDUE_OBSTRUCTION,
+        )
+    if common.has_infinity_obstruction:
+        return NonlinearNoSpecialReduction(
+            common,
+            NonlinearNoSpecialStatus.INFINITY_RESIDUE_OBSTRUCTION,
+        )
+
+    polynomial, proper_numerator, proper_denominator = (
+        _polynomial_and_proper_fraction(common.remainder, extension)
+    )
+    if not proper_numerator.is_zero:
+        _, special_denominator = split_normal_special(
+            proper_denominator,
+            derivation,
+        )
+        if special_denominator.degree() > 0:
+            raise ValueError(
+                "special-polynomial status is absent, but the reduced "
+                "remainder has a nonconstant special denominator"
+            )
+        raise ValueError(
+            "common reduction left an unexpected normal proper fraction"
+        )
+
+    if polynomial.is_zero or polynomial.degree() == 0:
+        lower_remainder = (
+            extension.parent_field.zero
+            if polynomial.is_zero
+            else extension.parent_field.convert(polynomial.nth(0))
+        )
+        return NonlinearNoSpecialReduction(
+            common,
+            NonlinearNoSpecialStatus.REDUCED_TO_LOWER_FIELD,
+            lower_remainder,
+        )
+
+    return NonlinearNoSpecialReduction(
+        common,
+        NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL,
     )
 
 
