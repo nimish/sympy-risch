@@ -11,6 +11,7 @@ from sympy_risch import (
     hermite_reduce_monomial,
     hermite_reduce_rational_recursive,
     polynomial_reduce_monomial,
+    reduce_monomial_reduced_function,
     residue_reduce_monomial,
     split_normal_special,
 )
@@ -259,6 +260,185 @@ def test_generated_nonlinear_polynomial_reductions_reconstruct_input(
     delta = tower.levels[-1].generator_derivative.degree()
     assert derivation.polynomial(exact) + remainder == polynomial
     assert remainder.is_zero or remainder.degree() < delta
+
+
+def test_tangent_reduced_function_extracts_the_logarithm_at_infinity() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    integrand = field.from_sympy(t)
+
+    reduction = reduce_monomial_reduced_function(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert reduction.infinity_coefficient == 1
+    assert reduction.infinity_residue == 1
+    assert reduction.infinity_residue_derivative == 0
+    assert reduction.logarithmic_coefficient == tower.field(0).convert(QQ(1, 2))
+    assert reduction.logarithmic_argument == Poly(
+        1 + t**2,
+        t,
+        domain=tower.field(0),
+    )
+    assert reduction.logarithmic_derivative == integrand
+    assert reduction.remainder == field.zero
+    assert not reduction.has_infinity_obstruction
+    assert not reduction.needs_special_polynomial
+
+
+def test_reduced_function_certifies_a_nonconstant_infinity_residue() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    integrand = field.from_sympy(x*t + 3)
+
+    reduction = reduce_monomial_reduced_function(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert reduction.infinity_coefficient == tower.field(0).from_sympy(x)
+    assert reduction.infinity_residue == tower.field(0).from_sympy(x)
+    assert reduction.infinity_residue_derivative == 1
+    assert reduction.logarithmic_argument is None
+    assert reduction.logarithmic_derivative == field.zero
+    assert reduction.remainder == integrand
+    assert reduction.has_infinity_obstruction
+    assert not reduction.needs_special_polynomial
+
+
+def test_reduced_function_uses_its_special_denominator() -> None:
+    tower = monomial_tower(t**3)
+    field = tower.field()
+    integrand = field.from_sympy(2*t**2 + 1/t)
+
+    reduction = reduce_monomial_reduced_function(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert reduction.special_numerator == Poly(
+        1,
+        t,
+        domain=tower.field(0),
+    )
+    assert reduction.special_denominator == Poly(
+        t,
+        t,
+        domain=tower.field(0),
+    )
+    assert reduction.logarithmic_coefficient == 2
+    assert reduction.logarithmic_argument == reduction.special_denominator
+    assert reduction.logarithmic_derivative == field.from_sympy(2*t**2)
+    assert reduction.remainder == field.from_sympy(1/t)
+
+
+def test_reduced_function_can_use_a_supplied_special_polynomial() -> None:
+    # q = t - x is special because Dq = t*q, but it is not a factor of Dt.
+    tower = monomial_tower(t**2 - x*t + 1)
+    parent = tower.field(0)
+    field = tower.field()
+    special = Poly(t - x, t, domain=parent)
+
+    reduction = reduce_monomial_reduced_function(
+        field.from_sympy(t),
+        tower.derivation(),
+        special,
+    )
+
+    assert reduction.logarithmic_coefficient == 1
+    assert reduction.logarithmic_argument == special
+    assert reduction.logarithmic_derivative == field.from_sympy(t)
+    assert reduction.remainder == field.zero
+
+
+def test_reduced_function_defers_when_no_special_polynomial_is_known() -> None:
+    tower = monomial_tower(t**2 + x)
+    field = tower.field()
+    integrand = field.from_sympy(t)
+
+    reduction = reduce_monomial_reduced_function(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert reduction.infinity_residue == 1
+    assert reduction.infinity_residue_derivative == 0
+    assert reduction.logarithmic_argument is None
+    assert reduction.remainder == integrand
+    assert not reduction.has_infinity_obstruction
+    assert reduction.needs_special_polynomial
+
+
+def test_reduced_function_leaves_lower_degree_and_special_parts() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    integrand = field.from_sympy(4*t + 3 + 1/(1 + t**2))
+
+    reduction = reduce_monomial_reduced_function(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert reduction.logarithmic_coefficient == 2
+    assert reduction.logarithmic_derivative == field.from_sympy(4*t)
+    assert reduction.remainder == field.from_sympy(3 + 1/(1 + t**2))
+    assert reduction.logarithmic_derivative + reduction.remainder == integrand
+
+
+def test_reduced_function_requires_the_previous_reductions() -> None:
+    tower = monomial_tower(1 + t**2)
+    field = tower.field()
+    derivation = tower.derivation()
+
+    with pytest.raises(ValueError, match="normal residues"):
+        reduce_monomial_reduced_function(
+            field.from_sympy(t + 1/(t - 1)),
+            derivation,
+        )
+    with pytest.raises(ValueError, match="polynomial reduction"):
+        reduce_monomial_reduced_function(field.from_sympy(t**2), derivation)
+    with pytest.raises(ValueError, match="must divide"):
+        reduce_monomial_reduced_function(
+            field.from_sympy(t),
+            derivation,
+            Poly(t - 1, t, domain=tower.field(0)),
+        )
+
+
+@given(
+    example=st.sampled_from(
+        (
+            (1 + t**2, 1 + t**2),
+            (t**3, t),
+            (t**3, t**2),
+        ),
+    ),
+    logarithmic_coefficient=st.integers(min_value=-4, max_value=4),
+    background=st.integers(min_value=-4, max_value=4),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_reduced_function_logarithms_reconstruct_input(
+    example,
+    logarithmic_coefficient,
+    background,
+) -> None:
+    generator_derivative, special_expression = example
+    tower = monomial_tower(generator_derivative)
+    field = tower.field()
+    derivation = tower.derivation()
+    special = field.from_sympy(special_expression)
+    planted_logarithmic_derivative = (
+        logarithmic_coefficient*derivation(special)/special
+    )
+    integrand = planted_logarithmic_derivative + background
+
+    reduction = reduce_monomial_reduced_function(integrand, derivation)
+
+    assert reduction.logarithmic_derivative + reduction.remainder == integrand
+    assert reduction.remainder == field.from_sympy(background)
+    assert not reduction.has_infinity_obstruction
+    assert not reduction.needs_special_polynomial
 
 
 def denominator_parts(element, tower: DifferentialTower) -> tuple[Poly, Poly]:

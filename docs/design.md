@@ -489,6 +489,9 @@ its own commit.
 - [x] Extract accepted constant-residue logarithmic terms with a generalized
   LRT subresultant computation, and reconstruct their derivative by a
   quotient-ring trace without adjoining algebraic constants explicitly.
+- [x] Reduce the Section 5.7 residue at infinity for nonlinear monomials:
+  certify nonconstant infinity residues, extract a logarithm using a known
+  special polynomial, and explicitly defer the no-known-special case.
 - Implement polynomial reduction in a primitive extension.
 - Implement the recursive in-field exact-derivative problem.
 - Prove nonexistence when the reduced obstruction is nonzero.

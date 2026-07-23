@@ -71,6 +71,45 @@ class BronsteinResidueReduction:
         return self.certificate.all_residues_constant
 
 
+@dataclass(frozen=True, slots=True)
+class ReducedFunctionReduction:
+    r"""Reduction of the residue at infinity of a reduced monomial function.
+
+    ``infinity_coefficient`` is Bronstein's :math:`b`, the coefficient of
+    :math:`t^{\delta-1}` in the reduced polynomial part, and
+    ``infinity_residue`` is :math:`c=b/\lambda`, where
+    :math:`\lambda=\operatorname{lc}_t(Dt)`.  A nonzero
+    ``infinity_residue_derivative`` is a Liouville obstruction.  Otherwise a
+    nonzero residue can be removed as a logarithmic derivative when
+    ``logarithmic_argument`` supplies a nonconstant special polynomial.
+    """
+
+    polynomial_part: Poly
+    special_numerator: Poly
+    special_denominator: Poly
+    infinity_coefficient: Any
+    infinity_residue: Any
+    infinity_residue_derivative: Any
+    logarithmic_coefficient: Any | None
+    logarithmic_argument: Poly | None
+    logarithmic_derivative: Any
+    remainder: Any
+
+    @property
+    def has_infinity_obstruction(self) -> bool:
+        """Whether the candidate residue at infinity is nonconstant."""
+        return self.infinity_residue_derivative != 0
+
+    @property
+    def needs_special_polynomial(self) -> bool:
+        """Whether logarithmic removal is blocked only by an unknown special."""
+        return (
+            self.infinity_residue != 0
+            and not self.has_infinity_obstruction
+            and self.logarithmic_argument is None
+        )
+
+
 def split_normal_special(
     polynomial: Poly,
     derivation: Derivation,
@@ -190,6 +229,23 @@ def _reduced_polynomial_fraction(
     return numerator.mul_ground(coefficient), denominator
 
 
+def _polynomial_and_proper_fraction(
+    element: Any,
+    extension: MonomialExtension,
+) -> tuple[Poly, Poly, Poly]:
+    """Return the polynomial part and a proper fraction over a monic denominator."""
+    numerator, denominator = _reduced_polynomial_fraction(element, extension)
+    leading_inverse = denominator.domain.one/denominator.domain.convert(
+        denominator.LC(),
+    )
+    numerator = numerator.mul_ground(leading_inverse)
+    denominator = denominator.monic()
+    polynomial, proper_numerator = numerator.div(denominator)
+    if proper_numerator.is_zero:
+        return polynomial, denominator.zero, denominator.one
+    return polynomial, proper_numerator, denominator
+
+
 def _normal_fraction_part(
     element: Any,
     extension: MonomialExtension,
@@ -204,21 +260,10 @@ def _normal_fraction_part(
     This is the decomposition used before the generalized Rothstein--Trager
     resultant in section 3.4 of Bronstein's ISSAC'98 tutorial.
     """
-    numerator, denominator = _reduced_polynomial_fraction(element, extension)
-
-    # A coefficient from the lower field is a unit in K[t].  Moving the
-    # leading coefficient into the numerator makes the factor decomposition
-    # canonical; for example 1/(x*t) becomes (1/x)/t.
-    denominator_leading_coefficient = denominator.domain.convert(
-        denominator.LC(),
+    _, proper_numerator, denominator = _polynomial_and_proper_fraction(
+        element,
+        extension,
     )
-    denominator_leading_inverse = (
-        denominator.domain.one/denominator_leading_coefficient
-    )
-    numerator = numerator.mul_ground(denominator_leading_inverse)
-    denominator = denominator.monic()
-
-    _, proper_numerator = numerator.div(denominator)
     if proper_numerator.is_zero:
         return denominator.zero, denominator.one
 
@@ -499,6 +544,164 @@ def residue_reduce_monomial(
         tuple(logarithmic_parts),
         logarithmic_derivative,
         element - logarithmic_derivative,
+    )
+
+
+def reduce_monomial_reduced_function(
+    remainder: Any,
+    derivation: Derivation,
+    special_polynomial: Poly | None = None,
+) -> ReducedFunctionReduction:
+    r"""Reduce the residue at infinity of a nonlinear monomial remainder.
+
+    This implements the common nonlinear step in Bronstein, *Symbolic
+    Integration I*, Section 5.7.  The input must already be reduced:
+
+    * its proper denominator has no normal part;
+    * its polynomial part has degree less than
+      :math:`\delta=\deg_t(Dt)`.
+
+    Write the polynomial part as ``p`` and set
+
+    ``b = [t**(delta - 1)]p``, ``c = b/lambda``,
+
+    where ``lambda`` is the leading coefficient of ``Dt``.  If ``D(c)`` is
+    nonzero, Liouville's theorem certifies non-elementarity.  If ``c`` is a
+    nonzero constant and ``q`` is a nonconstant special polynomial, then
+
+    ``(c/degree(q))*D(q)/q``
+
+    removes the leading term.  A special denominator is preferred as ``q``;
+    otherwise the special part of ``Dt`` is tried.  ``special_polynomial`` can
+    supply a different known special.  When none is known, the result records
+    ``needs_special_polynomial`` and leaves the input unchanged for the
+    nonlinear-no-specials branch.
+    """
+    if derivation.level < 0:
+        raise TypeError("reduced-function reduction requires a monomial level")
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("reduced-function reduction requires a monomial level")
+
+    generator_derivative = extension.generator_derivative
+    delta = generator_derivative.degree()
+    if delta < 2:
+        raise ValueError(
+            "reduced-function reduction requires degree(Dt) >= 2"
+        )
+
+    field = extension.field
+    parent = extension.parent_field
+    element = _coerce(field, remainder)
+    polynomial, proper_numerator, proper_denominator = (
+        _polynomial_and_proper_fraction(element, extension)
+    )
+    if proper_denominator.degree() > 0:
+        normal_denominator, _ = split_normal_special(
+            proper_denominator,
+            derivation,
+        )
+        if normal_denominator.degree() > 0:
+            raise ValueError(
+                "reduced-function reduction requires all normal residues "
+                "to be removed first"
+            )
+
+    if not polynomial.is_zero and polynomial.degree() >= delta:
+        raise ValueError(
+            "reduced-function reduction requires polynomial reduction first"
+        )
+
+    infinity_coefficient = _coerce(
+        parent,
+        polynomial.nth(delta - 1),
+    )
+    derivative_leading_coefficient = parent.convert(
+        generator_derivative.LC(),
+    )
+    infinity_residue = parent.exquo(
+        infinity_coefficient,
+        derivative_leading_coefficient,
+    )
+    infinity_residue_derivative = derivation.lower()(infinity_residue)
+    zero = parent.zero
+
+    def result(
+        *,
+        logarithmic_coefficient: Any | None = None,
+        logarithmic_argument: Poly | None = None,
+        logarithmic_derivative: Any = field.zero,
+        reduced_remainder: Any = element,
+    ) -> ReducedFunctionReduction:
+        return ReducedFunctionReduction(
+            polynomial,
+            proper_numerator,
+            proper_denominator,
+            infinity_coefficient,
+            infinity_residue,
+            infinity_residue_derivative,
+            logarithmic_coefficient,
+            logarithmic_argument,
+            logarithmic_derivative,
+            reduced_remainder,
+        )
+
+    if infinity_residue == zero or infinity_residue_derivative != zero:
+        return result()
+
+    logarithmic_argument = special_polynomial
+    if logarithmic_argument is None and proper_denominator.degree() > 0:
+        logarithmic_argument = proper_denominator
+    if logarithmic_argument is None:
+        _, derivative_special_part = split_normal_special(
+            generator_derivative,
+            derivation,
+        )
+        if derivative_special_part.degree() > 0:
+            logarithmic_argument = derivative_special_part
+    if logarithmic_argument is None:
+        return result()
+
+    if not isinstance(logarithmic_argument, Poly):
+        raise TypeError("special_polynomial must be a SymPy Poly")
+    derivation.polynomial(logarithmic_argument)
+    if logarithmic_argument.degree() <= 0:
+        raise ValueError("special_polynomial must be nonconstant")
+    logarithmic_argument = logarithmic_argument.monic()
+    argument_derivative = derivation.polynomial(logarithmic_argument)
+    if not argument_derivative.rem(logarithmic_argument).is_zero:
+        raise ValueError("special_polynomial must divide its derivative")
+
+    logarithmic_coefficient = parent.exquo(
+        infinity_residue,
+        parent.convert(logarithmic_argument.degree()),
+    )
+    logarithmic_derivative_polynomial = argument_derivative.exquo(
+        logarithmic_argument,
+    ).mul_ground(logarithmic_coefficient)
+    logarithmic_derivative = _coerce(
+        field,
+        logarithmic_derivative_polynomial.as_expr(),
+    )
+    reduced_remainder = element - logarithmic_derivative
+
+    reduced_polynomial, _, _ = _polynomial_and_proper_fraction(
+        reduced_remainder,
+        extension,
+    )
+    if (
+        not reduced_polynomial.is_zero
+        and reduced_polynomial.degree() >= delta - 1
+    ):
+        raise ValueError(
+            "special polynomial did not remove the residue at infinity"
+        )
+
+    return result(
+        logarithmic_coefficient=logarithmic_coefficient,
+        logarithmic_argument=logarithmic_argument,
+        logarithmic_derivative=logarithmic_derivative,
+        reduced_remainder=reduced_remainder,
     )
 
 
