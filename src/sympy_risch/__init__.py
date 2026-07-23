@@ -9,6 +9,7 @@ from .algebraic import (
     recognize_simple_radical,
     simple_radical_integral_basis,
 )
+from .exact import ExactDerivativeResult, solve_exact_derivative
 from .lrt import lazard_rioboo_trager
 from .monomial import (
     BronsteinResidueCertificate,
@@ -20,6 +21,7 @@ from .monomial import (
     PrimitivePolynomialReduction,
     PrimitivePolynomialStep,
     PrimitiveMonomialReduction,
+    PrimitiveExactDerivativeResult,
     ReducedFunctionReduction,
     bronstein_residue_criterion,
     hermite_reduce_monomial,
@@ -28,6 +30,7 @@ from .monomial import (
     reduce_nonlinear_monomial,
     reduce_nonlinear_no_special,
     reduce_primitive_monomial,
+    solve_primitive_exact_derivative,
     reduce_monomial_reduced_function,
     residue_reduce_monomial,
     split_normal_special,
@@ -62,12 +65,14 @@ __all__ = [
     "BronsteinResidueFactor",
     "BronsteinResidueReduction",
     "ConstantFieldStatus",
+    "ExactDerivativeResult",
     "NonlinearMonomialReduction",
     "NonlinearNoSpecialReduction",
     "NonlinearNoSpecialStatus",
     "PrimitivePolynomialReduction",
     "PrimitivePolynomialStep",
     "PrimitiveMonomialReduction",
+    "PrimitiveExactDerivativeResult",
     "ReducedFunctionReduction",
     "RationalExactDerivativeResult",
     "bronstein_residue_criterion",
@@ -95,6 +100,8 @@ __all__ = [
     "residue_reduce_monomial",
     "rothstein_trager_residue_polynomial",
     "solve_rational_exact_derivative",
+    "solve_exact_derivative",
+    "solve_primitive_exact_derivative",
     "SimpleRadicalData",
     "SpecialPolynomialStatus",
     "split_normal_special",

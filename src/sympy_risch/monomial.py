@@ -279,6 +279,49 @@ class PrimitiveMonomialReduction:
 
 
 @dataclass(frozen=True, slots=True)
+class PrimitiveExactDerivativeResult:
+    r"""Certified exact-derivative result in a primitive field ``K(t)``.
+
+    The fields satisfy
+
+    ``f = D(exact_part) + obstruction``.
+
+    Unlike elementary integration, logarithmic derivatives remain in
+    ``obstruction`` because their antiderivatives do not belong to ``K(t)``.
+    """
+
+    hermite_exact_part: Any
+    polynomial_reduction: PrimitivePolynomialReduction
+    exact_part: Any
+    proper_numerator: Poly
+    proper_denominator: Poly
+    obstruction: Any
+
+    @property
+    def has_proper_fraction_obstruction(self) -> bool:
+        """Whether a nonzero square-free proper fraction remains."""
+        return not self.proper_numerator.is_zero
+
+    @property
+    def has_polynomial_obstruction(self) -> bool:
+        """Whether a reduced polynomial coefficient remains."""
+        return self.polynomial_reduction.has_obstruction
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the input is a derivative of an element of ``K(t)``."""
+        return not (
+            self.has_proper_fraction_obstruction
+            or self.has_polynomial_obstruction
+        )
+
+    @property
+    def antiderivative(self) -> Any | None:
+        """Return the in-field antiderivative, or ``None`` if none exists."""
+        return self.exact_part if self.has_solution else None
+
+
+@dataclass(frozen=True, slots=True)
 class _RationalObstructionPivot:
     """One nonzero rational residue coordinate used to quotient by ``C*eta``."""
 
@@ -1307,6 +1350,86 @@ def reduce_primitive_monomial(
         residue_reduction.logarithmic_derivative,
         remainder,
         lower_remainder,
+    )
+
+
+def solve_primitive_exact_derivative(
+    integrand: Any,
+    derivation: Derivation,
+) -> PrimitiveExactDerivativeResult:
+    r"""Decide the exact-derivative problem in primitive ``QQ(x)(t)``.
+
+    Hermite reduction first removes every possible repeated-pole derivative.
+    In a primitive extension with preserved constants, every nonconstant
+    polynomial is normal.  A remaining proper square-free fraction therefore
+    cannot be the derivative of a rational function in ``t``.  The polynomial
+    part is reduced separately modulo derivatives by
+    :func:`polynomial_reduce_primitive`.
+
+    This solver intentionally does not perform residue or logarithmic
+    reduction: for example, ``1/(x*t) = D(t)/t`` is elementary after adjoining
+    ``log(t)``, but it is not the derivative of an element already in
+    ``QQ(x)(t)``.
+    """
+    if derivation.level < 0:
+        raise TypeError("primitive exact solving requires a monomial level")
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("primitive exact solving requires a monomial level")
+    if extension.generator_derivative.degree() != 0:
+        raise ValueError("primitive exact solving requires Dt in K")
+    extension.require_preserved_constants("primitive exact solving")
+
+    field = extension.field
+    element = _coerce(field, integrand)
+    hermite_exact_part, hermite_remainder = hermite_reduce_monomial(
+        element,
+        derivation,
+    )
+    polynomial_part, _, _ = _polynomial_and_proper_fraction(
+        hermite_remainder,
+        extension,
+    )
+    polynomial_reduction = polynomial_reduce_primitive(
+        polynomial_part,
+        derivation,
+    )
+    polynomial_exact_element = _coerce(
+        field,
+        polynomial_reduction.exact_part.as_expr(),
+    )
+    exact_part = hermite_exact_part + polynomial_exact_element
+    obstruction = hermite_remainder - derivation(polynomial_exact_element)
+    final_polynomial, proper_numerator, proper_denominator = (
+        _polynomial_and_proper_fraction(obstruction, extension)
+    )
+    if final_polynomial != polynomial_reduction.remainder:
+        raise ValueError(
+            "primitive exact solving produced an inconsistent obstruction"
+        )
+
+    if not proper_numerator.is_zero:
+        normal_denominator, special_denominator = split_normal_special(
+            proper_denominator,
+            derivation,
+        )
+        if special_denominator.degree() > 0:
+            raise ValueError(
+                "a primitive extension with preserved constants cannot "
+                "have a nonconstant special denominator"
+            )
+        if normal_denominator.degree() == 0:
+            raise ValueError(
+                "primitive exact solving produced an invalid proper fraction"
+            )
+
+    return PrimitiveExactDerivativeResult(
+        hermite_exact_part,
+        polynomial_reduction,
+        exact_part,
+        proper_numerator,
+        proper_denominator,
+        obstruction,
     )
 
 
