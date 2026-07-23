@@ -5,6 +5,7 @@ from sympy import Poly, cancel, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
     bronstein_residue_criterion,
@@ -22,11 +23,15 @@ x, t = symbols("x t")
 
 def monomial_tower(generator_derivative) -> DifferentialTower:
     rational = DifferentialTower(QQ).extend(
-        MonomialExtension(Poly(1, x, domain=QQ)),
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
     )
     return rational.extend(
         MonomialExtension(
             Poly(generator_derivative, t, domain=rational.field()),
+            ConstantFieldStatus.PRESERVED,
         ),
     )
 
@@ -285,6 +290,51 @@ def test_tangent_reduced_function_extracts_the_logarithm_at_infinity() -> None:
     assert reduction.remainder == field.zero
     assert not reduction.has_infinity_obstruction
     assert not reduction.needs_special_polynomial
+
+
+def test_reduced_function_handles_a_nonunit_derivative_leading_coefficient() -> None:
+    tower = monomial_tower(x*(1 + t**2))
+    field = tower.field()
+    integrand = field.from_sympy(x*t)
+
+    reduction = reduce_monomial_reduced_function(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert reduction.infinity_coefficient == tower.field(0).from_sympy(x)
+    assert reduction.infinity_residue == 1
+    assert reduction.infinity_residue_derivative == 0
+    assert reduction.logarithmic_coefficient == tower.field(0).convert(QQ(1, 2))
+    assert reduction.logarithmic_derivative == integrand
+    assert reduction.remainder == field.zero
+
+
+@given(st.integers(min_value=-5, max_value=5).filter(bool))
+def test_reduced_function_rejects_new_constant_counterexamples(scale) -> None:
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    tower = rational.extend(
+        MonomialExtension(
+            Poly(scale*t**2, t, domain=rational.field()),
+            ConstantFieldStatus.ENLARGED,
+        ),
+    )
+    field = tower.field()
+    derivation = tower.derivation()
+    generator = field.from_sympy(t)
+    new_constant = field.from_sympy(x + 1/(scale*t))
+    integrand = field.from_sympy(scale*x*t)
+
+    assert derivation(new_constant) == field.zero
+    # Formally differentiating new_constant*log(t) - x gives this identity.
+    assert new_constant*derivation(generator)/generator - 1 == integrand
+    with pytest.raises(ValueError, match=r"Const\(K\(t\)\) = Const\(K\)"):
+        reduce_monomial_reduced_function(integrand, derivation)
 
 
 def test_reduced_function_certifies_a_nonconstant_infinity_residue() -> None:
@@ -699,6 +749,26 @@ def test_monomial_hermite_reduces_nonlinear_normal_factors(
     assert exact == planted_exact
     assert remainder == field.zero
     assert derivation(exact) + remainder == integrand
+
+
+def test_residue_algorithms_require_preserved_constants() -> None:
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    tower = rational.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=rational.field()),
+        ),
+    )
+    integrand = tower.field().from_sympy(1/t)
+
+    with pytest.raises(ValueError, match="status is unknown"):
+        bronstein_residue_criterion(integrand, tower.derivation())
+    with pytest.raises(ValueError, match="status is unknown"):
+        residue_reduce_monomial(integrand, tower.derivation())
 
 
 def test_bronstein_criterion_rejects_the_logarithmic_integral_residue() -> None:

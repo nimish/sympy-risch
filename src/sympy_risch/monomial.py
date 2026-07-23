@@ -395,14 +395,14 @@ def bronstein_residue_criterion(
 
     Passing the criterion only settles the normal fraction.  It does not yet
     integrate, or prove integrability of, polynomial and special parts.  The
-    theorem also assumes the differential tower has the intended constant
-    field (the usual no-new-constants hypothesis).
+    top extension must explicitly record the no-new-constants hypothesis.
     """
     if derivation.level < 0:
         raise TypeError("the residue criterion requires a monomial level")
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("the residue criterion requires a monomial level")
+    extension.require_preserved_constants("the residue criterion")
 
     residue = residue or Dummy("z")
     tower_symbols = _domain_symbols(extension.field) | {
@@ -582,6 +582,7 @@ def reduce_monomial_reduced_function(
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("reduced-function reduction requires a monomial level")
+    extension.require_preserved_constants("reduced-function reduction")
 
     generator_derivative = extension.generator_derivative
     delta = generator_derivative.degree()

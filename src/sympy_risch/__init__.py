@@ -32,6 +32,7 @@ from .rational import (
 )
 from .tower import (
     AlgebraicExtension,
+    ConstantFieldStatus,
     Derivation,
     DifferentialExtension,
     DifferentialTower,
@@ -47,6 +48,7 @@ __all__ = [
     "BronsteinResidueCertificate",
     "BronsteinResidueFactor",
     "BronsteinResidueReduction",
+    "ConstantFieldStatus",
     "ReducedFunctionReduction",
     "bronstein_residue_criterion",
     "Derivation",

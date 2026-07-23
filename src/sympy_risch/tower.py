@@ -98,6 +98,20 @@ class MonomialFamily(Enum):
     POLYNOMIAL = "polynomial"
 
 
+class ConstantFieldStatus(Enum):
+    r"""Knowledge about constants introduced by a transcendental level.
+
+    The structure theorems used for negative Risch decisions require
+    :math:`\operatorname{Const}(K(t))=\operatorname{Const}(K)`.  Until an
+    automatic tower builder proves that fact, manually constructed levels must
+    record whether it is asserted, disproved, or still unknown.
+    """
+
+    UNKNOWN = "unknown"
+    PRESERVED = "preserved"
+    ENLARGED = "enlarged"
+
+
 @dataclass(frozen=True, slots=True)
 class MonomialExtension:
     r"""A transcendental extension ``K(t)`` with ``Dt`` in ``K[t]``.
@@ -111,9 +125,15 @@ class MonomialExtension:
 
     ``QQ(x)`` with ``Dx = 1`` is represented by
     ``MonomialExtension(Poly(1, x, domain=QQ))``.
+
+    The derivative law alone cannot establish that adjoining the formal
+    generator preserves the constant field.  Set ``constant_field_status`` to
+    :attr:`ConstantFieldStatus.PRESERVED` only when that hypothesis has been
+    proved or is an explicit construction assumption.
     """
 
     generator_derivative: Poly
+    constant_field_status: ConstantFieldStatus = ConstantFieldStatus.UNKNOWN
     _field: Domain = dataclass_field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -129,6 +149,10 @@ class MonomialExtension:
             raise ValueError("differential towers require characteristic zero")
         if derivative.is_zero:
             raise ValueError("a zero-derivative generator belongs in the constants")
+        if not isinstance(self.constant_field_status, ConstantFieldStatus):
+            raise TypeError(
+                "constant_field_status must be a ConstantFieldStatus"
+            )
         if self.generator in _domain_symbols(self.parent_field):
             raise ValueError(f"generator {self.generator} already occurs in the parent field")
 
@@ -152,6 +176,14 @@ class MonomialExtension:
     def field(self) -> Domain:
         """The rational function field ``K(t)``."""
         return self._field
+
+    def require_preserved_constants(self, algorithm: str) -> None:
+        r"""Require the no-new-constants hypothesis for a structure theorem."""
+        if self.constant_field_status is not ConstantFieldStatus.PRESERVED:
+            raise ValueError(
+                f"{algorithm} requires Const(K(t)) = Const(K); "
+                f"constant-field status is {self.constant_field_status.value}"
+            )
 
     @property
     def family(self) -> MonomialFamily:

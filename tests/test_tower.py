@@ -7,6 +7,7 @@ from sympy import Poly, cancel, diff, symbols
 from sympy.polys.domains import GF, QQ, ZZ
 
 from sympy_risch import (
+    ConstantFieldStatus,
     Derivation,
     DifferentialTower,
     MonomialExtension,
@@ -82,6 +83,27 @@ def test_monomial_extension_validates_its_derivative_law() -> None:
         MonomialExtension(Poly(1, x, domain=GF(5)))
     with pytest.raises(ValueError, match="zero-derivative"):
         MonomialExtension(Poly(0, x, domain=QQ))
+    with pytest.raises(TypeError, match="ConstantFieldStatus"):
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            "preserved",  # type: ignore[arg-type]
+        )
+
+
+def test_monomial_constant_field_status_is_explicit_and_immutable() -> None:
+    unknown = MonomialExtension(Poly(1, x, domain=QQ))
+    preserved = MonomialExtension(
+        Poly(1, x, domain=QQ),
+        ConstantFieldStatus.PRESERVED,
+    )
+
+    assert unknown.constant_field_status is ConstantFieldStatus.UNKNOWN
+    assert preserved.constant_field_status is ConstantFieldStatus.PRESERVED
+    with pytest.raises(ValueError, match="status is unknown"):
+        unknown.require_preserved_constants("test algorithm")
+    preserved.require_preserved_constants("test algorithm")
+    with pytest.raises(FrozenInstanceError):
+        preserved.constant_field_status = ConstantFieldStatus.ENLARGED  # type: ignore[misc]
 
 
 def test_monomial_extension_rejects_a_generator_already_in_parent() -> None:
