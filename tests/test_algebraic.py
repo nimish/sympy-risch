@@ -679,3 +679,11 @@ def test_generated_algebraic_reductions_reconstruct_the_integrand(a, b, power) -
 
     assert derivation(exact) + remainder == integrand
     assert basis.fraction(remainder).is_square_free
+
+    second_exact, second_remainder = hermite_reduce_algebraic(
+        remainder,
+        derivation,
+        basis,
+    )
+    assert second_exact == field.zero
+    assert second_remainder == remainder

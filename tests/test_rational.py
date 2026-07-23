@@ -131,6 +131,13 @@ def test_recursive_and_horowitz_ostrogradsky_reductions_agree(integrand) -> None
     assert cancel(recursive_exact - global_exact) == 0
     assert cancel(recursive_remainder - global_remainder) == 0
 
+    second_exact, second_remainder = hermite_reduce_rational(
+        global_remainder,
+        x,
+    )
+    assert second_exact == 0
+    assert cancel(second_remainder - global_remainder) == 0
+
 
 def test_rothstein_trager_residue_polynomial() -> None:
     residue_polynomial = rothstein_trager_residue_polynomial(

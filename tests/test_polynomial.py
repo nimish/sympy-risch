@@ -1,4 +1,6 @@
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from sympy import Poly, Rational, symbols
 from sympy.polys.polyerrors import CoercionFailed, PolynomialError
@@ -41,3 +43,25 @@ def test_integrate_polynomial_rejects_non_rational_coefficient() -> None:
     with pytest.raises(CoercionFailed):
         integrate_polynomial(a*x, x)
 
+
+@given(
+    st.lists(
+        st.tuples(
+            st.integers(min_value=-20, max_value=20),
+            st.integers(min_value=1, max_value=10),
+        ),
+        min_size=0,
+        max_size=15,
+    ),
+)
+@settings(max_examples=40, deadline=None)
+def test_generated_rational_polynomials_differentiate_back(coefficients) -> None:
+    integrand = sum(
+        Rational(numerator, denominator)*x**degree
+        for degree, (numerator, denominator) in enumerate(coefficients)
+    )
+
+    antiderivative = integrate_polynomial(integrand, x)
+
+    assert antiderivative.diff(x) == integrand
+    assert not antiderivative.has(a)

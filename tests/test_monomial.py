@@ -112,6 +112,57 @@ def test_generated_exponential_decompositions_reconstruct_the_input(
     assert normal*special == polynomial
 
 
+@given(
+    coefficient=st.integers(min_value=1, max_value=6),
+    special_multiplicity=st.integers(min_value=0, max_value=5),
+    normal_multiplicity=st.integers(min_value=0, max_value=5),
+)
+def test_generated_tangent_decompositions_reconstruct_the_input(
+    coefficient,
+    special_multiplicity,
+    normal_multiplicity,
+) -> None:
+    tower = monomial_tower(1 + t**2)
+    parent = tower.field(0)
+    polynomial = Poly(
+        coefficient
+        * (1 + t**2)**special_multiplicity
+        * t**normal_multiplicity,
+        t,
+        domain=parent,
+    )
+
+    normal, special = split_normal_special(polynomial, tower.derivation())
+
+    assert normal == Poly(
+        coefficient*t**normal_multiplicity,
+        t,
+        domain=parent,
+    )
+    assert special == Poly(
+        (1 + t**2)**special_multiplicity,
+        t,
+        domain=parent,
+    )
+    assert normal*special == polynomial
+
+
+def test_general_nonlinear_decomposition_can_have_multiple_special_factors() -> None:
+    tower = monomial_tower(t*(1 + t**2))
+    parent = tower.field(0)
+    polynomial = Poly(
+        3*t**2*(1 + t**2)**3*(t - 1)**4,
+        t,
+        domain=parent,
+    )
+
+    normal, special = split_normal_special(polynomial, tower.derivation())
+
+    assert normal == Poly(3*(t - 1)**4, t, domain=parent)
+    assert special == Poly(t**2*(1 + t**2)**3, t, domain=parent)
+    assert normal*special == polynomial
+
+
 def test_normal_special_decomposition_validates_its_polynomial() -> None:
     tower = monomial_tower(1/x)
 
