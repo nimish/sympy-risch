@@ -16,6 +16,14 @@ from .dependency import (
     analyze_hyperexponential_extension,
     analyze_hypertangent_extension,
 )
+from .elementary import (
+    ElementaryIntegralResult,
+    IntegrationObstruction,
+    IntegrationObstructionKind,
+    LogarithmicTerm,
+    RationalElementaryReduction,
+    integrate_elementary,
+)
 from .exact import ExactDerivativeResult, solve_exact_derivative
 from .lrt import lazard_rioboo_trager
 from .monomial import (
@@ -105,6 +113,7 @@ __all__ = [
     "ConstantFieldStatus",
     "CoupledRDEObstruction",
     "CoupledRationalRDEResult",
+    "ElementaryIntegralResult",
     "ExactDerivativeResult",
     "HyperexponentialDependency",
     "HyperexponentialDependencyKind",
@@ -115,6 +124,9 @@ __all__ = [
     "HypertangentDependency",
     "HypertangentMonomialReduction",
     "HypertangentSpecialReduction",
+    "IntegrationObstruction",
+    "IntegrationObstructionKind",
+    "LogarithmicTerm",
     "NonlinearMonomialReduction",
     "NonlinearNoSpecialReduction",
     "NonlinearNoSpecialStatus",
@@ -126,6 +138,7 @@ __all__ = [
     "PolynomialRischDifferentialEquationResult",
     "ReducedFunctionReduction",
     "RationalExactDerivativeResult",
+    "RationalElementaryReduction",
     "RationalLogDerivativeFactor",
     "RationalLogDerivativeResult",
     "RationalRDEObstruction",
@@ -142,6 +155,7 @@ __all__ = [
     "hermite_reduce_monomial",
     "lazy_hermite_reduce_algebraic",
     "integrate_polynomial",
+    "integrate_elementary",
     "integrate_rational",
     "integrate_rational_real",
     "IntegralBasis",
