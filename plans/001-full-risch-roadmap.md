@@ -660,10 +660,11 @@ reviewable checkpoints are:
 
 1. [x] Define the parametric logarithmic-derivative result and exact
    verification contract.
-2. Implement Bronstein §7.3 over the existing rational base.
+2. [x] Implement Bronstein §7.3 over the existing rational base.
 3. Add the Chapter 9 complex structure fallback over rational and recursive
    primitive towers.
-4. Add the Example 7.3.2 regression and generated rational-dependency families.
+4. Make the Example 7.3.2 regression constructive through the fallback and
+   extend the generated rational-dependency families across that branch.
 5. Use that decision in primitive RDE cancellation and degree bounds.
 6. Add weak normalization for primitive coefficients with top-generator poles.
 7. Generalize the completed scalar RDE one lower-field family at a time.

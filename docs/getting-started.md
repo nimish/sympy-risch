@@ -21,7 +21,9 @@ from sympy_risch import (
     DifferentialTower,
     IntegrationObstructionKind,
     MonomialExtension,
+    ParametricLogarithmicDerivativeOutcome,
     integrate_elementary,
+    solve_parametric_logarithmic_derivative_heuristic,
 )
 
 x, t, u = symbols("x t u")
@@ -231,6 +233,48 @@ SPDE reduction. Coefficients with poles in the primitive generator, and the
 cancellation case where the coefficient lies entirely in the next lower
 field, remain explicit `NotImplementedError` boundaries.
 
+## Test a parametric logarithmic derivative
+
+Bronstein's parametric logarithmic-derivative problem asks whether, for a
+proposed hyperexponential generator `theta`,
+
+```text
+n*f = D(v)/v + m*D(theta)/theta
+```
+
+has a solution with integers `n != 0`, `m`, and a nonzero rational function
+`v`. The Section 7.3 fast path is implemented over the standard rational base:
+
+```python
+theta = symbols("theta")
+eta = x**2 + 1/x
+theta_extension = MonomialExtension(
+    Poly(eta*theta, theta, domain=base.field())
+)
+
+decision = solve_parametric_logarithmic_derivative_heuristic(
+    (1/(x - 1) + 3*eta)/2,
+    theta_extension,
+    base.derivation(),
+)
+
+assert decision.outcome is ParametricLogarithmicDerivativeOutcome.SOLUTION
+assert (decision.n, decision.m) == (2, 3)
+assert decision.argument == base.field().from_sympy(x - 1)
+assert decision.reconstructs
+```
+
+The returned certificate records whether the ratio `m/n` came from the
+high-degree polynomial comparison or the repeated-denominator congruence.
+Every successful witness is rechecked by exact differentiation.
+
+This fast path is intentionally not presented as a complete decision.
+For example, when `D(theta)/theta = 1` and `f = 11`, the obvious witness is
+`(n, m, v) = (1, 11, 1)`, but the Section 7.3 coefficient tests cannot
+determine `m/n`. The current result is `INCONCLUSIVE`, not
+`PROVED_NO_SOLUTION`; the planned Chapter 9 structure-theorem fallback will
+decide that branch.
+
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
@@ -257,6 +301,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Hyperexponential over a primitive level, with positive-degree polynomial logarithmic derivative | End-to-end |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
+| Parametric logarithmic derivative, Bronstein Section 7.3 fast path | Low-level API over `QQ(x)`; may return `INCONCLUSIVE` |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Other nested hyperexponential shapes or nested hypertangent levels | Not implemented |
@@ -276,6 +321,7 @@ principal groups are:
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
+| Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative_heuristic` |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 
 These functions return structured immutable results rather than only a printed

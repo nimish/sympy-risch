@@ -46,6 +46,45 @@ class ParametricLogarithmicDerivativeOutcome(Enum):
     UNSUPPORTED = "unsupported"
 
 
+class ParametricLogarithmicDerivativeHeuristicBranch(Enum):
+    """Coefficient comparison used by Bronstein's Section 7.3 heuristic."""
+
+    POLYNOMIAL_PART = "polynomial_part"
+    DENOMINATOR_CONGRUENCE = "denominator_congruence"
+
+
+@dataclass(frozen=True, slots=True)
+class ParametricLogarithmicDerivativeHeuristicCertificate:
+    r"""Trace of the necessary-condition test in Bronstein's Lemma 7.3.1.
+
+    For ``f = p + a/d`` and ``eta = q + b/e``, the lemma first compares
+    polynomial coefficients above ``B = max(0, degree(Dx) - 1)``.  If those
+    coefficients do not determine ``m/n``, it compares ``l*f`` and ``l*eta``
+    modulo ``z``, where over ``QQ(x)``:
+
+    ``l = lcm(d, e)`` and ``z = gcd(l, derivative(l, x))``.
+
+    ``candidate_ratio`` is ``m/n`` when the comparison determines it.
+    ``logarithmic_result`` certifies the final test that a positive integer
+    multiple of ``n*f - m*eta`` is a rational logarithmic derivative.
+    """
+
+    variable: Symbol
+    degree_bound: int
+    f_polynomial_part: Poly
+    eta_polynomial_part: Poly
+    f_proper_numerator: Poly
+    eta_proper_numerator: Poly
+    f_denominator: Poly
+    eta_denominator: Poly
+    branch: ParametricLogarithmicDerivativeHeuristicBranch
+    comparison_modulus: Poly | None
+    candidate_ratio: Any | None
+    logarithmic_power: int | None
+    logarithmic_result: RationalLogDerivativeResult | None
+    reason: str
+
+
 def _parametric_logarithmic_derivative_eta(
     extension: MonomialExtension,
     lower_derivation: Derivation,
@@ -472,6 +511,283 @@ def _minimal_logarithmic_power(
             "nonintegral logarithmic-derivative certificate has no denominator"
         )
     return power
+
+
+def _rational_polynomial_parts(
+    element: Any,
+    variable: Symbol,
+) -> tuple[Poly, Poly, Poly]:
+    """Return ``p, a, d`` with ``element = p + a/d`` in ``QQ(x)``."""
+    numerator = Poly.from_dict(
+        element.numer.to_dict(),
+        variable,
+        domain=QQ,
+    )
+    denominator = Poly.from_dict(
+        element.denom.to_dict(),
+        variable,
+        domain=QQ,
+    )
+    polynomial_part, proper_numerator = numerator.div(denominator)
+    return polynomial_part, proper_numerator, denominator
+
+
+def _rational_coefficient_ratio(
+    left: Poly,
+    right: Poly,
+    degrees: range,
+) -> tuple[bool, Any | None]:
+    r"""Solve ``coefficient(left, x**i) = c*coefficient(right, x**i)``.
+
+    The boolean distinguishes an inconsistent system from a consistent one.
+    A ``None`` ratio means that every compared coefficient vanishes, so the
+    system is consistent but does not determine ``c``.
+    """
+    ratio = None
+    for degree in degrees:
+        left_coefficient = QQ.convert(left.nth(degree))
+        right_coefficient = QQ.convert(right.nth(degree))
+        if right_coefficient == QQ.zero:
+            if left_coefficient != QQ.zero:
+                return False, None
+            continue
+
+        current = left_coefficient/right_coefficient
+        if ratio is None:
+            ratio = current
+        elif current != ratio:
+            return False, None
+
+    return True, ratio
+
+
+def solve_parametric_logarithmic_derivative_heuristic(
+    f: Any,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> ParametricLogarithmicDerivativeResult:
+    r"""Run Bronstein's Section 7.3 heuristic over ``QQ(x)``.
+
+    Given ``Dtheta/theta = eta``, seek integers ``n != 0`` and ``m`` and a
+    nonzero ``v`` in ``QQ(x)`` such that
+
+    ``n*f = Dv/v + m*eta``.
+
+    Lemma 7.3.1 supplies necessary high-degree and denominator congruences
+    that often determine the rational ratio ``m/n``.  Once a ratio is known,
+    the exact rational logarithmic-derivative solver decides whether an
+    integer multiple of the residual is ``Dv/v``.
+
+    This routine intentionally preserves the heuristic's incompleteness.
+    When the lemma does not determine ``m/n``, the result is ``INCONCLUSIVE``,
+    not a false proof of nonsolvability.  Chapter 9 structure theorems are the
+    complete fallback.
+    """
+    eta = _parametric_logarithmic_derivative_eta(
+        extension,
+        lower_derivation,
+    )
+    field = lower_derivation.field
+    element = _coerce(field, f)
+
+    try:
+        variable = _standard_rational_variable(lower_derivation)
+    except NotImplementedError as exc:
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            detail=str(exc),
+        )
+
+    p, a, d = _rational_polynomial_parts(element, variable)
+    q, b, e = _rational_polynomial_parts(eta, variable)
+    degree_bound = 0  # Dx = 1, so max(0, degree(Dx) - 1) = 0.
+
+    branch = ParametricLogarithmicDerivativeHeuristicBranch.POLYNOMIAL_PART
+    modulus = None
+    candidate_ratio = None
+
+    def certificate(
+        reason: str,
+        *,
+        ratio: Any | None,
+        logarithmic_power: int | None = None,
+        logarithmic_result: RationalLogDerivativeResult | None = None,
+    ) -> ParametricLogarithmicDerivativeHeuristicCertificate:
+        return ParametricLogarithmicDerivativeHeuristicCertificate(
+            variable,
+            degree_bound,
+            p,
+            q,
+            a,
+            b,
+            d,
+            e,
+            branch,
+            modulus,
+            ratio,
+            logarithmic_power,
+            logarithmic_result,
+            reason,
+        )
+
+    if q.degree() > degree_bound:
+        top_degree = max(p.degree(), q.degree())
+        consistent, candidate_ratio = _rational_coefficient_ratio(
+            p,
+            q,
+            range(degree_bound + 1, int(top_degree) + 1),
+        )
+        if not consistent:
+            obstruction = certificate(
+                "polynomial coefficients above the degree bound are not "
+                "proportional",
+                ratio=None,
+            )
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+                certificate=obstruction,
+            )
+        if candidate_ratio is None:
+            raise ValueError(
+                "a nonconstant eta polynomial part did not determine m/n"
+            )
+    elif p.degree() > degree_bound:
+        obstruction = certificate(
+            "f has polynomial degree above the bound while eta does not",
+            ratio=None,
+        )
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+            certificate=obstruction,
+        )
+    else:
+        branch = (
+            ParametricLogarithmicDerivativeHeuristicBranch.DENOMINATOR_CONGRUENCE
+        )
+        common_denominator = d.lcm(e)
+
+        # In QQ[x] every nonconstant irreducible polynomial is normal for
+        # D=d/dx, so Bronstein's z = l_s*gcd(l_n, D(l_n)) reduces to gcd(l,l').
+        modulus = common_denominator.gcd(common_denominator.diff())
+        if modulus.degree() <= 0:
+            trace = certificate(
+                "Lemma 7.3.1 supplies no nonconstant denominator modulus",
+                ratio=None,
+            )
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.INCONCLUSIVE,
+                certificate=trace,
+                detail=(
+                    "Section 7.3 could not determine m/n; a structure-theorem "
+                    "fallback is required"
+                ),
+            )
+
+        scaled_f = (
+            common_denominator.exquo(d)*(p*d + a)
+        ).rem(modulus)
+        scaled_eta = (
+            common_denominator.exquo(e)*(q*e + b)
+        ).rem(modulus)
+        consistent, candidate_ratio = _rational_coefficient_ratio(
+            scaled_f,
+            scaled_eta,
+            range(0, modulus.degree()),
+        )
+        if not consistent:
+            obstruction = certificate(
+                "denominator congruences are not proportional",
+                ratio=None,
+            )
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+                certificate=obstruction,
+            )
+        if candidate_ratio is None:
+            trace = certificate(
+                "denominator congruences do not determine m/n",
+                ratio=None,
+            )
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.INCONCLUSIVE,
+                certificate=trace,
+                detail=(
+                    "Section 7.3 denominator congruences leave m/n free; "
+                    "a structure-theorem fallback is required"
+                ),
+            )
+
+    # The coefficient comparison determines s=m/n.  Write it in lowest terms
+    # as M/N with N>0, then decide whether some positive integer Q makes
+    # Q*(N*f - M*eta) a rational logarithmic derivative.
+    m = int(QQ.numer(candidate_ratio))
+    n = int(QQ.denom(candidate_ratio))
+    residual = n*element - m*eta
+    logarithmic_result = solve_rational_logarithmic_derivative(
+        field.to_sympy(residual),
+        variable,
+    )
+    logarithmic_power = _minimal_logarithmic_power(logarithmic_result)
+    if logarithmic_power is None:
+        obstruction = certificate(
+            "the uniquely determined residual is not the logarithmic "
+            "derivative of a rational radical",
+            ratio=candidate_ratio,
+            logarithmic_result=logarithmic_result,
+        )
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+            certificate=obstruction,
+        )
+
+    if logarithmic_power > 1:
+        logarithmic_result = solve_rational_logarithmic_derivative(
+            logarithmic_power*field.to_sympy(residual),
+            variable,
+        )
+        if not logarithmic_result.has_solution:
+            raise ValueError(
+                "clearing logarithmic residues did not produce an argument"
+            )
+
+    solution_certificate = certificate(
+        "coefficient comparison and radical logarithmic-derivative test "
+        "produced a verified witness",
+        ratio=candidate_ratio,
+        logarithmic_power=logarithmic_power,
+        logarithmic_result=logarithmic_result,
+    )
+    return ParametricLogarithmicDerivativeResult(
+        extension,
+        lower_derivation,
+        element,
+        ParametricLogarithmicDerivativeOutcome.SOLUTION,
+        n=logarithmic_power*n,
+        m=logarithmic_power*m,
+        argument=logarithmic_result.argument,
+        certificate=solution_certificate,
+    )
 
 
 def _gaussian_logarithmic_relation(

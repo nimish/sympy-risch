@@ -10,8 +10,11 @@ from sympy_risch import (
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
+    ParametricLogarithmicDerivativeHeuristicBranch,
+    ParametricLogarithmicDerivativeHeuristicCertificate,
     ParametricLogarithmicDerivativeOutcome,
     ParametricLogarithmicDerivativeResult,
+    solve_parametric_logarithmic_derivative_heuristic,
     verify_parametric_logarithmic_derivative_witness,
 )
 
@@ -376,3 +379,286 @@ def test_extension_must_be_hyperexponential_over_the_lower_field() -> None:
             0,
             1,
         )
+
+
+def test_polynomial_comparison_finds_a_verified_witness() -> None:
+    lower = rational_base()
+    eta = x**2 + 1/x
+    extension = hyperexponential_extension(lower, eta)
+    f = (1/(x - 1) + 3*eta)/2
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        f,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.outcome is ParametricLogarithmicDerivativeOutcome.SOLUTION
+    assert result.n == 2
+    assert result.m == 3
+    assert result.argument == lower.field().from_sympy(x - 1)
+    assert result.reconstructs
+    assert isinstance(
+        result.certificate,
+        ParametricLogarithmicDerivativeHeuristicCertificate,
+    )
+    assert (
+        result.certificate.branch
+        is ParametricLogarithmicDerivativeHeuristicBranch.POLYNOMIAL_PART
+    )
+    assert result.certificate.candidate_ratio == QQ(3, 2)
+    assert result.certificate.logarithmic_power == 1
+    assert result.certificate.logarithmic_result.has_solution
+
+
+def test_polynomial_comparison_clears_rational_logarithmic_residues() -> None:
+    lower = rational_base()
+    eta = x**2
+    extension = hyperexponential_extension(lower, eta)
+
+    # The high-degree comparison first yields m/n = 3/2.  Its residual is
+    # 1/(2*x), so a second factor of two is needed before it is D(x)/x.
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        3*x**2/2 + 1/(4*x),
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (4, 6)
+    assert result.argument == lower.field().from_sympy(x)
+    assert result.certificate.logarithmic_power == 2
+    assert result.reconstructs
+
+
+def test_polynomial_comparison_allows_zero_theta_coefficient() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, x**2)
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        1/x,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (1, 0)
+    assert result.argument == lower.field().from_sympy(x)
+    assert result.reconstructs
+
+
+def test_nonproportional_polynomial_parts_prove_no_solution() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, x)
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        x**2,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+    assert (
+        result.certificate.branch
+        is ParametricLogarithmicDerivativeHeuristicBranch.POLYNOMIAL_PART
+    )
+    assert "not proportional" in result.certificate.reason
+
+
+def test_polynomial_degree_without_matching_eta_degree_proves_no_solution() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, 1/x)
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        x,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+    assert "degree above the bound" in result.certificate.reason
+
+
+def test_unique_ratio_with_nonlogarithmic_residual_proves_no_solution() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, x)
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        x + 1/x**2,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+    assert result.certificate.candidate_ratio == QQ.one
+    assert (
+        result.certificate.logarithmic_result.has_repeated_pole_obstruction
+    )
+
+
+def test_denominator_congruence_finds_a_verified_witness() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, 1/x**2)
+
+    # Modulo z=x, x**2*f has residue 3/2 while x**2*eta has residue 1.
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        (5/x + 3/x**2)/2,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (2, 3)
+    assert result.argument == lower.field().from_sympy(x**5)
+    assert result.reconstructs
+    assert (
+        result.certificate.branch
+        is ParametricLogarithmicDerivativeHeuristicBranch.DENOMINATOR_CONGRUENCE
+    )
+    assert result.certificate.comparison_modulus == Poly(x, x, domain=QQ)
+    assert result.certificate.candidate_ratio == QQ(3, 2)
+
+
+def test_inconsistent_denominator_congruences_prove_no_solution() -> None:
+    lower = rational_base()
+    denominator = (x**2 + 1)**2
+    extension = hyperexponential_extension(lower, 1/denominator)
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        x/denominator,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+    assert result.certificate.comparison_modulus == Poly(
+        x**2 + 1,
+        x,
+        domain=QQ,
+    )
+    assert "congruences are not proportional" in result.certificate.reason
+
+
+def test_bronstein_example_7_3_2_is_inconclusive_not_a_false_negative() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, 1)
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        11,
+        extension,
+        lower.derivation(),
+    )
+
+    # The actual witness is (n,m,v)=(1,11,1), but neither constant
+    # polynomial parts nor constant denominators determine m/n.
+    assert verify_parametric_logarithmic_derivative_witness(
+        11,
+        extension,
+        lower.derivation(),
+        1,
+        11,
+        1,
+    )
+    assert result.is_inconclusive
+    assert not result.proves_no_solution
+    assert result.certificate.comparison_modulus.degree() == 0
+    assert "structure-theorem fallback" in result.detail
+
+
+def test_nonrational_lower_field_is_reported_as_unsupported() -> None:
+    rational = rational_base()
+    lower = rational.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=rational.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    extension = hyperexponential_extension(lower, 1)
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        1,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.is_unsupported
+    assert not result.proves_no_solution
+    assert "requires QQ(x)" in result.detail
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    n=st.integers(min_value=1, max_value=6),
+    m=st.integers(min_value=-6, max_value=6).filter(lambda value: value != 0),
+    x_power=st.integers(min_value=-3, max_value=3),
+    shifted_power=st.integers(min_value=-3, max_value=3),
+)
+def test_generated_polynomial_branch_witnesses_reconstruct(
+    n,
+    m,
+    x_power,
+    shifted_power,
+) -> None:
+    lower = rational_base()
+    derivation = lower.derivation()
+    field = lower.field()
+    eta_expression = x**2 + 1/(x + 2)
+    eta = field.from_sympy(eta_expression)
+    extension = hyperexponential_extension(lower, eta_expression)
+    argument = field.from_sympy(
+        x**x_power*(x - 1)**shifted_power
+    )
+    f = (derivation(argument)/argument + m*eta)/n
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        f,
+        extension,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.reconstructs
+    assert (
+        result.certificate.branch
+        is ParametricLogarithmicDerivativeHeuristicBranch.POLYNOMIAL_PART
+    )
+    assert QQ(result.m, result.n) == QQ(m, n)
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    n=st.integers(min_value=1, max_value=6),
+    m=st.integers(min_value=-6, max_value=6).filter(lambda value: value != 0),
+    x_power=st.integers(min_value=-3, max_value=3),
+    shifted_power=st.integers(min_value=-3, max_value=3),
+)
+def test_generated_denominator_branch_witnesses_reconstruct(
+    n,
+    m,
+    x_power,
+    shifted_power,
+) -> None:
+    lower = rational_base()
+    derivation = lower.derivation()
+    field = lower.field()
+    eta_expression = 1/x**2
+    eta = field.from_sympy(eta_expression)
+    extension = hyperexponential_extension(lower, eta_expression)
+    argument = field.from_sympy(
+        x**x_power*(x - 1)**shifted_power
+    )
+    f = (derivation(argument)/argument + m*eta)/n
+
+    result = solve_parametric_logarithmic_derivative_heuristic(
+        f,
+        extension,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.reconstructs
+    assert (
+        result.certificate.branch
+        is ParametricLogarithmicDerivativeHeuristicBranch.DENOMINATOR_CONGRUENCE
+    )
+    assert QQ(result.m, result.n) == QQ(m, n)

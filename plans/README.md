@@ -50,10 +50,10 @@ complete transcendental cases       |
              completeness and upstream gates
 ```
 
-The first executable checkpoint is Milestone 2.1 in the roadmap: implement
-Bronstein's parametric logarithmic-derivative solver with the Chapter 9
-structure-theorem fallback for the currently supported rational and primitive
-towers.
+The completed fast-path checkpoint implements Bronstein Section 7.3 over the
+rational base. The next executable checkpoint in Milestone 2.1 is its
+Chapter 9 structure-theorem fallback for the currently supported rational and
+primitive towers.
 
 ## Findings considered and rejected
 

@@ -56,6 +56,8 @@ The lower-level library additionally implements:
 - an exact result and verification contract for Bronstein's parametric
   logarithmic-derivative equation, distinguishing a proved negative result
   from an inconclusive heuristic and an unsupported field;
+- Bronstein's Section 7.3 degree and denominator heuristic for that equation
+  over `QQ(x)`, with exact radical-logarithmic verification;
 - validated finite algebraic extensions and implicit differentiation;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
   integral bases; and
@@ -88,8 +90,8 @@ c09c9b9  Solve rational Risch differential equations
    exact differential-field core.
 5. Require executable evidence for structure-theorem hypotheses such as
    preservation of constants or absence of special polynomials.
-6. Distinguish three outcomes: constructive success, a proved obstruction,
-   and an unsupported case.
+6. Distinguish constructive success, a proved obstruction, an inconclusive
+   partial algorithm, and an unsupported input class.
 7. Verify every constructive result by exact differentiation in the same
    tower.
 8. Keep mathematical checkpoints small enough to review and revert
@@ -234,6 +236,43 @@ polynomial part for the family-specific algorithm.
 For general nonlinear monomials, `SpecialPolynomialStatus.ABSENT` is explicit
 evidence for the structure-theorem case with no nonconstant irreducible
 special polynomials.
+
+## Parametric logarithmic derivatives
+
+For a hyperexponential generator `theta` over `K`, write
+`eta = D(theta)/theta`. Bronstein's parametric logarithmic-derivative problem
+is to decide whether
+
+```text
+n*f = D(v)/v + m*eta
+```
+
+for integers `n != 0`, `m`, and `v` in `K*`.
+
+`solve_parametric_logarithmic_derivative_heuristic` implements the fast
+Section 7.3 algorithm for `K = QQ(x)`, `Dx = 1`. For
+`f = p + a/d` and `eta = q + b/e`, it first tries to determine `m/n` from
+the positive-degree coefficients of `p` and `q`. If those do not suffice, it
+uses the necessary congruence modulo
+
+```text
+gcd(lcm(d, e), derivative(lcm(d, e), x)).
+```
+
+Once a unique rational ratio is found, the rational
+logarithmic-derivative solver decides whether an integer multiple of the
+residual is `D(v)/v`. The result retains the coefficient comparison and that
+final logarithmic certificate, and a success is independently verified in the
+native fraction field.
+
+The method is not complete. Constant polynomial parts and square-free
+denominators may leave `m/n` undetermined; Bronstein's Example 7.3.2 is the
+smallest regression. Such a case returns `INCONCLUSIVE`. `PROVED_NO_SOLUTION`
+is reserved for a violated necessary condition or a uniquely determined
+residual that cannot be a rational radical logarithmic derivative.
+Non-rational lower towers currently return `UNSUPPORTED`. The next checkpoint
+is the Chapter 9 structure-theorem fallback that turns these two partial
+boundaries into decisions over rational and recursive primitive towers.
 
 ## Recursive elementary integration
 
@@ -447,6 +486,8 @@ separate commit.
 - [x] Nonlinear no-special reduction.
 - [x] Rational exact and logarithmic derivative decisions.
 - [x] Parametric logarithmic-derivative result and exact witness contract.
+- [x] Bronstein Section 7.3 parametric logarithmic-derivative fast path over
+  `QQ(x)`.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
@@ -457,6 +498,8 @@ separate commit.
 
 ### Next transcendental steps
 
+- [ ] Implement the Chapter 9 parametric logarithmic-derivative fallback over
+  rational and recursive primitive towers.
 - [ ] Implement primitive RDE cancellation when the coefficient belongs to
   the next lower field.
 - [ ] Add weak normalization for primitive RDE coefficients with
