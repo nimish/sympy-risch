@@ -78,3 +78,5 @@ non-elementarity obstructions, and the supported tower shapes.
   mathematics.
 - [Algebraic-over-hypertangent research note](docs/algebraic-hypertangent.md):
   a proposed future real-algebraic branch.
+- [Literature archive](references/README.md): locally available primary papers,
+  their provenance, and cited works that still need an authorized copy.

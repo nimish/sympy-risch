@@ -515,6 +515,12 @@ exist.
 
 ## Primary references
 
+- Clemens G. Raab and Michael F. Singer, editors,
+  *Integration in Finite Terms: Fundamental Sources*, Springer, 2022. A
+  user-supplied local copy is indexed in
+  [`references/README.md`](../references/README.md); it reprints Rosenlicht,
+  Ritt, Risch's algebraic-operations paper, and Trager's thesis with modern
+  commentary.
 - Manuel Bronstein, *Symbolic Integration I: Transcendental Functions*.
 - Manuel Bronstein,
   [*Symbolic Integration Tutorial*](https://www-sop.inria.fr/cafe/Manuel.Bronstein/publications/issac98.pdf),
