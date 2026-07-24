@@ -62,6 +62,9 @@ The lower-level library additionally implements:
   over `QQ(x)`, with exact radical-logarithmic verification;
 - a complete rational fallback that solves the heuristic's remaining constant
   and non-logarithmic residue constraints over `QQ`;
+- a complete parametric logarithmic-derivative decision over one primitive
+  level above `QQ(x)`, with local signature constraints and an independent
+  global linear-system oracle;
 - validated finite algebraic extensions and implicit differentiation;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
   integral bases; and
@@ -72,14 +75,16 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+6e8e693  Complete primitive parametric logarithmic derivatives
+5556d95  Add primitive logarithmic signatures
+f47439e  Add independent parametric logarithmic oracle
+444aebf  Complete rational parametric logarithmic derivatives
+0a48352  Implement parametric logarithmic derivative heuristic
+92599b0  Define parametric logarithmic derivative results
+7b67c9f  Add full Risch roadmap and literature archive
+bf9a424  Reduce hyperexponentials over primitive fields
 25e7c2c  Reduce nested primitive extensions
 820f9bd  Add recursive elementary integration dispatcher
-b5d3fef  Solve rational hypertangent extensions
-023e465  Reduce hypertangent monomial extensions
-d934cb3  Reduce hyperexponential monomial extensions
-c09c9b9  Solve rational Risch differential equations
-92ca519  Require python-flint arithmetic backend
-1ade14d  Use Bronstein recurrence for polynomial RDEs
 ```
 
 ## Design principles
@@ -510,6 +515,12 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
+The latest completed checkpoint is the total parametric
+logarithmic-derivative decision over one primitive level above `QQ(x)`. The
+current implementation priority is the first place-aware algebraic residue
+checkpoint. Remaining transcendental generalizations continue as a parallel
+track; they do not block beginning the algebraic-function-field kernel.
+
 ### Completed foundation
 
 - [x] Polynomial and rational integration.
@@ -558,19 +569,28 @@ separate commit.
 
 Algebraic work has already begun: validation, implicit differentiation,
 simple-radical and lazy integral bases, and algebraic Hermite reduction over
-`QQ(x)` are implemented. It does not need to wait for every remaining
-transcendental tower shape. The next algebraic milestone is the logarithmic
-part over an algebraic function field; end-to-end algebraic dispatch then
-requires the local-place/divisor and algebraic-RDE milestones below.
+`QQ(x)` are implemented. General residue computation cannot identify an
+irreducible denominator factor with a single algebraic place: it may split or
+ramify. The next checkpoint therefore introduces just enough certified local
+place, valuation, and residue machinery to analyze the square-free remainder
+returned by algebraic Hermite reduction.
 
-- [ ] Generalize algebraic Hermite reduction to monomial parent fields.
-- [ ] Compute algebraic residues and the logarithmic part.
-- [ ] Implement local places, valuations, and divisor operations.
+- [ ] Represent finite and infinite places over algebraic fields above
+  `QQ(x)`, including residue fields, ramification indices, uniformizers, and
+  exact valuations.
+- [ ] Compute a certified algebraic residue signature for a Hermite-reduced
+  differential, distinguishing constant residues from nonconstant
+  Liouville obstructions.
+- [ ] Reconstruct logarithmic terms from constant residues through the
+  required principal/torsion divisor tests.
+- [ ] Implement general divisor operations and exactness testing for
+  differentials of the second kind.
 - [ ] Solve the Risch differential equation on an algebraic curve.
-- [ ] Compose algebraic levels below, above, and between transcendental
-  levels.
 - [ ] Add general integral-basis computation where lazy refinement is
   insufficient.
+- [ ] Generalize algebraic Hermite reduction to monomial parent fields.
+- [ ] Compose algebraic levels below, above, and between transcendental
+  levels.
 - [ ] Investigate the direct real algebraic-over-hypertangent branch.
 
 ### Front end and upstreaming

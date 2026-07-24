@@ -8,7 +8,7 @@
 > incomplete branch.
 >
 > **Drift check (run first)**:
-> `git diff --stat bf9a424..HEAD -- src tests docs README.md pyproject.toml`
+> `git diff --stat "$(git log -1 --format=%H -- plans/001-full-risch-roadmap.md)"..HEAD -- src tests docs README.md pyproject.toml`
 > If relevant code has changed, reconcile the "Current state" and coverage
 > ledger before selecting the next checkpoint.
 
@@ -20,6 +20,7 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
+- **Last implementation reconciliation**: commit `6e8e693`, 2026-07-24
 
 ## Why this matters
 
@@ -106,31 +107,47 @@ These may be added later, but are not part of "full Risch":
 
 The current implementation already has a strong exact-arithmetic kernel:
 
-- `docs/design.md:21-59` records end-to-end rational, recursive primitive,
-  direct hyperexponential/hypertangent, one mixed hyperexponential branch,
+- `docs/design.md` records end-to-end rational, recursive primitive, direct
+  hyperexponential/hypertangent, one mixed hyperexponential branch,
   generalized monomial reduction, RDE components, and algebraic Hermite
   reduction.
-- `src/sympy_risch/tower.py:92-127` classifies monomial families and records
-  constant-field and special-polynomial evidence explicitly.
-- `src/sympy_risch/tower.py:313-420` represents finite algebraic extensions
-  using SymPy's `FiniteExtension` and differentiates them implicitly.
-- `src/sympy_risch/dependency.py:174-191` restricts dependency analysis to
-  `QQ(x)`.
-- `src/sympy_risch/exact.py:58-81` dispatches exact derivatives only at the
-  rational and primitive levels.
-- `src/sympy_risch/elementary.py:557-591` rejects algebraic levels and
-  polynomial monomials whose complete special branch is unavailable.
-- `docs/design.md:288-324` records the currently narrow lower-field support in
-  hyperexponential and hypertangent RDEs.
-- `docs/design.md:356-384` records that algebraic Hermite reduction is a
-  component rather than a complete algebraic integrator.
-- `docs/design.md:389-427` separates automatic tower construction and real
-  presentation from the exact differential-field core.
+- `src/sympy_risch/tower.py` classifies monomial families, records
+  constant-field and special-polynomial evidence, represents finite
+  algebraic extensions with SymPy's `FiniteExtension`, and differentiates
+  algebraic generators implicitly.
+- `src/sympy_risch/dependency.py` provides a complete parametric
+  logarithmic-derivative decision over `QQ(x)` and over one primitive level
+  above it. The latter compares full primitive signatures and recursively
+  invokes the rational decision when the top constraints leave the ratio
+  free.
+- `src/sympy_risch/monomial.py` provides radical logarithmic signatures over
+  one primitive level, recursive primitive reduction, direct transcendental
+  family reducers, and the supported mixed hyperexponential branch.
+- `src/sympy_risch/exact.py` dispatches exact derivatives at rational and
+  primitive levels.
+- `src/sympy_risch/elementary.py` recursively integrates the supported
+  transcendental tower shapes but still rejects algebraic levels and
+  incomplete special-polynomial branches.
+- `src/sympy_risch/algebraic.py` validates algebraic extensions and implements
+  algebraic Hermite reduction over `QQ(x)` with explicit, simple-radical, or
+  lazily refined integral bases. It does not yet compute places, algebraic
+  residues, logarithmic reconstruction, or exactness on an algebraic curve.
 
-At the planned commit, the full test suite is:
+The implementation checkpoints since this roadmap was created are:
 
 ```text
-817 passed in 68.12s
+92599b0  Define parametric logarithmic derivative results
+0a48352  Implement parametric logarithmic derivative heuristic
+444aebf  Complete rational parametric logarithmic derivatives
+f47439e  Add independent parametric logarithmic oracle
+5556d95  Add primitive logarithmic signatures
+6e8e693  Complete primitive parametric logarithmic derivatives
+```
+
+At the last reconciliation, the full test suite is:
+
+```text
+885 passed in 139.03s
 ```
 
 using:
@@ -150,6 +167,23 @@ The existing design conventions to preserve are:
 6. Separate success, proved obstruction, and unsupported-input outcomes.
 7. Independent algorithmic oracles where practical.
 8. Small checkpoint commits that leave the suite passing.
+
+### Milestone ledger
+
+| Milestone | Current status |
+| --- | --- |
+| 0. Completeness contract and coverage ledger | Partial: result outcomes and certificate conventions exist; a machine-readable accepted-input matrix is still missing. |
+| 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist; general constant capabilities and canonical mixed algebraic towers remain. |
+| 2. Dependency and structure decisions | Partial: parametric logarithmic derivatives are total over `QQ(x)` and one primitive level; recursive Chapter 9 structure decisions remain. |
+| 3. Scalar, parametric, and coupled RDEs | Partial: polynomial/rational RDEs, a primitive positive-degree branch, and the rational hypertangent coupled system exist. |
+| 4. Transcendental integration | Partial: several complete explicit tower shapes exist, but arbitrary family orderings and special branches do not. |
+| 5. Algebraic-function-field kernel | Partial: finite extensions, implicit differentiation, integral-basis representations, and algebraic Hermite reduction exist; local/global curve geometry is absent. |
+| 6. Pure algebraic integration | Not started beyond its Hermite-reduction prerequisite. |
+| 7. Mixed algebraic/transcendental towers | Not started. |
+| 8. Automatic expression towers | Not started. |
+| 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
+| 10. Completeness evidence | Partial testing conventions and independent oracles exist; the declared-cell matrix is missing. |
+| 11. SymPy upstreaming | Not started. |
 
 ## Reference map
 
@@ -277,7 +311,8 @@ the integration algorithms.
 
 ## Milestone 2: Complete dependency and structure-theorem decisions
 
-This is the immediate next program milestone.
+This transcendental track is active and partially completed. It can proceed in
+parallel with the algebraic-function-field kernel.
 
 ### 2.1 Parametric logarithmic derivative over current towers
 
@@ -287,10 +322,11 @@ Implement Bronstein §7.3 for the existing rational and primitive towers:
 n*f = D(v)/v + m*D(theta)/theta
 ```
 
-Status: complete over `QQ(x)`, including the fast path, rational fallback,
-integer normalization, exact witness reconstruction, and Example 7.3.2.
-Recursive primitive lower fields still need the Chapter 9
-fundamental-signature solver.
+Status: complete over `QQ(x)` and one primitive level above it, including the
+fast rational path, both structure fallbacks, integer normalization, exact
+witness reconstruction, Example 7.3.2, generated planted witnesses, and
+independent global linear-system oracles. Recursive primitive lower fields
+still need the Chapter 9 fundamental-signature solver.
 
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.
@@ -430,6 +466,13 @@ Risch**, before automatic expression discovery.
 
 This milestone supplies the geometry currently absent from
 `src/sympy_risch/algebraic.py`.
+
+Status: started. Finite extensions, implicit differentiation, integral-basis
+coordinates, simple-radical bases, lazy refinement, and algebraic Hermite
+reduction over `QQ(x)` are implemented. The immediate checkpoint is a
+place-aware algebraic residue signature for the square-free Hermite
+remainder. It must represent splitting and ramification explicitly rather
+than treating one denominator factor as one place.
 
 ### 5.1 Integral closure and bases
 
@@ -660,8 +703,7 @@ package may then become a development harness or be retired.
 
 ## Immediate execution order
 
-Do not begin with the algebraic geometry or expression front end. The next
-reviewable checkpoints are:
+The dependency checkpoints completed since the roadmap was written are:
 
 1. [x] Define the parametric logarithmic-derivative result and exact
    verification contract.
@@ -669,11 +711,28 @@ reviewable checkpoints are:
 3. [x] Add the complete rational structure fallback.
 4. [x] Make the Example 7.3.2 regression constructive and add generated
    rational-dependency families across the fallback branch.
-5. Add the Chapter 9 fundamental-signature fallback over recursive primitive
-   towers.
-6. Use that decision in primitive RDE cancellation and degree bounds.
-7. Add weak normalization for primitive coefficients with top-generator poles.
-8. Generalize the completed scalar RDE one lower-field family at a time.
+5. [x] Compute radical logarithmic signatures over one primitive level.
+6. [x] Consume those signatures in a complete one-level primitive parametric
+   fallback, with generated and independent-oracle tests.
+
+The selected next track is algebraic:
+
+7. [ ] Define certified finite/infinite place and local-residue data over the
+   currently supported algebraic fields above `QQ(x)`.
+8. [ ] Compute and independently verify the algebraic residue signature of a
+   square-free Hermite remainder.
+9. [ ] Use nonconstant residues as Liouville obstructions and pass constant
+   residues to logarithmic reconstruction.
+10. [ ] Add principal/torsion divisor solving and exactness of the remaining
+    differential of the second kind.
+
+The parallel transcendental backlog remains:
+
+- generalize primitive signatures and the parametric fallback recursively;
+- use that decision in primitive RDE cancellation and degree bounds;
+- add weak normalization for primitive coefficients with top-generator poles;
+  and
+- generalize the completed scalar RDE one lower-field family at a time.
 
 Each item is a separate commit after focused and full-suite verification.
 
