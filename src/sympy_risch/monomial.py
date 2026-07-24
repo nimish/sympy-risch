@@ -12,9 +12,20 @@ from sympy.polys.polytools import Poly
 from sympy.polys.polytools import cancel, invert, resultant
 from sympy.simplify.radsimp import fraction
 
+from .dependency import analyze_hyperexponential_extension
 from .lrt import _differential_lazard_rioboo_trager
 from .rational import solve_rational_exact_derivative
-from .tower import Derivation, MonomialExtension, _coerce, _domain_symbols
+from .rde import (
+    RationalRischDifferentialEquationResult,
+    solve_rational_risch_differential_equation,
+)
+from .tower import (
+    Derivation,
+    MonomialExtension,
+    MonomialFamily,
+    _coerce,
+    _domain_symbols,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,6 +330,112 @@ class PrimitiveExactDerivativeResult:
     def antiderivative(self) -> Any | None:
         """Return the in-field antiderivative, or ``None`` if none exists."""
         return self.exact_part if self.has_solution else None
+
+
+@dataclass(frozen=True, slots=True)
+class HyperexponentialLaurentStep:
+    r"""One nonzero Laurent mode reduced by a lower-field Risch equation.
+
+    For ``Dt/t = eta`` and the input coefficient ``b`` at power ``n``, the
+    nested result decides
+
+    ``Dy + n*eta*y = b``.
+
+    A solution contributes ``y*t**n`` to the exact part.  Otherwise the
+    original ``b*t**n`` remains as a certified special-mode obstruction.
+    """
+
+    power: int
+    coefficient: Any
+    exact_coefficient: Any | None
+    rde_result: RationalRischDifferentialEquationResult
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether this Laurent mode is an exact derivative."""
+        return self.rde_result.has_solution
+
+
+@dataclass(frozen=True, slots=True)
+class HyperexponentialLaurentReduction:
+    r"""Mode-by-mode reduction of a Laurent polynomial in ``t``.
+
+    The result satisfies
+
+    ``integrand = D(exact_part) + remainder``.
+
+    The power-zero coefficient belongs to the lower field and is returned as
+    ``lower_remainder``.  Every nonzero mode is represented by one
+    :class:`HyperexponentialLaurentStep`.
+    """
+
+    exact_part: Any
+    remainder: Any
+    lower_remainder: Any
+    steps: tuple[HyperexponentialLaurentStep, ...]
+
+    @property
+    def obstructed_steps(self) -> tuple[HyperexponentialLaurentStep, ...]:
+        """Return all nonzero modes whose rational RDE has no solution."""
+        return tuple(step for step in self.steps if not step.has_solution)
+
+    @property
+    def has_obstruction(self) -> bool:
+        """Whether a nonzero Laurent mode cannot be integrated in the field."""
+        return bool(self.obstructed_steps)
+
+    @property
+    def reduced_to_lower_field(self) -> bool:
+        """Whether only the power-zero lower-field coefficient remains."""
+        return not self.has_obstruction
+
+
+@dataclass(frozen=True, slots=True)
+class HyperexponentialMonomialReduction:
+    r"""Complete elementary reduction at one hyperexponential level.
+
+    The flattened fields satisfy
+
+    ``f = D(exact_part) + logarithmic_derivative + remainder``.
+
+    Normal finite poles are handled by generalized residue reduction.  Once
+    those residues are constant, the remaining special Laurent modes are
+    handled by :class:`HyperexponentialLaurentReduction`.
+    """
+
+    hermite_exact_part: Any
+    residue_reduction: BronsteinResidueReduction
+    laurent_reduction: HyperexponentialLaurentReduction | None
+    exact_part: Any
+    logarithmic_derivative: Any
+    remainder: Any
+    lower_remainder: Any | None
+
+    @property
+    def has_finite_residue_obstruction(self) -> bool:
+        """Whether a nonconstant normal residue proves non-elementarity."""
+        return not self.residue_reduction.all_normal_residues_removed
+
+    @property
+    def has_laurent_obstruction(self) -> bool:
+        """Whether a special Laurent mode has an unsolvable rational RDE."""
+        return (
+            self.laurent_reduction is not None
+            and self.laurent_reduction.has_obstruction
+        )
+
+    @property
+    def is_non_elementary(self) -> bool:
+        """Whether this level supplies a Liouville obstruction."""
+        return (
+            self.has_finite_residue_obstruction
+            or self.has_laurent_obstruction
+        )
+
+    @property
+    def reduced_to_lower_field(self) -> bool:
+        """Whether only elementary integration in ``QQ(x)`` remains."""
+        return not self.is_non_elementary and self.lower_remainder is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1430,6 +1547,219 @@ def solve_primitive_exact_derivative(
         proper_numerator,
         proper_denominator,
         obstruction,
+    )
+
+
+def _validate_hyperexponential_reduction(
+    derivation: Derivation,
+) -> tuple[MonomialExtension, Symbol, Any]:
+    """Validate a transcendental hyperexponential over standard ``QQ(x)``."""
+    if derivation.level < 1:
+        raise TypeError(
+            "hyperexponential reduction requires a monomial over QQ(x)"
+        )
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("hyperexponential reduction requires a monomial level")
+    if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
+        raise ValueError(
+            "hyperexponential reduction requires Dt = eta*t"
+        )
+    extension.require_preserved_constants("hyperexponential reduction")
+
+    lower_derivation = derivation.lower()
+    variable = _standard_rational_base_variable(lower_derivation)
+    dependency = analyze_hyperexponential_extension(
+        extension,
+        lower_derivation,
+    )
+    if dependency.is_dependent:
+        raise ValueError(
+            "hyperexponential reduction requires a transcendental generator; "
+            "the proposed generator is algebraically dependent"
+        )
+    eta = extension.parent_field.convert(
+        extension.generator_derivative.nth(1)
+    )
+    return extension, variable, eta
+
+
+def _reduce_hyperexponential_laurent_validated(
+    element: Any,
+    derivation: Derivation,
+    extension: MonomialExtension,
+    variable: Symbol,
+    eta: Any,
+) -> HyperexponentialLaurentReduction:
+    """Reduce a validated Laurent element without repeating dependency tests."""
+    field = extension.field
+    parent = extension.parent_field
+    generator = extension.generator
+    numerator, denominator = _reduced_polynomial_fraction(
+        element,
+        extension,
+    )
+    denominator_terms = denominator.terms()
+    if len(denominator_terms) != 1:
+        raise ValueError(
+            "hyperexponential Laurent reduction requires a denominator "
+            "that is a power of the generator"
+        )
+    (denominator_power,), denominator_coefficient = denominator_terms[0]
+    denominator_coefficient = parent.convert(denominator_coefficient)
+    coefficient_scale = parent.one/denominator_coefficient
+
+    coefficients = {
+        numerator_power - denominator_power: (
+            parent.convert(coefficient)*coefficient_scale
+        )
+        for (numerator_power,), coefficient in numerator.terms()
+    }
+    exact_part = field.zero
+    remainder = field.zero
+    lower_remainder = parent.zero
+    steps: list[HyperexponentialLaurentStep] = []
+    eta_expression = parent.to_sympy(eta)
+
+    for power in sorted(coefficients):
+        coefficient = coefficients[power]
+        coefficient_expression = parent.to_sympy(coefficient)
+        term = _coerce(
+            field,
+            coefficient_expression*generator**power,
+        )
+        if power == 0:
+            lower_remainder = coefficient
+            remainder += term
+            continue
+
+        rde_result = solve_rational_risch_differential_equation(
+            power*eta_expression,
+            coefficient_expression,
+            variable,
+        )
+        exact_coefficient = None
+        if rde_result.has_solution:
+            exact_coefficient = _coerce(parent, rde_result.solution)
+            exact_part += _coerce(
+                field,
+                parent.to_sympy(exact_coefficient)*generator**power,
+            )
+        else:
+            remainder += term
+        steps.append(
+            HyperexponentialLaurentStep(
+                power,
+                coefficient,
+                exact_coefficient,
+                rde_result,
+            )
+        )
+
+    if derivation(exact_part) + remainder != element:
+        raise ValueError(
+            "hyperexponential Laurent reduction reconstruction failed"
+        )
+    return HyperexponentialLaurentReduction(
+        exact_part,
+        remainder,
+        lower_remainder,
+        tuple(steps),
+    )
+
+
+def reduce_hyperexponential_laurent(
+    integrand: Any,
+    derivation: Derivation,
+) -> HyperexponentialLaurentReduction:
+    r"""Reduce a Laurent polynomial in a hyperexponential generator.
+
+    For ``Dt/t = eta`` and
+
+    ``f = sum(b_n*t**n)``,
+
+    every nonzero mode is an exact derivative precisely when the lower-field
+    Risch differential equation
+
+    ``Dy_n + n*eta*y_n = b_n``
+
+    has a solution in ``QQ(x)``.  The zero mode is returned for recursive
+    lower-field integration.
+    """
+    extension, variable, eta = _validate_hyperexponential_reduction(
+        derivation
+    )
+    element = _coerce(extension.field, integrand)
+    return _reduce_hyperexponential_laurent_validated(
+        element,
+        derivation,
+        extension,
+        variable,
+        eta,
+    )
+
+
+def reduce_hyperexponential_monomial(
+    integrand: Any,
+    derivation: Derivation,
+    *,
+    residue: Symbol | None = None,
+) -> HyperexponentialMonomialReduction:
+    r"""Apply the complete reduction for a hyperexponential over ``QQ(x)``.
+
+    Repeated normal poles are Hermite-reduced, constant normal residues are
+    extracted as logarithmic derivatives, and the remaining special Laurent
+    modes are reduced through rational Risch differential equations.
+    """
+    extension, variable, eta = _validate_hyperexponential_reduction(
+        derivation
+    )
+    field = extension.field
+    element = _coerce(field, integrand)
+    hermite_exact_part, hermite_remainder = hermite_reduce_monomial(
+        element,
+        derivation,
+    )
+    residue_reduction = residue_reduce_monomial(
+        hermite_remainder,
+        derivation,
+        residue,
+    )
+
+    laurent_reduction = None
+    exact_part = hermite_exact_part
+    remainder = residue_reduction.remainder
+    lower_remainder = None
+    if residue_reduction.all_normal_residues_removed:
+        laurent_reduction = _reduce_hyperexponential_laurent_validated(
+            residue_reduction.remainder,
+            derivation,
+            extension,
+            variable,
+            eta,
+        )
+        exact_part += laurent_reduction.exact_part
+        remainder = laurent_reduction.remainder
+        if not laurent_reduction.has_obstruction:
+            lower_remainder = laurent_reduction.lower_remainder
+
+    if (
+        derivation(exact_part)
+        + residue_reduction.logarithmic_derivative
+        + remainder
+        != element
+    ):
+        raise ValueError(
+            "hyperexponential monomial reduction reconstruction failed"
+        )
+    return HyperexponentialMonomialReduction(
+        hermite_exact_part,
+        residue_reduction,
+        laurent_reduction,
+        exact_part,
+        residue_reduction.logarithmic_derivative,
+        remainder,
+        lower_remainder,
     )
 
 
