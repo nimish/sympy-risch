@@ -6,10 +6,10 @@ drop-in replacement for `sympy.integrate`: callers currently construct the
 differential tower explicitly.
 
 The implemented end-to-end dispatcher handles rational functions, recursively
-stacked primitive extensions, and direct hyperexponential and hypertangent
-extensions over `QQ(x)`. Lower-level modules also provide algebraic Hermite
-reduction, generalized residue reduction, and Risch differential-equation
-solvers.
+stacked primitive extensions, direct hyperexponential and hypertangent
+extensions over `QQ(x)`, and a first hyperexponential-over-primitive branch.
+Lower-level modules also provide algebraic Hermite reduction, generalized
+residue reduction, and Risch differential-equation solvers.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

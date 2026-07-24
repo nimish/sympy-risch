@@ -22,7 +22,10 @@ It operates on a manually constructed differential tower and supports:
 
 - the standard rational base `QQ(x)` with `Dx = 1`;
 - recursively stacked primitive extensions;
-- one hyperexponential or hypertangent level directly over `QQ(x)`; and
+- one hyperexponential or hypertangent level directly over `QQ(x)`;
+- a hyperexponential level over a primitive lower field when its logarithmic
+  derivative is polynomial of positive degree in the top primitive
+  generator; and
 - a nonlinear polynomial monomial over supported lower levels when absence of
   nonconstant special polynomials has been certified.
 
@@ -44,6 +47,8 @@ The lower-level library additionally implements:
 - primitive, hyperexponential, hypertangent, and nonlinear-no-special
   reducers;
 - rational and polynomial Risch differential equations;
+- normal-denominator, SPDE, and polynomial RDE reduction over a primitive
+  field for positive-degree polynomial coefficients;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
 - rational coupled RDEs for the real hypertangent case;
@@ -290,9 +295,22 @@ equations of the form
 Dy + a*y = b.
 ```
 
-The current end-to-end implementation solves these equations over the direct
-rational lower field `QQ(x)`. General lower differential fields remain a
-roadmap item.
+The end-to-end implementation solves these equations over the direct rational
+lower field `QQ(x)`. It also handles a primitive lower field when `eta` is
+polynomial of positive degree in the top primitive generator. In that case:
+
+1. positive degree certifies that no positive multiple of `eta` is a
+   logarithmic derivative in the primitive field;
+2. normal-denominator reduction bounds rational solutions;
+3. Rothstein SPDE reduces the numerator equation; and
+4. a leading recurrence solves or obstructs the polynomial RDE.
+
+The production recurrence is cross-checked with an independent bounded global
+matrix ansatz over one primitive level above `QQ(x)`.
+
+The cancellation case where the RDE coefficient lies in the lower field,
+coefficients with top-generator poles, and other general lower differential
+fields remain roadmap items.
 
 ### Hypertangent levels
 
@@ -426,15 +444,22 @@ separate commit.
 - [x] Nonlinear no-special reduction.
 - [x] Rational exact and logarithmic derivative decisions.
 - [x] Polynomial and rational Risch differential equations.
+- [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
 - [x] Recursive elementary dispatcher.
 - [x] Recursively stacked primitive integration.
+- [x] Hyperexponential integration over the supported primitive-lower-field
+  branch.
 
 ### Next transcendental steps
 
-- [ ] Generalize exact-derivative and RDE solving over arbitrary supported
-  lower towers.
-- [ ] Enable nested hyperexponential and hypertangent levels.
+- [ ] Implement primitive RDE cancellation when the coefficient belongs to
+  the next lower field.
+- [ ] Add weak normalization for primitive RDE coefficients with
+  top-generator poles.
+- [ ] Generalize exact-derivative and RDE solving over further supported lower
+  tower families.
+- [ ] Enable the remaining nested hyperexponential and hypertangent levels.
 - [ ] Complete automatic dependence checks needed to justify constant-field
   preservation.
 - [ ] Add the missing general-special-polynomial branch for nonlinear

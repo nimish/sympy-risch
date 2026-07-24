@@ -21,9 +21,9 @@ from .lrt import _differential_lazard_rioboo_trager
 from .rational import solve_rational_exact_derivative
 from .rde import (
     CoupledRationalRDEResult,
-    RationalRischDifferentialEquationResult,
+    RischDifferentialEquationResult,
     solve_coupled_rational_rde,
-    solve_rational_risch_differential_equation,
+    solve_risch_differential_equation,
 )
 from .tower import (
     Derivation,
@@ -354,7 +354,7 @@ class HyperexponentialLaurentStep:
     power: int
     coefficient: Any
     exact_coefficient: Any | None
-    rde_result: RationalRischDifferentialEquationResult
+    rde_result: RischDifferentialEquationResult
 
     @property
     def has_solution(self) -> bool:
@@ -1877,11 +1877,11 @@ def solve_primitive_exact_derivative(
 
 def _validate_hyperexponential_reduction(
     derivation: Derivation,
-) -> tuple[MonomialExtension, Symbol, Any]:
-    """Validate a transcendental hyperexponential over standard ``QQ(x)``."""
+) -> tuple[MonomialExtension, Derivation, Any]:
+    """Validate a supported transcendental hyperexponential extension."""
     if derivation.level < 1:
         raise TypeError(
-            "hyperexponential reduction requires a monomial over QQ(x)"
+            "hyperexponential reduction requires a nonconstant lower field"
         )
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
@@ -1893,27 +1893,69 @@ def _validate_hyperexponential_reduction(
     extension.require_preserved_constants("hyperexponential reduction")
 
     lower_derivation = derivation.lower()
-    variable = _standard_rational_base_variable(lower_derivation)
-    dependency = analyze_hyperexponential_extension(
-        extension,
-        lower_derivation,
-    )
-    if dependency.is_dependent:
-        raise ValueError(
-            "hyperexponential reduction requires a transcendental generator; "
-            "the proposed generator is algebraically dependent"
-        )
     eta = extension.parent_field.convert(
         extension.generator_derivative.nth(1)
     )
-    return extension, variable, eta
+    if lower_derivation.level == 0:
+        _standard_rational_base_variable(lower_derivation)
+        dependency = analyze_hyperexponential_extension(
+            extension,
+            lower_derivation,
+        )
+        if dependency.is_dependent:
+            raise ValueError(
+                "hyperexponential reduction requires a transcendental "
+                "generator; the proposed generator is algebraically dependent"
+            )
+    else:
+        lower_extension = lower_derivation.tower.levels[
+            lower_derivation.level
+        ]
+        if (
+            not isinstance(lower_extension, MonomialExtension)
+            or lower_extension.family is not MonomialFamily.PRIMITIVE
+        ):
+            raise NotImplementedError(
+                "hyperexponential reduction currently supports QQ(x) or a "
+                "primitive lower level"
+            )
+        lower_extension.require_preserved_constants(
+            "hyperexponential independence over a primitive field"
+        )
+        numerator, denominator = _reduced_polynomial_fraction(
+            eta,
+            lower_extension,
+        )
+        if denominator.degree() > 0:
+            raise NotImplementedError(
+                "hyperexponential reduction over a primitive field currently "
+                "requires a polynomial logarithmic derivative"
+            )
+        eta_polynomial = numerator.mul_ground(
+            lower_extension.parent_field.one
+            / lower_extension.parent_field.convert(denominator.LC())
+        )
+        if eta_polynomial.degree() <= 0:
+            raise NotImplementedError(
+                "hyperexponential reduction over a primitive field currently "
+                "requires positive degree in the primitive generator"
+            )
+
+        # In a primitive extension with no new constants, Dp has degree
+        # strictly below a monic nonconstant p. Thus a reduced logarithmic
+        # derivative Dv/v can be polynomial in the primitive generator only
+        # when v belongs to the lower field, in which case its degree is zero.
+        # Positive degree therefore certifies that no positive multiple of eta
+        # is a logarithmic derivative and the new generator is transcendental.
+
+    return extension, lower_derivation, eta
 
 
 def _reduce_hyperexponential_laurent_validated(
     element: Any,
     derivation: Derivation,
     extension: MonomialExtension,
-    variable: Symbol,
+    lower_derivation: Derivation,
     eta: Any,
 ) -> HyperexponentialLaurentReduction:
     """Reduce a validated Laurent element without repeating dependency tests."""
@@ -1944,7 +1986,6 @@ def _reduce_hyperexponential_laurent_validated(
     remainder = field.zero
     lower_remainder = parent.zero
     steps: list[HyperexponentialLaurentStep] = []
-    eta_expression = parent.to_sympy(eta)
 
     for power in sorted(coefficients):
         coefficient = coefficients[power]
@@ -1958,14 +1999,14 @@ def _reduce_hyperexponential_laurent_validated(
             remainder += term
             continue
 
-        rde_result = solve_rational_risch_differential_equation(
-            power*eta_expression,
-            coefficient_expression,
-            variable,
+        rde_result = solve_risch_differential_equation(
+            parent.convert(power)*eta,
+            coefficient,
+            lower_derivation,
         )
         exact_coefficient = None
         if rde_result.has_solution:
-            exact_coefficient = _coerce(parent, rde_result.solution)
+            exact_coefficient = rde_result.solution
             exact_part += _coerce(
                 field,
                 parent.to_sympy(exact_coefficient)*generator**power,
@@ -2008,10 +2049,10 @@ def reduce_hyperexponential_laurent(
 
     ``Dy_n + n*eta*y_n = b_n``
 
-    has a solution in ``QQ(x)``.  The zero mode is returned for recursive
-    lower-field integration.
+    has a solution in the supported lower field. The zero mode is returned for
+    recursive lower-field integration.
     """
-    extension, variable, eta = _validate_hyperexponential_reduction(
+    extension, lower_derivation, eta = _validate_hyperexponential_reduction(
         derivation
     )
     element = _coerce(extension.field, integrand)
@@ -2019,7 +2060,7 @@ def reduce_hyperexponential_laurent(
         element,
         derivation,
         extension,
-        variable,
+        lower_derivation,
         eta,
     )
 
@@ -2030,13 +2071,13 @@ def reduce_hyperexponential_monomial(
     *,
     residue: Symbol | None = None,
 ) -> HyperexponentialMonomialReduction:
-    r"""Apply the complete reduction for a hyperexponential over ``QQ(x)``.
+    r"""Apply the complete reduction for a supported hyperexponential level.
 
     Repeated normal poles are Hermite-reduced, constant normal residues are
-    extracted as logarithmic derivatives, and the remaining special Laurent
-    modes are reduced through rational Risch differential equations.
+    extracted as logarithmic derivatives, and remaining special Laurent modes
+    are reduced through lower-field Risch differential equations.
     """
-    extension, variable, eta = _validate_hyperexponential_reduction(
+    extension, lower_derivation, eta = _validate_hyperexponential_reduction(
         derivation
     )
     field = extension.field
@@ -2060,7 +2101,7 @@ def reduce_hyperexponential_monomial(
             residue_reduction.remainder,
             derivation,
             extension,
-            variable,
+            lower_derivation,
             eta,
         )
         exact_part += laurent_reduction.exact_part

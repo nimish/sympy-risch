@@ -13,7 +13,7 @@ discover all of its generators, or choose a presentation automatically.
 The standard base is `QQ(x)` with `Dx = 1`:
 
 ```python
-from sympy import Poly, log, symbols
+from sympy import Poly, exp, log, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -188,9 +188,48 @@ assert result.reconstructs
 ```
 
 The direct hyperexponential and hypertangent dispatchers currently require
-their lower field to be the standard rational base. Their low-level reducers
-contain the normal, special, Laurent, Cayley, and coupled-RDE steps used for
-those cases.
+the standard rational base in the general case. One mixed hyperexponential
+branch is also implemented: the lower field may be primitive when the new
+logarithmic derivative is polynomial of positive degree in the top primitive
+generator.
+
+For example, start from the earlier `log_x` tower and adjoin
+`u = exp(t**2)`. Since `Dt = 1/x`, its derivative law is
+`Du = (2*t/x)*u`:
+
+```python
+exp_log_squared = log_x.extend(
+    MonomialExtension(
+        Poly(2*t*u/x, u, domain=log_x.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+field = exp_log_squared.field()
+result = integrate_elementary(
+    field.from_sympy((1 + 2*t)*u),
+    exp_log_squared.derivation(),
+)
+
+assert result.is_elementary
+assert result.reconstructs
+assert result.antiderivative == x*u
+assert result.antiderivative.subs(
+    {t: log(x), u: exp(log(x)**2)},
+    simultaneous=True,
+) == x*exp(log(x)**2)
+```
+
+The lower-field RDE solved here is
+
+```text
+Dy + (2t/x)y = 1 + 2t,
+```
+
+with solution `y = x`. The implementation also handles rational
+right-hand sides in the primitive generator through normal-denominator and
+SPDE reduction. Coefficients with poles in the primitive generator, and the
+cancellation case where the coefficient lies entirely in the next lower
+field, remain explicit `NotImplementedError` boundaries.
 
 ## Mathematical assumptions
 
@@ -215,11 +254,12 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
 | Recursively stacked primitive levels | End-to-end for the implemented reduction |
 | One hyperexponential level over `QQ(x)` | End-to-end |
+| Hyperexponential over a primitive level, with positive-degree polynomial logarithmic derivative | End-to-end |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic levels in `integrate_elementary` | Not implemented |
-| Nested hyperexponential or hypertangent levels | Not implemented |
+| Other nested hyperexponential shapes or nested hypertangent levels | Not implemented |
 | Automatic tower discovery and back-substitution | Not implemented |
 | Complete global real branch management | Not implemented |
 
@@ -235,7 +275,7 @@ principal groups are:
 | Rational logarithmic analysis | `lazard_rioboo_trager`, `rothstein_trager_residue_polynomial`, `solve_rational_logarithmic_derivative` |
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
-| Exact derivatives and RDEs | `solve_exact_derivative`, `solve_rational_risch_differential_equation`, `solve_polynomial_risch_differential_equation` |
+| Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 
 These functions return structured immutable results rather than only a printed

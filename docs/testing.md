@@ -27,6 +27,8 @@ uv run --no-sync pytest -q
 
 Focused files mirror the implementation modules. For example,
 `tests/test_nested_primitive.py` exercises recursive primitive descent,
+`tests/test_primitive_rde.py` cross-checks the primitive-field recurrence
+against an independent bounded matrix oracle,
 `tests/test_hypertangent.py` exercises the direct tangent reducer, and
 `tests/test_algebraic.py` exercises algebraic Hermite reduction and integral
 bases.

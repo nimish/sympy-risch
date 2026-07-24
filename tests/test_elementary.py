@@ -124,6 +124,110 @@ def test_hyperexponential_level_produces_a_complete_antiderivative() -> None:
     assert cancel(diff(concrete_antiderivative, x) - concrete_integrand) == 0
 
 
+def test_hyperexponential_over_log_x_recurses_to_the_rational_base() -> None:
+    base = rational_tower()
+    logarithmic = base.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = logarithmic.extend(
+        MonomialExtension(
+            Poly(2*t*u/x, u, domain=logarithmic.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    field = tower.field()
+    integrand = field.from_sympy((1 + 2*t)*u + 1/(x + 1))
+
+    result = integrate_elementary(integrand, tower.derivation())
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.total_exact_part == field.from_sympy(x*u)
+    assert result.lower_result is not None
+    assert result.lower_result.lower_result is not None
+    assert result.antiderivative is not None
+    substitutions = {
+        t: log(x),
+        u: exp(log(x)**2),
+    }
+    concrete_antiderivative = result.antiderivative.subs(
+        substitutions,
+        simultaneous=True,
+    )
+    concrete_integrand = integrand.as_expr().subs(
+        substitutions,
+        simultaneous=True,
+    )
+    assert cancel(diff(concrete_antiderivative, x) - concrete_integrand) == 0
+
+
+def test_hyperexponential_over_log_x_propagates_the_rde_obstruction() -> None:
+    base = rational_tower()
+    logarithmic = base.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = logarithmic.extend(
+        MonomialExtension(
+            Poly(2*t*u/x, u, domain=logarithmic.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+
+    result = integrate_elementary(
+        tower.field().from_sympy(u),
+        tower.derivation(),
+    )
+
+    assert not result.is_elementary
+    assert result.reconstructs
+    assert result.obstruction is not None
+    assert result.obstruction.level == 2
+    assert result.obstruction.family is MonomialFamily.HYPEREXPONENTIAL
+    assert result.obstruction.kinds == (
+        IntegrationObstructionKind.UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION,
+    )
+
+
+def test_hyperexponential_reduction_accepts_a_stacked_primitive_parent() -> None:
+    base = rational_tower()
+    logarithmic = base.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    double_logarithmic = logarithmic.extend(
+        MonomialExtension(
+            Poly(1/(x*t), u, domain=logarithmic.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = double_logarithmic.extend(
+        MonomialExtension(
+            Poly(
+                2*u*y/(x*t),
+                y,
+                domain=double_logarithmic.field(),
+            ),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    field = tower.field()
+    integrand = field.from_sympy((1 + 2*u)*y/x)
+
+    result = integrate_elementary(integrand, tower.derivation())
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.antiderivative == t*y
+
+
 def test_hypertangent_level_encodes_the_special_logarithm() -> None:
     tower = monomial_tower(1 + t**2)
     field = tower.field()

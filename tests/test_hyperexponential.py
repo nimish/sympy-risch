@@ -10,6 +10,8 @@ from sympy_risch import (
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
+    PrimitiveRDEObstruction,
+    PrimitiveRischDifferentialEquationResult,
     RationalRDEObstruction,
     reduce_hyperexponential_laurent,
     reduce_hyperexponential_monomial,
@@ -17,7 +19,7 @@ from sympy_risch import (
 )
 
 
-x, t = symbols("x t")
+x, t, u = symbols("x t u")
 
 
 def hyperexponential_tower(
@@ -36,6 +38,31 @@ def hyperexponential_tower(
             Poly(eta*t, t, domain=base.field()),
             constant_field_status,
         ),
+    )
+
+
+def hyperexponential_over_log_tower(
+    eta,
+    *,
+    lower_constant_field_status=ConstantFieldStatus.PRESERVED,
+) -> DifferentialTower:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    logarithmic = base.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=base.field()),
+            lower_constant_field_status,
+        )
+    )
+    return logarithmic.extend(
+        MonomialExtension(
+            Poly(eta*u, u, domain=logarithmic.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
     )
 
 
@@ -236,7 +263,7 @@ def test_each_laurent_step_agrees_with_bounded_matrix_oracle() -> None:
     )
 
     for step in result.steps:
-        certificate = step.rde_result
+        certificate = step.rde_result.certificate
         ansatz_denominator = (
             certificate.normalization_factor
             * certificate.denominator_bound
@@ -451,7 +478,7 @@ def test_laurent_reduction_rejects_a_normal_denominator() -> None:
         )
 
 
-def test_hyperexponential_reduction_requires_a_qq_x_parent() -> None:
+def test_hyperexponential_reduction_requires_a_nonconstant_lower_field() -> None:
     tower = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(t, t, domain=QQ),
@@ -459,8 +486,170 @@ def test_hyperexponential_reduction_requires_a_qq_x_parent() -> None:
         ),
     )
 
-    with pytest.raises(TypeError, match=r"over QQ\(x\)"):
+    with pytest.raises(TypeError, match="lower field"):
         reduce_hyperexponential_laurent(
             tower.field().from_sympy(t),
             tower.derivation(),
         )
+
+
+def test_laurent_reduction_over_a_primitive_field_solves_the_lower_rde() -> None:
+    tower = hyperexponential_over_log_tower(2*t/x)
+    field = tower.field()
+    derivation = tower.derivation()
+    integrand = field.from_sympy((1 + 2*t)*u)
+
+    result = reduce_hyperexponential_laurent(integrand, derivation)
+
+    assert derivation(result.exact_part) + result.remainder == integrand
+    assert result.exact_part == field.from_sympy(x*u)
+    assert result.remainder == field.zero
+    assert result.reduced_to_lower_field
+    assert len(result.steps) == 1
+    step = result.steps[0]
+    assert step.has_solution
+    assert step.rde_result.reconstructs
+    assert isinstance(
+        step.rde_result.certificate,
+        PrimitiveRischDifferentialEquationResult,
+    )
+
+
+def test_primitive_lower_rde_handles_a_repeated_normal_denominator() -> None:
+    tower = hyperexponential_over_log_tower(2*t/x)
+    field = tower.field()
+    derivation = tower.derivation()
+    lower_derivation = derivation.lower()
+    lower_exact = tower.field(1).from_sympy((x + 1)/(t - 1)**2)
+    coefficient = (
+        lower_derivation(lower_exact)
+        + tower.field(1).from_sympy(2*t/x)*lower_exact
+    )
+    integrand = field.from_sympy(coefficient.as_expr()*u)
+
+    result = reduce_hyperexponential_laurent(integrand, derivation)
+
+    assert result.reduced_to_lower_field
+    assert result.exact_part == field.from_sympy(lower_exact.as_expr()*u)
+    certificate = result.steps[0].rde_result.certificate
+    assert isinstance(certificate, PrimitiveRischDifferentialEquationResult)
+    assert certificate.denominator_bound == Poly(
+        (t - 1)**2,
+        t,
+        domain=tower.field(0),
+    )
+
+
+def test_unsolvable_primitive_lower_rde_is_retained_as_an_obstruction() -> None:
+    tower = hyperexponential_over_log_tower(2*t/x)
+    field = tower.field()
+    integrand = field.from_sympy(u)
+
+    result = reduce_hyperexponential_laurent(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert result.has_obstruction
+    assert result.exact_part == field.zero
+    assert result.remainder == integrand
+    step = result.obstructed_steps[0]
+    assert step.rde_result.obstruction is PrimitiveRDEObstruction.POLYNOMIAL
+
+
+@pytest.mark.parametrize("eta", [1/x, 1/(t - 1)])
+def test_unimplemented_primitive_dependency_shapes_are_not_misclassified(
+    eta,
+) -> None:
+    tower = hyperexponential_over_log_tower(eta)
+
+    with pytest.raises(
+        NotImplementedError,
+        match="positive degree|polynomial logarithmic derivative",
+    ):
+        reduce_hyperexponential_laurent(
+            tower.field().from_sympy(u),
+            tower.derivation(),
+        )
+
+
+def test_primitive_independence_requires_lower_constant_field_evidence() -> None:
+    tower = hyperexponential_over_log_tower(
+        2*t/x,
+        lower_constant_field_status=ConstantFieldStatus.UNKNOWN,
+    )
+
+    with pytest.raises(ValueError, match="status is unknown"):
+        reduce_hyperexponential_laurent(
+            tower.field().from_sympy(u),
+            tower.derivation(),
+        )
+
+
+@given(
+    eta_coefficient=st.integers(min_value=-3, max_value=3).filter(bool),
+    eta_degree=st.integers(min_value=1, max_value=3),
+    exact_linear=st.integers(min_value=-3, max_value=3),
+    exact_constant=st.integers(min_value=-3, max_value=3),
+    primitive_degree=st.integers(min_value=0, max_value=3),
+    top_power=st.sampled_from((-2, -1, 1, 2)),
+    lower_denominator_power=st.integers(min_value=0, max_value=2),
+    normal_shift=st.integers(min_value=1, max_value=3),
+    logarithmic_residue=st.integers(min_value=-3, max_value=3),
+    lower_residue=st.integers(min_value=-3, max_value=3),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_mixed_tower_reductions_reconstruct(
+    eta_coefficient,
+    eta_degree,
+    exact_linear,
+    exact_constant,
+    primitive_degree,
+    top_power,
+    lower_denominator_power,
+    normal_shift,
+    logarithmic_residue,
+    lower_residue,
+) -> None:
+    eta = eta_coefficient*t**eta_degree/x
+    tower = hyperexponential_over_log_tower(eta)
+    field = tower.field()
+    derivation = tower.derivation()
+    exact_part = field.from_sympy(
+        (
+            (exact_linear*x + exact_constant)
+            * t**primitive_degree
+            / (x + 1)**lower_denominator_power
+        )
+        * u**top_power
+    )
+    normal_factor = field.from_sympy(u - normal_shift)
+    logarithmic_derivative = (
+        logarithmic_residue
+        * derivation(normal_factor)
+        / normal_factor
+    )
+    lower_remainder = tower.field(1).from_sympy(
+        lower_residue/(x + 1)
+    )
+    integrand = (
+        derivation(exact_part)
+        + logarithmic_derivative
+        + field.convert(lower_remainder)
+    )
+
+    result = reduce_hyperexponential_monomial(
+        integrand,
+        derivation,
+    )
+
+    assert (
+        derivation(result.exact_part)
+        + result.logarithmic_derivative
+        + result.remainder
+        == integrand
+    )
+    assert result.logarithmic_derivative == logarithmic_derivative
+    assert result.remainder == field.convert(lower_remainder)
+    assert result.lower_remainder == lower_remainder
+    assert result.reduced_to_lower_field
