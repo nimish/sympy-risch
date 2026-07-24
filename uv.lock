@@ -197,6 +197,7 @@ name = "sympy-risch"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "python-flint" },
     { name = "sympy" },
 ]
 
@@ -204,15 +205,16 @@ dependencies = [
 dev = [
     { name = "hypothesis" },
     { name = "pytest" },
-    { name = "python-flint" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "sympy", specifier = ">=1.14" }]
+requires-dist = [
+    { name = "python-flint", specifier = ">=0.9.0" },
+    { name = "sympy", specifier = ">=1.14" },
+]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.0" },
     { name = "pytest", specifier = ">=8.0" },
-    { name = "python-flint", specifier = ">=0.9.0" },
 ]

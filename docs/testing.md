@@ -33,9 +33,10 @@ For each reduction or decision procedure, cover the applicable layers below.
    A non-elementarity certificate must require executable evidence for every
    hypothesis it uses.  Include a concrete counterexample showing what becomes
    elementary when a hypothesis is removed.
-8. **Backend parity**
-   Run the complete suite with both the default `python-flint` ground types and
-   `SYMPY_GROUND_TYPES=python`.
+8. **Required arithmetic backend**
+   Run the complete suite with `python-flint`.  A backend guard test must fail
+   if SymPy falls back to its pure-Python ground types; backend parity is not a
+   project requirement.
 
 ## Test design rules
 
@@ -56,8 +57,6 @@ Before each incremental commit:
 
 ```text
 focused tests
-full default-backend suite
-full pure-Python ground-type suite
+full python-flint suite
 git diff --check
 ```
-
