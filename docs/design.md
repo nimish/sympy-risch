@@ -517,9 +517,10 @@ separate commit.
 
 The latest completed checkpoint is the total parametric
 logarithmic-derivative decision over one primitive level above `QQ(x)`. The
-current implementation priority is the first place-aware algebraic residue
-checkpoint. Remaining transcendental generalizations continue as a parallel
-track; they do not block beginning the algebraic-function-field kernel.
+current implementation priority is Trager's algebraic residue polynomial for
+the square-free remainder produced by algebraic Hermite reduction. Remaining
+transcendental generalizations continue as a parallel track; they do not block
+beginning the algebraic-function-field kernel.
 
 ### Completed foundation
 
@@ -569,20 +570,40 @@ track; they do not block beginning the algebraic-function-field kernel.
 
 Algebraic work has already begun: validation, implicit differentiation,
 simple-radical and lazy integral bases, and algebraic Hermite reduction over
-`QQ(x)` are implemented. General residue computation cannot identify an
-irreducible denominator factor with a single algebraic place: it may split or
-ramify. The next checkpoint therefore introduces just enough certified local
-place, valuation, and residue machinery to analyze the square-free remainder
-returned by algebraic Hermite reduction.
+`QQ(x)` are implemented. For a Hermite-reduced differential with simple
+finite poles, Trager first computes a polynomial whose roots are rational
+multiples of all residues. Its splitting field is the minimal algebraic
+constant extension needed to express the logarithmic coefficients. This
+resultant computation comes before explicit divisor construction and can be
+performed over the original coefficient field.
 
-- [ ] Represent finite and infinite places over algebraic fields above
-  `QQ(x)`, including residue fields, ramification indices, uniformizers, and
-  exact valuations.
-- [ ] Compute a certified algebraic residue signature for a Hermite-reduced
-  differential, distinguishing constant residues from nonconstant
-  Liouville obstructions.
-- [ ] Reconstruct logarithmic terms from constant residues through the
-  required principal/torsion divisor tests.
+For a presentation `F(x, y) = 0` and a rationalized differential
+`G(x, y)/D(x) dx`, Trager's unbranched formula is
+
+```text
+R(Z) = resultant_x(
+           resultant_y(Z*D'(x) - G(x, y), F(x, y)),
+           D(x)
+       ).
+```
+
+The roots of `R` are the finite residues, with multiplicities from conjugate
+places. At branch places the same computation contains rational branch-index
+scalings, so the model check is part of the certificate rather than an
+implicit genericity assumption.
+
+- [ ] Compute and certify Trager's algebraic residue polynomial for
+  Hermite-reduced differentials with simple finite poles.
+- [ ] Detect branch places at the poles and either prove that their residues
+  vanish, as in the supported simple-radical case, or change/extend the model
+  before applying the unbranched resultant formula.
+- [ ] Compute a rational basis for the algebraic residues in their minimal
+  constant extension.
+- [ ] Construct the divisor associated with each residue-basis coefficient
+  and solve the required principal/torsion divisor problem.
+- [ ] Represent finite and infinite places, residue fields, ramification
+  indices, uniformizers, and exact valuations needed by the divisor and
+  infinity algorithms.
 - [ ] Implement general divisor operations and exactness testing for
   differentials of the second kind.
 - [ ] Solve the Risch differential equation on an algebraic curve.

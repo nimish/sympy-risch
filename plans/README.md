@@ -52,9 +52,9 @@ complete transcendental cases       |
 
 The Section 7.3 fast path and complete fallbacks over `QQ(x)` and one
 primitive level are implemented. The selected next executable checkpoint is
-the first place-aware algebraic residue signature in Milestone 5. Recursive
-primitive Chapter 9 signatures remain the leading parallel transcendental
-checkpoint.
+Trager's nested-resultant algebraic residue polynomial in Milestone 5.
+Recursive primitive Chapter 9 signatures remain the leading parallel
+transcendental checkpoint.
 
 ## Findings considered and rejected
 

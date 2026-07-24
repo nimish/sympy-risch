@@ -469,10 +469,11 @@ This milestone supplies the geometry currently absent from
 
 Status: started. Finite extensions, implicit differentiation, integral-basis
 coordinates, simple-radical bases, lazy refinement, and algebraic Hermite
-reduction over `QQ(x)` are implemented. The immediate checkpoint is a
-place-aware algebraic residue signature for the square-free Hermite
-remainder. It must represent splitting and ramification explicitly rather
-than treating one denominator factor as one place.
+reduction over `QQ(x)` are implemented. The immediate checkpoint is Trager's
+nested-resultant residue polynomial for the square-free Hermite remainder.
+Its roots generate the minimal algebraic constant extension containing the
+residues. Branch places must be detected explicitly: the unbranched formula
+may be used only when the model certifies its hypotheses.
 
 ### 5.1 Integral closure and bases
 
@@ -717,13 +718,16 @@ The dependency checkpoints completed since the roadmap was written are:
 
 The selected next track is algebraic:
 
-7. [ ] Define certified finite/infinite place and local-residue data over the
-   currently supported algebraic fields above `QQ(x)`.
-8. [ ] Compute and independently verify the algebraic residue signature of a
-   square-free Hermite remainder.
-9. [ ] Use nonconstant residues as Liouville obstructions and pass constant
-   residues to logarithmic reconstruction.
-10. [ ] Add principal/torsion divisor solving and exactness of the remaining
+7. [ ] Compute Trager's nested-resultant residue polynomial for a square-free
+   Hermite remainder with certified simple, unbranched finite poles.
+8. [ ] Cross-check its roots against explicit local residues on generated
+   simple-radical and nonradical examples, and reject uncertified branch
+   cases.
+9. [ ] Construct the minimal algebraic constant extension and a rational basis
+   for the residues.
+10. [ ] Build the divisor attached to each residue-basis coefficient and solve
+    its principal/torsion problem.
+11. [ ] Add finite/infinite place operations and exactness of the remaining
     differential of the second kind.
 
 The parallel transcendental backlog remains:
