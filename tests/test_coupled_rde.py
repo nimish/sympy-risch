@@ -5,12 +5,12 @@ from itertools import product
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-from sympy import Poly, cancel, symbols
-from sympy.polys.domains import QQ
-from sympy.polys.polyerrors import PolynomialError
+from sympy import I, Poly, cancel, symbols
+from sympy.polys.domains import QQ, QQ_I
 
 from sympy_risch import (
     CoupledRDEObstruction,
+    RationalRDEObstruction,
     solve_bounded_coupled_rde_matrix,
     solve_coupled_rational_rde,
 )
@@ -70,6 +70,7 @@ def test_zero_right_hand_side_has_the_unique_zero_solution() -> None:
     assert result.real_solution == 0
     assert result.imaginary_solution == 0
     assert result.denominator_bound == Poly(1, x, domain=QQ)
+    assert result.degree_bound == 0
 
 
 def test_simple_pole_is_a_denominator_obstruction() -> None:
@@ -254,11 +255,323 @@ def test_coupled_solver_requires_a_symbol(bad_variable) -> None:
         solve_coupled_rational_rde(1, 0, 0, bad_variable)
 
 
-def test_coupled_solver_requires_nonzero_polynomial_rotation() -> None:
+def test_coupled_solver_requires_nonzero_rotation() -> None:
     with pytest.raises(ValueError, match="must be nonzero"):
         solve_coupled_rational_rde(0, 1, 0, x)
-    with pytest.raises(PolynomialError):
-        solve_coupled_rational_rde(1/x, 1, 0, x)
+
+
+@pytest.mark.parametrize(
+    ("lambda_coefficient", "real_solution", "imaginary_solution"),
+    [
+        (1/x, x + 1, 1/x),
+        ((x + 1)/(x*(x - 1)), 1/(x - 1)**2, x**2/(x + 1)),
+        (1/x**2, x**2 + 1/x, 1/(x - 1)),
+    ],
+)
+def test_rational_rotation_recovers_planted_solutions(
+    lambda_coefficient,
+    real_solution,
+    imaginary_solution,
+) -> None:
+    real_rhs = cancel(
+        real_solution.diff(x) - lambda_coefficient*imaginary_solution
+    )
+    imaginary_rhs = cancel(
+        imaginary_solution.diff(x) + lambda_coefficient*real_solution
+    )
+
+    result = solve_coupled_rational_rde(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        x,
+    )
+
+    assert result.has_solution
+    assert result.gaussian_normalization_factor is not None
+    assert result.gaussian_denominator_bound is not None
+    assert cancel(
+        result.real_solution.diff(x)
+        - lambda_coefficient*result.imaginary_solution
+        - real_rhs
+    ) == 0
+    assert cancel(
+        result.imaginary_solution.diff(x)
+        + lambda_coefficient*result.real_solution
+        - imaginary_rhs
+    ) == 0
+    assert not result.real_solution.has(I)
+    assert not result.imaginary_solution.has(I)
+
+
+def test_rational_rotation_weak_normalization_handles_resonance() -> None:
+    lambda_coefficient = 2/(x**2 + 1)
+    real_solution = (x - 1)/(x + 1)
+    imaginary_solution = x/(x**2 + 1)
+    real_rhs = cancel(
+        real_solution.diff(x) - lambda_coefficient*imaginary_solution
+    )
+    imaginary_rhs = cancel(
+        imaginary_solution.diff(x) + lambda_coefficient*real_solution
+    )
+
+    result = solve_coupled_rational_rde(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        x,
+    )
+
+    assert result.has_solution
+    # The homogeneous equation has a rational solution here, so the solver
+    # need not return the planted representative.
+    assert result.gaussian_normalization_factor == Poly(
+        x - I,
+        x,
+        domain=QQ_I,
+    )
+    assert cancel(
+        result.gaussian_normalized_coefficient
+        + result.gaussian_normalization_factor.diff().as_expr()
+        / result.gaussian_normalization_factor.as_expr()
+        - I*lambda_coefficient
+    ) == 0
+    assert cancel(
+        result.real_solution.diff(x)
+        - lambda_coefficient*result.imaginary_solution
+        - real_rhs
+    ) == 0
+    assert cancel(
+        result.imaginary_solution.diff(x)
+        + lambda_coefficient*result.real_solution
+        - imaginary_rhs
+    ) == 0
+
+
+@pytest.mark.parametrize("residue", [1, 2, 3])
+def test_weak_normalization_removes_positive_integer_residue_powers(
+    residue,
+) -> None:
+    result = solve_coupled_rational_rde(
+        2*residue/(x**2 + 1),
+        1,
+        0,
+        x,
+    )
+
+    assert result.gaussian_normalization_factor == Poly(
+        (x - I)**residue,
+        x,
+        domain=QQ_I,
+    )
+    assert cancel(
+        result.gaussian_normalized_coefficient
+        + result.gaussian_normalization_factor.diff().as_expr()
+        / result.gaussian_normalization_factor.as_expr()
+        - 2*residue*I/(x**2 + 1)
+    ) == 0
+
+
+@pytest.mark.parametrize(
+    (
+        "lambda_coefficient",
+        "real_rhs",
+        "imaginary_rhs",
+        "expected_coupled",
+        "expected_scalar",
+    ),
+    [
+        (
+            1/(x**2 + 1),
+            1/x,
+            0,
+            CoupledRDEObstruction.DENOMINATOR,
+            RationalRDEObstruction.DENOMINATOR,
+        ),
+        (
+            1/x**2,
+            1,
+            0,
+            CoupledRDEObstruction.DEGREE,
+            RationalRDEObstruction.SPDE_DEGREE,
+        ),
+        (
+            2/(x**2 + 1),
+            1,
+            0,
+            CoupledRDEObstruction.NONZERO_REMAINDER,
+            RationalRDEObstruction.SPDE_DIVISIBILITY,
+        ),
+    ],
+)
+def test_rational_rotation_retains_scalar_obstruction_certificates(
+    lambda_coefficient,
+    real_rhs,
+    imaginary_rhs,
+    expected_coupled,
+    expected_scalar,
+) -> None:
+    result = solve_coupled_rational_rde(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        x,
+    )
+
+    assert not result.has_solution
+    assert result.obstruction is expected_coupled
+    assert result.gaussian_obstruction is expected_scalar
+    assert result.gaussian_normalization_factor is not None
+    assert result.gaussian_denominator_bound is not None
+    if expected_scalar in {
+        RationalRDEObstruction.DENOMINATOR,
+        RationalRDEObstruction.SPDE_DIVISIBILITY,
+    }:
+        assert result.gaussian_obstruction_polynomial is not None
+        assert result.gaussian_obstruction_remainder is not None
+
+
+@pytest.mark.parametrize(
+    ("lambda_coefficient", "real_rhs", "imaginary_rhs"),
+    [
+        (lambda_coefficient, real_rhs, imaginary_rhs)
+        for lambda_coefficient, real_rhs, imaginary_rhs in product(
+            (1/x, 1/x**2, (x + 1)/(x - 1), 2/(x**2 + 1)),
+            (0, 1, x, 1/x, 1/x**2),
+            (0, 1, x, 1/x, 1/x**2),
+        )
+        if real_rhs != 0 or imaginary_rhs != 0
+    ],
+)
+def test_rational_rotation_decision_agrees_with_block_matrix_oracle(
+    lambda_coefficient,
+    real_rhs,
+    imaginary_rhs,
+) -> None:
+    result = solve_coupled_rational_rde(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        x,
+    )
+    if result.degree_bound is None:
+        assert result.has_denominator_obstruction
+        return
+    matrix = solve_bounded_coupled_rde_matrix(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        x,
+        result.denominator_bound,
+        max(0, result.degree_bound),
+    )
+    assert result.has_solution == matrix.has_solution
+    if result.has_solution:
+        real_difference = cancel(
+            result.real_solution - matrix.real_solution
+        )
+        imaginary_difference = cancel(
+            result.imaginary_solution - matrix.imaginary_solution
+        )
+        assert cancel(
+            real_difference.diff(x)
+            - lambda_coefficient*imaginary_difference
+        ) == 0
+        assert cancel(
+            imaginary_difference.diff(x)
+            + lambda_coefficient*real_difference
+        ) == 0
+
+
+def test_rational_rotation_zero_right_hand_side_returns_zero() -> None:
+    result = solve_coupled_rational_rde(
+        2/(x**2 + 1),
+        0,
+        0,
+        x,
+    )
+
+    assert result.has_solution
+    assert result.real_solution == 0
+    assert result.imaginary_solution == 0
+    assert result.denominator_bound == Poly(1, x, domain=QQ)
+    assert result.degree_bound == 0
+
+
+@given(
+    lambda_numerator_coefficients=integer_coefficients,
+    lambda_denominator_coefficients=integer_coefficients,
+    real_coefficients=integer_coefficients,
+    imaginary_coefficients=integer_coefficients,
+    solution_pole=st.integers(min_value=-2, max_value=2),
+    solution_pole_order=st.integers(min_value=0, max_value=2),
+)
+@settings(max_examples=20, deadline=None)
+def test_generated_rational_rotations_recover_a_solution(
+    lambda_numerator_coefficients,
+    lambda_denominator_coefficients,
+    real_coefficients,
+    imaginary_coefficients,
+    solution_pole,
+    solution_pole_order,
+) -> None:
+    lambda_numerator = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(
+            lambda_numerator_coefficients
+        )
+    )
+    lambda_denominator = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(
+            lambda_denominator_coefficients
+        )
+    )
+    assume(lambda_numerator != 0)
+    assume(lambda_denominator != 0)
+    lambda_coefficient = cancel(
+        lambda_numerator/lambda_denominator
+    )
+    denominator = (x - solution_pole)**solution_pole_order
+    real_solution = cancel(
+        sum(
+            coefficient*x**degree
+            for degree, coefficient in enumerate(real_coefficients)
+        )
+        / denominator
+    )
+    imaginary_solution = cancel(
+        sum(
+            coefficient*x**degree
+            for degree, coefficient in enumerate(imaginary_coefficients)
+        )
+        / denominator
+    )
+    real_rhs = cancel(
+        real_solution.diff(x) - lambda_coefficient*imaginary_solution
+    )
+    imaginary_rhs = cancel(
+        imaginary_solution.diff(x) + lambda_coefficient*real_solution
+    )
+
+    result = solve_coupled_rational_rde(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        x,
+    )
+
+    assert result.has_solution
+    assert cancel(
+        result.real_solution.diff(x)
+        - lambda_coefficient*result.imaginary_solution
+        - real_rhs
+    ) == 0
+    assert cancel(
+        result.imaginary_solution.diff(x)
+        + lambda_coefficient*result.real_solution
+        - imaginary_rhs
+    ) == 0
 
 
 @pytest.mark.parametrize("bad_bound", [-1, True, 1.5])

@@ -9,12 +9,14 @@ from typing import Any
 from sympy.core.numbers import I
 from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains import QQ, QQ_I
-from sympy.polys.polyerrors import CoercionFailed, PolynomialError
 from sympy.polys.polytools import Poly
 from sympy.polys.polytools import cancel, invert, resultant
 from sympy.simplify.radsimp import fraction
 
-from .dependency import analyze_hyperexponential_extension
+from .dependency import (
+    analyze_hyperexponential_extension,
+    analyze_hypertangent_extension,
+)
 from .lrt import _differential_lazard_rioboo_trager
 from .rational import solve_rational_exact_derivative
 from .rde import (
@@ -486,7 +488,7 @@ class HypertangentSpecialReduction:
 
 @dataclass(frozen=True, slots=True)
 class HypertangentMonomialReduction:
-    r"""Complete real reduction at one polynomial-argument tangent level."""
+    r"""Complete real reduction at one hypertangent level over ``QQ(x)``."""
 
     common_reduction: NonlinearMonomialReduction
     special_reduction: HypertangentSpecialReduction | None
@@ -1844,8 +1846,8 @@ def reduce_hyperexponential_monomial(
 
 def _validate_hypertangent_reduction(
     derivation: Derivation,
-) -> tuple[MonomialExtension, Symbol, Poly]:
-    """Validate ``Dt = eta*(1+t**2)`` with polynomial ``eta`` over ``QQ(x)``."""
+) -> tuple[MonomialExtension, Symbol, Any]:
+    """Validate ``Dt = eta*(1+t**2)`` with ``eta`` in ``QQ(x)``."""
     if derivation.level < 1:
         raise TypeError(
             "hypertangent reduction requires a monomial over QQ(x)"
@@ -1859,23 +1861,23 @@ def _validate_hypertangent_reduction(
         )
     extension.require_preserved_constants("hypertangent reduction")
 
-    variable = _standard_rational_base_variable(derivation.lower())
+    lower_derivation = derivation.lower()
+    variable = _standard_rational_base_variable(lower_derivation)
+    dependency = analyze_hypertangent_extension(
+        extension,
+        lower_derivation,
+    )
+    if dependency.is_dependent:
+        raise ValueError(
+            "hypertangent reduction requires a transcendental generator; "
+            "the Cayley generator is algebraically dependent"
+        )
     eta = extension.parent_field.convert(
         extension.generator_derivative.nth(2)
     )
-    try:
-        eta_polynomial = Poly(
-            extension.parent_field.to_sympy(eta),
-            variable,
-            domain=QQ,
-        )
-    except (CoercionFailed, PolynomialError) as error:
-        raise NotImplementedError(
-            "hypertangent reduction currently requires eta in QQ[x]"
-        ) from error
-    if eta_polynomial.is_zero:
+    if eta == extension.parent_field.zero:
         raise ValueError("the hypertangent coefficient eta must be nonzero")
-    return extension, variable, eta_polynomial
+    return extension, variable, eta
 
 
 def _gaussian_conjugate(coefficient: Any, gaussian_field: Any) -> Any:
@@ -1944,7 +1946,7 @@ def _reduce_hypertangent_special_validated(
     derivation: Derivation,
     extension: MonomialExtension,
     variable: Symbol,
-    eta: Poly,
+    eta: Any,
 ) -> HypertangentSpecialReduction:
     """Reduce validated special modes without repeating tower checks."""
     field = extension.field
@@ -2017,7 +2019,7 @@ def _reduce_hypertangent_special_validated(
             ),
         )
         rde_result = solve_coupled_rational_rde(
-            2*power*eta.as_expr(),
+            2*power*parent.to_sympy(eta),
             parent.to_sympy(real_coefficient),
             parent.to_sympy(imaginary_coefficient),
             variable,
@@ -2078,7 +2080,7 @@ def reduce_hypertangent_special(
     integrand: Any,
     derivation: Derivation,
 ) -> HypertangentSpecialReduction:
-    r"""Reduce the special part of a polynomial-argument tangent extension.
+    r"""Reduce the special part of a rational-coefficient tangent extension.
 
     For ``Dt = eta*(1+t**2)``, introduce
 
@@ -2112,7 +2114,7 @@ def reduce_hypertangent_monomial(
     *,
     residue: Symbol | None = None,
 ) -> HypertangentMonomialReduction:
-    r"""Apply the complete reduction for ``Dt=eta*(1+t**2)``, ``eta in QQ[x]``.
+    r"""Apply the complete reduction for ``Dt=eta*(1+t**2)``, ``eta in QQ(x)``.
 
     Common nonlinear Hermite, normal-residue, polynomial, and infinity
     reductions run first.  If they leave no Liouville obstruction, the

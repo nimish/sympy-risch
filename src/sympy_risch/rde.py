@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from enum import Enum
 
 from sympy.core.expr import Expr
+from sympy.core.numbers import I
 from sympy.core.singleton import S
 from sympy.core.symbol import Symbol
-from sympy.polys.domains import QQ
+from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.polytools import Poly, cancel, invert
@@ -189,13 +190,19 @@ class CoupledRationalRDEResult:
 
     ``Dp - lambda*q = u`` and ``Dq + lambda*p = v``,
 
-    where ``lambda`` is a nonzero polynomial and all other quantities belong
-    to ``QQ(x)``.  This is the real restriction of
+    where all quantities belong to ``QQ(x)`` and ``lambda`` is nonzero.  This
+    is the real restriction of
 
     ``D(p + i*q) + i*lambda*(p + i*q) = u + i*v``.
+
+    For polynomial ``lambda``, the real leading recurrence directly supplies
+    ``partial_*`` and ``*_residual`` certificates.  For rational ``lambda``,
+    Bronstein weak normalization is performed over ``QQ_I(x)``; the
+    ``gaussian_*`` fields retain that exact scalar certificate while the
+    returned solution and candidate denominator remain real.
     """
 
-    lambda_coefficient: Poly
+    lambda_coefficient: Expr | Poly
     real_right_hand_side: Expr
     imaginary_right_hand_side: Expr
     real_solution: Expr | None
@@ -209,6 +216,12 @@ class CoupledRationalRDEResult:
     imaginary_residual: Poly | None = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
+    gaussian_normalization_factor: Poly | None = None
+    gaussian_normalized_coefficient: Expr | None = None
+    gaussian_denominator_bound: Poly | None = None
+    gaussian_obstruction: RationalRDEObstruction | None = None
+    gaussian_obstruction_polynomial: Poly | None = None
+    gaussian_obstruction_remainder: Poly | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -225,12 +238,12 @@ class CoupledRationalRDEResult:
 
     @property
     def has_degree_obstruction(self) -> bool:
-        """Whether degrees at infinity prove nonexistence."""
+        """Whether a degree bound or SPDE degree proves nonexistence."""
         return self.obstruction is CoupledRDEObstruction.DEGREE
 
     @property
     def has_nonzero_remainder_obstruction(self) -> bool:
-        """Whether leading reduction leaves an uncancellable pair."""
+        """Whether recurrence or SPDE leaves an uncancellable remainder."""
         return self.obstruction is CoupledRDEObstruction.NONZERO_REMAINDER
 
 
@@ -1062,28 +1075,691 @@ def _maximum_polynomial_degree(*polynomials: Poly) -> int | None:
     return max(degrees) if degrees else None
 
 
+def _as_domain_rational(
+    value: Expr | Poly,
+    x: Symbol,
+    domain,
+) -> tuple[Expr, Poly, Poly]:
+    """Return a reduced rational function over an exact constant field."""
+    if isinstance(value, Poly):
+        value = value.as_expr()
+    field = domain.frac_field(x)
+    element = field.from_sympy(value)
+    numerator_polynomial = Poly.from_dict(
+        element.numer.to_dict(),
+        x,
+        domain=domain,
+    )
+    denominator_polynomial = Poly.from_dict(
+        element.denom.to_dict(),
+        x,
+        domain=domain,
+    )
+    expression = field.to_sympy(element)
+    return expression, numerator_polynomial, denominator_polynomial
+
+
+def _integer_constant(value, domain) -> int | None:
+    """Return an exact integer constant, or ``None`` otherwise."""
+    expression = domain.to_sympy(domain.convert(value))
+    if expression.is_Integer is not True:
+        return None
+    return int(expression)
+
+
+def _weakly_normalize_over_constant_field(
+    coefficient: Expr,
+    x: Symbol,
+    domain,
+) -> tuple[Poly, Expr]:
+    r"""Apply Bronstein weak normalization over ``domain(x)``.
+
+    For ``D=d/dx``, an irreducible factor ``p`` occurring simply in the
+    denominator has logarithmic residue
+
+    ``numerator / ((denominator/p)*Dp) mod p``.
+
+    Every positive integer residue ``n`` is removed by subtracting
+    ``D(p**n)/p**n``.  Higher-order poles need no adjustment.
+    """
+    coefficient, numerator, denominator = _as_domain_rational(
+        coefficient,
+        x,
+        domain,
+    )
+    normalizer = Poly(1, x, domain=domain)
+    for factor, multiplicity in denominator.factor_list()[1]:
+        if multiplicity != 1:
+            continue
+        cofactor = denominator.exquo(factor)
+        local_denominator = (cofactor*factor.diff()).rem(factor)
+        residue = (
+            numerator*invert(local_denominator, factor)
+        ).rem(factor)
+        if residue.degree() > 0:
+            continue
+        integer_residue = _integer_constant(residue.nth(0), domain)
+        if integer_residue is not None and integer_residue > 0:
+            normalizer *= factor**integer_residue
+
+    normalized = cancel(
+        coefficient - normalizer.diff().as_expr()/normalizer.as_expr()
+    )
+    if cancel(
+        normalized
+        + normalizer.diff().as_expr()/normalizer.as_expr()
+        - coefficient
+    ) != 0:
+        raise ValueError("constant-field weak normalization failed")
+    return normalizer.monic(), normalized
+
+
+@dataclass(frozen=True, slots=True)
+class _DomainNormalDenominatorReduction:
+    denominator_bound: Poly
+    derivative_coefficient: Poly | None
+    solution_coefficient: Poly | None
+    right_hand_side: Poly | None
+    obstruction_polynomial: Poly | None = None
+    obstruction_remainder: Poly | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        return self.derivative_coefficient is not None
+
+
+def _reduce_normal_denominator_over_constant_field(
+    coefficient: Expr,
+    right_hand_side: Expr,
+    x: Symbol,
+    domain,
+) -> _DomainNormalDenominatorReduction:
+    """Apply Bronstein's normal-denominator theorem over ``domain(x)``."""
+    _, coefficient_numerator, coefficient_denominator = _as_domain_rational(
+        coefficient,
+        x,
+        domain,
+    )
+    _, rhs_numerator, rhs_denominator = _as_domain_rational(
+        right_hand_side,
+        x,
+        domain,
+    )
+    shared_denominator = coefficient_denominator.gcd(rhs_denominator)
+    denominator_bound = (
+        rhs_denominator.gcd(rhs_denominator.diff())
+        .exquo(
+            shared_denominator.gcd(shared_denominator.diff())
+        )
+        .monic()
+    )
+    derivative_coefficient = coefficient_denominator*denominator_bound
+    solution_coefficient = (
+        denominator_bound*coefficient_numerator
+        - coefficient_denominator*denominator_bound.diff()
+    )
+    multiplier = (
+        coefficient_denominator
+        * denominator_bound
+        * denominator_bound
+    )
+    quotient, remainder = multiplier.div(rhs_denominator)
+    if not remainder.is_zero:
+        return _DomainNormalDenominatorReduction(
+            denominator_bound,
+            None,
+            None,
+            None,
+            rhs_denominator,
+            remainder,
+        )
+    return _DomainNormalDenominatorReduction(
+        denominator_bound,
+        derivative_coefficient,
+        solution_coefficient,
+        quotient*rhs_numerator,
+    )
+
+
+def _domain_polynomial_degree_bound(
+    derivative_coefficient: Poly,
+    solution_coefficient: Poly,
+    right_hand_side: Poly,
+) -> int:
+    """Bound solutions of ``A*Dq+B*q=C`` over an exact constant field."""
+    if right_hand_side.is_zero:
+        return 0
+    derivative_degree = derivative_coefficient.degree()
+    rhs_degree = right_hand_side.degree()
+    if solution_coefficient.is_zero:
+        dominant_degree = derivative_degree - 1
+    else:
+        dominant_degree = max(
+            solution_coefficient.degree(),
+            derivative_degree - 1,
+        )
+    bound = max(0, rhs_degree - dominant_degree)
+    if (
+        not solution_coefficient.is_zero
+        and solution_coefficient.degree() == derivative_degree - 1
+    ):
+        domain = derivative_coefficient.domain
+        cancellation_degree = _integer_constant(
+            domain.exquo(
+                -domain.convert(solution_coefficient.LC()),
+                domain.convert(derivative_coefficient.LC()),
+            ),
+            domain,
+        )
+        if cancellation_degree is not None:
+            bound = max(
+                bound,
+                cancellation_degree,
+                rhs_degree - solution_coefficient.degree(),
+            )
+    return bound
+
+
+@dataclass(frozen=True, slots=True)
+class _DomainPolynomialRDEResult:
+    solution: Poly | None
+    degree_bound: int
+    residual: Poly | None = None
+
+
+def _solve_polynomial_rde_over_constant_field(
+    coefficient: Poly,
+    right_hand_side: Poly,
+) -> _DomainPolynomialRDEResult:
+    """Solve ``Dq+a*q=b`` by the forced leading recurrence."""
+    x = coefficient.gens[0]
+    domain = coefficient.domain
+    zero = Poly(0, x, domain=domain)
+    if right_hand_side.is_zero:
+        return _DomainPolynomialRDEResult(zero, 0)
+    if coefficient.is_zero:
+        solution = Poly.from_dict(
+            {
+                (degree + 1,): domain.exquo(
+                    domain.convert(value),
+                    domain.convert(degree + 1),
+                )
+                for (degree,), value in right_hand_side.terms()
+            },
+            x,
+            domain=domain,
+        )
+        return _DomainPolynomialRDEResult(
+            solution,
+            right_hand_side.degree() + 1,
+        )
+
+    degree_bound = right_hand_side.degree() - coefficient.degree()
+    if degree_bound < 0:
+        return _DomainPolynomialRDEResult(
+            None,
+            -1,
+            right_hand_side,
+        )
+    solution = zero
+    residual = right_hand_side
+    while not residual.is_zero:
+        candidate_degree = residual.degree() - coefficient.degree()
+        if candidate_degree < 0:
+            return _DomainPolynomialRDEResult(
+                None,
+                degree_bound,
+                residual,
+            )
+        term = Poly.from_dict(
+            {
+                (candidate_degree,): domain.exquo(
+                    domain.convert(residual.LC()),
+                    domain.convert(coefficient.LC()),
+                ),
+            },
+            x,
+            domain=domain,
+        )
+        new_residual = residual - term.diff() - coefficient*term
+        if (
+            not new_residual.is_zero
+            and new_residual.degree() >= residual.degree()
+        ):
+            raise ValueError(
+                "constant-field polynomial RDE degree did not decrease"
+            )
+        solution += term
+        residual = new_residual
+    if solution.diff() + coefficient*solution != right_hand_side:
+        raise ValueError(
+            "constant-field polynomial RDE reconstruction failed"
+        )
+    return _DomainPolynomialRDEResult(solution, degree_bound)
+
+
+@dataclass(frozen=True, slots=True)
+class _DomainSPDEResult:
+    solution: Poly | None
+    obstruction: RationalRDEObstruction | None
+    obstruction_polynomial: Poly | None = None
+    obstruction_remainder: Poly | None = None
+
+
+def _solve_spde_over_constant_field(
+    derivative_coefficient: Poly,
+    solution_coefficient: Poly,
+    right_hand_side: Poly,
+    degree_bound: int,
+) -> _DomainSPDEResult:
+    """Apply Rothstein SPDE reduction over an exact constant field."""
+    x = derivative_coefficient.gens[0]
+    domain = derivative_coefficient.domain
+    original_derivative_coefficient = derivative_coefficient
+    original_solution_coefficient = solution_coefficient
+    original_rhs = right_hand_side
+    alpha = Poly(1, x, domain=domain)
+    beta = Poly(0, x, domain=domain)
+    current_bound = degree_bound
+
+    while True:
+        if right_hand_side.is_zero:
+            if (
+                original_derivative_coefficient*beta.diff()
+                + original_solution_coefficient*beta
+                != original_rhs
+            ):
+                raise ValueError(
+                    "constant-field SPDE zero-tail reconstruction failed"
+                )
+            return _DomainSPDEResult(beta, None)
+        if current_bound < 0:
+            return _DomainSPDEResult(
+                None,
+                RationalRDEObstruction.SPDE_DEGREE,
+            )
+
+        common_factor = derivative_coefficient.gcd(solution_coefficient)
+        quotient, remainder = right_hand_side.div(common_factor)
+        if not remainder.is_zero:
+            return _DomainSPDEResult(
+                None,
+                RationalRDEObstruction.SPDE_DIVISIBILITY,
+                common_factor,
+                remainder,
+            )
+        derivative_coefficient = derivative_coefficient.exquo(common_factor)
+        solution_coefficient = solution_coefficient.exquo(common_factor)
+        right_hand_side = quotient
+
+        if derivative_coefficient.degree() == 0:
+            inverse_leading_coefficient = domain.exquo(
+                domain.one,
+                domain.convert(derivative_coefficient.LC()),
+            )
+            normalized_coefficient = solution_coefficient.mul_ground(
+                inverse_leading_coefficient
+            )
+            normalized_rhs = right_hand_side.mul_ground(
+                inverse_leading_coefficient
+            )
+            polynomial_result = _solve_polynomial_rde_over_constant_field(
+                normalized_coefficient,
+                normalized_rhs,
+            )
+            if polynomial_result.solution is None:
+                return _DomainSPDEResult(
+                    None,
+                    RationalRDEObstruction.POLYNOMIAL,
+                    normalized_coefficient,
+                    polynomial_result.residual,
+                )
+            tail = polynomial_result.solution
+            if not tail.is_zero and tail.degree() > current_bound:
+                return _DomainSPDEResult(
+                    None,
+                    RationalRDEObstruction.SPDE_DEGREE,
+                )
+            solution = alpha*tail + beta
+            if (
+                original_derivative_coefficient*solution.diff()
+                + original_solution_coefficient*solution
+                != original_rhs
+            ):
+                raise ValueError(
+                    "constant-field SPDE reconstruction failed"
+                )
+            return _DomainSPDEResult(solution, None)
+
+        inverse = invert(solution_coefficient, derivative_coefficient)
+        residue = (right_hand_side*inverse).rem(
+            derivative_coefficient
+        )
+        quotient = (
+            right_hand_side - solution_coefficient*residue
+        ).exquo(derivative_coefficient)
+        right_hand_side = quotient - residue.diff()
+        solution_coefficient += derivative_coefficient.diff()
+        current_bound -= derivative_coefficient.degree()
+        beta += alpha*residue
+        alpha *= derivative_coefficient
+
+
+@dataclass(frozen=True, slots=True)
+class _DomainRDEResult:
+    solution: Expr | None
+    obstruction: RationalRDEObstruction | None
+    normalization_factor: Poly
+    normalized_coefficient: Expr
+    denominator_bound: Poly
+    degree_bound: int | None
+    obstruction_polynomial: Poly | None = None
+    obstruction_remainder: Poly | None = None
+
+
+def _solve_rde_over_constant_field(
+    coefficient: Expr,
+    right_hand_side: Expr,
+    x: Symbol,
+    domain,
+) -> _DomainRDEResult:
+    """Solve a scalar rational RDE over ``domain(x)``."""
+    coefficient, _, _ = _as_domain_rational(coefficient, x, domain)
+    right_hand_side, _, _ = _as_domain_rational(
+        right_hand_side,
+        x,
+        domain,
+    )
+    normalization_factor, normalized_coefficient = (
+        _weakly_normalize_over_constant_field(
+            coefficient,
+            x,
+            domain,
+        )
+    )
+    normalized_rhs = cancel(
+        normalization_factor.as_expr()*right_hand_side
+    )
+    if normalized_rhs == 0:
+        return _DomainRDEResult(
+            S.Zero,
+            None,
+            normalization_factor,
+            normalized_coefficient,
+            Poly(1, x, domain=domain),
+            0,
+        )
+
+    denominator_reduction = (
+        _reduce_normal_denominator_over_constant_field(
+            normalized_coefficient,
+            normalized_rhs,
+            x,
+            domain,
+        )
+    )
+    if not denominator_reduction.succeeded:
+        return _DomainRDEResult(
+            None,
+            RationalRDEObstruction.DENOMINATOR,
+            normalization_factor,
+            normalized_coefficient,
+            denominator_reduction.denominator_bound,
+            None,
+            denominator_reduction.obstruction_polynomial,
+            denominator_reduction.obstruction_remainder,
+        )
+    degree_bound = _domain_polynomial_degree_bound(
+        denominator_reduction.derivative_coefficient,
+        denominator_reduction.solution_coefficient,
+        denominator_reduction.right_hand_side,
+    )
+    spde_result = _solve_spde_over_constant_field(
+        denominator_reduction.derivative_coefficient,
+        denominator_reduction.solution_coefficient,
+        denominator_reduction.right_hand_side,
+        degree_bound,
+    )
+    if spde_result.solution is None:
+        return _DomainRDEResult(
+            None,
+            spde_result.obstruction,
+            normalization_factor,
+            normalized_coefficient,
+            denominator_reduction.denominator_bound,
+            degree_bound,
+            spde_result.obstruction_polynomial,
+            spde_result.obstruction_remainder,
+        )
+    solution = cancel(
+        spde_result.solution.as_expr()
+        / (
+            normalization_factor.as_expr()
+            * denominator_reduction.denominator_bound.as_expr()
+        )
+    )
+    if cancel(
+        solution.diff(x)
+        + coefficient*solution
+        - right_hand_side
+    ) != 0:
+        raise ValueError(
+            "constant-field rational RDE reconstruction failed"
+        )
+    return _DomainRDEResult(
+        solution,
+        None,
+        normalization_factor,
+        normalized_coefficient,
+        denominator_reduction.denominator_bound,
+        degree_bound,
+    )
+
+
+def _conjugate_gaussian_polynomial(polynomial: Poly) -> Poly:
+    """Conjugate coefficients of a polynomial over ``QQ_I``."""
+    x = polynomial.gens[0]
+    return Poly(
+        polynomial.as_expr().xreplace({I: -I}),
+        x,
+        domain=QQ_I,
+    )
+
+
+def _real_candidate_denominator(
+    normalization_factor: Poly,
+    denominator_bound: Poly,
+) -> tuple[Poly, int]:
+    """Return the least real common denominator and numerator-degree shift."""
+    x = normalization_factor.gens[0]
+    gaussian_denominator = normalization_factor*denominator_bound
+    conjugate_denominator = _conjugate_gaussian_polynomial(
+        gaussian_denominator
+    )
+    real_common = gaussian_denominator.lcm(
+        conjugate_denominator
+    ).monic()
+    real_coefficients = {}
+    for monomial, coefficient in real_common.terms():
+        coefficient = QQ_I.convert(coefficient)
+        if coefficient.y != 0:
+            raise ValueError(
+                "Gaussian common denominator unexpectedly has "
+                "nonreal coefficients"
+            )
+        real_coefficients[monomial] = QQ.convert(coefficient.x)
+    real_denominator = Poly.from_dict(
+        real_coefficients,
+        x,
+        domain=QQ,
+    ).monic()
+    numerator_degree_shift = (
+        real_common.degree() - gaussian_denominator.degree()
+    )
+    return real_denominator, numerator_degree_shift
+
+
+def _split_gaussian_rational(
+    value: Expr,
+    x: Symbol,
+) -> tuple[Expr, Expr]:
+    """Split a member of ``QQ_I(x)`` into canonical real rational parts."""
+    conjugate = cancel(value.xreplace({I: -I}))
+    real_part = cancel((value + conjugate)/2)
+    imaginary_part = cancel((value - conjugate)/(2*I))
+    real_part, _, _ = _as_qq_rational(real_part, x)
+    imaginary_part, _, _ = _as_qq_rational(imaginary_part, x)
+    return real_part, imaginary_part
+
+
+def _solve_coupled_rational_rotation(
+    lambda_coefficient: Expr,
+    real_rhs: Expr,
+    imaginary_rhs: Expr,
+    x: Symbol,
+) -> CoupledRationalRDEResult:
+    """Solve a rational rotation through one Gaussian scalar RDE."""
+    scalar_result = _solve_rde_over_constant_field(
+        I*lambda_coefficient,
+        real_rhs + I*imaginary_rhs,
+        x,
+        QQ_I,
+    )
+    if real_rhs == 0 and imaginary_rhs == 0:
+        return CoupledRationalRDEResult(
+            lambda_coefficient,
+            real_rhs,
+            imaginary_rhs,
+            S.Zero,
+            S.Zero,
+            None,
+            Poly(1, x, domain=QQ),
+            0,
+            gaussian_normalization_factor=(
+                scalar_result.normalization_factor
+            ),
+            gaussian_normalized_coefficient=(
+                scalar_result.normalized_coefficient
+            ),
+            gaussian_denominator_bound=(
+                scalar_result.denominator_bound
+            ),
+        )
+    real_denominator, numerator_degree_shift = _real_candidate_denominator(
+        scalar_result.normalization_factor,
+        scalar_result.denominator_bound,
+    )
+    real_degree_bound = (
+        None
+        if scalar_result.degree_bound is None
+        else scalar_result.degree_bound + numerator_degree_shift
+    )
+    obstruction_map = {
+        RationalRDEObstruction.DENOMINATOR: (
+            CoupledRDEObstruction.DENOMINATOR
+        ),
+        RationalRDEObstruction.SPDE_DEGREE: CoupledRDEObstruction.DEGREE,
+        RationalRDEObstruction.SPDE_DIVISIBILITY: (
+            CoupledRDEObstruction.NONZERO_REMAINDER
+        ),
+        RationalRDEObstruction.POLYNOMIAL: (
+            CoupledRDEObstruction.NONZERO_REMAINDER
+        ),
+    }
+    if scalar_result.solution is None:
+        return CoupledRationalRDEResult(
+            lambda_coefficient,
+            real_rhs,
+            imaginary_rhs,
+            None,
+            None,
+            obstruction_map[scalar_result.obstruction],
+            real_denominator,
+            real_degree_bound,
+            gaussian_normalization_factor=(
+                scalar_result.normalization_factor
+            ),
+            gaussian_normalized_coefficient=(
+                scalar_result.normalized_coefficient
+            ),
+            gaussian_denominator_bound=(
+                scalar_result.denominator_bound
+            ),
+            gaussian_obstruction=scalar_result.obstruction,
+            gaussian_obstruction_polynomial=(
+                scalar_result.obstruction_polynomial
+            ),
+            gaussian_obstruction_remainder=(
+                scalar_result.obstruction_remainder
+            ),
+        )
+
+    real_solution, imaginary_solution = _split_gaussian_rational(
+        scalar_result.solution,
+        x,
+    )
+    if (
+        cancel(
+            real_solution.diff(x)
+            - lambda_coefficient*imaginary_solution
+            - real_rhs
+        )
+        != 0
+        or cancel(
+            imaginary_solution.diff(x)
+            + lambda_coefficient*real_solution
+            - imaginary_rhs
+        )
+        != 0
+    ):
+        raise ValueError(
+            "rational-rotation coupled RDE reconstruction failed"
+        )
+    return CoupledRationalRDEResult(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        real_solution,
+        imaginary_solution,
+        None,
+        real_denominator,
+        real_degree_bound,
+        gaussian_normalization_factor=scalar_result.normalization_factor,
+        gaussian_normalized_coefficient=(
+            scalar_result.normalized_coefficient
+        ),
+        gaussian_denominator_bound=scalar_result.denominator_bound,
+    )
+
+
 def solve_coupled_rational_rde(
     lambda_coefficient: Expr | Poly,
     real_right_hand_side: Expr | Poly,
     imaginary_right_hand_side: Expr | Poly,
     x: Symbol,
 ) -> CoupledRationalRDEResult:
-    r"""Solve a real coupled RDE with polynomial rotation coefficient.
+    r"""Solve a real coupled RDE with rational rotation coefficient.
 
     This decides
 
     ``Dp - lambda*q = u`` and ``Dq + lambda*p = v``
 
-    in ``QQ(x)`` for nonzero ``lambda`` in ``QQ[x]``.  Finite-pole analysis
-    supplies a common denominator.  Since multiplication by the leading
-    rotation matrix is invertible and dominates differentiation at infinity,
-    a two-coordinate leading-term recurrence then decides the polynomial
-    numerators.
+    in ``QQ(x)`` for nonzero ``lambda``.  Polynomial ``lambda`` uses the
+    direct real denominator theorem and two-coordinate leading recurrence.
+    Rational ``lambda`` is transformed to
+
+    ``Dz + i*lambda*z = u + i*v``
+
+    over ``QQ_I(x)``.  Bronstein weak normalization, normal-denominator
+    reduction, SPDE, and a forced polynomial recurrence decide that scalar
+    equation, after which its solution is split exactly back into ``p,q``.
     """
     if not isinstance(x, Symbol):
         raise TypeError("the differentiation variable must be a Symbol")
-    lambda_coefficient = Poly(lambda_coefficient, x, domain=QQ)
-    if lambda_coefficient.is_zero:
+    lambda_expression, lambda_numerator, lambda_denominator = (
+        _as_qq_rational(lambda_coefficient, x)
+    )
+    if lambda_numerator.is_zero:
         raise ValueError("the coupled rotation coefficient must be nonzero")
     real_rhs, real_numerator, real_denominator = _as_qq_rational(
         real_right_hand_side,
@@ -1092,6 +1768,14 @@ def solve_coupled_rational_rde(
     imaginary_rhs, imaginary_numerator, imaginary_denominator = (
         _as_qq_rational(imaginary_right_hand_side, x)
     )
+    if lambda_denominator.degree() > 0:
+        return _solve_coupled_rational_rotation(
+            lambda_expression,
+            real_rhs,
+            imaginary_rhs,
+            x,
+        )
+    lambda_coefficient = Poly(lambda_expression, x, domain=QQ)
 
     common_denominator = real_denominator.lcm(imaginary_denominator)
     common_real_numerator = (
@@ -1314,10 +1998,12 @@ def solve_bounded_coupled_rde_matrix(
     ):
         raise ValueError("the numerator degree bound must be a nonnegative int")
 
-    lambda_coefficient = Poly(lambda_coefficient, x, domain=QQ)
-    if lambda_coefficient.is_zero:
+    lambda_expression, lambda_numerator, _ = _as_qq_rational(
+        lambda_coefficient,
+        x,
+    )
+    if lambda_numerator.is_zero:
         raise ValueError("the coupled rotation coefficient must be nonzero")
-    lambda_expression = lambda_coefficient.as_expr()
     real_rhs, _, _ = _as_qq_rational(real_right_hand_side, x)
     imaginary_rhs, _, _ = _as_qq_rational(imaginary_right_hand_side, x)
     denominator = Poly(denominator, x, domain=QQ)

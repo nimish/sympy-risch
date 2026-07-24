@@ -1,11 +1,11 @@
-"""Dependency classification for proposed hyperexponential extensions."""
+"""Dependency classification for proposed transcendental extensions."""
 
 from math import lcm
 
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-from sympy import Poly, Rational, cancel, symbols
+from sympy import I, Poly, Rational, cancel, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -14,6 +14,7 @@ from sympy_risch import (
     HyperexponentialDependencyKind,
     MonomialExtension,
     analyze_hyperexponential_extension,
+    analyze_hypertangent_extension,
 )
 
 
@@ -43,6 +44,21 @@ def proposed_hyperexponential(
         base = rational_base()
     extension = MonomialExtension(
         Poly(eta*t, t, domain=base.field()),
+        constant_field_status,
+    )
+    return base, extension
+
+
+def proposed_hypertangent(
+    eta,
+    *,
+    base=None,
+    constant_field_status=ConstantFieldStatus.UNKNOWN,
+) -> tuple[DifferentialTower, MonomialExtension]:
+    if base is None:
+        base = rational_base()
+    extension = MonomialExtension(
+        Poly(eta*(1 + t**2), t, domain=base.field()),
         constant_field_status,
     )
     return base, extension
@@ -447,4 +463,128 @@ def test_dependency_analysis_rejects_nonstandard_rational_bases() -> None:
         analyze_hyperexponential_extension(
             extension,
             base.derivation(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("eta", "expected_kind", "expected_power", "expected_argument"),
+    [
+        (
+            1/(x**2 + 1),
+            HyperexponentialDependencyKind.RATIONAL,
+            1,
+            (x - I)/(x + I),
+        ),
+        (
+            1/(2*(x**2 + 1)),
+            HyperexponentialDependencyKind.ALGEBRAIC,
+            2,
+            (x - I)/(x + I),
+        ),
+        (
+            1/x,
+            HyperexponentialDependencyKind.TRANSCENDENTAL,
+            None,
+            None,
+        ),
+        (
+            1/x**2,
+            HyperexponentialDependencyKind.TRANSCENDENTAL,
+            None,
+            None,
+        ),
+        (
+            x + 1/(x**2 + 1),
+            HyperexponentialDependencyKind.TRANSCENDENTAL,
+            None,
+            None,
+        ),
+    ],
+)
+def test_hypertangent_dependency_uses_the_cayley_logarithmic_derivative(
+    eta,
+    expected_kind,
+    expected_power,
+    expected_argument,
+) -> None:
+    base, extension = proposed_hypertangent(eta)
+
+    result = analyze_hypertangent_extension(
+        extension,
+        base.derivation(),
+    )
+
+    assert result.kind is expected_kind
+    assert result.minimal_power == expected_power
+    assert result.is_dependent == (
+        expected_kind is not HyperexponentialDependencyKind.TRANSCENDENTAL
+    )
+    if expected_argument is None:
+        assert result.relation_argument is None
+    else:
+        assert cancel(result.relation_argument - expected_argument) == 0
+        assert cancel(
+            result.relation_argument.diff(x)/result.relation_argument
+            - result.minimal_power*2*I*eta
+        ) == 0
+
+
+def test_hypertangent_dependency_detects_constant_field_conflict() -> None:
+    base, extension = proposed_hypertangent(
+        1/(x**2 + 1),
+        constant_field_status=ConstantFieldStatus.PRESERVED,
+    )
+
+    result = analyze_hypertangent_extension(
+        extension,
+        base.derivation(),
+    )
+
+    assert result.is_dependent
+    assert (
+        result.inferred_constant_field_status
+        is ConstantFieldStatus.ENLARGED
+    )
+    assert result.conflicts_with_declared_constant_field_status
+
+
+def test_hypertangent_dependency_validates_shape_parent_and_base() -> None:
+    base = rational_base()
+    _, extension = proposed_hypertangent(1/x, base=base)
+    hyperexponential = MonomialExtension(
+        Poly(t/x, t, domain=base.field()),
+    )
+
+    with pytest.raises(ValueError, match="requires Dt = eta"):
+        analyze_hypertangent_extension(
+            hyperexponential,
+            base.derivation(),
+        )
+    with pytest.raises(TypeError, match="requires a monomial extension"):
+        analyze_hypertangent_extension(
+            object(),  # type: ignore[arg-type]
+            base.derivation(),
+        )
+    with pytest.raises(TypeError, match="requires a Derivation"):
+        analyze_hypertangent_extension(
+            extension,
+            object(),  # type: ignore[arg-type]
+        )
+
+    other_base = rational_base(generator=z)
+    with pytest.raises(ValueError, match="parent field does not match"):
+        analyze_hypertangent_extension(
+            extension,
+            other_base.derivation(),
+        )
+
+    nonstandard_base = rational_base(generator_derivative=2)
+    _, nonstandard_extension = proposed_hypertangent(
+        1/x,
+        base=nonstandard_base,
+    )
+    with pytest.raises(NotImplementedError, match=r"QQ\(x\) with Dx = 1"):
+        analyze_hypertangent_extension(
+            nonstandard_extension,
+            nonstandard_base.derivation(),
         )

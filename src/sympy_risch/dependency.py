@@ -8,9 +8,11 @@ from math import lcm
 from typing import Any
 
 from sympy.core.expr import Expr
+from sympy.core.numbers import I
+from sympy.core.singleton import S
 from sympy.core.symbol import Symbol
-from sympy.polys.domains import QQ
-from sympy.polys.polytools import Poly
+from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.polytools import Poly, cancel, invert
 
 from .rational import (
     RationalExactDerivativeResult,
@@ -37,6 +39,61 @@ class HyperexponentialDependencyKind(Enum):
     RATIONAL = "rational"
     ALGEBRAIC = "algebraic"
     TRANSCENDENTAL = "transcendental"
+
+
+@dataclass(frozen=True, slots=True)
+class HypertangentDependency:
+    r"""Dependency certificate for ``Dt=eta*(1+t**2)`` over ``QQ(x)``.
+
+    In the Cayley coordinate ``u=(1+i*t)/(1-i*t)``, one has
+
+    ``Du/u = 2*i*eta``.
+
+    If ``minimal_power`` and ``relation_argument`` are present, they satisfy
+
+    ``D(u**minimal_power/relation_argument) = 0``.
+
+    Thus a formal transcendental tangent generator would enlarge the constant
+    field.  Power one is a rational Cayley dependency; larger powers are
+    algebraic dependencies.
+    """
+
+    extension: MonomialExtension
+    eta: Any
+    kind: HyperexponentialDependencyKind
+    minimal_power: int | None
+    relation_argument: Expr | None
+
+    @property
+    def is_dependent(self) -> bool:
+        """Whether the Cayley generator is rationally or algebraically dependent."""
+        return self.kind is not HyperexponentialDependencyKind.TRANSCENDENTAL
+
+    @property
+    def is_rationally_dependent(self) -> bool:
+        """Whether the Cayley generator itself belongs to the lower field."""
+        return self.kind is HyperexponentialDependencyKind.RATIONAL
+
+    @property
+    def is_algebraically_dependent(self) -> bool:
+        """Whether a positive Cayley power belongs to the lower field."""
+        return self.kind is HyperexponentialDependencyKind.ALGEBRAIC
+
+    @property
+    def inferred_constant_field_status(self) -> ConstantFieldStatus:
+        """Infer whether the formal extension preserves its constants."""
+        if self.is_dependent:
+            return ConstantFieldStatus.ENLARGED
+        return ConstantFieldStatus.PRESERVED
+
+    @property
+    def conflicts_with_declared_constant_field_status(self) -> bool:
+        """Whether extension metadata contradicts the inferred status."""
+        declared = self.extension.constant_field_status
+        return (
+            declared is not ConstantFieldStatus.UNKNOWN
+            and declared is not self.inferred_constant_field_status
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +223,129 @@ def _minimal_logarithmic_power(
             "nonintegral logarithmic-derivative certificate has no denominator"
         )
     return power
+
+
+def _gaussian_logarithmic_relation(
+    logarithmic_derivative: Expr,
+    variable: Symbol,
+) -> tuple[int, Expr] | None:
+    r"""Find minimal ``n>0`` with ``n*f=Dv/v`` in ``QQ_I(x)``.
+
+    A rational logarithmic derivative has no polynomial or repeated-pole
+    part, and its residue at every irreducible denominator factor is an
+    integer.  Rational residues become integral after multiplication by their
+    denominator least common multiple.
+    """
+    field = QQ_I.frac_field(variable)
+    element = field.from_sympy(logarithmic_derivative)
+    numerator = Poly.from_dict(
+        element.numer.to_dict(),
+        variable,
+        domain=QQ_I,
+    )
+    denominator = Poly.from_dict(
+        element.denom.to_dict(),
+        variable,
+        domain=QQ_I,
+    )
+    polynomial_part, proper_numerator = numerator.div(denominator)
+    if not polynomial_part.is_zero:
+        return None
+    if proper_numerator.is_zero:
+        return 1, S.One
+    if denominator.gcd(denominator.diff()).degree() > 0:
+        return None
+
+    residues: list[tuple[Poly, Any]] = []
+    power = 1
+    for factor, multiplicity in denominator.factor_list()[1]:
+        if multiplicity != 1:
+            return None
+        cofactor = denominator.exquo(factor)
+        local_denominator = (cofactor*factor.diff()).rem(factor)
+        residue = (
+            proper_numerator*invert(local_denominator, factor)
+        ).rem(factor)
+        if residue.degree() > 0:
+            return None
+        value = QQ_I.convert(residue.nth(0))
+        if value.y != 0:
+            return None
+        rational_value = QQ.convert(value.x)
+        residues.append((factor, rational_value))
+        power = lcm(power, int(QQ.denom(rational_value)))
+
+    relation_argument = S.One
+    for factor, residue in residues:
+        multiplicity = QQ.convert(power)*residue
+        if QQ.denom(multiplicity) != 1:
+            raise ValueError(
+                "Gaussian logarithmic relation did not clear residues"
+            )
+        relation_argument *= factor.as_expr()**int(QQ.numer(multiplicity))
+    relation_argument = cancel(relation_argument)
+    if cancel(
+        relation_argument.diff(variable)/relation_argument
+        - power*logarithmic_derivative
+    ) != 0:
+        raise ValueError(
+            "Gaussian logarithmic dependency reconstruction failed"
+        )
+    return power, relation_argument
+
+
+def analyze_hypertangent_extension(
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> HypertangentDependency:
+    r"""Classify a proposed ``Dt=eta*(1+t**2)`` extension over ``QQ(x)``.
+
+    The analysis applies the rational logarithmic-derivative criterion to the
+    Cayley coordinate, whose logarithmic derivative is ``2*i*eta``.
+    """
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError(
+            "hypertangent dependency analysis requires a monomial extension"
+        )
+    if not isinstance(lower_derivation, Derivation):
+        raise TypeError(
+            "hypertangent dependency analysis requires a Derivation"
+        )
+    if extension.family is not MonomialFamily.HYPERTANGENT:
+        raise ValueError(
+            "hypertangent dependency analysis requires "
+            "Dt = eta*(1 + t**2)"
+        )
+    if extension.parent_field != lower_derivation.field:
+        raise ValueError(
+            "extension parent field does not match the lower derivation"
+        )
+
+    variable = _standard_rational_variable(lower_derivation)
+    eta = extension.parent_field.convert(
+        extension.generator_derivative.nth(2)
+    )
+    relation = _gaussian_logarithmic_relation(
+        2*I*extension.parent_field.to_sympy(eta),
+        variable,
+    )
+    if relation is None:
+        kind = HyperexponentialDependencyKind.TRANSCENDENTAL
+        minimal_power = None
+        relation_argument = None
+    else:
+        minimal_power, relation_argument = relation
+        if minimal_power == 1:
+            kind = HyperexponentialDependencyKind.RATIONAL
+        else:
+            kind = HyperexponentialDependencyKind.ALGEBRAIC
+    return HypertangentDependency(
+        extension,
+        eta,
+        kind,
+        minimal_power,
+        relation_argument,
+    )
 
 
 def analyze_hyperexponential_extension(

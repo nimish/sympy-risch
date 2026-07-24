@@ -12,7 +12,9 @@ from .algebraic import (
 from .dependency import (
     HyperexponentialDependency,
     HyperexponentialDependencyKind,
+    HypertangentDependency,
     analyze_hyperexponential_extension,
+    analyze_hypertangent_extension,
 )
 from .exact import ExactDerivativeResult, solve_exact_derivative
 from .lrt import lazard_rioboo_trager
@@ -110,6 +112,7 @@ __all__ = [
     "HyperexponentialLaurentStep",
     "HyperexponentialMonomialReduction",
     "HypertangentCayleyStep",
+    "HypertangentDependency",
     "HypertangentMonomialReduction",
     "HypertangentSpecialReduction",
     "NonlinearMonomialReduction",
@@ -129,6 +132,7 @@ __all__ = [
     "RationalRischDifferentialEquationResult",
     "bronstein_residue_criterion",
     "analyze_hyperexponential_extension",
+    "analyze_hypertangent_extension",
     "Derivation",
     "DifferentialExtension",
     "DifferentialTower",
