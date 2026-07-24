@@ -53,6 +53,11 @@ from .rational import (
     solve_rational_exact_derivative,
     solve_rational_logarithmic_derivative,
 )
+from .rde import (
+    PolynomialRDEObstruction,
+    PolynomialRischDifferentialEquationResult,
+    solve_polynomial_risch_differential_equation,
+)
 from .tower import (
     AlgebraicExtension,
     ConstantFieldStatus,
@@ -83,6 +88,8 @@ __all__ = [
     "PrimitivePolynomialStep",
     "PrimitiveMonomialReduction",
     "PrimitiveExactDerivativeResult",
+    "PolynomialRDEObstruction",
+    "PolynomialRischDifferentialEquationResult",
     "ReducedFunctionReduction",
     "RationalExactDerivativeResult",
     "RationalLogDerivativeFactor",
@@ -116,6 +123,7 @@ __all__ = [
     "solve_rational_logarithmic_derivative",
     "solve_exact_derivative",
     "solve_primitive_exact_derivative",
+    "solve_polynomial_risch_differential_equation",
     "SimpleRadicalData",
     "SpecialPolynomialStatus",
     "split_normal_special",
