@@ -23,6 +23,7 @@ from sympy_risch import (
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
     integrate_elementary,
+    solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
 )
 
@@ -243,7 +244,8 @@ n*f = D(v)/v + m*D(theta)/theta
 ```
 
 has a solution with integers `n != 0`, `m`, and a nonzero rational function
-`v`. The Section 7.3 fast path is implemented over the standard rational base:
+`v`. The complete rational-base entry point uses Bronstein's Section 7.3
+algorithm as its fast path:
 
 ```python
 theta = symbols("theta")
@@ -252,7 +254,7 @@ theta_extension = MonomialExtension(
     Poly(eta*theta, theta, domain=base.field())
 )
 
-decision = solve_parametric_logarithmic_derivative_heuristic(
+decision = solve_parametric_logarithmic_derivative(
     (1/(x - 1) + 3*eta)/2,
     theta_extension,
     base.derivation(),
@@ -264,16 +266,41 @@ assert decision.argument == base.field().from_sympy(x - 1)
 assert decision.reconstructs
 ```
 
-The returned certificate records whether the ratio `m/n` came from the
-high-degree polynomial comparison or the repeated-denominator congruence.
-Every successful witness is rechecked by exact differentiation.
+If the fast path determines `m/n`, its certificate records whether that ratio
+came from the high-degree polynomial comparison or the repeated-denominator
+congruence. Every successful witness is rechecked by exact differentiation.
 
-This fast path is intentionally not presented as a complete decision.
-For example, when `D(theta)/theta = 1` and `f = 11`, the obvious witness is
-`(n, m, v) = (1, 11, 1)`, but the Section 7.3 coefficient tests cannot
-determine `m/n`. The current result is `INCONCLUSIVE`, not
-`PROVED_NO_SOLUTION`; the planned Chapter 9 structure-theorem fallback will
-decide that branch.
+When the fast path is inconclusive, the public solver compares the remaining
+constant part and every non-logarithmic residue coordinate. For Bronstein's
+Example 7.3.2, `D(theta)/theta = 1` and `f = 11`:
+
+```python
+constant_theta = MonomialExtension(
+    Poly(theta, theta, domain=base.field())
+)
+fast_result = solve_parametric_logarithmic_derivative_heuristic(
+    11,
+    constant_theta,
+    base.derivation(),
+)
+decision = solve_parametric_logarithmic_derivative(
+    11,
+    constant_theta,
+    base.derivation(),
+)
+
+assert fast_result.outcome is ParametricLogarithmicDerivativeOutcome.INCONCLUSIVE
+assert decision.outcome is ParametricLogarithmicDerivativeOutcome.SOLUTION
+assert (decision.n, decision.m, decision.argument) == (
+    1,
+    11,
+    base.field().one,
+)
+```
+
+Thus the complete `QQ(x)` entry point has no inconclusive result. Recursive
+primitive lower fields remain unsupported until the general Chapter 9
+fundamental-signature solver is implemented.
 
 ## Mathematical assumptions
 
@@ -301,7 +328,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Hyperexponential over a primitive level, with positive-degree polynomial logarithmic derivative | End-to-end |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
-| Parametric logarithmic derivative, Bronstein Section 7.3 fast path | Low-level API over `QQ(x)`; may return `INCONCLUSIVE` |
+| Parametric logarithmic derivative | Complete low-level decision over `QQ(x)` |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Other nested hyperexponential shapes or nested hypertangent levels | Not implemented |
@@ -321,7 +348,7 @@ principal groups are:
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
-| Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative_heuristic` |
+| Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative`; `solve_parametric_logarithmic_derivative_heuristic` exposes the Section 7.3 fast path |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 
 These functions return structured immutable results rather than only a printed

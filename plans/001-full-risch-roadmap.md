@@ -287,6 +287,11 @@ Implement Bronstein §7.3 for the existing rational and primitive towers:
 n*f = D(v)/v + m*D(theta)/theta
 ```
 
+Status: complete over `QQ(x)`, including the fast path, rational fallback,
+integer normalization, exact witness reconstruction, and Example 7.3.2.
+Recursive primitive lower fields still need the Chapter 9
+fundamental-signature solver.
+
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.
 - Solve the resulting exact rational linear system.
@@ -661,13 +666,14 @@ reviewable checkpoints are:
 1. [x] Define the parametric logarithmic-derivative result and exact
    verification contract.
 2. [x] Implement Bronstein §7.3 over the existing rational base.
-3. Add the Chapter 9 complex structure fallback over rational and recursive
-   primitive towers.
-4. Make the Example 7.3.2 regression constructive through the fallback and
-   extend the generated rational-dependency families across that branch.
-5. Use that decision in primitive RDE cancellation and degree bounds.
-6. Add weak normalization for primitive coefficients with top-generator poles.
-7. Generalize the completed scalar RDE one lower-field family at a time.
+3. [x] Add the complete rational structure fallback.
+4. [x] Make the Example 7.3.2 regression constructive and add generated
+   rational-dependency families across the fallback branch.
+5. Add the Chapter 9 fundamental-signature fallback over recursive primitive
+   towers.
+6. Use that decision in primitive RDE cancellation and degree bounds.
+7. Add weak normalization for primitive coefficients with top-generator poles.
+8. Generalize the completed scalar RDE one lower-field family at a time.
 
 Each item is a separate commit after focused and full-suite verification.
 

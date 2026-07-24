@@ -3,7 +3,7 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, Rational, symbols
+from sympy import EmptySet, Poly, Rational, linsolve, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -14,6 +14,8 @@ from sympy_risch import (
     ParametricLogarithmicDerivativeHeuristicCertificate,
     ParametricLogarithmicDerivativeOutcome,
     ParametricLogarithmicDerivativeResult,
+    RationalParametricLogarithmicDerivativeCertificate,
+    solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
     verify_parametric_logarithmic_derivative_witness,
 )
@@ -662,3 +664,361 @@ def test_generated_denominator_branch_witnesses_reconstruct(
         is ParametricLogarithmicDerivativeHeuristicBranch.DENOMINATOR_CONGRUENCE
     )
     assert QQ(result.m, result.n) == QQ(m, n)
+
+
+def test_complete_solver_promotes_bronstein_example_7_3_2_to_solution() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, 1)
+
+    result = solve_parametric_logarithmic_derivative(
+        11,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (1, 11)
+    assert result.argument == lower.field().one
+    assert result.reconstructs
+    assert isinstance(
+        result.certificate,
+        RationalParametricLogarithmicDerivativeCertificate,
+    )
+    assert result.certificate.heuristic_result.is_inconclusive
+    assert result.certificate.linear_constraints == ((QQ(11), QQ.one),)
+    assert result.certificate.candidate_ratio == QQ(11)
+
+
+def test_complete_solver_cancels_a_nonlogarithmic_residue() -> None:
+    lower = rational_base()
+    nonlogarithmic_part = 1/(x**2 + 1)
+    extension = hyperexponential_extension(lower, nonlogarithmic_part)
+
+    result = solve_parametric_logarithmic_derivative(
+        nonlogarithmic_part + 1/x,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (1, 1)
+    assert result.argument == lower.field().from_sympy(x)
+    assert result.reconstructs
+    assert result.certificate.candidate_ratio == QQ.one
+
+    quadratic_residue = next(
+        residue
+        for residue in result.certificate.residues
+        if residue.factor.degree() == 2
+    )
+    assert quadratic_residue.factor == Poly(x**2 + 1, x, domain=QQ)
+    assert quadratic_residue.f_obstruction == (QQ.one,)
+    assert quadratic_residue.eta_obstruction == (QQ.one,)
+
+    ratio = symbols("ratio")
+    equations = [
+        left - ratio*right
+        for left, right in result.certificate.linear_constraints
+    ]
+    assert (QQ.one,) in linsolve(equations, ratio)
+
+
+def test_fallback_projects_high_degree_residues_modulo_factor_derivative() -> None:
+    lower = rational_base()
+    factor = x**3 + x + 1
+    eta = (x + 1)/factor
+    extension = hyperexponential_extension(lower, eta)
+
+    result = solve_parametric_logarithmic_derivative(
+        2*eta + (3*x**2 + 1)/factor,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (1, 2)
+    assert result.argument == lower.field().from_sympy(factor)
+    assert result.reconstructs
+
+    cubic_residue = next(
+        residue
+        for residue in result.certificate.residues
+        if residue.factor.degree() == 3
+    )
+    assert cubic_residue.eta_obstruction == (QQ.one, QQ.one)
+    assert cubic_residue.f_obstruction == (QQ(2), QQ(2))
+
+
+def test_independent_residue_factors_can_impose_conflicting_ratios() -> None:
+    lower = rational_base()
+    first = x**2 + 1
+    second = x**2 + 2
+    extension = hyperexponential_extension(
+        lower,
+        1/first + 2/second,
+    )
+
+    result = solve_parametric_logarithmic_derivative(
+        1/first + 1/second,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+    assert (QQ.one, QQ.one) in result.certificate.linear_constraints
+    assert (QQ.one, QQ(2)) in result.certificate.linear_constraints
+
+
+def test_complete_solver_chooses_m_zero_when_every_ratio_is_free() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, 1/(x + 1))
+
+    result = solve_parametric_logarithmic_derivative(
+        x/(x**2 + 1),
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (2, 0)
+    assert result.argument == lower.field().from_sympy(x**2 + 1)
+    assert result.certificate.candidate_ratio == QQ.zero
+    assert result.certificate.logarithmic_power == 2
+    assert result.reconstructs
+
+
+def test_nonlogarithmic_residue_proves_no_solution_after_heuristic_failure() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, 1)
+
+    result = solve_parametric_logarithmic_derivative(
+        1/(x**2 + 1),
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+    assert isinstance(
+        result.certificate,
+        RationalParametricLogarithmicDerivativeCertificate,
+    )
+    assert result.certificate.heuristic_result.is_inconclusive
+    assert result.certificate.candidate_ratio is None
+
+    ratio = symbols("ratio")
+    equations = [
+        left - ratio*right
+        for left, right in result.certificate.linear_constraints
+    ]
+    assert linsolve(equations, ratio) is EmptySet
+
+
+def test_constant_and_residue_constraints_can_conflict() -> None:
+    lower = rational_base()
+    extension = hyperexponential_extension(
+        lower,
+        1 + 2/(x**2 + 1),
+    )
+
+    result = solve_parametric_logarithmic_derivative(
+        1 + 1/(x**2 + 1),
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+    assert (QQ.one, QQ.one) in result.certificate.linear_constraints
+    assert (QQ.one, QQ(2)) in result.certificate.linear_constraints
+
+    ratio = symbols("ratio")
+    equations = [
+        left - ratio*right
+        for left, right in result.certificate.linear_constraints
+    ]
+    assert linsolve(equations, ratio) is EmptySet
+
+
+def test_complete_solver_keeps_conclusive_fast_path_result() -> None:
+    lower = rational_base()
+    eta = x**2 + 1/x
+    extension = hyperexponential_extension(lower, eta)
+
+    result = solve_parametric_logarithmic_derivative(
+        (1/(x - 1) + 3*eta)/2,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (2, 3)
+    assert isinstance(
+        result.certificate,
+        ParametricLogarithmicDerivativeHeuristicCertificate,
+    )
+    assert result.reconstructs
+
+
+def test_complete_solver_preserves_unsupported_primitive_lower_field() -> None:
+    rational = rational_base()
+    lower = rational.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=rational.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    extension = hyperexponential_extension(lower, 1)
+
+    result = solve_parametric_logarithmic_derivative(
+        1,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.is_unsupported
+    assert not result.proves_no_solution
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    n=st.integers(min_value=1, max_value=6),
+    m=st.integers(min_value=-6, max_value=6).filter(lambda value: value != 0),
+    x_power=st.integers(min_value=-3, max_value=3),
+    shifted_power=st.integers(min_value=-3, max_value=3),
+)
+def test_generated_structure_fallback_residue_cancellations(
+    n,
+    m,
+    x_power,
+    shifted_power,
+) -> None:
+    lower = rational_base()
+    derivation = lower.derivation()
+    field = lower.field()
+    eta_expression = 1/(x**2 + 1)
+    eta = field.from_sympy(eta_expression)
+    extension = hyperexponential_extension(lower, eta_expression)
+    argument = field.from_sympy(
+        x**x_power*(x - 1)**shifted_power
+    )
+    f = (derivation(argument)/argument + m*eta)/n
+
+    heuristic = solve_parametric_logarithmic_derivative_heuristic(
+        f,
+        extension,
+        derivation,
+    )
+    result = solve_parametric_logarithmic_derivative(
+        f,
+        extension,
+        derivation,
+    )
+
+    assert heuristic.is_inconclusive
+    assert result.has_solution
+    assert result.reconstructs
+    assert QQ(result.m, result.n) == QQ(m, n)
+    assert isinstance(
+        result.certificate,
+        RationalParametricLogarithmicDerivativeCertificate,
+    )
+
+
+@settings(max_examples=50, deadline=None)
+@given(
+    n=st.integers(min_value=1, max_value=6),
+    m=st.integers(min_value=-6, max_value=6),
+    x_power=st.integers(min_value=-3, max_value=3),
+    shifted_power=st.integers(min_value=-3, max_value=3),
+)
+def test_generated_structure_fallback_constant_constraints(
+    n,
+    m,
+    x_power,
+    shifted_power,
+) -> None:
+    lower = rational_base()
+    derivation = lower.derivation()
+    field = lower.field()
+    extension = hyperexponential_extension(lower, 1)
+    argument = field.from_sympy(
+        x**x_power*(x - 1)**shifted_power
+    )
+    f = (derivation(argument)/argument + m*field.one)/n
+
+    result = solve_parametric_logarithmic_derivative(
+        f,
+        extension,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.reconstructs
+    assert QQ(result.m, result.n) == QQ(m, n)
+    assert isinstance(
+        result.certificate,
+        RationalParametricLogarithmicDerivativeCertificate,
+    )
+
+
+@settings(max_examples=60, deadline=None)
+@given(
+    f_quadratic=st.integers(min_value=-3, max_value=3),
+    f_linear=st.integers(min_value=-3, max_value=3),
+    f_constant=st.integers(min_value=-3, max_value=3),
+    eta_quadratic=st.integers(min_value=1, max_value=3),
+    eta_linear=st.integers(min_value=-3, max_value=3),
+    eta_constant=st.integers(min_value=-3, max_value=3),
+)
+def test_complete_solver_is_total_on_generated_squarefree_rational_inputs(
+    f_quadratic,
+    f_linear,
+    f_constant,
+    eta_quadratic,
+    eta_linear,
+    eta_constant,
+) -> None:
+    lower = rational_base()
+    f = (
+        f_quadratic/(x**2 + 1)
+        + f_linear/x
+        + f_constant
+    )
+    eta = (
+        eta_quadratic/(x**2 + 1)
+        + eta_linear/x
+        + eta_constant
+    )
+    extension = hyperexponential_extension(lower, eta)
+
+    result = solve_parametric_logarithmic_derivative(
+        f,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.outcome in {
+        ParametricLogarithmicDerivativeOutcome.SOLUTION,
+        ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+    }
+    assert isinstance(
+        result.certificate,
+        RationalParametricLogarithmicDerivativeCertificate,
+    )
+
+    ratio = symbols("ratio")
+    equations = [
+        left - ratio*right
+        for left, right in result.certificate.linear_constraints
+    ]
+    oracle_solutions = linsolve(equations, ratio)
+    if result.has_solution:
+        assert result.reconstructs
+        if any(
+            left != QQ.zero or right != QQ.zero
+            for left, right in result.certificate.linear_constraints
+        ):
+            assert (
+                result.certificate.candidate_ratio,
+            ) in oracle_solutions
+    else:
+        assert oracle_solutions is EmptySet

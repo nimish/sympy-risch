@@ -35,8 +35,10 @@ bases. `tests/test_parametric_logarithmic.py` checks Bronstein's equation
 (7.37), the Section 7.3 rational fast path, and exact witnesses over rational
 and primitive lower fields. It exercises both coefficient-comparison
 branches, generated planted solutions, necessary-condition failures, and
-Example 7.3.2, while enforcing the distinction between a proved obstruction,
-an inconclusive heuristic, and an unsupported field.
+Example 7.3.2. The complete rational fallback is checked against independent
+`linsolve` systems over generated square-free inputs. The tests enforce the
+distinction between a proved obstruction, an inconclusive fast path, and an
+unsupported field.
 
 ## Required layers
 

@@ -50,10 +50,9 @@ complete transcendental cases       |
              completeness and upstream gates
 ```
 
-The completed fast-path checkpoint implements Bronstein Section 7.3 over the
-rational base. The next executable checkpoint in Milestone 2.1 is its
-Chapter 9 structure-theorem fallback for the currently supported rational and
-primitive towers.
+The Section 7.3 fast path and its complete rational fallback are implemented.
+The next executable checkpoint in Milestone 2.1 is the Chapter 9
+fundamental-signature fallback over recursive primitive towers.
 
 ## Findings considered and rejected
 

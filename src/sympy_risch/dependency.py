@@ -85,6 +85,46 @@ class ParametricLogarithmicDerivativeHeuristicCertificate:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class RationalParametricLogarithmicDerivativeResidue:
+    r"""One irreducible-factor constraint in the rational fallback.
+
+    ``f_partial_numerator`` and ``eta_partial_numerator`` are the local
+    numerators modulo ``factor``.  A rational radical logarithmic derivative
+    may retain only a rational multiple of ``factor.diff()``.  The
+    ``*_obstruction`` tuples are the remaining coordinates after projecting
+    away that one-dimensional logarithmic direction.
+    """
+
+    factor: Poly
+    f_partial_numerator: Poly
+    eta_partial_numerator: Poly
+    f_obstruction: tuple[Any, ...]
+    eta_obstruction: tuple[Any, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RationalParametricLogarithmicDerivativeCertificate:
+    r"""Exact linear certificate for the complete ``QQ(x)`` fallback.
+
+    Every pair ``(a, b)`` in ``linear_constraints`` represents the equation
+    ``a = c*b`` for ``c = m/n``.  The first pair compares the constant
+    polynomial parts; subsequent pairs compare non-logarithmic residue
+    coordinates.  An inconsistent system proves that no solution exists.
+    Otherwise ``candidate_ratio`` is the chosen ``c`` and
+    ``logarithmic_result`` certifies the final radical logarithmic derivative.
+    """
+
+    heuristic_result: ParametricLogarithmicDerivativeResult
+    common_denominator: Poly
+    residues: tuple[RationalParametricLogarithmicDerivativeResidue, ...]
+    linear_constraints: tuple[tuple[Any, Any], ...]
+    candidate_ratio: Any | None
+    logarithmic_power: int | None
+    logarithmic_result: RationalLogDerivativeResult | None
+    reason: str
+
+
 def _parametric_logarithmic_derivative_eta(
     extension: MonomialExtension,
     lower_derivation: Derivation,
@@ -464,7 +504,7 @@ def _standard_rational_variable(derivation: Derivation) -> Symbol:
     """Return ``x`` for the standard derivation on ``QQ(x)``."""
     if derivation.level != 0:
         raise NotImplementedError(
-            "hyperexponential dependency analysis currently requires QQ(x)"
+            "rational-base dependency analysis currently requires QQ(x)"
         )
     extension = derivation.tower.levels[0]
     if (
@@ -474,7 +514,7 @@ def _standard_rational_variable(derivation: Derivation) -> Symbol:
         != Poly(1, extension.generator, domain=QQ)
     ):
         raise NotImplementedError(
-            "hyperexponential dependency analysis currently requires "
+            "rational-base dependency analysis currently requires "
             "QQ(x) with Dx = 1"
         )
     return extension.generator
@@ -543,10 +583,29 @@ def _rational_coefficient_ratio(
     A ``None`` ratio means that every compared coefficient vanishes, so the
     system is consistent but does not determine ``c``.
     """
+    constraints = tuple(
+        (
+            QQ.convert(left.nth(degree)),
+            QQ.convert(right.nth(degree)),
+        )
+        for degree in degrees
+    )
+    return _rational_linear_ratio(constraints)
+
+
+def _rational_linear_ratio(
+    constraints: tuple[tuple[Any, Any], ...],
+) -> tuple[bool, Any | None]:
+    r"""Solve the exact scalar system ``left = c*right`` over ``QQ``.
+
+    ``(True, None)`` means that every equation is ``0 = c*0``, so the ratio
+    remains free.  ``(False, None)`` means that no rational ratio satisfies
+    all constraints.
+    """
     ratio = None
-    for degree in degrees:
-        left_coefficient = QQ.convert(left.nth(degree))
-        right_coefficient = QQ.convert(right.nth(degree))
+    for left, right in constraints:
+        left_coefficient = QQ.convert(left)
+        right_coefficient = QQ.convert(right)
         if right_coefficient == QQ.zero:
             if left_coefficient != QQ.zero:
                 return False, None
@@ -787,6 +846,226 @@ def solve_parametric_logarithmic_derivative_heuristic(
         m=logarithmic_power*m,
         argument=logarithmic_result.argument,
         certificate=solution_certificate,
+    )
+
+
+def _rational_residue_obstruction(
+    partial_numerator: Poly,
+    factor: Poly,
+) -> tuple[Any, ...]:
+    r"""Project a local numerator modulo the span of ``factor.diff()``."""
+    factor_degree = factor.degree()
+    if factor_degree <= 0:
+        raise ValueError("a residue factor must be nonconstant")
+
+    derivative = factor.diff()
+    pivot_degree = factor_degree - 1
+    pivot = QQ.convert(derivative.nth(pivot_degree))
+    if pivot == QQ.zero:
+        raise ValueError(
+            "characteristic-zero factor derivative lost its leading term"
+        )
+    multiple = QQ.convert(partial_numerator.nth(pivot_degree))/pivot
+    return tuple(
+        QQ.convert(partial_numerator.nth(degree))
+        - multiple*QQ.convert(derivative.nth(degree))
+        for degree in range(pivot_degree)
+    )
+
+
+def _solve_rational_parametric_logarithmic_derivative_fallback(
+    heuristic_result: ParametricLogarithmicDerivativeResult,
+) -> ParametricLogarithmicDerivativeResult:
+    r"""Complete an inconclusive Section 7.3 result over ``QQ(x)``.
+
+    At the heuristic's ``failed`` exit, both polynomial parts have degree at
+    most zero and the common denominator is square-free.  For
+    ``c = m/n``, the residual ``f - c*eta`` is a logarithmic derivative of a
+    rational radical exactly when:
+
+    * its constant polynomial part vanishes; and
+    * at every irreducible denominator factor, its partial numerator is a
+      rational multiple of the factor derivative.
+
+    Removing each factor-derivative direction leaves an exact scalar linear
+    system over ``QQ`` for ``c``.
+    """
+    if not heuristic_result.is_inconclusive:
+        raise ValueError(
+            "the rational fallback requires an inconclusive heuristic result"
+        )
+    heuristic_certificate = heuristic_result.certificate
+    if not isinstance(
+        heuristic_certificate,
+        ParametricLogarithmicDerivativeHeuristicCertificate,
+    ):
+        raise TypeError(
+            "the rational fallback requires a Section 7.3 certificate"
+        )
+
+    extension = heuristic_result.extension
+    lower_derivation = heuristic_result.lower_derivation
+    field = lower_derivation.field
+    variable = heuristic_certificate.variable
+    eta = heuristic_result.eta
+
+    p = heuristic_certificate.f_polynomial_part
+    q = heuristic_certificate.eta_polynomial_part
+    a = heuristic_certificate.f_proper_numerator
+    b = heuristic_certificate.eta_proper_numerator
+    d = heuristic_certificate.f_denominator
+    e = heuristic_certificate.eta_denominator
+
+    if p.degree() > 0 or q.degree() > 0:
+        raise ValueError(
+            "an inconclusive Section 7.3 result has a nonconstant "
+            "polynomial part"
+        )
+
+    common_denominator = d.lcm(e)
+    factorization = tuple(common_denominator.factor_list()[1])
+    if any(multiplicity != 1 for _, multiplicity in factorization):
+        raise ValueError(
+            "an inconclusive Section 7.3 result has a repeated denominator"
+        )
+
+    common_f_numerator = common_denominator.exquo(d)*a
+    common_eta_numerator = common_denominator.exquo(e)*b
+    constraints: list[tuple[Any, Any]] = [
+        (
+            QQ.convert(p.nth(0)),
+            QQ.convert(q.nth(0)),
+        )
+    ]
+    residue_certificates: list[
+        RationalParametricLogarithmicDerivativeResidue
+    ] = []
+
+    for factor, _ in factorization:
+        cofactor = common_denominator.exquo(factor)
+        inverse_cofactor = invert(cofactor, factor)
+        f_partial_numerator = (
+            common_f_numerator*inverse_cofactor
+        ).rem(factor)
+        eta_partial_numerator = (
+            common_eta_numerator*inverse_cofactor
+        ).rem(factor)
+        f_obstruction = _rational_residue_obstruction(
+            f_partial_numerator,
+            factor,
+        )
+        eta_obstruction = _rational_residue_obstruction(
+            eta_partial_numerator,
+            factor,
+        )
+        constraints.extend(zip(f_obstruction, eta_obstruction, strict=True))
+        residue_certificates.append(
+            RationalParametricLogarithmicDerivativeResidue(
+                factor,
+                f_partial_numerator,
+                eta_partial_numerator,
+                f_obstruction,
+                eta_obstruction,
+            )
+        )
+
+    linear_constraints = tuple(constraints)
+    residues = tuple(residue_certificates)
+    consistent, candidate_ratio = _rational_linear_ratio(linear_constraints)
+    if not consistent:
+        certificate = RationalParametricLogarithmicDerivativeCertificate(
+            heuristic_result,
+            common_denominator,
+            residues,
+            linear_constraints,
+            None,
+            None,
+            None,
+            "the rational structure constraints on m/n are inconsistent",
+        )
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            heuristic_result.f,
+            ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+            certificate=certificate,
+        )
+
+    # If every obstruction coordinate vanishes identically, f itself is a
+    # radical logarithmic derivative and m=0 is the simplest witness.
+    if candidate_ratio is None:
+        candidate_ratio = QQ.zero
+
+    m = int(QQ.numer(candidate_ratio))
+    n = int(QQ.denom(candidate_ratio))
+    residual = n*heuristic_result.f - m*eta
+    logarithmic_result = solve_rational_logarithmic_derivative(
+        field.to_sympy(residual),
+        variable,
+    )
+    logarithmic_power = _minimal_logarithmic_power(logarithmic_result)
+    if logarithmic_power is None:
+        raise ValueError(
+            "rational structure constraints produced a nonlogarithmic residual"
+        )
+    if logarithmic_power > 1:
+        logarithmic_result = solve_rational_logarithmic_derivative(
+            logarithmic_power*field.to_sympy(residual),
+            variable,
+        )
+        if not logarithmic_result.has_solution:
+            raise ValueError(
+                "clearing fallback logarithmic residues did not produce "
+                "an argument"
+            )
+
+    certificate = RationalParametricLogarithmicDerivativeCertificate(
+        heuristic_result,
+        common_denominator,
+        residues,
+        linear_constraints,
+        candidate_ratio,
+        logarithmic_power,
+        logarithmic_result,
+        "the rational structure constraints produced a verified witness",
+    )
+    return ParametricLogarithmicDerivativeResult(
+        extension,
+        lower_derivation,
+        heuristic_result.f,
+        ParametricLogarithmicDerivativeOutcome.SOLUTION,
+        n=logarithmic_power*n,
+        m=logarithmic_power*m,
+        argument=logarithmic_result.argument,
+        certificate=certificate,
+    )
+
+
+def solve_parametric_logarithmic_derivative(
+    f: Any,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> ParametricLogarithmicDerivativeResult:
+    r"""Decide Bronstein's parametric logarithmic derivative over ``QQ(x)``.
+
+    The Section 7.3 coefficient heuristic is the fast path.  Its constructive
+    and proved-negative answers are returned unchanged.  When it reports
+    ``INCONCLUSIVE``, the complete rational structure fallback solves the
+    remaining exact linear system on constant parts and non-logarithmic
+    residues.
+
+    Recursive primitive lower fields remain ``UNSUPPORTED`` until their
+    Chapter 9 fundamental-signature solver is implemented.
+    """
+    heuristic_result = solve_parametric_logarithmic_derivative_heuristic(
+        f,
+        extension,
+        lower_derivation,
+    )
+    if not heuristic_result.is_inconclusive:
+        return heuristic_result
+    return _solve_rational_parametric_logarithmic_derivative_fallback(
+        heuristic_result,
     )
 
 

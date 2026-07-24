@@ -58,6 +58,8 @@ The lower-level library additionally implements:
   from an inconclusive heuristic and an unsupported field;
 - Bronstein's Section 7.3 degree and denominator heuristic for that equation
   over `QQ(x)`, with exact radical-logarithmic verification;
+- a complete rational fallback that solves the heuristic's remaining constant
+  and non-logarithmic residue constraints over `QQ`;
 - validated finite algebraic extensions and implicit differentiation;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
   integral bases; and
@@ -265,14 +267,31 @@ residual is `D(v)/v`. The result retains the coefficient comparison and that
 final logarithmic certificate, and a success is independently verified in the
 native fraction field.
 
-The method is not complete. Constant polynomial parts and square-free
-denominators may leave `m/n` undetermined; Bronstein's Example 7.3.2 is the
-smallest regression. Such a case returns `INCONCLUSIVE`. `PROVED_NO_SOLUTION`
-is reserved for a violated necessary condition or a uniquely determined
-residual that cannot be a rational radical logarithmic derivative.
-Non-rational lower towers currently return `UNSUPPORTED`. The next checkpoint
-is the Chapter 9 structure-theorem fallback that turns these two partial
-boundaries into decisions over rational and recursive primitive towers.
+The heuristic alone is not complete. Constant polynomial parts and
+square-free denominators may leave `m/n` undetermined; Bronstein's
+Example 7.3.2 is the smallest regression. The public
+`solve_parametric_logarithmic_derivative` function invokes a complete
+rational fallback in that case.
+
+At the heuristic's `failed` exit, the common denominator is square-free and
+both polynomial parts are constant. The fallback therefore constructs the
+finite rational system
+
+```text
+constant_part(f) = c*constant_part(eta)
+nonlog_residue_i(f) = c*nonlog_residue_i(eta)
+```
+
+for `c = m/n`. At each irreducible factor, the ordinary logarithmic direction
+spanned by the factor derivative is projected away. An inconsistent system
+proves that no ratio exists. Otherwise the remaining rational residues are
+cleared by their denominator least common multiple, a rational logarithmic
+argument is constructed, and the final witness is verified exactly.
+
+Consequently the public solver is total over `QQ(x)`: it returns either a
+verified solution or a proved negative result. Recursive primitive lower
+fields currently return `UNSUPPORTED`; implementing their Chapter 9
+fundamental-signature systems is the next checkpoint.
 
 ## Recursive elementary integration
 
@@ -488,6 +507,7 @@ separate commit.
 - [x] Parametric logarithmic-derivative result and exact witness contract.
 - [x] Bronstein Section 7.3 parametric logarithmic-derivative fast path over
   `QQ(x)`.
+- [x] Complete rational parametric logarithmic-derivative fallback.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
@@ -498,8 +518,8 @@ separate commit.
 
 ### Next transcendental steps
 
-- [ ] Implement the Chapter 9 parametric logarithmic-derivative fallback over
-  rational and recursive primitive towers.
+- [ ] Generalize the Chapter 9 parametric logarithmic-derivative fallback to
+  recursive primitive towers.
 - [ ] Implement primitive RDE cancellation when the coefficient belongs to
   the next lower field.
 - [ ] Add weak normalization for primitive RDE coefficients with
