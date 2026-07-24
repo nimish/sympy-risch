@@ -1,5 +1,7 @@
 """Polynomial-coefficient Risch differential equations."""
 
+from itertools import product
+
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
@@ -15,52 +17,11 @@ from sympy_risch import (
     PolynomialRDEObstruction,
     analyze_hyperexponential_extension,
     solve_polynomial_risch_differential_equation,
+    solve_polynomial_risch_differential_equation_matrix,
 )
 
 
 x, t = symbols("x t")
-
-
-def bronstein_noncancellation_oracle(a, b):
-    r"""Independently solve by Bronstein's leading-term recurrence.
-
-    This follows ``PolyRischDENoCancel`` in *Symbolic Integration I*,
-    Section 6.5, specialized to ``D = d/dx``.  It intentionally shares
-    neither the production solver's matrix construction nor its rank test.
-    """
-    a = Poly(a, x, domain=QQ)
-    remainder = Poly(b, x, domain=QQ)
-    solution = Poly(0, x, domain=QQ)
-
-    if a.is_zero:
-        return remainder.integrate()
-
-    while not remainder.is_zero:
-        candidate_degree = remainder.degree() - a.degree()
-        if candidate_degree < 0:
-            return None
-        leading_term = Poly.from_dict(
-            {
-                (candidate_degree,): (
-                    remainder.LC()/a.LC()
-                ),
-            },
-            x,
-            domain=QQ,
-        )
-        new_remainder = (
-            remainder
-            - leading_term.diff()
-            - a*leading_term
-        )
-        assert (
-            new_remainder.is_zero
-            or new_remainder.degree() < remainder.degree()
-        )
-        solution += leading_term
-        remainder = new_remainder
-
-    return solution
 
 
 @pytest.mark.parametrize(
@@ -87,8 +48,8 @@ def test_polynomial_rde_solves_basic_examples(
     assert result.degree_bound == expected_degree
     assert result.obstruction is None
     assert result.solution.diff() + result.a*result.solution == result.b
-    assert result.coefficient_rank == expected_degree + 1
-    assert result.augmented_rank == result.coefficient_rank
+    assert result.coefficient_rank is None
+    assert result.augmented_rank is None
 
 
 def test_polynomial_rde_integrates_x_times_exp_x_at_the_tower_level() -> None:
@@ -123,8 +84,11 @@ def test_polynomial_rde_degree_obstruction_for_exp_x_squared() -> None:
     assert result.obstruction is PolynomialRDEObstruction.DEGREE
     assert result.has_degree_obstruction
     assert not result.has_inconsistent_system_obstruction
+    assert not result.has_nonzero_remainder_obstruction
     assert result.coefficient_rank is None
     assert result.augmented_rank is None
+    assert result.partial_solution.is_zero
+    assert result.residual == result.b
 
 
 @pytest.mark.parametrize(
@@ -144,7 +108,7 @@ def test_degree_smaller_than_a_proves_nonexistence(a, b) -> None:
 
 
 @pytest.mark.parametrize("candidate_degree", [1, 3, 5, 7])
-def test_odd_monomial_targets_give_rank_inconsistency(
+def test_odd_monomial_targets_leave_an_uncancellable_remainder(
     candidate_degree,
 ) -> None:
     # For a=x, cancelling downward from the leading term of x**(d+1)
@@ -155,11 +119,19 @@ def test_odd_monomial_targets_give_rank_inconsistency(
 
     assert not result.has_solution
     assert result.degree_bound == candidate_degree
-    assert result.obstruction is PolynomialRDEObstruction.INCONSISTENT_SYSTEM
-    assert result.has_inconsistent_system_obstruction
+    assert result.obstruction is PolynomialRDEObstruction.NONZERO_REMAINDER
+    assert result.has_nonzero_remainder_obstruction
+    assert not result.has_inconsistent_system_obstruction
     assert not result.has_degree_obstruction
-    assert result.coefficient_rank == candidate_degree + 1
-    assert result.augmented_rank == result.coefficient_rank + 1
+    assert result.coefficient_rank is None
+    assert result.augmented_rank is None
+    assert result.residual.degree() < result.a.degree()
+    assert (
+        result.partial_solution.diff()
+        + result.a*result.partial_solution
+        + result.residual
+        == result.b
+    )
 
 
 @pytest.mark.parametrize("candidate_degree", [0, 2, 4, 6])
@@ -188,11 +160,19 @@ def test_even_monomial_targets_have_polynomial_solutions(
         (3*x**4 - 2*x + 7, 3*x**5/5 - x**2 + 7*x),
     ],
 )
+@pytest.mark.parametrize(
+    "solver",
+    [
+        solve_polynomial_risch_differential_equation,
+        solve_polynomial_risch_differential_equation_matrix,
+    ],
+)
 def test_zero_a_delegates_to_canonical_polynomial_integration(
     b,
     expected,
+    solver,
 ) -> None:
-    result = solve_polynomial_risch_differential_equation(0, b, x)
+    result = solver(0, b, x)
 
     assert result.has_solution
     assert result.solution_expression == expected
@@ -203,8 +183,15 @@ def test_zero_a_delegates_to_canonical_polynomial_integration(
 
 
 @pytest.mark.parametrize("a", [0, 1, x, x**4 - 3*x + 1])
-def test_zero_right_hand_side_uses_the_zero_solution(a) -> None:
-    result = solve_polynomial_risch_differential_equation(a, 0, x)
+@pytest.mark.parametrize(
+    "solver",
+    [
+        solve_polynomial_risch_differential_equation,
+        solve_polynomial_risch_differential_equation_matrix,
+    ],
+)
+def test_zero_right_hand_side_uses_the_zero_solution(a, solver) -> None:
+    result = solver(a, 0, x)
 
     assert result.has_solution
     assert result.solution.is_zero
@@ -262,8 +249,8 @@ def test_generated_planted_polynomial_solutions_are_recovered_uniquely(
         max_size=7,
     ),
 )
-@settings(max_examples=80, deadline=None)
-def test_matrix_solver_agrees_with_bronsteins_recurrence_oracle(
+@settings(max_examples=100, deadline=None)
+def test_bronstein_recurrence_agrees_with_independent_matrix_solver(
     a_coefficients,
     b_coefficients,
 ) -> None:
@@ -277,19 +264,70 @@ def test_matrix_solver_agrees_with_bronsteins_recurrence_oracle(
     )
     assume(a != 0)
 
-    result = solve_polynomial_risch_differential_equation(a, b, x)
-    oracle_solution = bronstein_noncancellation_oracle(a, b)
+    recurrence = solve_polynomial_risch_differential_equation(a, b, x)
+    matrix = solve_polynomial_risch_differential_equation_matrix(a, b, x)
 
-    if oracle_solution is None:
-        assert not result.has_solution
-        assert result.obstruction is not None
-        if result.has_inconsistent_system_obstruction:
-            assert result.augmented_rank > result.coefficient_rank
+    assert recurrence.has_solution is matrix.has_solution
+    assert recurrence.a == matrix.a
+    assert recurrence.b == matrix.b
+    if recurrence.has_solution:
+        assert recurrence.solution == matrix.solution
+        assert recurrence.solution.diff() + recurrence.a*recurrence.solution == (
+            recurrence.b
+        )
+        assert recurrence.obstruction is None
+        assert matrix.obstruction is None
     else:
-        assert result.has_solution
-        assert result.solution == oracle_solution
-        assert result.solution.diff() + result.a*result.solution == result.b
-        assert result.obstruction is None
+        assert recurrence.obstruction in {
+            PolynomialRDEObstruction.DEGREE,
+            PolynomialRDEObstruction.NONZERO_REMAINDER,
+        }
+        assert recurrence.partial_solution is not None
+        assert recurrence.residual is not None
+        assert not recurrence.residual.is_zero
+        assert recurrence.residual.degree() < recurrence.a.degree()
+        assert (
+            recurrence.partial_solution.diff()
+            + recurrence.a*recurrence.partial_solution
+            + recurrence.residual
+            == recurrence.b
+        )
+        assert (
+            matrix.obstruction
+            is PolynomialRDEObstruction.INCONSISTENT_SYSTEM
+        )
+        assert matrix.augmented_rank > matrix.coefficient_rank
+
+
+def test_solvers_agree_exhaustively_for_small_quadratics() -> None:
+    coefficient_tuples = tuple(product((-1, 0, 1), repeat=3))
+
+    for a_coefficients in coefficient_tuples:
+        if not any(a_coefficients):
+            continue
+        a = sum(
+            coefficient*x**degree
+            for degree, coefficient in enumerate(a_coefficients)
+        )
+        for b_coefficients in coefficient_tuples:
+            b = sum(
+                coefficient*x**degree
+                for degree, coefficient in enumerate(b_coefficients)
+            )
+
+            recurrence = solve_polynomial_risch_differential_equation(
+                a,
+                b,
+                x,
+            )
+            matrix = solve_polynomial_risch_differential_equation_matrix(
+                a,
+                b,
+                x,
+            )
+
+            assert recurrence.has_solution is matrix.has_solution
+            assert recurrence.solution == matrix.solution
 
 
 @given(
@@ -410,12 +448,19 @@ def test_generated_exponential_polynomials_expose_degree_obstructions(
     assert result.degree_bound == -1
 
 
-def test_polynomial_rde_accepts_native_poly_inputs() -> None:
+@pytest.mark.parametrize(
+    "solver",
+    [
+        solve_polynomial_risch_differential_equation,
+        solve_polynomial_risch_differential_equation_matrix,
+    ],
+)
+def test_polynomial_rde_accepts_native_poly_inputs(solver) -> None:
     a = Poly(x + 1, x, domain=QQ)
     solution = Poly(x**2 - 1, x, domain=QQ)
     b = solution.diff() + a*solution
 
-    result = solve_polynomial_risch_differential_equation(a, b, x)
+    result = solver(a, b, x)
 
     assert result.solution == solution
     assert result.a == a
@@ -431,18 +476,32 @@ def test_polynomial_rde_accepts_native_poly_inputs() -> None:
         (1, sqrt(2)*x),
     ],
 )
-def test_polynomial_rde_rejects_inputs_outside_qq_x(a, b) -> None:
+@pytest.mark.parametrize(
+    "solver",
+    [
+        solve_polynomial_risch_differential_equation,
+        solve_polynomial_risch_differential_equation_matrix,
+    ],
+)
+def test_polynomial_rde_rejects_inputs_outside_qq_x(a, b, solver) -> None:
     with pytest.raises((CoercionFailed, PolynomialError)):
-        solve_polynomial_risch_differential_equation(a, b, x)
+        solver(a, b, x)
 
 
 @pytest.mark.parametrize("variable", [x + 1, 1, "x", None])
-def test_polynomial_rde_rejects_nonsymbol_variables(variable) -> None:
+@pytest.mark.parametrize(
+    "solver",
+    [
+        solve_polynomial_risch_differential_equation,
+        solve_polynomial_risch_differential_equation_matrix,
+    ],
+)
+def test_polynomial_rde_rejects_nonsymbol_variables(variable, solver) -> None:
     with pytest.raises(
         TypeError,
         match="differentiation variable must be a Symbol",
     ):
-        solve_polynomial_risch_differential_equation(
+        solver(
             1,
             x,
             variable,

@@ -57,6 +57,7 @@ from .rde import (
     PolynomialRDEObstruction,
     PolynomialRischDifferentialEquationResult,
     solve_polynomial_risch_differential_equation,
+    solve_polynomial_risch_differential_equation_matrix,
 )
 from .tower import (
     AlgebraicExtension,
@@ -124,6 +125,7 @@ __all__ = [
     "solve_exact_derivative",
     "solve_primitive_exact_derivative",
     "solve_polynomial_risch_differential_equation",
+    "solve_polynomial_risch_differential_equation_matrix",
     "SimpleRadicalData",
     "SpecialPolynomialStatus",
     "split_normal_special",
