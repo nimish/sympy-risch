@@ -3,6 +3,7 @@ r"""Rational-function integration over :math:`\mathbb{Q}`."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import lcm
 from typing import Any
 
 from sympy.core.add import Add
@@ -129,6 +130,43 @@ class RationalLogDerivativeResult:
             and not factor.has_integral_multiplicity
             for factor in self.factors
         )
+
+    @property
+    def minimal_radical_power(self) -> int | None:
+        r"""Return the least ``n > 0`` making ``n*f`` logarithmic.
+
+        A polynomial part, repeated pole, or nonlogarithmic residue cannot be
+        repaired by integer scaling.  Otherwise the least power is the least
+        common multiple of the rational residue denominators.
+        """
+        if self.has_solution:
+            return 1
+        if (
+            self.has_polynomial_obstruction
+            or self.has_repeated_pole_obstruction
+            or self.has_nonlogarithmic_residue_obstruction
+        ):
+            return None
+        if not self.factors:
+            raise ValueError(
+                "rational logarithmic failure lacks a residue certificate"
+            )
+
+        power = 1
+        for factor in self.factors:
+            if factor.multiplicity is None:
+                raise ValueError(
+                    "rational logarithmic residue lacks its multiplicity"
+                )
+            power = lcm(
+                power,
+                int(QQ.denom(QQ.convert(factor.multiplicity))),
+            )
+        if power <= 1:
+            raise ValueError(
+                "nonintegral rational residues have no denominator to clear"
+            )
+        return power
 
 
 def _as_reduced_fraction(f: Expr, x: Symbol) -> tuple[Poly, Poly]:

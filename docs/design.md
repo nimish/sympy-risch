@@ -46,6 +46,8 @@ The lower-level library additionally implements:
 - generalized monomial Hermite and residue reduction;
 - primitive, hyperexponential, hypertangent, and nonlinear-no-special
   reducers;
+- radical logarithmic-derivative signatures over one primitive level above
+  `QQ(x)`, including complete repeated principal parts;
 - rational and polynomial Risch differential equations;
 - normal-denominator, SPDE, and polynomial RDE reduction over a primitive
   field for positive-degree polynomial coefficients;
@@ -504,6 +506,8 @@ separate commit.
 - [x] Generalized residue criterion and constructive logarithmic extraction.
 - [x] Nonlinear no-special reduction.
 - [x] Rational exact and logarithmic derivative decisions.
+- [x] Radical logarithmic-derivative signatures over one primitive level
+  above `QQ(x)`.
 - [x] Parametric logarithmic-derivative result and exact witness contract.
 - [x] Bronstein Section 7.3 parametric logarithmic-derivative fast path over
   `QQ(x)`.
@@ -518,8 +522,8 @@ separate commit.
 
 ### Next transcendental steps
 
-- [ ] Generalize the Chapter 9 parametric logarithmic-derivative fallback to
-  recursive primitive towers.
+- [ ] Use the primitive signatures in the Chapter 9 parametric
+  logarithmic-derivative fallback, first for one level and then recursively.
 - [ ] Implement primitive RDE cancellation when the coefficient belongs to
   the next lower field.
 - [ ] Add weak normalization for primitive RDE coefficients with

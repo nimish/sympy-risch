@@ -524,33 +524,7 @@ def _minimal_logarithmic_power(
     result: RationalLogDerivativeResult,
 ) -> int | None:
     r"""Return minimal ``n > 0`` making all logarithmic valuations integral."""
-    if result.has_solution:
-        return 1
-    if (
-        result.has_polynomial_obstruction
-        or result.has_repeated_pole_obstruction
-        or result.has_nonlogarithmic_residue_obstruction
-    ):
-        return None
-
-    if not result.factors:
-        raise ValueError(
-            "logarithmic-derivative failure has no obstruction certificate"
-        )
-
-    power = 1
-    for factor in result.factors:
-        if factor.multiplicity is None:
-            raise ValueError(
-                "missing logarithmic multiplicity in dependency certificate"
-            )
-        power = lcm(power, int(QQ.denom(QQ.convert(factor.multiplicity))))
-
-    if power <= 1:
-        raise ValueError(
-            "nonintegral logarithmic-derivative certificate has no denominator"
-        )
-    return power
+    return result.minimal_radical_power
 
 
 def _rational_polynomial_parts(

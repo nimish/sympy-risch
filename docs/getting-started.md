@@ -23,6 +23,7 @@ from sympy_risch import (
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
     integrate_elementary,
+    primitive_logarithmic_derivative_signature,
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
 )
@@ -302,6 +303,32 @@ Thus the complete `QQ(x)` entry point has no inconclusive result. Recursive
 primitive lower fields remain unsupported until the general Chapter 9
 fundamental-signature solver is implemented.
 
+## Inspect a primitive logarithmic signature
+
+The first structure-theorem building block is available separately over one
+primitive level `QQ(x)(t)`. It decomposes an element into its polynomial part
+and every principal part at each irreducible polynomial in `t`. It then tests
+whether some positive integer multiple is a logarithmic derivative:
+
+```python
+signature = primitive_logarithmic_derivative_signature(
+    log_x.field().from_sympy(1/(2*x) + 1/(3*x*t)),
+    log_x.derivation(),
+)
+
+assert signature.has_solution
+assert signature.minimal_power == 6
+assert signature.relation_argument == log_x.field().from_sympy(x**3*t**2)
+assert signature.reconstructs_decomposition
+assert signature.reconstructs_relation
+```
+
+Here multiplication by six clears the lower residue `1/2` at `x` and the
+top-level residue `1/3` at `t`. On failure, the immutable signature
+distinguishes a positive-degree polynomial part, a repeated pole, a simple
+residue not proportional to `Dp`, and an obstruction inherited from
+`QQ(x)`. The public parametric solver does not consume this signature yet.
+
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
@@ -329,6 +356,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
 | Parametric logarithmic derivative | Complete low-level decision over `QQ(x)` |
+| Primitive radical logarithmic signature | Low-level API over one primitive level above `QQ(x)` |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Other nested hyperexponential shapes or nested hypertangent levels | Not implemented |
@@ -348,6 +376,7 @@ principal groups are:
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
+| Primitive logarithmic analysis | `primitive_logarithmic_derivative_signature` |
 | Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative`; `solve_parametric_logarithmic_derivative_heuristic` exposes the Section 7.3 fast path |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 

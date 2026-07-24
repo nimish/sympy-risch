@@ -55,6 +55,7 @@ def test_rational_logarithmic_solver_recovers_canonical_arguments(
     assert not result.has_repeated_pole_obstruction
     assert not result.has_nonlogarithmic_residue_obstruction
     assert not result.has_nonintegral_residue_obstruction
+    assert result.minimal_radical_power == 1
 
 
 def test_rational_logarithmic_solver_records_factor_valuations() -> None:
@@ -104,6 +105,7 @@ def test_fractional_valuation_is_retained_as_a_radical_certificate() -> None:
     assert not certificate.has_integral_multiplicity
     assert result.has_nonintegral_residue_obstruction
     assert not result.has_nonlogarithmic_residue_obstruction
+    assert result.minimal_radical_power == 2
 
 
 def test_nonlogarithmic_residue_is_distinguished_from_fractional_valuation() -> None:
@@ -117,6 +119,7 @@ def test_nonlogarithmic_residue_is_distinguished_from_fractional_valuation() -> 
     assert not certificate.has_logarithmic_residue
     assert result.has_nonlogarithmic_residue_obstruction
     assert not result.has_nonintegral_residue_obstruction
+    assert result.minimal_radical_power is None
 
 
 @pytest.mark.parametrize(
@@ -284,6 +287,7 @@ def test_minimal_radical_multiplier_is_visible_in_factor_certificates(
 
     assert not result.has_solution
     assert QQ.denom(multiplicity) == reduced_denominator
+    assert result.minimal_radical_power == reduced_denominator
     scaled = solve_rational_logarithmic_derivative(
         reduced_denominator*integrand,
         x,
