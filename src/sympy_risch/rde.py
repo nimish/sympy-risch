@@ -117,6 +117,11 @@ def solve_polynomial_risch_differential_equation(
 ) -> PolynomialRischDifferentialEquationResult:
     r"""Solve ``Dy + a*y = b`` for rational ``y`` when ``a,b`` are in ``QQ[x]``.
 
+    This is the ``D = d/dt`` specialization of Bronstein,
+    *Symbolic Integration I*, Section 6.5, particularly Lemma 6.5.1(i) and
+    ``PolyRischDENoCancel``.  In this specialization the derivative always
+    lowers polynomial degree, so the leading term of ``a*y`` cannot cancel.
+
     The output is a decision certificate, not merely an ansatz search:
 
     * finite-pole analysis proves every rational solution is polynomial;

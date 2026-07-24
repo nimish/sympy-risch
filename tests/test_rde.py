@@ -10,13 +10,57 @@ from sympy.polys.polyerrors import CoercionFailed, PolynomialError
 from sympy_risch import (
     ConstantFieldStatus,
     DifferentialTower,
+    HyperexponentialDependencyKind,
     MonomialExtension,
     PolynomialRDEObstruction,
+    analyze_hyperexponential_extension,
     solve_polynomial_risch_differential_equation,
 )
 
 
 x, t = symbols("x t")
+
+
+def bronstein_noncancellation_oracle(a, b):
+    r"""Independently solve by Bronstein's leading-term recurrence.
+
+    This follows ``PolyRischDENoCancel`` in *Symbolic Integration I*,
+    Section 6.5, specialized to ``D = d/dx``.  It intentionally shares
+    neither the production solver's matrix construction nor its rank test.
+    """
+    a = Poly(a, x, domain=QQ)
+    remainder = Poly(b, x, domain=QQ)
+    solution = Poly(0, x, domain=QQ)
+
+    if a.is_zero:
+        return remainder.integrate()
+
+    while not remainder.is_zero:
+        candidate_degree = remainder.degree() - a.degree()
+        if candidate_degree < 0:
+            return None
+        leading_term = Poly.from_dict(
+            {
+                (candidate_degree,): (
+                    remainder.LC()/a.LC()
+                ),
+            },
+            x,
+            domain=QQ,
+        )
+        new_remainder = (
+            remainder
+            - leading_term.diff()
+            - a*leading_term
+        )
+        assert (
+            new_remainder.is_zero
+            or new_remainder.degree() < remainder.degree()
+        )
+        solution += leading_term
+        remainder = new_remainder
+
+    return solution
 
 
 @pytest.mark.parametrize(
@@ -204,6 +248,166 @@ def test_generated_planted_polynomial_solutions_are_recovered_uniquely(
     assert result.solution.diff() + result.a*result.solution == result.b
     if planted_solution != 0:
         assert result.degree_bound == Poly(planted_solution, x).degree()
+
+
+@given(
+    a_coefficients=st.lists(
+        st.integers(min_value=-5, max_value=5),
+        min_size=1,
+        max_size=6,
+    ),
+    b_coefficients=st.lists(
+        st.integers(min_value=-5, max_value=5),
+        min_size=1,
+        max_size=7,
+    ),
+)
+@settings(max_examples=80, deadline=None)
+def test_matrix_solver_agrees_with_bronsteins_recurrence_oracle(
+    a_coefficients,
+    b_coefficients,
+) -> None:
+    a = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(a_coefficients)
+    )
+    b = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(b_coefficients)
+    )
+    assume(a != 0)
+
+    result = solve_polynomial_risch_differential_equation(a, b, x)
+    oracle_solution = bronstein_noncancellation_oracle(a, b)
+
+    if oracle_solution is None:
+        assert not result.has_solution
+        assert result.obstruction is not None
+        if result.has_inconsistent_system_obstruction:
+            assert result.augmented_rank > result.coefficient_rank
+    else:
+        assert result.has_solution
+        assert result.solution == oracle_solution
+        assert result.solution.diff() + result.a*result.solution == result.b
+        assert result.obstruction is None
+
+
+@given(
+    a_coefficients=st.lists(
+        st.integers(min_value=-4, max_value=4),
+        min_size=1,
+        max_size=5,
+    ),
+    pole_numerator=st.integers(min_value=-5, max_value=5).filter(bool),
+    pole_root=st.integers(min_value=-4, max_value=4),
+    pole_order=st.integers(min_value=1, max_value=5),
+)
+@settings(max_examples=40, deadline=None)
+def test_finite_poles_cannot_occur_in_rational_solutions(
+    a_coefficients,
+    pole_numerator,
+    pole_root,
+    pole_order,
+) -> None:
+    # At a pole of order k in y, Dy has order k+1 while polynomial a*y
+    # has order at most k.  This is the local argument that makes the
+    # polynomial ansatz complete rather than heuristic.
+    a = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(a_coefficients)
+    )
+    candidate = pole_numerator/(x - pole_root)**pole_order
+    right_hand_side = (
+        candidate.diff(x) + a*candidate
+    ).cancel()
+    _, denominator = right_hand_side.as_numer_denom()
+
+    assert Poly(denominator, x, domain=QQ).monic() == (
+        Poly(x - pole_root, x, domain=QQ)**(pole_order + 1)
+    )
+
+
+@given(
+    exponent_coefficient=st.integers(min_value=-4, max_value=4).filter(bool),
+    exponent_degree=st.integers(min_value=1, max_value=5),
+    solution_coefficients=st.lists(
+        st.integers(min_value=-4, max_value=4),
+        min_size=1,
+        max_size=5,
+    ),
+    power=st.integers(min_value=-4, max_value=4).filter(bool),
+)
+@settings(max_examples=45, deadline=None)
+def test_generated_rde_solutions_reconstruct_hyperexponential_tower_derivatives(
+    exponent_coefficient,
+    exponent_degree,
+    solution_coefficients,
+    power,
+) -> None:
+    exponent = exponent_coefficient*x**exponent_degree
+    eta = exponent.diff(x)
+    planted_solution = sum(
+        coefficient*x**degree
+        for degree, coefficient in enumerate(solution_coefficients)
+    )
+    b = Poly(planted_solution, x).diff().as_expr() + (
+        power*eta*planted_solution
+    )
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    extension = MonomialExtension(
+        Poly(eta*t, t, domain=base.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+    dependency = analyze_hyperexponential_extension(
+        extension,
+        base.derivation(),
+    )
+
+    result = solve_polynomial_risch_differential_equation(
+        power*eta,
+        b,
+        x,
+    )
+    tower = base.extend(extension)
+    field = tower.field()
+    antiderivative = field.from_sympy(result.solution_expression*t**power)
+    integrand = field.from_sympy(b*t**power)
+
+    assert dependency.kind is HyperexponentialDependencyKind.TRANSCENDENTAL
+    assert dependency.has_exponential_presentation
+    assert result.solution == Poly(planted_solution, x, domain=QQ)
+    assert tower.derivation()(antiderivative) == integrand
+
+
+@given(
+    exponent_coefficient=st.integers(min_value=-4, max_value=4).filter(bool),
+    exponent_degree=st.integers(min_value=2, max_value=6),
+    power=st.integers(min_value=1, max_value=5),
+    right_hand_side=st.integers(min_value=-5, max_value=5).filter(bool),
+)
+@settings(max_examples=35, deadline=None)
+def test_generated_exponential_polynomials_expose_degree_obstructions(
+    exponent_coefficient,
+    exponent_degree,
+    power,
+    right_hand_side,
+) -> None:
+    eta = (exponent_coefficient*x**exponent_degree).diff(x)
+
+    result = solve_polynomial_risch_differential_equation(
+        power*eta,
+        right_hand_side,
+        x,
+    )
+
+    assert not result.has_solution
+    assert result.has_degree_obstruction
+    assert result.degree_bound == -1
 
 
 def test_polynomial_rde_accepts_native_poly_inputs() -> None:
