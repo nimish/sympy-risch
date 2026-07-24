@@ -46,6 +46,10 @@ against a separate global linear ansatz. Its generated inputs mix lower-field
 obstructions, positive-degree polynomial parts, repeated top poles, and
 logarithmic and nonlogarithmic residues at coefficient-dependent irreducible
 factors.
+`tests/test_primitive_parametric_logarithmic.py` compares the local
+structure-theorem recurrence with a separate global parametric ansatz. It
+includes cancellations that occur only after selecting `m/n`, conflicting
+top and lower constraints, and generated quadratic and cubic factors.
 
 ## Required layers
 

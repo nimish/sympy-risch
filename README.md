@@ -8,9 +8,9 @@ differential tower explicitly.
 The implemented end-to-end dispatcher handles rational functions, recursively
 stacked primitive extensions, direct hyperexponential and hypertangent
 extensions over `QQ(x)`, and a first hyperexponential-over-primitive branch.
-Lower-level modules also provide algebraic Hermite reduction, generalized
-residue reduction, one-level primitive logarithmic signatures, and Risch
-differential-equation solvers.
+Lower-level modules also provide complete parametric logarithmic-derivative
+decisions over `QQ(x)` and one primitive level, algebraic Hermite reduction,
+generalized residue reduction, and Risch differential-equation solvers.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

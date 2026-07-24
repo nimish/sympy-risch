@@ -909,7 +909,7 @@ def test_complete_solver_keeps_conclusive_fast_path_result() -> None:
     assert result.reconstructs
 
 
-def test_complete_solver_preserves_unsupported_primitive_lower_field() -> None:
+def test_complete_solver_dispatches_to_primitive_lower_field() -> None:
     rational = rational_base()
     lower = rational.extend(
         MonomialExtension(
@@ -925,8 +925,10 @@ def test_complete_solver_preserves_unsupported_primitive_lower_field() -> None:
         lower.derivation(),
     )
 
-    assert result.is_unsupported
-    assert not result.proves_no_solution
+    assert result.has_solution
+    assert (result.n, result.m) == (1, 1)
+    assert result.argument == lower.field().one
+    assert result.reconstructs
 
 
 @settings(max_examples=50, deadline=None)

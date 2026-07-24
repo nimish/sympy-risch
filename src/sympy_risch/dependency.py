@@ -11,8 +11,9 @@ from typing import Any
 from sympy.core.expr import Expr
 from sympy.core.numbers import I
 from sympy.core.singleton import S
-from sympy.core.symbol import Symbol
+from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly, cancel, invert
 
 from .rational import (
@@ -122,6 +123,50 @@ class RationalParametricLogarithmicDerivativeCertificate:
     candidate_ratio: Any | None
     logarithmic_power: int | None
     logarithmic_result: RationalLogDerivativeResult | None
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class PrimitiveParametricLogarithmicDerivativeFactor:
+    r"""Linear constraints contributed by one irreducible ``p`` in ``K[t]``.
+
+    The principal-numerator tuples are padded to the same multiplicity.
+    ``linear_constraints`` contains equations ``a = c*b`` for ``c = m/n``.
+    Higher-pole equations force cancellation.  The simple-pole equations
+    project modulo the rational-constant direction spanned by ``Dp``.
+    """
+
+    factor: Poly
+    factor_derivative: Poly
+    f_principal_numerators: tuple[Poly, ...]
+    eta_principal_numerators: tuple[Poly, ...]
+    linear_constraints: tuple[tuple[Any, Any], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PrimitiveParametricLogarithmicDerivativeCertificate:
+    r"""Exact one-level primitive structure-theorem certificate.
+
+    ``polynomial_constraints`` compares every positive power of the primitive
+    generator.  The factor certificates compare repeated principal parts and
+    simple residues.  Together, ``linear_constraints`` determine, reject, or
+    leave free the rational ratio ``candidate_ratio = m/n``.
+
+    If the top-level constraints leave the ratio free,
+    ``lower_parametric_result`` records the complete rational decision on the
+    constant-in-the-generator part.  ``residual_signature`` finally certifies
+    whether the selected integer residual is a radical logarithmic derivative
+    and constructs its argument.
+    """
+
+    f_signature: Any
+    eta_signature: Any
+    polynomial_constraints: tuple[tuple[Any, Any], ...]
+    factors: tuple[PrimitiveParametricLogarithmicDerivativeFactor, ...]
+    linear_constraints: tuple[tuple[Any, Any], ...]
+    candidate_ratio: Any | None
+    lower_parametric_result: ParametricLogarithmicDerivativeResult | None
+    residual_signature: Any | None
     reason: str
 
 
@@ -1015,22 +1060,396 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
     )
 
 
+def _constant_field_linear_ratio(
+    constraints: tuple[tuple[Any, Any], ...],
+    field: Any,
+) -> tuple[bool, Any | None]:
+    r"""Solve ``left = c*right`` for one ``c in QQ`` over ``field``."""
+    ratio = None
+    for left, right in constraints:
+        left_element = _coerce(field, left)
+        right_element = _coerce(field, right)
+        if right_element == field.zero:
+            if left_element != field.zero:
+                return False, None
+            continue
+
+        quotient = left_element/right_element
+        try:
+            current = QQ.from_sympy(field.to_sympy(quotient))
+        except CoercionFailed:
+            return False, None
+        if ratio is None:
+            ratio = current
+        elif current != ratio:
+            return False, None
+    return True, ratio
+
+
+def _primitive_parametric_signature_constraints(
+    f_signature: Any,
+    eta_signature: Any,
+    derivation: Derivation,
+) -> tuple[
+    tuple[tuple[Any, Any], ...],
+    tuple[PrimitiveParametricLogarithmicDerivativeFactor, ...],
+    tuple[tuple[Any, Any], ...],
+]:
+    r"""Align two primitive signatures and project away every ``QQ*Dp``."""
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError(
+            "primitive parametric constraints require a monomial level"
+        )
+    parent = extension.parent_field
+    f_polynomial = f_signature.polynomial_part
+    eta_polynomial = eta_signature.polynomial_part
+    maximum_degree = max(
+        (
+            polynomial.degree()
+            if not polynomial.is_zero
+            else 0
+        )
+        for polynomial in (f_polynomial, eta_polynomial)
+    )
+    polynomial_constraints = tuple(
+        (
+            parent.convert(f_polynomial.nth(degree)),
+            parent.convert(eta_polynomial.nth(degree)),
+        )
+        for degree in range(1, int(maximum_degree) + 1)
+    )
+
+    f_by_expression = {
+        factor.factor.as_expr(): factor
+        for factor in f_signature.factors
+    }
+    eta_by_expression = {
+        factor.factor.as_expr(): factor
+        for factor in eta_signature.factors
+    }
+    factor_expressions = list(f_by_expression)
+    factor_expressions.extend(
+        expression
+        for expression in eta_by_expression
+        if expression not in f_by_expression
+    )
+
+    factor_certificates = []
+    all_constraints = list(polynomial_constraints)
+    lower_derivation = derivation.lower()
+    for expression in factor_expressions:
+        f_factor = f_by_expression.get(expression)
+        eta_factor = eta_by_expression.get(expression)
+        factor = (
+            f_factor.factor
+            if f_factor is not None
+            else eta_factor.factor
+        )
+        maximum_multiplicity = max(
+            f_factor.multiplicity if f_factor is not None else 0,
+            eta_factor.multiplicity if eta_factor is not None else 0,
+        )
+
+        def padded_principal_numerators(factor_signature):
+            if factor_signature is None:
+                return (factor.zero,)*maximum_multiplicity
+            return factor_signature.principal_numerators + (
+                factor.zero,
+            )*(
+                maximum_multiplicity
+                - len(factor_signature.principal_numerators)
+            )
+
+        f_principal_numerators = padded_principal_numerators(f_factor)
+        eta_principal_numerators = padded_principal_numerators(eta_factor)
+        factor_derivative = derivation.polynomial(factor).rem(factor)
+        if factor_derivative.is_zero:
+            raise ValueError(
+                "a primitive extension with preserved constants cannot "
+                "have a nonconstant special factor"
+            )
+
+        factor_constraints = []
+        for pole_order in range(2, maximum_multiplicity + 1):
+            f_numerator = f_principal_numerators[pole_order - 1]
+            eta_numerator = eta_principal_numerators[pole_order - 1]
+            factor_constraints.extend(
+                (
+                    parent.convert(f_numerator.nth(degree)),
+                    parent.convert(eta_numerator.nth(degree)),
+                )
+                for degree in range(factor.degree())
+            )
+
+        f_simple = f_principal_numerators[0]
+        eta_simple = eta_principal_numerators[0]
+        (pivot_degree,), pivot_value = factor_derivative.terms()[0]
+        pivot_value = parent.convert(pivot_value)
+        f_pivot = parent.convert(f_simple.nth(pivot_degree))
+        eta_pivot = parent.convert(eta_simple.nth(pivot_degree))
+        for degree in range(factor.degree()):
+            if degree == pivot_degree:
+                continue
+            derivative_coefficient = parent.convert(
+                factor_derivative.nth(degree)
+            )
+            factor_constraints.append(
+                (
+                    parent.convert(f_simple.nth(degree))*pivot_value
+                    - f_pivot*derivative_coefficient,
+                    parent.convert(eta_simple.nth(degree))*pivot_value
+                    - eta_pivot*derivative_coefficient,
+                )
+            )
+
+        # The cross-products above make the residual numerator a K-multiple
+        # of Dp. Its multiplier belongs to QQ exactly when its lower
+        # derivative vanishes, under the same-constants hypothesis.
+        factor_constraints.append(
+            (
+                lower_derivation(parent.exquo(f_pivot, pivot_value)),
+                lower_derivation(parent.exquo(eta_pivot, pivot_value)),
+            )
+        )
+
+        factor_constraints_tuple = tuple(factor_constraints)
+        all_constraints.extend(factor_constraints_tuple)
+        factor_certificates.append(
+            PrimitiveParametricLogarithmicDerivativeFactor(
+                factor,
+                factor_derivative,
+                f_principal_numerators,
+                eta_principal_numerators,
+                factor_constraints_tuple,
+            )
+        )
+
+    return (
+        polynomial_constraints,
+        tuple(factor_certificates),
+        tuple(all_constraints),
+    )
+
+
+def _solve_primitive_parametric_logarithmic_derivative(
+    f: Any,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> ParametricLogarithmicDerivativeResult:
+    r"""Decide the parametric problem over one primitive level above ``QQ(x)``."""
+    eta = _parametric_logarithmic_derivative_eta(
+        extension,
+        lower_derivation,
+    )
+    field = lower_derivation.field
+    element = _coerce(field, f)
+    if lower_derivation.level != 1:
+        raise ValueError(
+            "one-level primitive parametric solving requires level one"
+        )
+    primitive_extension = lower_derivation.tower.levels[
+        lower_derivation.level
+    ]
+    if (
+        not isinstance(primitive_extension, MonomialExtension)
+        or primitive_extension.family is not MonomialFamily.PRIMITIVE
+    ):
+        raise ValueError(
+            "one-level primitive parametric solving requires a primitive "
+            "lower field"
+        )
+    if (
+        primitive_extension.constant_field_status
+        is not ConstantFieldStatus.PRESERVED
+    ):
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            detail=(
+                "primitive parametric solving requires Const(K(t)) = "
+                "Const(K)"
+            ),
+        )
+
+    # Local import avoids the module cycle: monomial family reducers use the
+    # dependency analyses defined in this module.
+    from .monomial import primitive_logarithmic_derivative_signature
+
+    try:
+        f_signature = primitive_logarithmic_derivative_signature(
+            element,
+            lower_derivation,
+        )
+        eta_signature = primitive_logarithmic_derivative_signature(
+            eta,
+            lower_derivation,
+        )
+    except NotImplementedError as exc:
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            detail=str(exc),
+        )
+
+    (
+        polynomial_constraints,
+        factor_certificates,
+        linear_constraints,
+    ) = _primitive_parametric_signature_constraints(
+        f_signature,
+        eta_signature,
+        lower_derivation,
+    )
+    consistent, candidate_ratio = _constant_field_linear_ratio(
+        linear_constraints,
+        primitive_extension.parent_field,
+    )
+    lower_parametric_result = None
+    residual_signature = None
+
+    def certificate(reason: str):
+        return PrimitiveParametricLogarithmicDerivativeCertificate(
+            f_signature,
+            eta_signature,
+            polynomial_constraints,
+            factor_certificates,
+            linear_constraints,
+            candidate_ratio,
+            lower_parametric_result,
+            residual_signature,
+            reason,
+        )
+
+    if not consistent:
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+            certificate=certificate(
+                "the primitive signature constraints on m/n are inconsistent"
+            ),
+        )
+
+    if candidate_ratio is None:
+        f_lower = primitive_extension.parent_field.convert(
+            f_signature.polynomial_part.nth(0)
+            if not f_signature.polynomial_part.is_zero
+            else primitive_extension.parent_field.zero
+        )
+        eta_lower = primitive_extension.parent_field.convert(
+            eta_signature.polynomial_part.nth(0)
+            if not eta_signature.polynomial_part.is_zero
+            else primitive_extension.parent_field.zero
+        )
+        if eta_lower == primitive_extension.parent_field.zero:
+            candidate_ratio = QQ.zero
+        else:
+            lower_theta = Dummy("theta_lower")
+            lower_extension = MonomialExtension(
+                Poly(
+                    primitive_extension.parent_field.to_sympy(eta_lower)
+                    * lower_theta,
+                    lower_theta,
+                    domain=primitive_extension.parent_field,
+                )
+            )
+            lower_parametric_result = solve_parametric_logarithmic_derivative(
+                f_lower,
+                lower_extension,
+                lower_derivation.lower(),
+            )
+            if lower_parametric_result.proves_no_solution:
+                return ParametricLogarithmicDerivativeResult(
+                    extension,
+                    lower_derivation,
+                    element,
+                    ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+                    certificate=certificate(
+                        "the top signature leaves m/n free, but the complete "
+                        "lower rational problem is inconsistent"
+                    ),
+                )
+            if not lower_parametric_result.has_solution:
+                raise ValueError(
+                    "the one-level lower rational parametric problem was "
+                    "not decided"
+                )
+            candidate_ratio = QQ(
+                lower_parametric_result.m,
+                lower_parametric_result.n,
+            )
+
+    ratio_numerator = int(QQ.numer(candidate_ratio))
+    ratio_denominator = int(QQ.denom(candidate_ratio))
+    integer_residual = (
+        ratio_denominator*element
+        - ratio_numerator*eta
+    )
+    residual_signature = primitive_logarithmic_derivative_signature(
+        integer_residual,
+        lower_derivation,
+    )
+    if not residual_signature.has_solution:
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+            certificate=certificate(
+                "the selected primitive residual is not the logarithmic "
+                "derivative of a radical"
+            ),
+        )
+
+    logarithmic_power = residual_signature.minimal_power
+    return ParametricLogarithmicDerivativeResult(
+        extension,
+        lower_derivation,
+        element,
+        ParametricLogarithmicDerivativeOutcome.SOLUTION,
+        n=logarithmic_power*ratio_denominator,
+        m=logarithmic_power*ratio_numerator,
+        argument=residual_signature.relation_argument,
+        certificate=certificate(
+            "the primitive signature constraints produced a verified witness"
+        ),
+    )
+
+
 def solve_parametric_logarithmic_derivative(
     f: Any,
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
-    r"""Decide Bronstein's parametric logarithmic derivative over ``QQ(x)``.
+    r"""Decide the parametric logarithmic derivative in supported fields.
 
-    The Section 7.3 coefficient heuristic is the fast path.  Its constructive
-    and proved-negative answers are returned unchanged.  When it reports
-    ``INCONCLUSIVE``, the complete rational structure fallback solves the
-    remaining exact linear system on constant parts and non-logarithmic
-    residues.
+    Over ``QQ(x)``, the Section 7.3 coefficient heuristic is the fast path and
+    a complete rational structure fallback handles its inconclusive exit.
 
-    Recursive primitive lower fields remain ``UNSUPPORTED`` until their
-    Chapter 9 fundamental-signature solver is implemented.
+    Over one primitive level ``QQ(x)(t)``, the solver compares positive-degree
+    polynomial coordinates, repeated principal parts, and simple residues
+    modulo ``QQ*Dp``.  If those top coordinates leave ``m/n`` free, the
+    complete rational solver chooses it from the lower component.  Recursive
+    primitive towers remain ``UNSUPPORTED``.
     """
+    if lower_derivation.level == 1:
+        lower_extension = lower_derivation.tower.levels[1]
+        if (
+            isinstance(lower_extension, MonomialExtension)
+            and lower_extension.family is MonomialFamily.PRIMITIVE
+        ):
+            return _solve_primitive_parametric_logarithmic_derivative(
+                f,
+                extension,
+                lower_derivation,
+            )
+
     heuristic_result = solve_parametric_logarithmic_derivative_heuristic(
         f,
         extension,

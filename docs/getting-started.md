@@ -299,16 +299,14 @@ assert (decision.n, decision.m, decision.argument) == (
 )
 ```
 
-Thus the complete `QQ(x)` entry point has no inconclusive result. Recursive
-primitive lower fields remain unsupported until the general Chapter 9
-fundamental-signature solver is implemented.
+Thus the complete `QQ(x)` entry point has no inconclusive result.
 
 ## Inspect a primitive logarithmic signature
 
-The first structure-theorem building block is available separately over one
-primitive level `QQ(x)(t)`. It decomposes an element into its polynomial part
-and every principal part at each irreducible polynomial in `t`. It then tests
-whether some positive integer multiple is a logarithmic derivative:
+The primitive structure-theorem building block is available over one level
+`QQ(x)(t)`. It decomposes an element into its polynomial part and every
+principal part at each irreducible polynomial in `t`. It then tests whether
+some positive integer multiple is a logarithmic derivative:
 
 ```python
 signature = primitive_logarithmic_derivative_signature(
@@ -327,7 +325,32 @@ Here multiplication by six clears the lower residue `1/2` at `x` and the
 top-level residue `1/3` at `t`. On failure, the immutable signature
 distinguishes a positive-degree polynomial part, a repeated pole, a simple
 residue not proportional to `Dp`, and an obstruction inherited from
-`QQ(x)`. The public parametric solver does not consume this signature yet.
+`QQ(x)`.
+
+The public parametric solver consumes these coordinates when its lower field
+is `QQ(x)(t)`. For example, the repeated pole in `eta` is not itself
+logarithmic, but it cancels at the uniquely determined ratio:
+
+```python
+primitive_eta = 1/t + 1/t**2
+primitive_theta = MonomialExtension(
+    Poly(primitive_eta*theta, theta, domain=log_x.field())
+)
+decision = solve_parametric_logarithmic_derivative(
+    2*primitive_eta + 1/(x*t),
+    primitive_theta,
+    log_x.derivation(),
+)
+
+assert decision.outcome is ParametricLogarithmicDerivativeOutcome.SOLUTION
+assert (decision.n, decision.m) == (1, 2)
+assert decision.argument == log_x.field().from_sympy(t)
+assert decision.reconstructs
+```
+
+This decision is complete for one primitive level carrying a
+`PRESERVED` constant-field certificate. Deeper primitive lower towers remain
+unsupported.
 
 ## Mathematical assumptions
 
@@ -355,7 +378,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Hyperexponential over a primitive level, with positive-degree polynomial logarithmic derivative | End-to-end |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
-| Parametric logarithmic derivative | Complete low-level decision over `QQ(x)` |
+| Parametric logarithmic derivative | Complete decision over `QQ(x)` and one primitive level |
 | Primitive radical logarithmic signature | Low-level API over one primitive level above `QQ(x)` |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic levels in `integrate_elementary` | Not implemented |

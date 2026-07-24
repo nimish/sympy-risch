@@ -292,8 +292,24 @@ argument is constructed, and the final witness is verified exactly.
 
 Consequently the public solver is total over `QQ(x)`: it returns either a
 verified solution or a proved negative result. Recursive primitive lower
-fields currently return `UNSUPPORTED`; implementing their Chapter 9
-fundamental-signature systems is the next checkpoint.
+fields require additional structure.
+
+The first primitive structure fallback is implemented over
+`QQ(x)(t)`, with `Dt` in `QQ(x)`. It computes signatures for `f` and `eta`
+and compares:
+
+- every positive-degree coefficient in `t`;
+- every repeated principal numerator at each irreducible `p`;
+- every simple numerator modulo the rational-constant direction `QQ*Dp`; and
+- the remaining constant-in-`t` components through the complete rational
+  solver.
+
+The top constraints either determine `m/n`, prove inconsistency, or impose no
+condition. In the last case, the lower rational problem chooses the ratio.
+The selected integer residual is passed back through the primitive signature
+solver, which constructs the logarithmic argument and verifies the complete
+identity. Thus the public solver is also total over one primitive level with
+certified preserved constants. Deeper primitive towers remain `UNSUPPORTED`.
 
 ## Recursive elementary integration
 
@@ -512,6 +528,8 @@ separate commit.
 - [x] Bronstein Section 7.3 parametric logarithmic-derivative fast path over
   `QQ(x)`.
 - [x] Complete rational parametric logarithmic-derivative fallback.
+- [x] Complete parametric logarithmic-derivative fallback over one primitive
+  level above `QQ(x)`.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
@@ -522,8 +540,8 @@ separate commit.
 
 ### Next transcendental steps
 
-- [ ] Use the primitive signatures in the Chapter 9 parametric
-  logarithmic-derivative fallback, first for one level and then recursively.
+- [ ] Generalize the primitive parametric logarithmic-derivative fallback to
+  recursive primitive towers.
 - [ ] Implement primitive RDE cancellation when the coefficient belongs to
   the next lower field.
 - [ ] Add weak normalization for primitive RDE coefficients with
@@ -537,6 +555,13 @@ separate commit.
   monomials.
 
 ### Algebraic integration
+
+Algebraic work has already begun: validation, implicit differentiation,
+simple-radical and lazy integral bases, and algebraic Hermite reduction over
+`QQ(x)` are implemented. It does not need to wait for every remaining
+transcendental tower shape. The next algebraic milestone is the logarithmic
+part over an algebraic function field; end-to-end algebraic dispatch then
+requires the local-place/divisor and algebraic-RDE milestones below.
 
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
 - [ ] Compute algebraic residues and the logarithmic part.
