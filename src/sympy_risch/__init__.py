@@ -13,8 +13,11 @@ from .dependency import (
     HyperexponentialDependency,
     HyperexponentialDependencyKind,
     HypertangentDependency,
+    ParametricLogarithmicDerivativeOutcome,
+    ParametricLogarithmicDerivativeResult,
     analyze_hyperexponential_extension,
     analyze_hypertangent_extension,
+    verify_parametric_logarithmic_derivative_witness,
 )
 from .elementary import (
     ElementaryIntegralResult,
@@ -141,6 +144,8 @@ __all__ = [
     "NonlinearMonomialReduction",
     "NonlinearNoSpecialReduction",
     "NonlinearNoSpecialStatus",
+    "ParametricLogarithmicDerivativeOutcome",
+    "ParametricLogarithmicDerivativeResult",
     "PrimitivePolynomialReduction",
     "PrimitivePolynomialStep",
     "PrimitiveMonomialReduction",
@@ -192,6 +197,7 @@ __all__ = [
     "rothstein_trager_residue_polynomial",
     "solve_rational_exact_derivative",
     "solve_rational_logarithmic_derivative",
+    "verify_parametric_logarithmic_derivative_witness",
     "solve_exact_derivative",
     "solve_bounded_coupled_rde_matrix",
     "solve_bounded_primitive_rde_matrix",

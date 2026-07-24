@@ -658,8 +658,8 @@ package may then become a development harness or be retired.
 Do not begin with the algebraic geometry or expression front end. The next
 reviewable checkpoints are:
 
-1. Define the parametric logarithmic-derivative result and exact verification
-   contract.
+1. [x] Define the parametric logarithmic-derivative result and exact
+   verification contract.
 2. Implement Bronstein §7.3 over the existing rational base.
 3. Add the Chapter 9 complex structure fallback over rational and recursive
    primitive towers.

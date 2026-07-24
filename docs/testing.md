@@ -31,7 +31,10 @@ Focused files mirror the implementation modules. For example,
 against an independent bounded matrix oracle,
 `tests/test_hypertangent.py` exercises the direct tangent reducer, and
 `tests/test_algebraic.py` exercises algebraic Hermite reduction and integral
-bases.
+bases. `tests/test_parametric_logarithmic.py` checks Bronstein's equation
+(7.37) over rational and primitive lower fields and enforces the distinction
+between a proved obstruction, an inconclusive heuristic, and an unsupported
+field.
 
 ## Required layers
 

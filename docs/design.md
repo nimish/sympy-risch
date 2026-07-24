@@ -53,6 +53,9 @@ The lower-level library additionally implements:
   implementation used as a test oracle;
 - rational coupled RDEs for the real hypertangent case;
 - dependency tests for hyperexponential and hypertangent generators;
+- an exact result and verification contract for Bronstein's parametric
+  logarithmic-derivative equation, distinguishing a proved negative result
+  from an inconclusive heuristic and an unsupported field;
 - validated finite algebraic extensions and implicit differentiation;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
   integral bases; and
@@ -443,6 +446,7 @@ separate commit.
 - [x] Generalized residue criterion and constructive logarithmic extraction.
 - [x] Nonlinear no-special reduction.
 - [x] Rational exact and logarithmic derivative decisions.
+- [x] Parametric logarithmic-derivative result and exact witness contract.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.

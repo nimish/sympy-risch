@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from math import lcm
+from operator import index as integer_index
 from typing import Any
 
 from sympy.core.expr import Expr
@@ -25,7 +26,255 @@ from .tower import (
     Derivation,
     MonomialExtension,
     MonomialFamily,
+    _coerce,
 )
+
+
+class ParametricLogarithmicDerivativeOutcome(Enum):
+    r"""Logical outcome of Bronstein's parametric logarithmic-derivative problem.
+
+    ``PROVED_NO_SOLUTION`` is reserved for a complete mathematical
+    obstruction. ``INCONCLUSIVE`` means that a heuristic such as Bronstein's
+    Section 7.3 algorithm returned ``failed`` and a structure-theorem fallback
+    is still required. ``UNSUPPORTED`` records a missing effective-field
+    prerequisite rather than a mathematical negative answer.
+    """
+
+    SOLUTION = "solution"
+    PROVED_NO_SOLUTION = "proved_no_solution"
+    INCONCLUSIVE = "inconclusive"
+    UNSUPPORTED = "unsupported"
+
+
+def _parametric_logarithmic_derivative_eta(
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> Any:
+    r"""Validate ``Dtheta = eta*theta`` over the supplied lower field."""
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError(
+            "parametric logarithmic derivatives require a monomial extension"
+        )
+    if not isinstance(lower_derivation, Derivation):
+        raise TypeError(
+            "parametric logarithmic derivatives require a Derivation"
+        )
+    if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
+        raise ValueError(
+            "parametric logarithmic derivatives require Dtheta = eta*theta"
+        )
+    if extension.parent_field != lower_derivation.field:
+        raise ValueError(
+            "extension parent field does not match the lower derivation"
+        )
+    return _coerce(
+        lower_derivation.field,
+        extension.generator_derivative.nth(1),
+    )
+
+
+def _integer_parameter(value: Any, name: str) -> int:
+    """Return an exact integer parameter, rejecting booleans and rationals."""
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer")
+    try:
+        return int(integer_index(value))
+    except TypeError as exc:
+        raise TypeError(f"{name} must be an integer") from exc
+
+
+def verify_parametric_logarithmic_derivative_witness(
+    f: Any,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+    n: int,
+    m: int,
+    argument: Any,
+) -> bool:
+    r"""Verify one exact witness for Bronstein's equation (7.37).
+
+    For ``Dtheta/theta = eta``, a witness consists of integers ``n != 0`` and
+    ``m`` and a nonzero ``v`` in the lower field satisfying
+
+    ``n*f = Dv/v + m*eta``.
+
+    The comparison is performed entirely with native SymPy domain elements.
+    No expression simplification or numerical equality is used.
+    """
+    eta = _parametric_logarithmic_derivative_eta(
+        extension,
+        lower_derivation,
+    )
+    n_integer = _integer_parameter(n, "n")
+    m_integer = _integer_parameter(m, "m")
+    if n_integer == 0:
+        return False
+
+    field = lower_derivation.field
+    element = _coerce(field, f)
+    witness_argument = _coerce(field, argument)
+    if witness_argument == field.zero:
+        return False
+
+    return (
+        n_integer*element
+        == lower_derivation(witness_argument)/witness_argument
+        + m_integer*eta
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ParametricLogarithmicDerivativeResult:
+    r"""Certified outcome of the parametric logarithmic-derivative problem.
+
+    The input is ``f`` in a differential field ``K`` and a hyperexponential
+    monomial ``theta`` over ``K``. A successful result stores a normalized
+    witness ``(n, m, argument)`` with ``n > 0`` and
+
+    ``n*f = D(argument)/argument + m*Dtheta/theta``.
+
+    A negative result must distinguish a proved impossibility from the
+    inconclusive ``failed`` outcome of Bronstein's Section 7.3 heuristic and
+    from an unsupported effective field. Only ``PROVED_NO_SOLUTION`` may be
+    consumed as a mathematical negative answer.
+    """
+
+    extension: MonomialExtension
+    lower_derivation: Derivation
+    f: Any
+    outcome: ParametricLogarithmicDerivativeOutcome
+    n: int | None = None
+    m: int | None = None
+    argument: Any | None = None
+    certificate: Any | None = None
+    detail: str | None = None
+
+    def __post_init__(self) -> None:
+        _parametric_logarithmic_derivative_eta(
+            self.extension,
+            self.lower_derivation,
+        )
+        if not isinstance(
+            self.outcome,
+            ParametricLogarithmicDerivativeOutcome,
+        ):
+            raise TypeError(
+                "outcome must be a ParametricLogarithmicDerivativeOutcome"
+            )
+
+        field = self.lower_derivation.field
+        object.__setattr__(self, "f", _coerce(field, self.f))
+
+        if self.outcome is ParametricLogarithmicDerivativeOutcome.SOLUTION:
+            if self.n is None or self.m is None or self.argument is None:
+                raise ValueError(
+                    "a parametric logarithmic-derivative solution needs "
+                    "n, m, and a nonzero argument"
+                )
+            n = _integer_parameter(self.n, "n")
+            m = _integer_parameter(self.m, "m")
+            argument = _coerce(field, self.argument)
+            if n == 0:
+                raise ValueError("a solution requires n != 0")
+            if argument == field.zero:
+                raise ValueError("a solution requires a nonzero argument")
+
+            # Multiplying the equation by -1 replaces v by 1/v. Store the
+            # unique sign convention n > 0 so later solvers compare witnesses
+            # consistently.
+            if n < 0:
+                n = -n
+                m = -m
+                argument = field.one/argument
+
+            object.__setattr__(self, "n", n)
+            object.__setattr__(self, "m", m)
+            object.__setattr__(self, "argument", argument)
+            if not self.reconstructs:
+                raise ValueError(
+                    "parametric logarithmic-derivative witness does not "
+                    "satisfy its defining equation"
+                )
+            return
+
+        if (
+            self.n is not None
+            or self.m is not None
+            or self.argument is not None
+        ):
+            raise ValueError(
+                "a nonsolution outcome cannot carry solution witness fields"
+            )
+        if (
+            self.outcome
+            is ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION
+            and self.certificate is None
+        ):
+            raise ValueError(
+                "a proved nonsolution requires an obstruction certificate"
+            )
+        if (
+            self.outcome
+            in {
+                ParametricLogarithmicDerivativeOutcome.INCONCLUSIVE,
+                ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            }
+            and not self.detail
+        ):
+            raise ValueError(
+                "an inconclusive or unsupported result requires a detail"
+            )
+
+    @property
+    def eta(self) -> Any:
+        """Return ``Dtheta/theta`` as an element of the lower field."""
+        return _parametric_logarithmic_derivative_eta(
+            self.extension,
+            self.lower_derivation,
+        )
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the result contains an exactly verified witness."""
+        return self.outcome is ParametricLogarithmicDerivativeOutcome.SOLUTION
+
+    @property
+    def proves_no_solution(self) -> bool:
+        """Whether a complete obstruction proves that no witness exists."""
+        return (
+            self.outcome
+            is ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION
+        )
+
+    @property
+    def is_inconclusive(self) -> bool:
+        """Whether a complete fallback must still decide the problem."""
+        return (
+            self.outcome
+            is ParametricLogarithmicDerivativeOutcome.INCONCLUSIVE
+        )
+
+    @property
+    def is_unsupported(self) -> bool:
+        """Whether an effective-field prerequisite is unavailable."""
+        return (
+            self.outcome
+            is ParametricLogarithmicDerivativeOutcome.UNSUPPORTED
+        )
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether the stored solution witness satisfies equation (7.37)."""
+        if not self.has_solution:
+            return False
+        return verify_parametric_logarithmic_derivative_witness(
+            self.f,
+            self.extension,
+            self.lower_derivation,
+            self.n,
+            self.m,
+            self.argument,
+        )
 
 
 class HyperexponentialDependencyKind(Enum):
