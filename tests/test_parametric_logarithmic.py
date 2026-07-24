@@ -3,7 +3,7 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import EmptySet, Poly, Rational, linsolve, symbols
+from sympy import Dummy, EmptySet, Poly, Rational, cancel, linsolve, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -47,6 +47,57 @@ def hyperexponential_extension(
         ),
         ConstantFieldStatus.UNKNOWN,
     )
+
+
+def _independent_rational_solution_set(f, eta):
+    """Solve the rational problem without using the production certificate.
+
+    Over ``QQ(x)``, ``f - c*eta`` is the logarithmic derivative of a rational
+    radical exactly when it is a rational linear combination of ``p'/p`` for
+    the irreducible factors ``p`` in its denominator.  After multiplication by
+    a common denominator, coefficient comparison gives one global linear
+    system.  In particular, polynomial parts and repeated-pole terms must
+    cancel automatically; they are not copied from the implementation's
+    locally constructed constraints.
+    """
+
+    def fraction_polynomials(expression):
+        numerator, denominator = cancel(expression).as_numer_denom()
+        return (
+            Poly(numerator, x, domain=QQ),
+            Poly(denominator, x, domain=QQ),
+        )
+
+    f_numerator, f_denominator = fraction_polynomials(f)
+    eta_numerator, eta_denominator = fraction_polynomials(eta)
+    common_denominator = f_denominator.lcm(eta_denominator)
+    irreducible_factors = tuple(
+        factor
+        for factor, _multiplicity in common_denominator.factor_list()[1]
+    )
+
+    ratio = Dummy("ratio")
+    residues = tuple(
+        Dummy(f"residue_{index}")
+        for index in range(len(irreducible_factors))
+    )
+    identity = (
+        common_denominator.exquo(f_denominator)*f_numerator
+        - ratio*common_denominator.exquo(eta_denominator)*eta_numerator
+    ).as_expr()
+    for residue, factor in zip(
+        residues,
+        irreducible_factors,
+        strict=True,
+    ):
+        identity -= (
+            residue
+            * common_denominator.exquo(factor).as_expr()
+            * factor.diff().as_expr()
+        )
+
+    equations = Poly(identity, x).all_coeffs()
+    return linsolve(equations, (ratio, *residues))
 
 
 def test_verified_rational_witness_uses_native_field_elements() -> None:
@@ -1005,20 +1056,63 @@ def test_complete_solver_is_total_on_generated_squarefree_rational_inputs(
         RationalParametricLogarithmicDerivativeCertificate,
     )
 
-    ratio = symbols("ratio")
-    equations = [
-        left - ratio*right
-        for left, right in result.certificate.linear_constraints
-    ]
-    oracle_solutions = linsolve(equations, ratio)
+    oracle_solutions = _independent_rational_solution_set(f, eta)
+    assert result.has_solution is (oracle_solutions is not EmptySet)
     if result.has_solution:
         assert result.reconstructs
-        if any(
-            left != QQ.zero or right != QQ.zero
-            for left, right in result.certificate.linear_constraints
-        ):
-            assert (
-                result.certificate.candidate_ratio,
-            ) in oracle_solutions
-    else:
-        assert oracle_solutions is EmptySet
+
+
+@settings(max_examples=80, deadline=None)
+@given(
+    f_coefficients=st.lists(
+        st.integers(min_value=-2, max_value=2),
+        min_size=8,
+        max_size=8,
+    ).map(tuple),
+    eta_coefficients=st.lists(
+        st.integers(min_value=-2, max_value=2),
+        min_size=8,
+        max_size=8,
+    ).filter(any).map(tuple),
+)
+def test_complete_solver_matches_independent_global_rational_oracle(
+    f_coefficients,
+    eta_coefficients,
+) -> None:
+    """Exercise polynomial, repeated-pole, and higher-degree obstructions."""
+
+    basis = (
+        x**2,
+        x,
+        1,
+        1/x,
+        1/x**3,
+        1/(x - 1)**2,
+        (x + 1)/(x**2 + 1),
+        1/(x**3 + x + 1),
+    )
+    f = sum(
+        coefficient*term
+        for coefficient, term in zip(f_coefficients, basis, strict=True)
+    )
+    eta = sum(
+        coefficient*term
+        for coefficient, term in zip(eta_coefficients, basis, strict=True)
+    )
+    lower = rational_base()
+    extension = hyperexponential_extension(lower, eta)
+
+    result = solve_parametric_logarithmic_derivative(
+        f,
+        extension,
+        lower.derivation(),
+    )
+    oracle_solutions = _independent_rational_solution_set(f, eta)
+
+    assert result.outcome in {
+        ParametricLogarithmicDerivativeOutcome.SOLUTION,
+        ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+    }
+    assert result.has_solution is (oracle_solutions is not EmptySet)
+    if result.has_solution:
+        assert result.reconstructs
