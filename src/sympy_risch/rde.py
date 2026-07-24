@@ -37,6 +37,14 @@ class RationalRDEObstruction(Enum):
     POLYNOMIAL = "polynomial"
 
 
+class CoupledRDEObstruction(Enum):
+    r"""Why the real system ``Dp-lambda*q=u``, ``Dq+lambda*p=v`` fails."""
+
+    DENOMINATOR = "denominator"
+    DEGREE = "degree"
+    NONZERO_REMAINDER = "nonzero_remainder"
+
+
 @dataclass(frozen=True, slots=True)
 class PolynomialRischDifferentialEquationResult:
     r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``QQ[x]``.
@@ -171,6 +179,79 @@ class BoundedRationalRDEMatrixResult:
     def has_solution(self) -> bool:
         """Whether the bounded rational ansatz contains a solution."""
         return self.solution is not None
+
+
+@dataclass(frozen=True, slots=True)
+class CoupledRationalRDEResult:
+    r"""Certified real solution of a conjugate pair of rational RDEs.
+
+    The equations are
+
+    ``Dp - lambda*q = u`` and ``Dq + lambda*p = v``,
+
+    where ``lambda`` is a nonzero polynomial and all other quantities belong
+    to ``QQ(x)``.  This is the real restriction of
+
+    ``D(p + i*q) + i*lambda*(p + i*q) = u + i*v``.
+    """
+
+    lambda_coefficient: Poly
+    real_right_hand_side: Expr
+    imaginary_right_hand_side: Expr
+    real_solution: Expr | None
+    imaginary_solution: Expr | None
+    obstruction: CoupledRDEObstruction | None
+    denominator_bound: Poly | None = None
+    degree_bound: int | None = None
+    partial_real_numerator: Poly | None = None
+    partial_imaginary_numerator: Poly | None = None
+    real_residual: Poly | None = None
+    imaginary_residual: Poly | None = None
+    obstruction_polynomial: Poly | None = None
+    obstruction_remainder: Poly | None = None
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether both coupled equations have a rational solution."""
+        return (
+            self.real_solution is not None
+            and self.imaginary_solution is not None
+        )
+
+    @property
+    def has_denominator_obstruction(self) -> bool:
+        """Whether finite-pole orders prove nonexistence."""
+        return self.obstruction is CoupledRDEObstruction.DENOMINATOR
+
+    @property
+    def has_degree_obstruction(self) -> bool:
+        """Whether degrees at infinity prove nonexistence."""
+        return self.obstruction is CoupledRDEObstruction.DEGREE
+
+    @property
+    def has_nonzero_remainder_obstruction(self) -> bool:
+        """Whether leading reduction leaves an uncancellable pair."""
+        return self.obstruction is CoupledRDEObstruction.NONZERO_REMAINDER
+
+
+@dataclass(frozen=True, slots=True)
+class BoundedCoupledRDEMatrixResult:
+    """Exact block-matrix result for a caller-supplied coupled ansatz."""
+
+    denominator: Poly
+    numerator_degree_bound: int
+    real_solution: Expr | None
+    imaginary_solution: Expr | None
+    coefficient_rank: int
+    augmented_rank: int
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the bounded real-pair ansatz contains a solution."""
+        return (
+            self.real_solution is not None
+            and self.imaginary_solution is not None
+        )
 
 
 def _polynomial_rde_system(
@@ -966,6 +1047,417 @@ def solve_bounded_rational_rde_matrix(
         denominator,
         numerator_degree_bound,
         solution,
+        coefficient_rank,
+        augmented_rank,
+    )
+
+
+def _maximum_polynomial_degree(*polynomials: Poly) -> int | None:
+    """Return the largest degree among nonzero polynomials, if one exists."""
+    degrees = [
+        polynomial.degree()
+        for polynomial in polynomials
+        if not polynomial.is_zero
+    ]
+    return max(degrees) if degrees else None
+
+
+def solve_coupled_rational_rde(
+    lambda_coefficient: Expr | Poly,
+    real_right_hand_side: Expr | Poly,
+    imaginary_right_hand_side: Expr | Poly,
+    x: Symbol,
+) -> CoupledRationalRDEResult:
+    r"""Solve a real coupled RDE with polynomial rotation coefficient.
+
+    This decides
+
+    ``Dp - lambda*q = u`` and ``Dq + lambda*p = v``
+
+    in ``QQ(x)`` for nonzero ``lambda`` in ``QQ[x]``.  Finite-pole analysis
+    supplies a common denominator.  Since multiplication by the leading
+    rotation matrix is invertible and dominates differentiation at infinity,
+    a two-coordinate leading-term recurrence then decides the polynomial
+    numerators.
+    """
+    if not isinstance(x, Symbol):
+        raise TypeError("the differentiation variable must be a Symbol")
+    lambda_coefficient = Poly(lambda_coefficient, x, domain=QQ)
+    if lambda_coefficient.is_zero:
+        raise ValueError("the coupled rotation coefficient must be nonzero")
+    real_rhs, real_numerator, real_denominator = _as_qq_rational(
+        real_right_hand_side,
+        x,
+    )
+    imaginary_rhs, imaginary_numerator, imaginary_denominator = (
+        _as_qq_rational(imaginary_right_hand_side, x)
+    )
+
+    common_denominator = real_denominator.lcm(imaginary_denominator)
+    common_real_numerator = (
+        real_numerator*common_denominator.exquo(real_denominator)
+    )
+    common_imaginary_numerator = (
+        imaginary_numerator
+        * common_denominator.exquo(imaginary_denominator)
+    )
+    # At a finite pole, differentiation raises the order while multiplication
+    # by polynomial lambda does not.  A right-hand-side pole of order e
+    # therefore forces a solution pole of order e - 1.  For a common
+    # denominator D, h = gcd(D, D') has precisely those exponents.  The test
+    # D | h**2 rejects a simple pole before any coefficient solving.
+    denominator_bound = common_denominator.gcd(
+        common_denominator.diff()
+    ).monic()
+    quotient, denominator_remainder = (
+        denominator_bound*denominator_bound
+    ).div(common_denominator)
+    if not denominator_remainder.is_zero:
+        return CoupledRationalRDEResult(
+            lambda_coefficient,
+            real_rhs,
+            imaginary_rhs,
+            None,
+            None,
+            CoupledRDEObstruction.DENOMINATOR,
+            denominator_bound,
+            obstruction_polynomial=common_denominator,
+            obstruction_remainder=denominator_remainder,
+        )
+
+    # Write p=P/h and q=Q/h and clear h**2:
+    #
+    # h*P' - h'*P - lambda*h*Q = U
+    # h*Q' - h'*Q + lambda*h*P = V.
+    transformed_real_rhs = quotient*common_real_numerator
+    transformed_imaginary_rhs = quotient*common_imaginary_numerator
+    rotation = lambda_coefficient*denominator_bound
+    residual_degree = _maximum_polynomial_degree(
+        transformed_real_rhs,
+        transformed_imaginary_rhs,
+    )
+    if residual_degree is None:
+        zero = S.Zero
+        return CoupledRationalRDEResult(
+            lambda_coefficient,
+            real_rhs,
+            imaginary_rhs,
+            zero,
+            zero,
+            None,
+            denominator_bound,
+            0,
+        )
+
+    degree_bound = residual_degree - rotation.degree()
+    real_numerator_solution = Poly(0, x, domain=QQ)
+    imaginary_numerator_solution = Poly(0, x, domain=QQ)
+    real_residual = transformed_real_rhs
+    imaginary_residual = transformed_imaginary_rhs
+    if degree_bound < 0:
+        return CoupledRationalRDEResult(
+            lambda_coefficient,
+            real_rhs,
+            imaginary_rhs,
+            None,
+            None,
+            CoupledRDEObstruction.DEGREE,
+            denominator_bound,
+            degree_bound,
+            real_numerator_solution,
+            imaginary_numerator_solution,
+            real_residual,
+            imaginary_residual,
+        )
+
+    current_bound = degree_bound
+    while not (real_residual.is_zero and imaginary_residual.is_zero):
+        residual_degree = _maximum_polynomial_degree(
+            real_residual,
+            imaginary_residual,
+        )
+        candidate_degree = residual_degree - rotation.degree()
+        if candidate_degree < 0 or candidate_degree > current_bound:
+            if (
+                denominator_bound*real_numerator_solution.diff()
+                - denominator_bound.diff()*real_numerator_solution
+                - rotation*imaginary_numerator_solution
+                + real_residual
+                != transformed_real_rhs
+                or denominator_bound*imaginary_numerator_solution.diff()
+                - denominator_bound.diff()*imaginary_numerator_solution
+                + rotation*real_numerator_solution
+                + imaginary_residual
+                != transformed_imaginary_rhs
+            ):
+                raise ValueError("coupled RDE reduction invariant failed")
+            return CoupledRationalRDEResult(
+                lambda_coefficient,
+                real_rhs,
+                imaginary_rhs,
+                None,
+                None,
+                CoupledRDEObstruction.NONZERO_REMAINDER,
+                denominator_bound,
+                degree_bound,
+                real_numerator_solution,
+                imaginary_numerator_solution,
+                real_residual,
+                imaginary_residual,
+            )
+
+        real_leading_residual = real_residual.nth(residual_degree)
+        imaginary_leading_residual = imaginary_residual.nth(
+            residual_degree
+        )
+        # The rotation terms have one degree more than the derivative terms
+        # (at least), so their invertible 2-by-2 leading matrix uniquely fixes
+        # the next coefficients of P and Q.
+        real_term = Poly.from_dict(
+            {
+                (candidate_degree,): (
+                    imaginary_leading_residual/rotation.LC()
+                )
+            },
+            x,
+            domain=QQ,
+        )
+        imaginary_term = Poly.from_dict(
+            {
+                (candidate_degree,): (
+                    -real_leading_residual/rotation.LC()
+                )
+            },
+            x,
+            domain=QQ,
+        )
+        new_real_residual = (
+            real_residual
+            - denominator_bound*real_term.diff()
+            + denominator_bound.diff()*real_term
+            + rotation*imaginary_term
+        )
+        new_imaginary_residual = (
+            imaginary_residual
+            - denominator_bound*imaginary_term.diff()
+            + denominator_bound.diff()*imaginary_term
+            - rotation*real_term
+        )
+        new_degree = _maximum_polynomial_degree(
+            new_real_residual,
+            new_imaginary_residual,
+        )
+        if new_degree is not None and new_degree >= residual_degree:
+            raise ValueError("coupled RDE residual degree did not decrease")
+
+        real_numerator_solution += real_term
+        imaginary_numerator_solution += imaginary_term
+        real_residual = new_real_residual
+        imaginary_residual = new_imaginary_residual
+        current_bound = candidate_degree - 1
+
+    real_solution = cancel(
+        real_numerator_solution.as_expr()/denominator_bound.as_expr()
+    )
+    imaginary_solution = cancel(
+        imaginary_numerator_solution.as_expr()
+        / denominator_bound.as_expr()
+    )
+    lambda_expression = lambda_coefficient.as_expr()
+    if (
+        cancel(
+            real_solution.diff(x)
+            - lambda_expression*imaginary_solution
+            - real_rhs
+        )
+        != 0
+        or cancel(
+            imaginary_solution.diff(x)
+            + lambda_expression*real_solution
+            - imaginary_rhs
+        )
+        != 0
+    ):
+        raise ValueError("coupled rational RDE reconstruction failed")
+    return CoupledRationalRDEResult(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        real_solution,
+        imaginary_solution,
+        None,
+        denominator_bound,
+        degree_bound,
+    )
+
+
+def solve_bounded_coupled_rde_matrix(
+    lambda_coefficient: Expr | Poly,
+    real_right_hand_side: Expr | Poly,
+    imaginary_right_hand_side: Expr | Poly,
+    x: Symbol,
+    denominator: Expr | Poly,
+    numerator_degree_bound: int,
+) -> BoundedCoupledRDEMatrixResult:
+    r"""Solve a bounded coupled rational ansatz by exact block linear algebra.
+
+    This deliberately shares no denominator or leading-recurrence logic with
+    :func:`solve_coupled_rational_rde`; it is a differential-test oracle for a
+    caller-supplied common denominator and numerator degree bound.
+    """
+    if not isinstance(x, Symbol):
+        raise TypeError("the differentiation variable must be a Symbol")
+    if (
+        not isinstance(numerator_degree_bound, int)
+        or isinstance(numerator_degree_bound, bool)
+        or numerator_degree_bound < 0
+    ):
+        raise ValueError("the numerator degree bound must be a nonnegative int")
+
+    lambda_coefficient = Poly(lambda_coefficient, x, domain=QQ)
+    if lambda_coefficient.is_zero:
+        raise ValueError("the coupled rotation coefficient must be nonzero")
+    lambda_expression = lambda_coefficient.as_expr()
+    real_rhs, _, _ = _as_qq_rational(real_right_hand_side, x)
+    imaginary_rhs, _, _ = _as_qq_rational(imaginary_right_hand_side, x)
+    denominator = Poly(denominator, x, domain=QQ)
+    if denominator.is_zero:
+        raise ValueError("the ansatz denominator must be nonzero")
+    denominator = denominator.monic()
+
+    basis = [
+        x**degree/denominator.as_expr()
+        for degree in range(numerator_degree_bound + 1)
+    ]
+    real_columns: list[Expr] = []
+    imaginary_columns: list[Expr] = []
+    for candidate in basis:
+        real_columns.append(cancel(candidate.diff(x)))
+        imaginary_columns.append(cancel(lambda_expression*candidate))
+    for candidate in basis:
+        real_columns.append(cancel(-lambda_expression*candidate))
+        imaginary_columns.append(cancel(candidate.diff(x)))
+
+    rational_expressions = [
+        *real_columns,
+        *imaginary_columns,
+        real_rhs,
+        imaginary_rhs,
+    ]
+    common_denominator = Poly(1, x, domain=QQ)
+    for expression in rational_expressions:
+        _, _, expression_denominator = _as_qq_rational(expression, x)
+        common_denominator = common_denominator.lcm(expression_denominator)
+    cleared = [
+        Poly(
+            cancel(expression*common_denominator.as_expr()),
+            x,
+            domain=QQ,
+        )
+        for expression in rational_expressions
+    ]
+    unknown_count = 2*(numerator_degree_bound + 1)
+    cleared_real_columns = cleared[:unknown_count]
+    cleared_imaginary_columns = cleared[
+        unknown_count:2*unknown_count
+    ]
+    cleared_real_rhs = cleared[-2]
+    cleared_imaginary_rhs = cleared[-1]
+    equation_degree = max(
+        (
+            polynomial.degree()
+            for polynomial in cleared
+            if not polynomial.is_zero
+        ),
+        default=0,
+    )
+    coefficient_rows = []
+    rhs_rows = []
+    for columns, rhs_polynomial in (
+        (cleared_real_columns, cleared_real_rhs),
+        (cleared_imaginary_columns, cleared_imaginary_rhs),
+    ):
+        for degree in range(equation_degree + 1):
+            coefficient_rows.append(
+                [
+                    QQ.convert(column.nth(degree))
+                    for column in columns
+                ]
+            )
+            rhs_rows.append([QQ.convert(rhs_polynomial.nth(degree))])
+
+    system = DomainMatrix(
+        coefficient_rows,
+        (len(coefficient_rows), unknown_count),
+        QQ,
+    )
+    rhs = DomainMatrix(
+        rhs_rows,
+        (len(rhs_rows), 1),
+        QQ,
+    )
+    coefficient_rank = system.rank()
+    augmented = system.hstack(rhs)
+    augmented_rank = augmented.rank()
+    if augmented_rank > coefficient_rank:
+        return BoundedCoupledRDEMatrixResult(
+            denominator,
+            numerator_degree_bound,
+            None,
+            None,
+            coefficient_rank,
+            augmented_rank,
+        )
+
+    reduced_matrix, pivots = augmented.rref()
+    reduced_rows = reduced_matrix.to_list()
+    coefficients = [QQ.zero for _ in range(unknown_count)]
+    for row, pivot in enumerate(pivots):
+        if pivot < unknown_count:
+            coefficients[pivot] = reduced_rows[row][unknown_count]
+    component_count = numerator_degree_bound + 1
+    real_numerator = Poly.from_dict(
+        {
+            (degree,): value
+            for degree, value in enumerate(coefficients[:component_count])
+        },
+        x,
+        domain=QQ,
+    )
+    imaginary_numerator = Poly.from_dict(
+        {
+            (degree,): value
+            for degree, value in enumerate(coefficients[component_count:])
+        },
+        x,
+        domain=QQ,
+    )
+    real_solution = cancel(
+        real_numerator.as_expr()/denominator.as_expr()
+    )
+    imaginary_solution = cancel(
+        imaginary_numerator.as_expr()/denominator.as_expr()
+    )
+    if (
+        cancel(
+            real_solution.diff(x)
+            - lambda_expression*imaginary_solution
+            - real_rhs
+        )
+        != 0
+        or cancel(
+            imaginary_solution.diff(x)
+            + lambda_expression*real_solution
+            - imaginary_rhs
+        )
+        != 0
+    ):
+        raise ValueError("bounded coupled matrix RDE reconstruction failed")
+    return BoundedCoupledRDEMatrixResult(
+        denominator,
+        numerator_degree_bound,
+        real_solution,
+        imaginary_solution,
         coefficient_rank,
         augmented_rank,
     )
