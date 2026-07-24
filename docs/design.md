@@ -1,619 +1,501 @@
-# Differential-tower design and implementation roadmap
+# Architecture and implementation roadmap
 
-This document records the working design for `sympy-risch`. It is intended to
-preserve the mathematical and architectural decisions behind the implementation
-and to define small, reversible development milestones.
+This document records the mathematical architecture of `sympy-risch`, the
+parts that are implemented, and the boundaries that remain. It complements
+the [getting-started guide](getting-started.md), which shows the current public
+workflow.
 
-The primary target is elementary integration by the Risch algorithm, including
-real tangent/arctangent handling and algebraic function fields. The design also
-leaves explicit extension points for selected non-elementary and differential-
-algebraic function families.
+The goal is a full elementary-integration decision procedure that can
+eventually be proposed upstream to SymPy. The current package is an
+experimental implementation of substantial Risch components, not yet a
+drop-in replacement for `sympy.integrate`.
 
-## Current implementation
+## Current status
 
-The repository currently provides:
+The top-level entry point is:
 
-- immutable differential towers with explicit level-bound derivations;
-- monomial extensions ``K(t)`` with ``Dt`` in ``K[t]``;
-- recursive coefficient, polynomial, and fraction differentiation over native
-  SymPy domains;
-- validated finite algebraic extensions with implicitly derived generator
-  derivatives;
-- algebraic Hermite reduction over `QQ(x)` with a caller-supplied integral
-  basis;
-- polynomial integration over `QQ[x]`;
-- Horowitz--Ostrogradsky rational Hermite reduction;
-- classical recursive rational Hermite reduction as an independent check;
-- Rothstein--Trager residue polynomials;
-- an independent Lazard--Rioboo--Trager logarithmic-part implementation;
-- complex logarithmic rational integration through exact `RootSum` objects;
-- real rational output for denominators whose factors over `QQ` have degree at
-  most two;
-- example-based and Hypothesis property tests.
+```python
+integrate_elementary(integrand, derivation) -> ElementaryIntegralResult
+```
 
-The current checkpoints are:
+It operates on a manually constructed differential tower and supports:
+
+- the standard rational base `QQ(x)` with `Dx = 1`;
+- recursively stacked primitive extensions;
+- one hyperexponential or hypertangent level directly over `QQ(x)`; and
+- a nonlinear polynomial monomial over supported lower levels when absence of
+  nonconstant special polynomials has been certified.
+
+The dispatcher returns exact and logarithmic parts, recursively descends into
+the lower field, and preserves a structured Liouville obstruction when a
+supported case is proved non-elementary. It explicitly rejects unsupported
+tower shapes instead of treating an incomplete reduction as a negative
+decision.
+
+The lower-level library additionally implements:
+
+- polynomial and rational integration over `QQ(x)`;
+- Horowitz--Ostrogradsky and recursive rational Hermite reduction;
+- Rothstein--Trager and Lazard--Rioboo--Trager logarithmic reduction;
+- rational exact-derivative and logarithmic-derivative decisions;
+- immutable differential towers over native SymPy domains;
+- monomial classification and normal/special denominator decomposition;
+- generalized monomial Hermite and residue reduction;
+- primitive, hyperexponential, hypertangent, and nonlinear-no-special
+  reducers;
+- rational and polynomial Risch differential equations;
+- a recurrence implementation for polynomial RDEs and an independent matrix
+  implementation used as a test oracle;
+- rational coupled RDEs for the real hypertangent case;
+- dependency tests for hyperexponential and hypertangent generators;
+- validated finite algebraic extensions and implicit differentiation;
+- algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
+  integral bases; and
+- simple-radical recognition and integral-basis construction.
+
+The required exact ground-type backend is `python-flint`.
+
+Recent implementation checkpoints, newest first, are:
 
 ```text
-35bb248  Establish polynomial and rational integration baseline
-0b0eb32  Implement Lazard-Rioboo-Trager logarithmic reduction
+25e7c2c  Reduce nested primitive extensions
+820f9bd  Add recursive elementary integration dispatcher
+b5d3fef  Solve rational hypertangent extensions
+023e465  Reduce hypertangent monomial extensions
+d934cb3  Reduce hyperexponential monomial extensions
+c09c9b9  Solve rational Risch differential equations
+92ca519  Require python-flint arithmetic backend
+1ade14d  Use Bronstein recurrence for polynomial RDEs
 ```
 
 ## Design principles
 
 1. Use SymPy's exact `Domain`, `Poly`, fraction-field, and finite-extension
-   elements directly. Do not introduce a parallel wrapper for field elements.
-2. Separate expression parsing and presentation from differential-field
-   computation.
-3. Represent the tower and its levels immutably. Recursive algorithms must use
-   an explicit level rather than mutating a shared "current level".
-4. Named functions record useful construction and presentation semantics, but
-   reduction algorithms dispatch on mathematical extension families.
-5. Preserve real forms where possible. Do not make complex-exponential
-   rewriting the only representation of trigonometric extensions.
-6. Treat branch-sensitive equality separately from equality of derivatives.
-7. Add each independently working milestone as a separate git commit.
+   elements directly. Do not maintain a parallel element hierarchy.
+2. Keep differential towers immutable. Recursion selects an explicit level;
+   it never mutates a shared “current field.”
+3. Classify extensions from their differential algebra, not from the name of
+   the function that produced them.
+4. Keep expression discovery and branch-sensitive presentation outside the
+   exact differential-field core.
+5. Require executable evidence for structure-theorem hypotheses such as
+   preservation of constants or absence of special polynomials.
+6. Distinguish three outcomes: constructive success, a proved obstruction,
+   and an unsupported case.
+7. Verify every constructive result by exact differentiation in the same
+   tower.
+8. Keep mathematical checkpoints small enough to review and revert
+   independently.
 
-## Three-layer architecture
+## Architecture
+
+The intended full system has three layers:
 
 ```text
 SymPy expression
       |
       v
-TowerBuilder and presentation layer
-      |  discovers generators, dependencies, and ordering
-      v
-DifferentialTower and exact SymPy domain elements
-      |  differential-field algorithms
-      v
-Integration and reduction algorithms
+Tower construction and presentation metadata        planned
       |
       v
-Real/complex presentation and back-substitution
+Native SymPy fields + immutable DifferentialTower   implemented
       |
       v
-SymPy expression
+Reduction and decision algorithms                   partly implemented
+      |
+      v
+Back-substitution and real branch presentation      planned
 ```
 
-The mathematical core must work with manually constructed towers before the
-automatic `TowerBuilder` is implemented.
+The middle layer is deliberately useful without the two presentation layers.
+Manually constructed towers allow the mathematical algorithms to be tested
+without conflating them with generator discovery.
 
-## Differential tower
+## Differential towers
 
-The central container is an immutable tower:
-
-```python
-@dataclass(frozen=True)
-class DifferentialTower:
-    constants: Domain
-    levels: tuple[DifferentialExtension, ...]
-
-    def field(self, level: int | None = None) -> Domain: ...
-    def derivation(self, level: int | None = None) -> Derivation: ...
-    def extend(self, extension: DifferentialExtension) -> DifferentialTower: ...
-```
-
-The first level can represent `x`, with `Dx = 1`. Thus
+`DifferentialTower` stores a constant domain and an immutable tuple of
+extensions. The first extension may represent the independent variable:
 
 ```text
-QQ
-  < QQ(x)
-  < QQ(x)(t1)
-  < ...
+QQ < QQ(x) < QQ(x)(t) < QQ(x)(t)(u) < ...
 ```
 
-uses the same level mechanism throughout.
+`tower.field(level)` returns the exact field at a level.
+`tower.derivation(level)` returns a `Derivation` bound to that level.
+`tower.extend(extension)` returns a new tower.
 
-Consecutive transcendental levels are stored physically in a flat native
-SymPy fraction field. Thus the mathematical level `QQ(x)(t)` is represented by
-`QQ.frac_field(x, t)`, while the tower metadata and each derivative polynomial
-retain the coefficient-field boundary between `x` and `t`. This avoids known
-coercion failures during normalization of deeply nested SymPy fraction fields
-without introducing wrapper elements.
+Consecutive transcendental levels are physically represented by a flat SymPy
+fraction field such as `QQ.frac_field(x, t, u)`. The tower metadata still
+records the conceptual coefficient-field boundaries. This avoids coercion
+problems in deeply nested SymPy fraction fields while preserving the recursive
+mathematics.
 
-Algorithms operate at an explicit level. A lower-field operation receives a
-lower-level `Derivation`; the tower itself never needs `increment_level()` or
-`decrement_level()` state.
+### Implemented extension interface
 
-## Extension hierarchy
+`DifferentialExtension` is a structural protocol. Two concrete immutable
+extension types currently implement it:
 
-The hierarchy is open rather than a closed enumeration of named functions:
+- `MonomialExtension`, for a transcendental generator `t` with `Dt` in
+  `K[t]`;
+- `AlgebraicExtension`, for a finite separable algebraic generator defined by
+  a minimal polynomial over `K`.
 
-```text
-DifferentialExtension
-|-- TranscendentalExtension
-|   |-- MonomialExtension                 Dt in K[t]
-|   |   |-- PrimitiveExtension            Dt in K
-|   |   |   |-- LogExtension
-|   |   |   `-- NamedPrimitiveExtension   atan, erf, Ei, li, ...
-|   |   |-- HyperexponentialExtension     Dt/t in K
-|   |   |   `-- ExpExtension
-|   |   |-- HypertangentExtension         Dt/(1+t^2) in K
-|   |   |   `-- TanExtension
-|   |   `-- PolynomialExtension           general Dt in K[t]
-|   `-- RationalDifferentialExtension     Dt in K(t)
-|-- AlgebraicExtension                    m(t) = 0
-`-- DifferentialAlgebraicExtension        Q(t, Dt, ...) = 0
-```
+Named `LogExtension`, `ExpExtension`, and `TanExtension` classes do not
+currently exist. A future builder may provide named constructors or
+presentation metadata, but the reducers should continue to dispatch on the
+mathematical family.
 
-The elementary Risch implementation initially needs monomial and algebraic
-extensions. `RationalDifferentialExtension` and
-`DifferentialAlgebraicExtension` reserve clean boundaries for later work such
-as Lambert-W-like and Weierstrass-like extensions.
-
-### Common interface
-
-Each level exposes at least:
-
-```python
-class DifferentialExtension(Protocol):
-    generator: Symbol
-    parent_field: Domain
-    field: Domain
-
-    @property
-    def generator_derivative(self): ...
-```
-
-The concrete level is responsible for validating that its derivative and
-defining relations belong to the expected domains.
-
-### Monomial extensions
-
-A monomial extension stores `Dt` as a `Poly` in `t` over the parent field. Its
-mathematical family is determined exactly by the shape of that polynomial:
-
-| Derivative law | Family |
-| --- | --- |
-| `Dt` is in `K` | primitive |
-| `Dt = eta*t`, `eta` in `K` | hyperexponential |
-| `Dt = eta*(1 + t**2)`, `eta` in `K` | hypertangent |
-| otherwise `Dt` in `K[t]` | general polynomial/monomial |
-
-Generic construction from a derivative law produces the appropriate
-mathematical parent class. Named constructors additionally preserve the
-original function.
-
-For denominator reduction, square-free factors are classified by the total
-tower derivative: `p` is normal when `gcd(p, Dp) = 1` and special when
-`p | Dp`. The normal/special decomposition retains each factor's ordinary
-square-free multiplicity and is independent of the named function provenance.
-The monomial Hermite reducer then lowers repeated normal factors one at a time,
-leaving a square-free normal denominator while retaining polynomial terms and
-special factors for the family-specific reduction.
-
-### Named elementary extensions
-
-Named classes construct their derivative from their argument using the parent
-derivation:
-
-```python
-LogExtension.from_argument(parent, t, u)
-# Dt = Du/u
-
-ExpExtension.from_exponent(parent, t, u)
-# Dt = Du*t
-
-TanExtension.from_argument(parent, t, u)
-# Dt = Du*(1 + t**2)
-```
-
-Examples include:
-
-```text
-t = exp(x + 1)       -> Dt = t
-t = log(x + 1)       -> Dt = 1/(x + 1)
-t = tan(log(x))      -> Dt = (1 + t^2)/x
-```
-
-Named classes determine construction and preferred presentation. Their
-mathematical parent classes determine which reduction algorithm applies.
-
-### Algebraic extensions
-
-An algebraic level stores a monic irreducible minimal polynomial
-
-```text
-m(t) in K[t]
-```
-
-and uses SymPy's `FiniteExtension` representation. The constructor must check
-irreducibility and square-freeness because `FiniteExtension` does not itself
-guarantee irreducibility.
-
-The derivative of the generator is derived, not supplied independently:
-
-```text
-Dt = -D_K(m)(t) / partial_t(m)(t).
-```
-
-For `m(t) = t**2 - x`, this gives `Dt = 1/(2*t)`.
-
-Algebraic constants should normally be adjoined to the constant domain rather
-than represented as zero-derivative tower levels.
-
-The first algebraic Hermite reducer operates over a one-variable rational
-parent field and takes an explicit `IntegralBasis`. It verifies that the given
-elements are a field basis, but the caller currently asserts that they span
-the full integral closure. Lazy Hermite reduction can refine an incomplete
-basis when one of Bronstein's three certificates exposes a missing integral
-element; automatic full integral-basis computation remains a separate
-milestone. `IntegralBasis.power_basis()` is valid only when the power basis is
-already known to be integral and complete.
-
-Simple radical extensions `y**n = a`, with `a` in the one-variable rational
-parent field, have a specialized basis constructor. It removes `n`-th-power
-factors from the radicand and applies the explicit integral-basis formula from
-Bronstein's tutorial. This supplies the existing algebraic Hermite reducer
-with a complete non-power basis without invoking general integral-basis or
-lazy-refinement machinery.
-
-## Derivation
-
-A level-bound derivation is a callable object:
-
-```python
-@dataclass(frozen=True)
-class Derivation:
-    tower: DifferentialTower
-    level: int
-
-    def __call__(self, element): ...
-    def polynomial(self, polynomial: Poly) -> Poly: ...
-    def fraction(self, numerator: Poly, denominator: Poly): ...
-    def coefficients(self, polynomial: Poly) -> Poly: ...
-```
+### Derivation
 
 For
 
 ```text
-p(t) = sum(a_i*t**i),  a_i in K,
+p(t) = sum(a_i t^i),    a_i in K,
 ```
 
 the full derivative is
 
 ```text
-D(p) = sum(D(a_i)*t**i) + partial_t(p)*Dt.
+D(p) = sum(D(a_i) t^i) + (partial p/partial t) Dt.
 ```
 
-Coefficient differentiation omits the second term. Both operations are needed
-by Risch reduction and by differentiation in algebraic extensions.
+Coefficient differentiation retains only the first term. Both operations are
+needed: Risch reduction repeatedly separates differentiation in the lower
+field from differentiation caused by the top generator.
 
-For a fraction:
+Fractions use the quotient rule:
 
 ```text
-D(p/q) = (D(p)*q - p*D(q))/q**2.
+D(p/q) = (D(p)q - pD(q))/q^2.
 ```
 
-The derivation must operate on existing SymPy domain elements rather than on a
-new `DifferentialElement` wrapper.
+All results remain native elements of the relevant SymPy domain.
 
-## Classification versus named-function recognition
+## Monomial families
 
-The derivative shape determines the mathematical extension family. Recovering
-a named presentation requires solving an equation in the lower field.
+A `MonomialExtension` stores `Dt` as a univariate `Poly` over its parent
+field. Its exact shape determines the family:
 
-| Family | Given | Named presentation requires |
-| --- | --- | --- |
-| primitive | `Dt = eta` | find `u` with `Du/u = eta` for `log(u)` |
-| hyperexponential | `Dt = eta*t` | find `u` with `Du = eta` for `exp(u)` |
-| hypertangent | `Dt = eta*(1+t**2)` | find `u` with `Du = eta` for `tan(u)` |
+| Derivative law | `MonomialFamily` |
+| --- | --- |
+| `Dt = eta`, with `eta` in `K` | `PRIMITIVE` |
+| `Dt = eta*t` | `HYPEREXPONENTIAL` |
+| `Dt = eta*(1 + t**2)` | `HYPERTANGENT` |
+| any other polynomial in `t` | `POLYNOMIAL` |
 
-The APIs should remain separate:
+This classification is intentionally weaker than named-function recognition.
+For example, `Dt = eta*t` identifies a hyperexponential generator, but
+presenting it as `exp(u)` requires solving `Du = eta` in the lower field.
 
-```python
-classify_extension(extension) -> ExtensionFamily
-recognize_presentation(extension, tower) -> Presentation | None
-```
-
-### Ambiguous constants
-
-Derivative laws recover named functions only up to constants:
+Derivative laws determine a generator only up to constants:
 
 ```text
-Dt = Du/u             -> t = log(u) + c
-Dt = Du*t             -> t = c*exp(u)
-Dt = Du*(1 + t**2)    -> t = tan(u + c)
+Dt = Du/u                 t = log(u) + c
+Dt = Du*t                 t = c exp(u)
+Dt = Du(1 + t^2)          t = tan(u + c)
 ```
 
-The tangent phase corresponds to a constant Mobius transformation:
+An expression front end must retain the original presentation when branch or
+phase information matters.
+
+### Constant-field evidence
+
+Liouville and Risch structure theorems generally require
 
 ```text
-tan(u + c) = (tan(u) + tan(c))/(1 - tan(u)*tan(c)).
+Const(K(t)) = Const(K).
 ```
 
-Presentations inferred from derivative laws must record this ambiguity. A
-presentation obtained from an input expression can retain the exact original
-argument.
+`ConstantFieldStatus` records whether that condition is `PRESERVED`,
+`ENLARGED`, or `UNKNOWN`. Manual towers must supply the evidence. Algorithms
+that rely on the condition reject unproved cases.
 
-### Recognition subproblems
+### Normal and special polynomials
 
-The recognition layer needs:
+For an irreducible `p` in `K[t]`:
 
-```python
-exact_derivative(eta, tower)
-# Find u in K such that Du = eta.
+- `p` is normal when `gcd(p, Dp) = 1`;
+- `p` is special when `p` divides `Dp`.
 
-logarithmic_derivative(eta, tower)
-# Find nonzero u in K such that Du/u = eta.
+This is the monomial analogue of separating repeated rational poles from the
+part that survives ordinary Hermite reduction. The common monomial reducer
+lowers repeated normal factors, applies the generalized residue criterion to
+the remaining square-free normal part, and leaves special factors and the
+polynomial part for the family-specific algorithm.
 
-inverse_tangent_derivative(eta, tower)
-# Find u in K such that Du/(1 + u**2) = eta.
-```
+For general nonlinear monomials, `SpecialPolynomialStatus.ABSENT` is explicit
+evidence for the structure-theorem case with no nonconstant irreducible
+special polynomials.
 
-The first two are standard recursive Risch subproblems. The inverse-tangent
-problem is nonlinear and can be added after the primitive and exponential
-machinery works.
+## Recursive elementary integration
 
-### Dependency and constant-field checks
-
-Candidate generators must be tested for dependence before being added.
-
-For a primitive candidate `Dt = eta`:
-
-- if `eta = Du` for `u` in `K`, then `t - u` is constant and no new generator
-  is needed.
-
-For a hyperexponential candidate `Dt = eta*t`:
-
-- if `eta = Du/u`, then `t/u` is constant and the candidate belongs to the
-  lower field up to a constant;
-- if `n*eta = Du/u`, then `t**n/u` is constant and the candidate is algebraic
-  over the lower field.
-
-This detects cases such as:
+Each level reducer establishes an exact identity
 
 ```text
-Dt = t/x                  -> t = c*x
-exp(log(x)/2)             -> sqrt(x)
+f = D(v) + ell + r,
 ```
 
-The constant field will eventually need effective zero tests and algebraic-
-relation tests. Initially it is a SymPy `Domain`, beginning with `QQ`.
-Unknown named constants can be represented as zero-derivative generators of
-the constant domain, not as differential tower levels.
+where `ell` is the derivative of the encoded logarithmic terms. On a
+successful level reduction, `r` belongs to the lower field and recursion
+continues. On a negative decision, `r` carries the terminal obstruction.
 
-## Tower construction
-
-`TowerBuilder` is a later front-end component:
-
-```python
-class TowerBuilder:
-    def build(
-        self,
-        expression: Expr,
-        variable: Symbol,
-    ) -> tuple[Element, DifferentialTower, TowerPresentation]: ...
-```
-
-Its responsibilities are:
-
-1. collect candidate function and algebraic generators;
-2. construct a dependency graph;
-3. detect exact, logarithmic, integer, rational-power, and algebraic
-   dependencies;
-4. choose a minimal generator set;
-5. topologically order the generators;
-6. rewrite the input into the top field;
-7. retain exact back-substitutions and branch assumptions.
-
-Examples the builder must consolidate include:
+`ElementaryIntegralResult` preserves both the local reduction and its lower
+result. Its flattened invariants are:
 
 ```text
-exp(x/2), exp(x)          -> one generator t = exp(x/2), exp(x) = t**2
-exp(x), exp(x + 1)        -> one generator plus a constant factor
-log(x), log(x**2)         -> differential dependence, branch-sensitive output
-tan(log(x))               -> log level before tangent level
+integrand
+  = D(total_exact_part)
+  + total_logarithmic_derivative
+  + unintegrated_remainder.
 ```
 
-The core algorithms will first be tested using manually constructed towers so
-that builder errors cannot obscure differential-algebra errors.
+The `reconstructs` property checks this identity exactly. `antiderivative` is
+available only when the unintegrated remainder is zero.
 
-## Real output and branches
+The obstruction kinds currently distinguish:
 
-The differential-field core proves derivative identities, which are local and
-hold up to constants. The output layer decides global real presentation.
+- a nonconstant finite residue;
+- an infinity residue;
+- a nonzero reduced polynomial;
+- an unsolvable Risch differential equation; and
+- a nonzero element left in the constant-field base case.
 
-The real-output goals are:
+### Recursive primitive levels
 
-- combine conjugate logarithmic terms into real logarithms and angle terms;
-- use `log(Abs(...))` around real poles;
-- retain tangent generators rather than forcing complex exponential rewrites;
-- use an internal two-argument angle representation when `atan(y/x)` would
-  introduce a spurious discontinuity;
-- introduce `Piecewise` or explicit branch corrections only in the
-  presentation layer;
-- never simplify `atan(tan(u))` globally to `u` without domain information.
+For a primitive extension `K(t)` with `Dt = eta`, polynomial reduction needs
+to decide lower-field coefficients modulo exact derivatives and the constant
+direction `C*eta`. The implementation recursively solves exact derivatives in
+the lower tower and uses a fixed, iterated Laurent coefficient at infinity as
+the projection coordinate for the `eta` class.
 
-The current quadratic real rational integrator is the first limited version of
-this layer. General real LRT output will require real algebraic root isolation
-and conjugate-residue pairing.
+This makes the decomposition deterministic and supports towers such as:
 
-## Extension points beyond elementary Risch
+```text
+Dx = 1
+Dt = 1/x
+Du = 1/(x*t)
+Dv = 1/(x*t*u).
+```
 
-The initial implementation does not promise a decision procedure for arbitrary
-special functions. The hierarchy leaves room for selected families with their
-own structure theorems and reducers:
+The recurrence is verified by planted exact derivatives, idempotence tests,
+generated mixed cohomology classes, and full end-to-end examples.
 
-- named primitive extensions such as `erf`, `Ei`, and `li`;
-- rational first-order extensions such as Lambert-W-like generators with
-  `Dt` in `K(t)`;
-- algebraic-curve function fields;
-- coupled differential-algebraic extensions such as Weierstrass-like fields;
-- higher-order differential systems, which may eventually require modules or
-  differential ideals rather than simple one-generator levels.
+### Hyperexponential levels
 
-Reducers for these families should be registered by mathematical extension
-type. They must not require adding another named-function branch to every core
-algorithm.
+For `Dt = eta*t`, the reducer performs normal residue reduction followed by
+Laurent reduction in `t`. Its coefficient equations are Risch differential
+equations of the form
 
-## Implementation roadmap
+```text
+Dy + a*y = b.
+```
 
-Each numbered milestone should end with focused tests, the full test suite, and
-its own commit.
+The current end-to-end implementation solves these equations over the direct
+rational lower field `QQ(x)`. General lower differential fields remain a
+roadmap item.
 
-### 1. Differential tower foundation
+### Hypertangent levels
 
-- [ ] Add the open extension hierarchy through algebraic-extension descriptors.
-- [x] Implement immutable `DifferentialTower` construction.
-- [x] Implement level-bound coefficient, polynomial, and quotient derivations.
-- [x] Use SymPy fraction fields directly.
-- [x] Add classification of primitive, hyperexponential, hypertangent, and general
-  polynomial derivative laws.
-- [ ] Add named `LogExtension`, `ExpExtension`, and `TanExtension` factories.
-- [x] Test manually constructed `x`, `log(x)`, and nested monomial levels.
-- [ ] Test named `exp(x + 1)` and `tan(log(x))` levels.
-- [x] Property-test linearity, Leibniz, quotient, and chain rules.
+For `Dt = eta*(1 + t**2)`, the irreducible real special polynomial is
+`t**2 + 1`. The implementation retains this real quadratic instead of making
+a complex-exponential rewrite the production representation.
 
-### 2. Rational-field recognition base cases
+The special reduction uses the Cayley correspondence as mathematics and as a
+test oracle, while solving the resulting two-component coupled RDE over the
+rational lower field. General lower fields and global real branch correction
+remain unimplemented.
 
-- Decide whether a rational function is the derivative of another rational
-  function using Hermite reduction.
-- Solve the rational logarithmic-derivative problem using factorization and
-  residues.
-- Detect dependent primitive and hyperexponential candidates.
-- Recognize rational `log`, `exp`, and elementary `atan` presentations where
-  possible.
-- Property-test reconstructed derivative identities and negative cases.
+### Nonlinear monomials without special polynomials
 
-### 3. Shared monomial and primitive-extension reduction
+When `deg_t(Dt) >= 2` and absence of special polynomials is certified, the
+reducer combines:
 
-- [x] Generalize Hermite reduction from `QQ(x)` to `K(t)` using the tower
-  derivation.
-- [x] Implement normal/special denominator splitting using `gcd(p, Dp)`.
-- [x] Implement Bronstein Section 5.4 polynomial reduction for nonlinear
-  monomials, including the degree bound `deg(r) < deg(Dt)`.
-- [x] Apply Liouville's theorem at normal poles through Bronstein's generalized
-  Rothstein--Trager resultant and coefficient derivation `kappa`.
-- [x] Return the square-free factors `R_i`, constant parts
-  `gcd(R_i, kappa(R_i))`, and explicit nonconstant-residue obstructions.
-- [x] Extract accepted constant-residue logarithmic terms with a generalized
-  LRT subresultant computation, and reconstruct their derivative by a
-  quotient-ring trace without adjoining algebraic constants explicitly.
-- [x] Reduce the Section 5.7 residue at infinity for nonlinear monomials:
-  certify nonconstant infinity residues, extract a logarithm using a known
-  special polynomial, and explicitly defer the no-known-special case.
-- Implement polynomial reduction in a primitive extension.
-- Implement the recursive in-field exact-derivative problem.
-- Prove nonexistence when the reduced obstruction is nonzero.
+1. normal Hermite reduction;
+2. generalized Rothstein--Trager residue reduction;
+3. residue-at-infinity reduction; and
+4. Bronstein's polynomial degree reduction.
 
-### 4. Hyperexponential extensions
+A nonzero canonical remainder is a Liouville obstruction under the recorded
+hypotheses.
 
-- Implement normal and special reduction for `Dt = eta*t`.
-- Implement the Risch differential equation `Dy + a*y = b` recursively.
-- Detect logarithmic derivatives and radical/algebraic dependencies.
-- Integrate examples such as `x*exp(x)` and prove standard negative cases.
+## Rational and RDE foundations
 
-### 5. Hypertangent and real inverse-tangent extensions
+The rational base has two independent Hermite reducers:
 
-- Implement reduction for `Dt = eta*(1 + t**2)`.
-- Implement the coupled lower-field differential equations used in the
-  hypertangent case.
-- Add `atan`/`atan2` recognition and real presentation.
-- Add tangent half-angle rationalization as a front-end transformation.
-- Test branch-sensitive results by intervals as well as by differentiation.
+- Horowitz--Ostrogradsky is the production implementation;
+- recursive Hermite reduction is retained as an independent oracle.
 
-### 6. Automatic tower builder
+The logarithmic part is likewise exercised through Rothstein--Trager and an
+independent Lazard--Rioboo--Trager implementation. Complex algebraic residues
+are encoded exactly with `RootSum`; a separate limited real presenter handles
+rational denominators whose irreducible factors have degree at most two.
 
-- Discover log, exp, tangent, power, and algebraic candidates in expressions.
-- Build and topologically sort the dependency graph.
-- Consolidate rationally related exponentials and dependent primitives.
-- Record exact substitutions and real assumptions.
-- Keep construction deterministic.
+Polynomial Risch differential equations use Bronstein's recurrence in
+production. A bounded matrix solver remains in the library as an independent
+test oracle. Rational RDEs add denominator reduction and canonical
+obstructions around that polynomial core.
 
-### 7. Algebraic differential fields
+## Algebraic extensions
 
-- [x] Construct validated SymPy `FiniteExtension` domains over lower function
-  fields.
-- [x] Derive and test algebraic generator derivatives.
-- [x] Implement algebraic Hermite reduction over `QQ(x)` for a supplied
-  integral basis.
-- [x] Recognize simple radical extensions and construct their explicit
-  integral bases.
-- [x] Lazily refine a basis when the Hermite-system solution denominator
-  intersects the repeated factor (Bronstein's second refinement theorem).
-- [x] Refine a basis from a primitive kernel relation when the Hermite system
-  is dependent (Bronstein's first refinement theorem).
-- [x] Refine a basis when a basis derivative has a nonsquarefree denominator
-  (Bronstein's third refinement theorem).
-- [ ] Compute full integral bases when later algorithms require them.
+An `AlgebraicExtension` stores a monic irreducible polynomial
+
+```text
+m(y) in K[y]
+```
+
+and uses SymPy's `FiniteExtension`. The derivative of `y` is derived from the
+relation:
+
+```text
+Dy = -D_K(m)(y) / (partial m/partial y)(y).
+```
+
+For `m(y) = y**2 - x`, this gives `Dy = 1/(2*y)`.
+
+The implemented algebraic Hermite reducer currently assumes a one-variable
+rational parent field and an integral basis. It can:
+
+- use a caller-supplied integral basis;
+- construct the explicit basis for a recognized simple radical; and
+- lazily refine an incomplete basis when one of Bronstein's three refinement
+  certificates exposes a missing integral element.
+
+This is a reduction component, not yet a complete algebraic integrator.
+Missing pieces include algebraic residues and logarithmic reconstruction,
+places and divisors, the Risch equation on an algebraic curve, and recursive
+composition with transcendental levels.
+
+The proposed real algebraic-over-tangent direction is kept in the
+[algebraic-hypertangent research note](algebraic-hypertangent.md).
+
+## Automatic tower construction
+
+A future expression front end must:
+
+1. collect transcendental and algebraic generator candidates;
+2. construct their dependency graph;
+3. recognize exact, logarithmic, exponential, tangent, rational-power, and
+   algebraic dependencies;
+4. choose and topologically order a minimal generator set;
+5. rewrite the input into the top exact field; and
+6. retain back-substitutions, assumptions, and branch information.
+
+Examples it should consolidate include:
+
+```text
+exp(x/2), exp(x)          one generator, with exp(x) = t**2
+exp(x), exp(x + 1)        one generator plus a constant factor
+log(x), log(x**2)         differential dependence with branch-sensitive output
+tan(log(x))               primitive level before hypertangent level
+```
+
+The builder must prove constant-field and special-polynomial hypotheses rather
+than silently setting their status flags.
+
+## Real presentation
+
+The differential-field core proves identities locally and up to constants.
+A separate presentation layer must eventually:
+
+- combine conjugate logarithmic terms into real logarithms and angles;
+- use `log(Abs(...))` where appropriate on real intervals;
+- retain tangent generators when they provide the natural real field;
+- avoid simplifying `atan(tan(u))` globally without domain information;
+- track discontinuities and branch corrections separately from the algebraic
+  derivative identity; and
+- use exact real root isolation for general LRT output.
+
+The current `integrate_rational_real` function is an early, deliberately
+limited piece of this layer.
+
+## Roadmap
+
+Each checkpoint ends with focused tests, the complete test suite, and a
+separate commit.
+
+### Completed foundation
+
+- [x] Polynomial and rational integration.
+- [x] Independent rational Hermite and logarithmic-part oracles.
+- [x] Immutable tower, exact derivation, and structural monomial
+  classification.
+- [x] Algebraic extension validation and implicit differentiation.
+- [x] Algebraic Hermite reduction with simple-radical and lazy integral bases.
+- [x] Normal/special splitting and generalized monomial Hermite reduction.
+- [x] Generalized residue criterion and constructive logarithmic extraction.
+- [x] Nonlinear no-special reduction.
+- [x] Rational exact and logarithmic derivative decisions.
+- [x] Polynomial and rational Risch differential equations.
+- [x] Primitive, hyperexponential, and hypertangent family reducers.
+- [x] Recursive elementary dispatcher.
+- [x] Recursively stacked primitive integration.
+
+### Next transcendental steps
+
+- [ ] Generalize exact-derivative and RDE solving over arbitrary supported
+  lower towers.
+- [ ] Enable nested hyperexponential and hypertangent levels.
+- [ ] Complete automatic dependence checks needed to justify constant-field
+  preservation.
+- [ ] Add the missing general-special-polynomial branch for nonlinear
+  monomials.
+
+### Algebraic integration
+
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
-- [ ] Implement places, residue computation, and the algebraic Risch equation.
-- [ ] Support mixed towers with algebraic levels below and between transcendental
+- [ ] Compute algebraic residues and the logarithmic part.
+- [ ] Implement local places, valuations, and divisor operations.
+- [ ] Solve the Risch differential equation on an algebraic curve.
+- [ ] Compose algebraic levels below, above, and between transcendental
   levels.
+- [ ] Add general integral-basis computation where lazy refinement is
+  insufficient.
+- [ ] Investigate the direct real algebraic-over-hypertangent branch.
 
-### 8. Complete real rational and algebraic presentation
+### Front end and upstreaming
 
-- Realify general LRT output using real algebraic root isolation.
-- Pair conjugate residues exactly.
-- Remove spurious `atan` singularities using angle-polynomial
-  transformations.
-- Track intervals and branch corrections separately from the algebraic
-  antiderivative.
-
-### 9. Upstream integration
-
-- Compare each core operation with the corresponding SymPy interfaces.
-- Stabilize APIs and naming around SymPy domain conventions.
-- Split changes into reviewable upstream patches.
-- Retain this package as an experimentation and compatibility test bed until
-  the relevant components are accepted upstream.
-
-### 10. Optional extended families
-
-- Add extension families only with a clear defining differential structure,
-  applicable structure theorem, reduction algorithm, and test oracle.
-- Prefer a reducer registry over central named-function dispatch.
+- [ ] Build and order towers from SymPy expressions.
+- [ ] Preserve named presentations and branch assumptions.
+- [ ] Complete general real logarithm and angle presentation.
+- [ ] Stabilize public APIs around SymPy conventions.
+- [ ] Split mature components into reviewable upstream proposals.
 
 ## Testing strategy
 
-Every layer should have three kinds of tests:
+Every reducer is tested at three levels:
 
-1. Hand-derived examples that expose the mathematical construction.
-2. Algebraic invariants, such as derivative reconstruction, square-free
-   remainders, field membership, and minimal-polynomial reduction.
-3. Hypothesis-generated examples over small exact domains.
+1. exact reconstruction and canonical postconditions;
+2. adversarial and generated families, including rejected preconditions; and
+3. an independent implementation or mathematical oracle where practical.
 
-Property tests should generate mathematical objects satisfying the required
-preconditions rather than generate arbitrary expressions and discard most of
-them with `assume`.
+Negative certificates receive the same scrutiny as constructive answers.
+Tests must distinguish an actual structure-theorem obstruction from
+`NotImplementedError`.
 
-For integration results, the primary oracle is exact differentiation in the
-same tower. Comparison with SymPy is useful as a differential test but should
-not require identical presentation or rely on the implementation being
-replaced.
+See the [testing contract](testing.md) for the full gate and commands.
 
-## Commit discipline
+## Open design decisions
 
-- Keep each mathematical capability in its own commit.
-- Commit only after focused and full tests pass.
-- Do not combine builder, representation, and reduction changes in one commit.
-- Prefer additive migrations; avoid rewriting working rational algorithms while
-  building the tower layer.
-- Record any design change in this document in the same commit that introduces
-  it.
+The following decisions are deferred until their first complete consumer:
 
-## Open decisions
+- the constant-field oracle interface used by automatic construction;
+- the representation of algebraic places and divisor classes;
+- the internal real angle and branch-correction representation;
+- whether future reducer dispatch uses a registry or explicit functions; and
+- the boundary between SymPy domain infrastructure and integration-specific
+  algebraic-curve code.
 
-The following choices are intentionally deferred until their first consumer:
-
-- the exact constant-field oracle interface;
-- whether reducer dispatch uses `singledispatch`, an explicit registry, or a
-  method on mathematical extension classes;
-- the internal real angle representation;
-- the exact public result type for elementary, nonelementary, and partially
-  reduced integrals;
-- how much of algebraic-curve infrastructure belongs in SymPy domains versus
-  the integration layer.
-
-These are extension points, not reasons to delay the differential-tower
-foundation.
+These are deliberate extension points, not descriptions of APIs that already
+exist.
 
 ## Primary references
 
 - Manuel Bronstein, *Symbolic Integration I: Transcendental Functions*.
-- Manuel Bronstein, [*Symbolic Integration Tutorial*](https://www-sop.inria.fr/cafe/Manuel.Bronstein/publications/issac98.pdf),
+- Manuel Bronstein,
+  [*Symbolic Integration Tutorial*](https://www-sop.inria.fr/cafe/Manuel.Bronstein/publications/issac98.pdf),
   ISSAC 1998.
-- Manuel Bronstein, [*The Lazy Hermite Reduction*](https://inria.hal.science/inria-00073121),
+- Manuel Bronstein,
+  [*The Lazy Hermite Reduction*](https://inria.hal.science/inria-00073121),
   INRIA RR-3562, 1998.
 - Robert Risch, *The Problem of Integration in Finite Terms*.
 - Daniel Lazard and Renaud Rioboo, *Integration of Rational Functions:
