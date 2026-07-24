@@ -515,13 +515,15 @@ def integrate_elementary(
     Implemented tower levels are:
 
     * the standard rational base ``QQ(x)`` with ``Dx = 1``;
-    * one primitive, hyperexponential, or hypertangent level over that base;
+    * recursively stacked primitive levels over that base;
+    * one hyperexponential or hypertangent level directly over that base;
     * a general nonlinear level when absence of special polynomials is
       recorded on its :class:`~sympy_risch.tower.MonomialExtension`.
 
-    The last case can recurse through already supported lower levels.  Other
-    nested transcendental levels still require Risch differential equations
-    over a general lower differential field and are rejected explicitly.
+    The nonlinear no-special case can also recurse through already supported
+    lower levels.  Nested hyperexponential and hypertangent levels still
+    require Risch differential equations over a general lower differential
+    field and are rejected explicitly.
     """
     field = derivation.field
     element = _coerce(field, integrand)
