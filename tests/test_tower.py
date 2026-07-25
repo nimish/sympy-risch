@@ -3,10 +3,11 @@ from dataclasses import FrozenInstanceError
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, cancel, diff, symbols
-from sympy.polys.domains import GF, QQ, ZZ
+from sympy import Poly, cancel, diff, sqrt, symbols
+from sympy.polys.domains import GF, QQ, QQ_I, ZZ
 
 from sympy_risch import (
+    AlgebraicExtension,
     ConstantFieldStatus,
     Derivation,
     DifferentialTower,
@@ -134,6 +135,37 @@ def test_monomial_extension_rejects_a_generator_already_in_parent() -> None:
         MonomialExtension(Poly(1, x, domain=kxt))
 
 
+def test_algebraic_parent_compositions_fail_at_the_documented_boundary() -> None:
+    algebraic_generator, nested_generator = symbols("y z")
+    base = rational_tower()
+    algebraic = base.extend(
+        AlgebraicExtension(
+            Poly(
+                algebraic_generator**2 - x,
+                algebraic_generator,
+                domain=base.field(),
+            ),
+        ),
+    )
+    monomial = MonomialExtension(
+        Poly(algebraic_generator*t, t, domain=algebraic.field()),
+    )
+
+    # A proposal remains inspectable by dependency factories, but SymPy's
+    # native domain backend cannot represent a usable K(y)(t) field yet.
+    assert monomial.family is MonomialFamily.HYPEREXPONENTIAL
+    with pytest.raises(NotImplementedError, match="algebraic parent fields"):
+        algebraic.extend(monomial)
+    with pytest.raises(NotImplementedError, match="nested algebraic"):
+        AlgebraicExtension(
+            Poly(
+                nested_generator**2 - algebraic_generator,
+                nested_generator,
+                domain=algebraic.field(),
+            ),
+        )
+
+
 @pytest.mark.parametrize(
     ("derivative", "family"),
     [
@@ -150,6 +182,27 @@ def test_monomial_family_is_derived_from_the_derivative_shape(
     family,
 ) -> None:
     parent = QQ.frac_field(x)
+    extension = MonomialExtension(Poly(derivative, t, domain=parent))
+
+    assert extension.family is family
+
+
+@pytest.mark.parametrize(
+    "parent",
+    [QQ_I, QQ.algebraic_field(sqrt(2))],
+)
+@pytest.mark.parametrize(
+    ("derivative", "family"),
+    [
+        (t, MonomialFamily.HYPEREXPONENTIAL),
+        (1 + t**2, MonomialFamily.HYPERTANGENT),
+    ],
+)
+def test_monomial_family_coerces_algebraic_domain_coefficients(
+    parent,
+    derivative,
+    family,
+) -> None:
     extension = MonomialExtension(Poly(derivative, t, domain=parent))
 
     assert extension.family is family

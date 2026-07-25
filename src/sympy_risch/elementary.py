@@ -32,7 +32,7 @@ from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 from sympy.polys.rootoftools import RootSum
 
-from ._typing import FieldElement
+from ._typing import FieldElement, is_field_zero
 from .monomial import (
     BronsteinResidueReduction,
     HyperexponentialMonomialReduction,
@@ -285,7 +285,7 @@ def _monomial_logarithmic_terms(
         residue_reduction,
         reduced_function_reduction,
     )
-    if logarithmic_derivative == 0:
+    if is_field_zero(logarithmic_derivative):
         if expression != 0:
             raise ValueError(
                 "zero logarithmic derivative has a nonzero encoding"
@@ -524,22 +524,18 @@ def integrate_elementary(
 ) -> ElementaryIntegralResult:
     r"""Integrate ``integrand`` recursively in an explicit differential tower.
 
-    Implemented tower levels are:
+    Implemented tower levels are the standard rational base ``QQ(x)`` with
+    ``Dx = 1`` and any finite ordering of primitive, hyperexponential, and
+    hypertangent levels above it, provided every non-base level carries a
+    certified preserved-constants status. The nonlinear no-special branch is
+    additionally available when its required absence-of-special-polynomials
+    certificate is recorded on the
+    :class:`~sympy_risch.tower.MonomialExtension`.
 
-    * the standard rational base ``QQ(x)`` with ``Dx = 1``;
-    * recursively stacked primitive levels over that base;
-    * a hyperexponential level directly over that base, or over a primitive
-      lower tower with a rational logarithmic derivative in the top primitive
-      generator;
-    * a hypertangent level over the rational base or a recursively primitive
-      lower tower;
-    * a general nonlinear level when absence of special polynomials is
-      recorded on its :class:`~sympy_risch.tower.MonomialExtension`.
-
-    The nonlinear no-special case can also recurse through already supported
-    lower levels. Other nested hyperexponential and hypertangent shapes still
-    require unimplemented Risch differential-equation branches and are
-    rejected explicitly.
+    Algebraic levels, generalized monomials without the needed structure
+    theorem, and automatic tower discovery remain deliberately unsupported.
+    An unsupported shape raises :class:`NotImplementedError`; it is never
+    presented as a proof of non-elementarity.
     """
     field = derivation.field
     element = _coerce(field, integrand)

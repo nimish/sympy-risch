@@ -4,6 +4,8 @@ Start with the document that matches the task:
 
 - [Getting started](getting-started.md) explains the current user API with
   executable examples.
+- [Understanding solver decisions](understanding-decisions.md) explains how
+  to distinguish an answer, a proved obstruction, and an unsupported input.
 - [Architecture and roadmap](design.md) maps the implementation to the Risch
   algorithm and states the remaining boundaries.
 - [Mathematical testing contract](testing.md) defines the verification

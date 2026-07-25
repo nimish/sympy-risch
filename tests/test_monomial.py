@@ -5,10 +5,12 @@ from sympy import Poly, Rational, cancel, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicExtension,
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
     NonlinearNoSpecialStatus,
+    ReducedFunctionReduction,
     SpecialPolynomialStatus,
     bronstein_residue_criterion,
     hermite_reduce_monomial,
@@ -24,7 +26,7 @@ from sympy_risch import (
     split_normal_special,
 )
 
-x, t = symbols("x t")
+x, t, y = symbols("x t y")
 
 
 def monomial_tower(
@@ -121,6 +123,34 @@ def test_generated_exponential_decompositions_reconstruct_the_input(
     )
     assert special == Poly(t**special_multiplicity, t, domain=parent)
     assert normal*special == polynomial
+
+
+def test_reduced_function_zero_properties_use_the_native_algebraic_zero() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    parent = AlgebraicExtension(
+        Poly(y**2 - x, y, domain=base.field()),
+    ).field
+    zero = parent.zero
+    reduction = ReducedFunctionReduction(
+        Poly(0, t, domain=parent),
+        Poly(0, t, domain=parent),
+        Poly(1, t, domain=parent),
+        zero,
+        zero,
+        zero,
+        None,
+        None,
+        zero,
+        zero,
+    )
+
+    assert not reduction.has_infinity_obstruction
+    assert not reduction.needs_special_polynomial
 
 
 @given(

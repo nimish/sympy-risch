@@ -21,11 +21,9 @@ integrate_elementary(integrand, derivation) -> ElementaryIntegralResult
 It operates on a manually constructed differential tower and supports:
 
 - the standard rational base `QQ(x)` with `Dx = 1`;
-- recursively stacked primitive extensions;
-- one hyperexponential or hypertangent level directly over `QQ(x)`;
-- a hyperexponential level over a recursively primitive lower tower with a
-  rational logarithmic derivative in the top primitive generator;
-- a hypertangent level over a recursively primitive lower tower; and
+- any finite ordering of primitive, hyperexponential, and hypertangent
+  extensions over that base when every non-base level has certified preserved
+  constants; and
 - a nonlinear polynomial monomial over supported lower levels when absence of
   nonconstant special polynomials has been certified.
 
@@ -56,11 +54,11 @@ The lower-level library additionally implements:
   right-hand side are Laurent in the top generator;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
-- coupled RDEs over `QQ(x)` and recursively primitive towers, direct
-  hyperexponential Laurent-mode cancellation, and direct hypertangent
-  polynomial cancellation;
-- recursive dependency tests for hyperexponential generators over primitive
-  towers and rational dependency tests for hypertangent generators;
+- coupled RDEs throughout the certified P/E/T tower contract, including direct
+  hyperexponential Laurent-mode cancellation and hypertangent polynomial
+  cancellation;
+- checked dependency and logarithmic-relation decisions for the certified
+  P/E/T tower contract;
 - an exact result and verification contract for Bronstein's parametric
   logarithmic-derivative equation, distinguishing a proved negative result
   from an inconclusive heuristic and an unsupported field;
@@ -83,6 +81,9 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+a997149  Document mixed transcendental tower contract
+ee8c315  Complete mixed transcendental tower reductions
+e070a6c  Add Gaussian hypertangent rational RDE frontend
 300a76a  Add direct coupled cancellation recurrences
 7ad35a7  Solve coupled RDEs over primitive towers
 c77088e  Solve rational hyperexponential RDEs
@@ -434,15 +435,17 @@ condition. In the last case, the lower-field problem chooses the ratio
 recursively.
 The selected integer residual is passed back through the primitive signature
 solver, which constructs the logarithmic argument and verifies the complete
-identity. Thus the public solver is total over recursively primitive towers
-whose levels all carry certified preserved constants. General mixed
-transcendental towers still require the Chapter 9 structure-theorem machinery.
+identity. This specialized route is total over recursively primitive towers
+whose levels all carry certified preserved constants.
 
-The word *total* here is deliberately scoped. It means that every valid input
-in the stated recursively primitive domain receives either a verified witness
-or a proved obstruction. It does not mean that an intervening
-hyperexponential, hypertangent, or algebraic level is coerced into this
-algorithm; the parametric result reports `UNSUPPORTED` for such a tower.
+For a lower tower containing a hyperexponential or hypertangent level, the
+dispatcher switches to the Chapter 9 relation-system route instead of
+applying the primitive signature theorem outside its hypotheses. The relation
+compiler collects all hyperexponential special directions; a hypertangent
+lower level is first normalized through its immutable Gaussian Cayley form.
+Within the documented P/E/T contract this supplies the same
+verified-witness-or-proved-negative outcome. Algebraic and generalized
+monomial lower levels remain `UNSUPPORTED`, never negative decisions.
 
 ## Recursive elementary integration
 
@@ -479,13 +482,13 @@ The obstruction kinds currently distinguish:
 
 ### Exact-derivative dispatch
 
-`solve_exact_derivative` is complete for the supported rational, recursively
-primitive, hyperexponential, and hypertangent tower shapes. At a
+`solve_exact_derivative` is complete for the supported rational and finite
+P/E/T tower shapes. At a
 hyperexponential level it reduces every nonzero Laurent mode through
 `Dy + n*eta*y = b`; at a hypertangent level it uses the real coupled RDE for
-each conjugate Cayley pair. Those coupled equations now recurse through
-primitive lower towers. The power-zero mode is passed recursively to the lower
-exact-derivative decision.
+each conjugate Cayley pair. Those coupled equations recurse through the
+documented P/E/T lower tower. The power-zero mode is passed recursively to the
+lower exact-derivative decision.
 
 Constant normal residues and the hypertangent residue at infinity are
 logarithmic derivatives, not in-field derivatives, so they remain exactness
@@ -526,10 +529,12 @@ equations of the form
 Dy + a*y = b.
 ```
 
-The end-to-end implementation solves these equations over `QQ(x)` and over
-recursively primitive lower towers when `eta` is rational in the current
-primitive generator. Recursive radical-logarithmic and exact-derivative
-decisions first classify the proposed hyperexponential generator.
+The scalar recurrence directly handles `QQ(x)` and recursively primitive
+lower towers when `eta` is rational in the current primitive generator. The
+end-to-end P/E/T dispatcher additionally composes it with the mixed-tower
+relation and coupled-RDE fallbacks when a lower level is hyperexponential or
+hypertangent. Recursive logarithmic and exact-derivative decisions first
+classify the proposed hyperexponential generator.
 
 For a rational RDE coefficient `a`, Bronstein weak normalization constructs
 `q` such that
@@ -753,13 +758,13 @@ hyperexponential modes are compared with an independent global real
 block-matrix ansatz. That oracle neither adjoins `i` nor shares mode splitting,
 evaluation at `i`, or the real `s**2 + 1` quotient recurrence.
 
-These are terminal polynomial/Laurent decisions, not yet the complete rational
-coupled frontend over a hypertangent level. Weak normalization, normal and
-special denominator bounds, degree bounds, and paired SPDE still have to
-reduce a general rational system to these terminal shapes. Dependency analysis
-must also be extended before the elementary integrator may construct arbitrary
-hypertangent-over-hyperexponential or hypertangent-over-hypertangent towers.
-Global real branch correction remains unimplemented.
+These terminal recurrences now sit behind the rational coupled-RDE frontend:
+weak normalization, normal and special denominator bounds, degree bounds, and
+paired SPDE reduce a general rational system to the terminal shapes. The same
+immutable Cayley normalization lets hypertangent-over-hyperexponential and
+hypertangent-over-hypertangent towers use the all-level lower solver without
+changing the public real representation. The remaining boundary is algebraic
+or generalized-monomial lower fields, not nested P/E/T towers.
 
 ### Nonlinear monomials without special polynomials
 
@@ -908,8 +913,8 @@ handling before the residue-field and divisor stages.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
 - [x] Recursive elementary dispatcher.
 - [x] Recursively stacked primitive integration.
-- [x] Hyperexponential integration over the supported primitive-lower-field
-  branch.
+- [x] Hyperexponential integration throughout the certified P/E/T tower
+  contract.
 - [x] Checked primitive-extension construction with exact dependency
   witnesses and conservative unknown outcomes.
 - [x] Hyperexponential and hypertangent exact-derivative dispatch over the
@@ -921,25 +926,29 @@ handling before the residue-field and divisor stages.
 - [x] General rational hyperexponential RDEs with resultant weak
   normalization, normal and special denominator reduction, degree bounds,
   SPDE, and independent normal-denominator oracle checks.
-- [x] Coupled RDE solving over rational and recursively primitive towers,
+- [x] Coupled RDE solving throughout the certified P/E/T tower contract,
   with a direct real block-matrix oracle.
 - [x] Direct Chapter 8 hyperexponential Laurent-mode and hypertangent
   polynomial coupled cancellation, with independent global block-matrix
   comparisons.
 - [x] Hypertangent dependency analysis, reduction, exact derivatives, and
-  elementary integration over recursively primitive lower towers.
+  elementary integration throughout the certified P/E/T tower contract.
 
-### Next transcendental steps
+### Transcendental boundary
 
-- [ ] Implement paired weak normalization, normal/special denominator bounds,
-  degree bounds, and SPDE for general rational coupled systems at a
-  hypertangent level.
-- [ ] Extend radical and parametric logarithmic-derivative decisions through
-  hyperexponential and hypertangent lower levels.
-- [ ] Enable the remaining nested hyperexponential and hypertangent levels.
+The explicit P/E/T core now supports any finite ordering of primitive,
+hyperexponential, and hypertangent levels over `QQ(x)`, provided every
+non-base level has certified preserved constants. Hypertangent levels use an
+immutable Gaussian Cayley normal form internally while preserving a real
+public representation. See [mixed transcendental towers](mixed-transcendental-towers.md)
+for the precise contract and its deliberate boundaries.
+
+The remaining transcendental work is outside that normalized elementary
+P/E/T core:
+
 - [ ] Extend automatic dependence and constant-field checks to the remaining
-  monomial families.
-- [ ] Add the missing general-special-polynomial branch for nonlinear
+  generalized monomial families.
+- [ ] Add the general nonconstant-special-polynomial branch for nonlinear
   monomials.
 
 ### Algebraic integration

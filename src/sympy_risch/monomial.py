@@ -17,7 +17,7 @@ from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly, cancel, invert, resultant
 from sympy.simplify.radsimp import fraction
 
-from ._typing import FieldElement
+from ._typing import FieldElement, is_field_zero
 from .dependency import (
     analyze_hyperexponential_extension,
     analyze_hypertangent_extension,
@@ -133,13 +133,13 @@ class ReducedFunctionReduction:
     @property
     def has_infinity_obstruction(self) -> bool:
         """Whether the candidate residue at infinity is nonconstant."""
-        return self.infinity_residue_derivative != 0
+        return not is_field_zero(self.infinity_residue_derivative)
 
     @property
     def needs_special_polynomial(self) -> bool:
         """Whether logarithmic removal is blocked only by an unknown special."""
         return (
-            self.infinity_residue != 0
+            not is_field_zero(self.infinity_residue)
             and not self.has_infinity_obstruction
             and self.logarithmic_argument is None
         )
@@ -389,7 +389,9 @@ class RadicalLogarithmicDerivativeResult:
 
     ``minimal_power`` is the least positive integer ``n`` for which such a
     nonzero ``v`` exists.  The certificate is the complete rational result at
-    the base level or the primitive signature at the current level.
+    the base level or the monomial signature at the current level. Unsupported
+    recursive subproblems raise :class:`NotImplementedError` instead of
+    constructing this result, so a returned nonsolution is a proved negative.
     """
 
     derivation: Derivation
@@ -407,6 +409,11 @@ class RadicalLogarithmicDerivativeResult:
     def has_solution(self) -> bool:
         """Whether some positive integer multiple is logarithmic."""
         return self.minimal_power is not None
+
+    @property
+    def proves_no_solution(self) -> bool:
+        """Whether the completed recursive decision proves nonsolvability."""
+        return not self.has_solution
 
     @property
     def reconstructs(self) -> bool:
@@ -2492,9 +2499,11 @@ def hyperexponential_logarithmic_derivative_signature(
             lower_result.has_solution
             or lower_result.proves_no_solution
         ):
+            detail = lower_result.detail
             raise NotImplementedError(
                 "hyperexponential radical logarithmic descent requires a "
                 "complete lower parametric logarithmic-derivative decision"
+                + (f": {detail}" if detail else "")
             )
         if lower_result.has_solution:
             if (

@@ -78,6 +78,30 @@ def _domain_symbols(domain: Domain) -> set[Symbol]:
     return symbols
 
 
+def _contains_finite_extension(domain: Domain) -> bool:
+    """Whether a nested SymPy domain contains a function-field extension.
+
+    ``FiniteExtension`` represents an algebraic extension of a function
+    field in this tower model.  SymPy currently cannot faithfully form a
+    further rational-function field over one: its conversion layer loses the
+    algebraic generator.  Keep the capability check separate from
+    ``_domain_symbols`` so proposal objects can still be inspected by the
+    conservative dependency factories.
+    """
+    current: Domain | None = domain
+    while current is not None:
+        if isinstance(current, FiniteExtension):
+            return True
+        current = getattr(current, "domain", None)
+    return False
+
+
+_ALGEBRAIC_MONOMIAL_BACKEND_LIMITATION = (
+    "monomial extensions over algebraic parent fields are not yet "
+    "representable by the SymPy domain backend"
+)
+
+
 def _adjoin_transcendental(parent_field: Domain, generator: Symbol) -> Domain:
     """Adjoin a generator while keeping consecutive fraction fields flat.
 
@@ -201,6 +225,8 @@ class MonomialExtension:
     @property
     def field(self) -> Domain:
         """The rational function field ``K(t)``."""
+        if _contains_finite_extension(self.parent_field):
+            raise NotImplementedError(_ALGEBRAIC_MONOMIAL_BACKEND_LIMITATION)
         return self._field
 
     def require_preserved_constants(self, algorithm: str) -> None:
@@ -234,12 +260,14 @@ class MonomialExtension:
 
         if degree == 0:
             return MonomialFamily.PRIMITIVE
-        if degree == 1 and derivative.nth(0) == self.parent_field.zero:
+        constant = self.parent_field.convert(derivative.nth(0))
+        if degree == 1 and constant == self.parent_field.zero:
             return MonomialFamily.HYPEREXPONENTIAL
         if (
             degree == 2
-            and derivative.nth(1) == self.parent_field.zero
-            and derivative.nth(0) == derivative.nth(2)
+            and self.parent_field.convert(derivative.nth(1))
+            == self.parent_field.zero
+            and constant == self.parent_field.convert(derivative.nth(2))
         ):
             return MonomialFamily.HYPERTANGENT
         return MonomialFamily.POLYNOMIAL
@@ -345,6 +373,11 @@ class AlgebraicExtension:
             raise ValueError("the parent domain must be a field")
         if modulus.domain.characteristic() != 0:
             raise ValueError("differential towers require characteristic zero")
+        if _contains_finite_extension(modulus.domain):
+            raise NotImplementedError(
+                "nested algebraic extensions are not yet representable by "
+                "the SymPy domain backend"
+            )
         if modulus.degree() < 2:
             raise ValueError("an algebraic extension must have degree at least two")
         if modulus.domain.convert(modulus.LC()) != modulus.domain.one:

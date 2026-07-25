@@ -10,6 +10,7 @@ from sympy_risch import (
     AlgebraicExtension,
     ConstantFieldStatus,
     DifferentialTower,
+    ExactDerivativeResult,
     HyperexponentialMonomialReduction,
     HypertangentMonomialReduction,
     MonomialExtension,
@@ -665,6 +666,25 @@ def test_generic_constant_level_has_only_the_zero_derivative() -> None:
     assert not nonzero.has_solution
     assert nonzero.antiderivative is None
     assert nonzero.obstruction == QQ(3, 2)
+
+
+def test_exact_result_recognizes_zero_in_a_finite_algebraic_field() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    algebraic = base.extend(
+        AlgebraicExtension(
+            Poly(y**2 - x, y, domain=base.field()),
+        ),
+    )
+    for zero in (QQ_I.zero, algebraic.field().zero):
+        result = ExactDerivativeResult(zero, zero, None)
+
+        assert result.has_solution
+        assert result.antiderivative == zero
 
 
 def test_generic_dispatch_rejects_unimplemented_tower_families() -> None:

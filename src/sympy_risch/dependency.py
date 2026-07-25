@@ -1936,16 +1936,45 @@ def solve_parametric_logarithmic_derivative(
     field = lower_derivation.field
     element = _coerce(field, f)
 
-    if _tower_contains_hypertangent_level(lower_derivation):
+    has_hypertangent_level = _tower_contains_hypertangent_level(
+        lower_derivation,
+    )
+    has_hyperexponential_level = _tower_contains_hyperexponential_level(
+        lower_derivation,
+    )
+    if has_hypertangent_level or has_hyperexponential_level:
+        # These two witnesses do not need any structural theorem about the
+        # lower tower. In particular, an unavailable lower solver must not
+        # turn ``D(1)/1`` or ``Dtheta/theta`` into an unsupported (and later
+        # potentially negative) parametric query.
+        if element == field.zero:
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.SOLUTION,
+                n=1,
+                m=0,
+                argument=field.one,
+            )
+        if element == eta:
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.SOLUTION,
+                n=1,
+                m=1,
+                argument=field.one,
+            )
+
+    if has_hypertangent_level:
         return _solve_hypertangent_parametric_logarithmic_derivative(
             element,
             extension,
             lower_derivation,
         )
 
-    has_hyperexponential_level = _tower_contains_hyperexponential_level(
-        lower_derivation,
-    )
     if has_hyperexponential_level:
         uncertified_level = next(
             (
@@ -1969,31 +1998,6 @@ def solve_parametric_logarithmic_derivative(
                     "parametric logarithmic derivatives require "
                     "Const(K(t)) = Const(K) at every lower monomial level"
                 ),
-            )
-        # These identities are independent of the recursive field family.
-        # They also prevent an unavailable lower structure solver from
-        # turning the universal witnesses ``D(1)/1`` and
-        # ``Dtheta/theta`` into a false negative result.  Pure primitive
-        # towers retain their existing recurrence certificates below.
-        if element == field.zero:
-            return ParametricLogarithmicDerivativeResult(
-                extension,
-                lower_derivation,
-                element,
-                ParametricLogarithmicDerivativeOutcome.SOLUTION,
-                n=1,
-                m=0,
-                argument=field.one,
-            )
-        if element == eta:
-            return ParametricLogarithmicDerivativeResult(
-                extension,
-                lower_derivation,
-                element,
-                ParametricLogarithmicDerivativeOutcome.SOLUTION,
-                n=1,
-                m=1,
-                argument=field.one,
             )
         return _solve_monomial_relation_system_parametric_logarithmic_derivative(
             element,
@@ -2184,7 +2188,7 @@ def analyze_hypertangent_extension(
             if radical_result.argument is not None
             else None
         )
-        if minimal_power is None:
+        if radical_result.proves_no_solution:
             kind = HyperexponentialDependencyKind.TRANSCENDENTAL
         elif minimal_power == 1:
             kind = HyperexponentialDependencyKind.RATIONAL
@@ -2324,7 +2328,7 @@ def analyze_hyperexponential_extension(
     )
     minimal_power = radical_result.minimal_power
     relation_argument = None
-    if minimal_power is None:
+    if radical_result.proves_no_solution:
         kind = HyperexponentialDependencyKind.TRANSCENDENTAL
     elif minimal_power == 1:
         kind = HyperexponentialDependencyKind.RATIONAL

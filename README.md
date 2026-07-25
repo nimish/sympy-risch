@@ -5,10 +5,10 @@ Risch algorithm built directly on SymPy's exact domains. It is not yet a
 drop-in replacement for `sympy.integrate`: callers currently construct the
 differential tower explicitly.
 
-The implemented end-to-end dispatcher handles rational functions, recursively
-stacked primitive extensions, direct hyperexponential and hypertangent
-extensions over `QQ(x)`, a hypertangent extension over recursively primitive
-lower towers, and the supported hyperexponential-over-primitive branch.
+The implemented end-to-end dispatcher handles rational functions and explicit
+finite towers of primitive, hyperexponential, and hypertangent extensions
+over `QQ(x)`, in any order when their constant fields have been certified as
+preserved.
 Lower-level modules also provide
 recursive radical and parametric logarithmic-derivative decisions over
 primitive towers, primitive RDE weak normalization and cancellation,
@@ -87,8 +87,12 @@ non-elementarity obstructions, and the supported tower shapes.
 
 - [Getting started](docs/getting-started.md): construct towers, integrate, and
   interpret results.
+- [Understanding solver decisions](docs/understanding-decisions.md): tell a
+  constructive answer from a proved obstruction or an unsupported input.
 - [Architecture and roadmap](docs/design.md): mathematical design, implemented
   algorithms, and remaining work.
+- [Mixed transcendental towers](docs/mixed-transcendental-towers.md): the
+  explicit P/E/T tower contract.
 - [Testing contract](docs/testing.md): correctness criteria and test commands.
 - [Tutoring notes](docs/tutoring-notes.md): a guided introduction to the
   mathematics.

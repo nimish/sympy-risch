@@ -9,7 +9,7 @@ from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly
 
-from ._typing import FieldElement
+from ._typing import FieldElement, is_field_zero
 from .monomial import (
     HyperexponentialMonomialReduction,
     HypertangentMonomialReduction,
@@ -75,7 +75,7 @@ class ExactDerivativeResult:
     @property
     def has_solution(self) -> bool:
         """Whether the input is a derivative in the current field."""
-        return self.obstruction == 0
+        return is_field_zero(self.obstruction)
 
     @property
     def antiderivative(self) -> FieldElement | None:

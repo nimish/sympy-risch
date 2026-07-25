@@ -304,11 +304,14 @@ either:
 2. removes each leading power of the primitive generator by recursively
    solving `D(s) + a*s = lc(b)` in the lower field.
 
-This works through recursively primitive lower towers. Coefficients with poles
-in the current primitive generator are weakly normalized before
-normal-denominator reduction. Positive-integer logarithmic residues are
-removed by an exact change of unknown; other residues remain in the normalized
-equation and are handled by the denominator, degree-bound, and SPDE stages.
+This primitive recurrence is the specialized lower-field route. In the wider
+supported P/E/T contract, the RDE dispatcher uses the corresponding
+hyperexponential or hypertangent reductions and coupled-RDE fallback when a
+lower level is not primitive. Coefficients with poles in the current primitive
+generator are weakly normalized before normal-denominator reduction.
+Positive-integer logarithmic residues are removed by an exact change of
+unknown; other residues remain in the normalized equation and are handled by
+the denominator, degree-bound, and SPDE stages.
 
 At a hyperexponential level `K(t)` with `Dt = eta*t`, the RDE dispatcher
 completely handles Laurent coefficients and right-hand sides. A lower-field
@@ -376,8 +379,9 @@ assert result.certificate.special_denominator_power == 2
 
 The certificate records the weak normalizer, normal denominator bound,
 special power bound, polynomial degree bound, terminal Laurent result, and
-any failed SPDE division. This path works over the recursively primitive lower
-fields supported by the logarithmic-derivative decision.
+any failed SPDE division. The P/E/T dispatcher composes this path with the
+appropriate lower-level solver; see [mixed transcendental towers]
+(mixed-transcendental-towers.md) for the exact supported scope.
 
 For example, let `t = log(x)` and adjoin a formal hyperexponential `u` with
 
@@ -498,10 +502,11 @@ assert coupled.imaginary_solution == Poly(
 assert coupled.reconstructs
 ```
 
-This is a complete decision for the stated Laurent and polynomial terminal
-shapes. General rational coupled systems over a hypertangent generator still
-need paired weak normalization, denominator reduction, degree bounds, and
-SPDE before they can terminate here.
+This is the terminal recurrence used by the complete rational coupled-RDE
+frontend. That frontend performs paired weak normalization, denominator
+reduction, degree bounds, and SPDE before reaching this stage. It also uses
+the immutable all-level Cayley normalization needed for nested hypertangent
+levels.
 
 ## Test a parametric logarithmic derivative
 
@@ -598,9 +603,9 @@ residue not proportional to `Dp`, and an obstruction inherited from
 
 `solve_radical_logarithmic_derivative(f, derivation)` is the uniform entry
 point. It returns the minimal positive integer `n` and an argument `v`
-satisfying `n*f = D(v)/v`, whether `derivation` is on `QQ(x)` or at the top of
-a recursively primitive tower. Its immutable certificate retains the rational
-result or complete primitive signature from the current level.
+satisfying `n*f = D(v)/v` throughout the documented P/E/T tower contract.
+Its immutable certificate retains the rational result, a complete primitive
+signature, or the mixed-tower relation data appropriate to the current level.
 
 For an additional primitive level with `Du = 1/(x*t)`, the same entry point
 combines residue denominators from every level:
@@ -646,9 +651,11 @@ assert decision.argument == log_x.field().from_sympy(t)
 assert decision.reconstructs
 ```
 
-This decision is complete over recursively primitive towers when every
-primitive level carries a `PRESERVED` constant-field certificate. Other mixed
-transcendental lower towers still need the general structure-theorem solver.
+The primitive signature route is complete over recursively primitive towers
+when every primitive level carries a `PRESERVED` constant-field certificate.
+For mixed P/E/T lower towers the public parametric solver automatically uses
+the general relation-system route; algebraic and other unsupported lower
+families remain explicit `UNSUPPORTED` outcomes.
 
 ## Compute finite residues of an algebraic differential
 
@@ -706,29 +713,32 @@ General nonlinear monomial reduction has a similar explicit
 established that the level has no nonconstant irreducible polynomial `p` with
 `p` dividing `Dp`.
 
+The current SymPy domain backend cannot yet represent a monomial extension
+above a function-field `AlgebraicExtension`, or a nested
+`AlgebraicExtension`. The library therefore rejects those tower compositions
+immediately with `NotImplementedError`, rather than constructing a tower that
+would fail later during coefficient coercion. This is a backend representation
+boundary, not a mathematical claim about the integral.
+
 ## Current coverage
 
 | Tower shape or operation | Status |
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
-| Recursively stacked primitive levels | End-to-end for the implemented reduction |
-| One hyperexponential level over `QQ(x)` | End-to-end |
-| Hyperexponential over a recursive primitive tower, with rational logarithmic derivative | End-to-end |
-| Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision over recursively supported lower fields |
-| One hypertangent level over `QQ(x)` | End-to-end |
-| Hypertangent over a recursive primitive tower | End-to-end |
-| Coupled RDE over `QQ(x)` or a recursive primitive tower | Complete decision |
+| Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)`, in any finite order | End-to-end |
+| Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision in the explicit certified P/E/T contract |
+| Coupled RDE in the explicit certified P/E/T contract | Complete decision |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |
-| General rational coupled RDE over a hypertangent level | Not implemented |
+| General rational coupled RDE over a hypertangent level | Complete decision in the explicit certified P/E/T contract |
 | Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
-| Parametric logarithmic derivative | Complete decision over `QQ(x)` and recursive primitive towers |
-| Primitive radical logarithmic signature | Recursive low-level API over primitive towers |
+| Radical and parametric logarithmic derivatives in the supported P/E/T tower contract | Complete decision with explicit unsupported outcomes outside that contract |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic levels in `integrate_elementary` | Not implemented |
-| Hypertangent over hyperexponential or hypertangent lower levels | Not implemented |
+| Monomial above a function-field algebraic level, or nested algebraic level | Explicitly rejected by the current SymPy domain backend |
+| Hypertangent over hyperexponential or hypertangent lower levels | End-to-end in the explicit certified P/E/T contract |
 | Automatic tower discovery and back-substitution | Not implemented |
 | Complete global real branch management | Not implemented |
 
@@ -754,6 +764,10 @@ These functions return structured immutable results rather than only a printed
 antiderivative. Their dataclass fields are the executable reduction
 certificates used by the test suite. Consult the function docstrings and the
 corresponding focused test file for preconditions and exact postconditions.
+
+For a plain-language guide to interpreting success, a mathematical
+non-elementarity certificate, and an unsupported input, see
+[Understanding solver decisions](understanding-decisions.md).
 
 See the [architecture and roadmap](design.md) for the algorithms behind these
 boundaries and the planned path toward the full algebraic cases.

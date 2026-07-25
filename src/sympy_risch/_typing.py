@@ -44,3 +44,18 @@ class FieldElement(Protocol):
     def __pow__(self, exponent: int, /) -> FieldElement: ...
 
     def __neg__(self) -> FieldElement: ...
+
+
+def is_field_zero(value: FieldElement) -> bool:
+    """Return whether an exact native field element is zero.
+
+    Do not compare a :class:`FieldElement` directly with the Python integer
+    ``0``.  SymPy's fraction-field and finite-extension elements intentionally
+    need not compare equal to an integer from a different domain.  Subtracting
+    an element from itself instead constructs zero in its own native domain.
+
+    Callers that already have the owning ``Domain`` can equivalently compare
+    against ``field.zero``.  This helper is for small result objects that
+    retain elements but not their domain.
+    """
+    return value == value - value
