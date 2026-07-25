@@ -25,6 +25,7 @@ from .rational import (
 from .tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 
 if TYPE_CHECKING:
+    from .dependency import ParametricLogarithmicDerivativeResult
     from .exact import ExactDerivativeResult
     from .monomial import RadicalLogarithmicDerivativeResult
 
@@ -69,6 +70,15 @@ class HyperexponentialLaurentRDEObstruction(Enum):
     """Why a Laurent RDE fails at a hyperexponential level."""
 
     LOWER_FIELD = "lower_field"
+    NONZERO_REMAINDER = "nonzero_remainder"
+
+
+class HyperexponentialLaurentRDEDirection(Enum):
+    """Direction used by a hyperexponential Laurent recurrence."""
+
+    DIAGONAL = "diagonal"
+    DESCENDING = "descending"
+    ASCENDING = "ascending"
 
 
 class CoupledRDEObstruction(Enum):
@@ -339,20 +349,38 @@ class HyperexponentialLaurentRDEStep:
 
 
 @dataclass(frozen=True, slots=True)
+class HyperexponentialLaurentRDECorrection:
+    r"""One forced leading or trailing Laurent correction.
+
+    ``correction`` is ``coefficient*t**power``. The stored residuals satisfy
+
+    ``residual_after = residual_before - D(correction) - a*correction``.
+    """
+
+    power: int
+    coefficient: FieldElement
+    correction: FieldElement
+    residual_before: FieldElement
+    residual_after: FieldElement
+
+
+@dataclass(frozen=True, slots=True)
 class HyperexponentialLaurentRischDifferentialEquationResult:
     r"""Certified RDE result for the Laurent branch of ``K(t)``.
 
-    The coefficient must belong to ``K`` and the right-hand side to
-    ``K[t, t**-1]``.  With ``Dt = eta*t``, differentiation preserves each
-    Laurent mode, so the problem is exactly the finite collection of
-    lower-field equations retained in ``steps``.
+    The coefficient and right-hand side belong to ``K[t, t**-1]``. With
+    ``Dt = eta*t``, ``minimum_power_bound`` and ``maximum_power_bound`` are
+    Bronstein's valuation bounds at zero and infinity. A nonconstant
+    coefficient then forces the leading or trailing corrections retained in
+    ``corrections``. A coefficient in ``K`` preserves every Laurent mode, so
+    ``steps`` instead retains the resulting lower-field equations.
 
     These restrictions also make the decision complete for rational
     solutions in ``K(t)``: a normal finite pole of a solution would acquire
     one additional order under differentiation, while multiplication by the
-    lower-field coefficient would not.  It therefore could not cancel
-    against a Laurent right-hand side.  The only possible top-level poles are
-    powers of the special generator ``t``.
+    Laurent coefficient would not introduce that normal factor. It therefore
+    could not cancel against a Laurent right-hand side. The only possible
+    top-level poles are powers of the special generator ``t``.
     """
 
     coefficient: FieldElement
@@ -363,6 +391,16 @@ class HyperexponentialLaurentRischDifferentialEquationResult:
     partial_solution: FieldElement
     residual: FieldElement
     steps: tuple[HyperexponentialLaurentRDEStep, ...]
+    minimum_power_bound: int | None = None
+    maximum_power_bound: int | None = None
+    direction: HyperexponentialLaurentRDEDirection = (
+        HyperexponentialLaurentRDEDirection.DIAGONAL
+    )
+    corrections: tuple[HyperexponentialLaurentRDECorrection, ...] = ()
+    boundary_logarithmic_result: (
+        ParametricLogarithmicDerivativeResult | None
+    ) = None
+    exceptional_power: int | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -375,6 +413,14 @@ class HyperexponentialLaurentRischDifferentialEquationResult:
         return (
             self.obstruction
             is HyperexponentialLaurentRDEObstruction.LOWER_FIELD
+        )
+
+    @property
+    def has_nonzero_remainder_obstruction(self) -> bool:
+        """Whether forced recurrence leaves an uncancellable residual."""
+        return (
+            self.obstruction
+            is HyperexponentialLaurentRDEObstruction.NONZERO_REMAINDER
         )
 
     @property
@@ -2357,49 +2403,21 @@ def _hyperexponential_laurent_rde_extension(
     return extension
 
 
-def _lower_hyperexponential_rde_coefficient(
-    coefficient: object,
-    extension: MonomialExtension,
-) -> tuple[FieldElement, FieldElement]:
-    """Return a top-field coefficient and prove that it belongs to ``K``."""
-    element, numerator, denominator = _as_primitive_fraction(
-        coefficient,
-        extension,
-    )
-    if (
-        (not numerator.is_zero and numerator.degree() > 0)
-        or denominator.degree() > 0
-    ):
-        raise NotImplementedError(
-            "the hyperexponential Laurent RDE coefficient must belong to "
-            "the lower field"
-        )
-    parent = extension.parent_field
-    lower_coefficient = (
-        parent.convert(numerator.nth(0))
-        / parent.convert(denominator.nth(0))
-    )
-    if _coerce(extension.field, lower_coefficient) != element:
-        raise ValueError(
-            "hyperexponential lower-field coefficient normalization failed"
-        )
-    return element, lower_coefficient
-
-
 def _hyperexponential_laurent_coefficients(
-    right_hand_side: object,
+    value: object,
     extension: MonomialExtension,
+    role: str,
 ) -> tuple[FieldElement, dict[int, FieldElement]]:
     """Return the finite Laurent expansion of a top-field element."""
     element, numerator, denominator = _as_primitive_fraction(
-        right_hand_side,
+        value,
         extension,
     )
     denominator_terms = denominator.terms()
     if len(denominator_terms) != 1:
         raise NotImplementedError(
-            "the hyperexponential Laurent RDE right-hand side must be a "
-            "Laurent polynomial in the top generator"
+            f"the hyperexponential Laurent RDE {role} must be a Laurent "
+            "polynomial in the top generator"
         )
     (denominator_power,), denominator_coefficient = denominator_terms[0]
     parent = extension.parent_field
@@ -2414,39 +2432,128 @@ def _hyperexponential_laurent_coefficients(
     return element, coefficients
 
 
-def solve_hyperexponential_laurent_risch_differential_equation(
-    coefficient: object,
-    right_hand_side: object,
-    derivation: Derivation,
-) -> HyperexponentialLaurentRischDifferentialEquationResult:
-    r"""Decide ``D(y) + a*y = b`` in the Laurent branch of ``K(t)``.
+def _hyperexponential_laurent_term(
+    coefficient: FieldElement,
+    power: int,
+    extension: MonomialExtension,
+) -> FieldElement:
+    """Embed one lower-field Laurent term in the top field."""
+    return _coerce(
+        extension.field,
+        extension.parent_field.to_sympy(coefficient)
+        * extension.generator**power,
+    )
 
-    This is Bronstein's diagonal special-polynomial recurrence for
-    ``Dt = eta*t``, restricted to ``a in K`` and
-    ``b in K[t, t**-1]``.  Writing ``y = sum(y_j*t**j)`` gives the independent
-    lower-field equations
 
-    ``D(y_j) + (a + j*eta)*y_j = b_j``.
+def _hyperexponential_boundary_power(
+    constant_coefficient: FieldElement,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> tuple[ParametricLogarithmicDerivativeResult, int | None]:
+    r"""Decide ``-a_0 = m*eta + D(v)/v`` for an ordinary integer ``m``."""
+    from .dependency import solve_parametric_logarithmic_derivative
 
-    The result retains every recursive lower-field certificate.  Successful
-    modes form ``partial_solution`` and failed modes form ``residual``, with
+    result = solve_parametric_logarithmic_derivative(
+        -constant_coefficient,
+        extension,
+        lower_derivation,
+    )
+    if result.is_unsupported or result.is_inconclusive:
+        raise NotImplementedError(
+            "hyperexponential Laurent support bounds require a complete "
+            "parametric logarithmic-derivative decision in the lower field"
+        )
+    if result.has_solution and result.n == 1:
+        if result.m is None:
+            raise ValueError(
+                "a solved boundary relation lacks its integer power"
+            )
+        return result, result.m
+    return result, None
 
-    ``b = D(partial_solution) + a*partial_solution + residual``.
+
+def _hyperexponential_laurent_support_bounds(
+    coefficient: dict[int, FieldElement],
+    right_hand_side: dict[int, FieldElement],
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> tuple[
+    int,
+    int,
+    ParametricLogarithmicDerivativeResult | None,
+    int | None,
+]:
+    r"""Apply Bronstein's valuations at ``t=0`` and ``t=infinity``.
+
+    This is the standardized ``D(y) + a*y = b`` specialization of Sections
+    6.2 and 6.3. The returned interval contains the Laurent support of every
+    solution. Equality is forced at an edge where multiplication by a
+    nonzero power of ``t`` dominates differentiation.
     """
-    extension = _hyperexponential_laurent_rde_extension(derivation)
+    if not coefficient or not right_hand_side:
+        raise ValueError("Laurent support bounds require nonzero inputs")
+
+    minimum_coefficient_power = min(coefficient)
+    maximum_coefficient_power = max(coefficient)
+    minimum_rhs_power = min(right_hand_side)
+    maximum_rhs_power = max(right_hand_side)
+    boundary_result = None
+    exceptional_power = None
+
+    if minimum_coefficient_power == 0 or maximum_coefficient_power == 0:
+        boundary_result, exceptional_power = (
+            _hyperexponential_boundary_power(
+                coefficient[0],
+                extension,
+                lower_derivation,
+            )
+        )
+
+    if minimum_coefficient_power < 0:
+        minimum_solution_power = min(
+            0,
+            minimum_rhs_power - minimum_coefficient_power,
+        )
+    elif minimum_coefficient_power > 0:
+        minimum_solution_power = min(0, minimum_rhs_power)
+    else:
+        candidates = [0, minimum_rhs_power]
+        if exceptional_power is not None:
+            candidates.append(exceptional_power)
+        minimum_solution_power = min(candidates)
+
+    if maximum_coefficient_power > 0:
+        maximum_solution_power = max(
+            0,
+            maximum_rhs_power - maximum_coefficient_power,
+        )
+    elif maximum_coefficient_power < 0:
+        maximum_solution_power = max(0, maximum_rhs_power)
+    else:
+        candidates = [0, maximum_rhs_power]
+        if exceptional_power is not None:
+            candidates.append(exceptional_power)
+        maximum_solution_power = max(candidates)
+
+    return (
+        minimum_solution_power,
+        maximum_solution_power,
+        boundary_result,
+        exceptional_power,
+    )
+
+
+def _solve_hyperexponential_diagonal_laurent_rde(
+    coefficient_element: FieldElement,
+    lower_coefficient: FieldElement,
+    rhs_element: FieldElement,
+    coefficients: dict[int, FieldElement],
+    derivation: Derivation,
+    extension: MonomialExtension,
+) -> HyperexponentialLaurentRischDifferentialEquationResult:
+    """Solve the diagonal ``a in K`` base case mode by mode."""
     field = extension.field
     parent = extension.parent_field
-    generator = extension.generator
-    coefficient_element, lower_coefficient = (
-        _lower_hyperexponential_rde_coefficient(
-            coefficient,
-            extension,
-        )
-    )
-    rhs_element, coefficients = _hyperexponential_laurent_coefficients(
-        right_hand_side,
-        extension,
-    )
     eta = parent.convert(extension.generator_derivative.nth(1))
     lower_derivation = derivation.lower()
     partial_solution = field.zero
@@ -2464,16 +2571,18 @@ def solve_hyperexponential_laurent_risch_differential_equation(
             lower_derivation,
         )
         solution_coefficient = lower_result.solution
-        term = _coerce(
-            field,
-            parent.to_sympy(rhs_coefficient)*generator**power,
+        term = _hyperexponential_laurent_term(
+            rhs_coefficient,
+            power,
+            extension,
         )
         if solution_coefficient is None:
             residual += term
         else:
-            partial_solution += _coerce(
-                field,
-                parent.to_sympy(solution_coefficient)*generator**power,
+            partial_solution += _hyperexponential_laurent_term(
+                solution_coefficient,
+                power,
+                extension,
             )
         steps.append(
             HyperexponentialLaurentRDEStep(
@@ -2492,9 +2601,10 @@ def solve_hyperexponential_laurent_risch_differential_equation(
         != rhs_element
     ):
         raise ValueError(
-            "hyperexponential Laurent RDE decomposition failed to reconstruct"
+            "hyperexponential diagonal RDE decomposition failed to reconstruct"
         )
     has_obstruction = residual != field.zero
+    powers = tuple(coefficients)
     return HyperexponentialLaurentRischDifferentialEquationResult(
         coefficient_element,
         rhs_element,
@@ -2508,6 +2618,209 @@ def solve_hyperexponential_laurent_risch_differential_equation(
         partial_solution,
         residual,
         tuple(steps),
+        min(powers) if powers else 0,
+        max(powers) if powers else 0,
+    )
+
+
+def solve_hyperexponential_laurent_risch_differential_equation(
+    coefficient: object,
+    right_hand_side: object,
+    derivation: Derivation,
+) -> HyperexponentialLaurentRischDifferentialEquationResult:
+    r"""Decide ``D(y) + a*y = b`` in the Laurent branch of ``K(t)``.
+
+    Both ``a`` and ``b`` may be Laurent polynomials. Bronstein's valuations
+    at zero and infinity first bound the support of every solution. If ``a``
+    has a positive highest power, its leading product term forces corrections
+    downward. Otherwise a negative lowest power forces corrections upward.
+    The terminal ``a in K`` case is diagonal and recursively solves
+
+    ``D(y_j) + (a + j*eta)*y_j = b_j``.
+
+    Every exit retains ``partial_solution`` and ``residual`` satisfying
+
+    ``b = D(partial_solution) + a*partial_solution + residual``.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    field = extension.field
+    parent = extension.parent_field
+    coefficient_element, coefficient_terms = (
+        _hyperexponential_laurent_coefficients(
+            coefficient,
+            extension,
+            "coefficient",
+        )
+    )
+    rhs_element, coefficients = _hyperexponential_laurent_coefficients(
+        right_hand_side,
+        extension,
+        "right-hand side",
+    )
+    eta = parent.convert(extension.generator_derivative.nth(1))
+    if not coefficients:
+        return HyperexponentialLaurentRischDifferentialEquationResult(
+            coefficient_element,
+            rhs_element,
+            eta,
+            field.zero,
+            None,
+            field.zero,
+            field.zero,
+            (),
+            0,
+            0,
+        )
+
+    if not coefficient_terms or set(coefficient_terms) == {0}:
+        return _solve_hyperexponential_diagonal_laurent_rde(
+            coefficient_element,
+            coefficient_terms.get(0, parent.zero),
+            rhs_element,
+            coefficients,
+            derivation,
+            extension,
+        )
+
+    (
+        minimum_power_bound,
+        maximum_power_bound,
+        boundary_result,
+        exceptional_power,
+    ) = _hyperexponential_laurent_support_bounds(
+        coefficient_terms,
+        coefficients,
+        extension,
+        derivation.lower(),
+    )
+    partial_solution = field.zero
+    residual = rhs_element
+    corrections: list[HyperexponentialLaurentRDECorrection] = []
+    if minimum_power_bound > maximum_power_bound:
+        raise ValueError(
+            "hyperexponential Laurent support bounds are inconsistent"
+        )
+
+    maximum_coefficient_power = max(coefficient_terms)
+    minimum_coefficient_power = min(coefficient_terms)
+    if maximum_coefficient_power > 0:
+        direction = HyperexponentialLaurentRDEDirection.DESCENDING
+        active_bound = maximum_power_bound
+        edge_power = maximum_coefficient_power
+        edge_coefficient = coefficient_terms[edge_power]
+    else:
+        direction = HyperexponentialLaurentRDEDirection.ASCENDING
+        active_bound = minimum_power_bound
+        edge_power = minimum_coefficient_power
+        edge_coefficient = coefficient_terms[edge_power]
+
+    while residual != field.zero:
+        _, residual_terms = _hyperexponential_laurent_coefficients(
+            residual,
+            extension,
+            "recurrence residual",
+        )
+        if not residual_terms:
+            raise ValueError("a nonzero Laurent residual has no terms")
+        if direction is HyperexponentialLaurentRDEDirection.DESCENDING:
+            residual_edge_power = max(residual_terms)
+            correction_power = residual_edge_power - edge_power
+            inside_support = (
+                minimum_power_bound
+                <= correction_power
+                <= active_bound
+            )
+        else:
+            residual_edge_power = min(residual_terms)
+            correction_power = residual_edge_power - edge_power
+            inside_support = (
+                active_bound
+                <= correction_power
+                <= maximum_power_bound
+            )
+        if not inside_support:
+            break
+
+        correction_coefficient = (
+            residual_terms[residual_edge_power]/edge_coefficient
+        )
+        correction = _hyperexponential_laurent_term(
+            correction_coefficient,
+            correction_power,
+            extension,
+        )
+        new_residual = (
+            residual
+            - derivation(correction)
+            - coefficient_element*correction
+        )
+        if new_residual != field.zero:
+            _, new_terms = _hyperexponential_laurent_coefficients(
+                new_residual,
+                extension,
+                "recurrence residual",
+            )
+            if (
+                direction
+                is HyperexponentialLaurentRDEDirection.DESCENDING
+                and max(new_terms) >= residual_edge_power
+            ):
+                raise ValueError(
+                    "descending Laurent RDE recurrence did not lower degree"
+                )
+            if (
+                direction
+                is HyperexponentialLaurentRDEDirection.ASCENDING
+                and min(new_terms) <= residual_edge_power
+            ):
+                raise ValueError(
+                    "ascending Laurent RDE recurrence did not raise valuation"
+                )
+        corrections.append(
+            HyperexponentialLaurentRDECorrection(
+                correction_power,
+                correction_coefficient,
+                correction,
+                residual,
+                new_residual,
+            )
+        )
+        partial_solution += correction
+        residual = new_residual
+        if direction is HyperexponentialLaurentRDEDirection.DESCENDING:
+            active_bound = correction_power - 1
+        else:
+            active_bound = correction_power + 1
+
+    if (
+        derivation(partial_solution)
+        + coefficient_element*partial_solution
+        + residual
+        != rhs_element
+    ):
+        raise ValueError(
+            "hyperexponential Laurent RDE decomposition failed to reconstruct"
+        )
+    has_obstruction = residual != field.zero
+    return HyperexponentialLaurentRischDifferentialEquationResult(
+        coefficient_element,
+        rhs_element,
+        eta,
+        None if has_obstruction else partial_solution,
+        (
+            HyperexponentialLaurentRDEObstruction.NONZERO_REMAINDER
+            if has_obstruction
+            else None
+        ),
+        partial_solution,
+        residual,
+        (),
+        minimum_power_bound,
+        maximum_power_bound,
+        direction,
+        tuple(corrections),
+        boundary_result,
+        exceptional_power,
     )
 
 

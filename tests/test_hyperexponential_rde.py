@@ -1,7 +1,7 @@
 """Risch differential equations in a hyperexponential Laurent branch."""
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
@@ -10,6 +10,7 @@ from sympy_risch import (
     BoundedHyperexponentialLaurentRDEMatrixResult,
     ConstantFieldStatus,
     DifferentialTower,
+    HyperexponentialLaurentRDEDirection,
     HyperexponentialLaurentRDEObstruction,
     HyperexponentialLaurentRischDifferentialEquationResult,
     MonomialExtension,
@@ -177,17 +178,260 @@ def test_dispatch_recurses_through_two_hyperexponential_levels() -> None:
     )
 
 
-def test_top_dependent_coefficient_is_explicitly_outside_this_checkpoint() -> None:
+def test_positive_laurent_coefficient_forces_descending_corrections() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+
+    result = solve_risch_differential_equation(
+        field.from_sympy(t),
+        field.from_sympy(t),
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == field.one
+    certificate = result.certificate
+    assert (
+        certificate.direction
+        is HyperexponentialLaurentRDEDirection.DESCENDING
+    )
+    assert certificate.minimum_power_bound == 0
+    assert certificate.maximum_power_bound == 0
+    assert [step.power for step in certificate.corrections] == [0]
+    assert all(
+        step.residual_after
+        == step.residual_before
+        - derivation(step.correction)
+        - certificate.coefficient*step.correction
+        for step in certificate.corrections
+    )
+
+
+def test_negative_laurent_coefficient_forces_ascending_corrections() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+
+    result = solve_risch_differential_equation(
+        field.from_sympy(1/t),
+        field.from_sympy(t + 1),
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution == field.from_sympy(t)
+    certificate = result.certificate
+    assert (
+        certificate.direction
+        is HyperexponentialLaurentRDEDirection.ASCENDING
+    )
+    assert certificate.minimum_power_bound == 0
+    assert certificate.maximum_power_bound == 1
+    assert [step.power for step in certificate.corrections] == [1]
+
+
+def test_two_sided_laurent_coefficient_uses_both_support_bounds() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(t**2 + 2/t)
+    planted = field.from_sympy((x + 1)/t**2 + x + (x - 1)*t)
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    result = solve_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.reconstructs
+    assert result.certificate.minimum_power_bound == -2
+    assert result.certificate.maximum_power_bound == 1
+
+
+def test_high_degree_two_sided_recurrence_reconstructs_exactly() -> None:
+    tower = exponential_tower(eta=x + 1)
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(2*t**7 + 3*t**2 + t**-4)
+    planted = field.from_sympy(
+        (x + 1)/t**6 + (x - 2)/t + (x**2 + 1)*t**3 + x*t**8
+    )
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    result = solve_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.reconstructs
+    assert result.certificate.minimum_power_bound == -6
+    assert result.certificate.maximum_power_bound == 8
+    assert [step.power for step in result.certificate.corrections] == [
+        8,
+        3,
+        -1,
+        -6,
+    ]
+
+
+def test_support_bound_excludes_the_forced_correction() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+
+    result = solve_risch_differential_equation(
+        field.from_sympy(t),
+        field.one,
+        tower.derivation(),
+    )
+
+    assert not result.has_solution
+    assert (
+        result.obstruction
+        is HyperexponentialLaurentRDEObstruction.NONZERO_REMAINDER
+    )
+    assert result.certificate.has_nonzero_remainder_obstruction
+    assert result.certificate.minimum_power_bound == 0
+    assert result.certificate.maximum_power_bound == 0
+    assert result.certificate.partial_solution == field.zero
+    assert result.certificate.residual == field.one
+
+
+def test_forced_recurrence_retains_an_uncancellable_remainder() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+
+    result = solve_risch_differential_equation(
+        field.from_sympy(t),
+        field.from_sympy(t + 1),
+        derivation,
+    )
+
+    assert not result.has_solution
+    certificate = result.certificate
+    assert (
+        result.obstruction
+        is HyperexponentialLaurentRDEObstruction.NONZERO_REMAINDER
+    )
+    assert certificate.has_nonzero_remainder_obstruction
+    assert certificate.partial_solution == field.one
+    assert certificate.residual == field.one
+    assert [step.power for step in certificate.corrections] == [0]
+    assert (
+        derivation(certificate.partial_solution)
+        + certificate.coefficient*certificate.partial_solution
+        + certificate.residual
+        == certificate.right_hand_side
+    )
+
+
+def test_lower_boundary_cancellation_uses_parametric_logarithmic_relation() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+
+    result = solve_risch_differential_equation(
+        field.from_sympy(t + 1),
+        field.one,
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution == field.from_sympy(1/t)
+    certificate = result.certificate
+    assert certificate.minimum_power_bound == -1
+    assert certificate.maximum_power_bound == 0
+    assert certificate.exceptional_power == -1
+    assert certificate.boundary_logarithmic_result.has_solution
+    assert certificate.boundary_logarithmic_result.n == 1
+    assert certificate.boundary_logarithmic_result.m == -1
+
+
+def test_upper_boundary_cancellation_uses_parametric_logarithmic_relation() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+
+    result = solve_risch_differential_equation(
+        field.from_sympy(1/t - 1),
+        field.one,
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution == field.from_sympy(t)
+    certificate = result.certificate
+    assert certificate.minimum_power_bound == 0
+    assert certificate.maximum_power_bound == 1
+    assert certificate.exceptional_power == 1
+    assert certificate.boundary_logarithmic_result.has_solution
+    assert certificate.boundary_logarithmic_result.n == 1
+    assert certificate.boundary_logarithmic_result.m == 1
+
+
+def test_radical_boundary_relation_is_not_an_ordinary_cancellation() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+
+    result = solve_risch_differential_equation(
+        field.from_sympy(t - 1/(2*x)),
+        field.one,
+        tower.derivation(),
+    )
+
+    assert not result.has_solution
+    certificate = result.certificate
+    assert certificate.has_nonzero_remainder_obstruction
+    assert certificate.exceptional_power is None
+    assert certificate.boundary_logarithmic_result.has_solution
+    assert certificate.boundary_logarithmic_result.n == 2
+    assert certificate.boundary_logarithmic_result.m == 0
+
+
+def test_laurent_coefficient_recurs_through_an_outer_exponential_level() -> None:
+    lower = exponential_tower()
+    tower = lower.extend(
+        MonomialExtension(
+            Poly(2*x*u, u, domain=lower.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    field = tower.field()
+    coefficient = field.from_sympy(t)
+    planted = field.from_sympy(x)
+    right_hand_side = tower.derivation()(planted) + coefficient*planted
+
+    result = solve_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.reconstructs
+    lower_result = result.certificate.steps[0].lower_field_result
+    assert (
+        lower_result.certificate.direction
+        is HyperexponentialLaurentRDEDirection.DESCENDING
+    )
+
+
+def test_normal_coefficient_is_explicitly_outside_this_checkpoint() -> None:
     tower = exponential_tower()
     field = tower.field()
 
     with pytest.raises(
         NotImplementedError,
-        match="coefficient must belong to the lower field",
+        match="coefficient must be a Laurent polynomial",
     ):
         solve_risch_differential_equation(
-            field.from_sympy(t),
-            field.from_sympy(t),
+            field.from_sympy(1/(t + 1)),
+            field.one,
             tower.derivation(),
         )
 
@@ -325,6 +569,147 @@ def test_matrix_oracle_rejects_a_zero_lower_denominator() -> None:
             0,
             0,
         )
+
+
+@given(
+    coefficient_values=st.lists(
+        st.integers(min_value=-2, max_value=2),
+        min_size=5,
+        max_size=5,
+    ),
+    rhs_values=st.lists(
+        st.integers(min_value=-2, max_value=2),
+        min_size=5,
+        max_size=5,
+    ),
+)
+@settings(max_examples=80, deadline=None)
+def test_general_laurent_recurrence_agrees_with_global_oracle(
+    coefficient_values,
+    rhs_values,
+) -> None:
+    tower = exponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient_expression = sum(
+        value*t**power
+        for power, value in zip(
+            range(-2, 3),
+            coefficient_values,
+            strict=True,
+        )
+    )
+    rhs_expression = sum(
+        value*t**power
+        for power, value in zip(
+            range(-2, 3),
+            rhs_values,
+            strict=True,
+        )
+    )
+    assume(coefficient_expression != 0)
+    assume(
+        any(
+            value
+            for power, value in zip(
+                range(-2, 3),
+                coefficient_values,
+                strict=True,
+            )
+            if power != 0
+        )
+    )
+    assume(rhs_expression != 0)
+    coefficient = field.from_sympy(coefficient_expression)
+    right_hand_side = field.from_sympy(rhs_expression)
+
+    production = solve_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+    matrix = solve_bounded_hyperexponential_laurent_rde_matrix(
+        coefficient,
+        right_hand_side,
+        derivation,
+        1,
+        0,
+        -4,
+        4,
+    )
+
+    assert production.has_solution is matrix.has_solution
+    if production.has_solution:
+        assert production.reconstructs
+        assert (
+            derivation(matrix.solution) + coefficient*matrix.solution
+            == right_hand_side
+        )
+    else:
+        assert (
+            production.obstruction
+            is HyperexponentialLaurentRDEObstruction.NONZERO_REMAINDER
+        )
+
+
+@given(
+    positive_leading=st.integers(min_value=-3, max_value=3).filter(bool),
+    negative_leading=st.integers(min_value=-3, max_value=3).filter(bool),
+    middle=st.integers(min_value=-3, max_value=3),
+    mode_coefficients=st.lists(
+        st.tuples(
+            st.integers(min_value=-3, max_value=3),
+            st.integers(min_value=-3, max_value=3),
+        ),
+        min_size=5,
+        max_size=5,
+    ),
+)
+@settings(max_examples=30, deadline=None)
+def test_generated_two_sided_laurent_solutions_match_global_oracle(
+    positive_leading,
+    negative_leading,
+    middle,
+    mode_coefficients,
+) -> None:
+    tower = exponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(
+        positive_leading*t**2 + middle*t + negative_leading/t
+    )
+    planted_expression = sum(
+        (constant + linear*x)*t**power
+        for power, (constant, linear) in zip(
+            range(-2, 3),
+            mode_coefficients,
+            strict=True,
+        )
+    )
+    assume(planted_expression != 0)
+    planted = field.from_sympy(planted_expression)
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    production = solve_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+    matrix = solve_bounded_hyperexponential_laurent_rde_matrix(
+        coefficient,
+        right_hand_side,
+        derivation,
+        1,
+        1,
+        -2,
+        2,
+    )
+
+    assert production.has_solution
+    assert production.solution == planted
+    assert production.reconstructs
+    assert matrix.has_solution
+    assert matrix.solution == planted
 
 
 @given(
