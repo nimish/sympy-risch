@@ -4,7 +4,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from sympy import Poly, cancel, diff, sqrt, symbols
-from sympy.polys.domains import GF, QQ, QQ_I, ZZ
+from sympy.polys.domains import CC, GF, QQ, QQ_I, RR, ZZ
 
 from sympy_risch import (
     AlgebraicExtension,
@@ -14,22 +14,19 @@ from sympy_risch import (
     MonomialExtension,
     MonomialFamily,
     SpecialPolynomialStatus,
+    rebase_derivation_constants,
 )
 
-x, t, u = symbols("x t u")
+x, y, z, t, u = symbols("x y z t u")
 
 
 def rational_tower() -> DifferentialTower:
-    return DifferentialTower(QQ).extend(
-        MonomialExtension(Poly(1, x, domain=QQ))
-    )
+    return DifferentialTower(QQ).extend(MonomialExtension(Poly(1, x, domain=QQ)))
 
 
 def logarithmic_tower() -> DifferentialTower:
     kx = rational_tower()
-    return kx.extend(
-        MonomialExtension(Poly(1/x, t, domain=kx.field()))
-    )
+    return kx.extend(MonomialExtension(Poly(1 / x, t, domain=kx.field())))
 
 
 def test_empty_tower_is_the_constant_field() -> None:
@@ -96,6 +93,20 @@ def test_monomial_extension_validates_its_derivative_law() -> None:
         )
 
 
+@pytest.mark.parametrize("inexact_domain", [RR, CC])
+def test_tower_boundaries_reject_inexact_domains(inexact_domain) -> None:
+    source = rational_tower().derivation()
+
+    with pytest.raises(ValueError, match="must be exact"):
+        DifferentialTower(inexact_domain)
+    with pytest.raises(ValueError, match="must be exact"):
+        MonomialExtension(Poly(1, x, domain=inexact_domain))
+    with pytest.raises(ValueError, match="must be exact"):
+        AlgebraicExtension(Poly(y**2 - x, y, domain=inexact_domain.frac_field(x)))
+    with pytest.raises(ValueError, match="must be exact"):
+        rebase_derivation_constants(source, inexact_domain)
+
+
 def test_monomial_constant_field_status_is_explicit_and_immutable() -> None:
     unknown = MonomialExtension(Poly(1, x, domain=QQ))
     preserved = MonomialExtension(
@@ -148,7 +159,7 @@ def test_algebraic_parent_compositions_fail_at_the_documented_boundary() -> None
         ),
     )
     monomial = MonomialExtension(
-        Poly(algebraic_generator*t, t, domain=algebraic.field()),
+        Poly(algebraic_generator * t, t, domain=algebraic.field()),
     )
 
     # A proposal remains inspectable by dependency factories, but SymPy's
@@ -166,12 +177,24 @@ def test_algebraic_parent_compositions_fail_at_the_documented_boundary() -> None
         )
 
 
+def test_algebraic_extension_rejects_foreign_native_elements() -> None:
+    base = rational_tower()
+    source = AlgebraicExtension(Poly(y**2 - x, y, domain=base.field()))
+    target = AlgebraicExtension(Poly(y**2 - x - 1, y, domain=base.field()))
+    target_derivation = base.extend(target).derivation()
+
+    with pytest.raises(ValueError, match="different finite algebraic extension"):
+        target_derivation(source.field.generator)
+    with pytest.raises(ValueError, match="different finite algebraic extension"):
+        target.trace(source.field.generator)
+
+
 @pytest.mark.parametrize(
     ("derivative", "family"),
     [
-        (1/x, MonomialFamily.PRIMITIVE),
-        (t/(x + 1), MonomialFamily.HYPEREXPONENTIAL),
-        ((1 + t**2)/x, MonomialFamily.HYPERTANGENT),
+        (1 / x, MonomialFamily.PRIMITIVE),
+        (t / (x + 1), MonomialFamily.HYPEREXPONENTIAL),
+        ((1 + t**2) / x, MonomialFamily.HYPERTANGENT),
         (t - 1, MonomialFamily.POLYNOMIAL),
         (1 + t + t**2, MonomialFamily.POLYNOMIAL),
         (t**3, MonomialFamily.POLYNOMIAL),
@@ -230,11 +253,11 @@ def test_recursive_polynomial_derivative() -> None:
     tower = logarithmic_tower()
     derivative = tower.derivation()
     parent = tower.field(0)
-    polynomial = Poly(t**2 + x*t, t, domain=parent)
+    polynomial = Poly(t**2 + x * t, t, domain=parent)
 
     assert derivative.coefficients(polynomial) == Poly(t, t, domain=parent)
     assert derivative.polynomial(polynomial) == Poly(
-        2*t/x + t + 1,
+        2 * t / x + t + 1,
         t,
         domain=parent,
     )
@@ -244,8 +267,8 @@ def test_recursive_fraction_derivative() -> None:
     tower = logarithmic_tower()
     derivative = tower.derivation()
     field = tower.field()
-    expression = (t**2 + x*t + 1)/(x*t + 1)
-    expected = cancel(diff(expression, x) + diff(expression, t)/x)
+    expression = (t**2 + x * t + 1) / (x * t + 1)
+    expected = cancel(diff(expression, x) + diff(expression, t) / x)
 
     result = derivative(field.from_sympy(expression))
 
@@ -254,14 +277,91 @@ def test_recursive_fraction_derivative() -> None:
 
 def test_derivation_recurses_through_three_levels() -> None:
     kxt = logarithmic_tower()
-    kxtu = kxt.extend(
-        MonomialExtension(Poly(t*u, u, domain=kxt.field()))
-    )
+    kxtu = kxt.extend(MonomialExtension(Poly(t * u, u, domain=kxt.field())))
     field = kxtu.field()
 
-    assert kxtu.derivation()(field.from_sympy(t*u)) == field.from_sympy(
-        t**2*u + u/x
+    assert kxtu.derivation()(field.from_sympy(t * u)) == field.from_sympy(
+        t**2 * u + u / x
     )
+
+
+def test_derivation_rebases_through_an_algebraic_level() -> None:
+    rational = rational_tower()
+    algebraic = AlgebraicExtension(
+        Poly(y**2 - x, y, domain=rational.field()),
+    )
+    source = rational.extend(algebraic).derivation()
+
+    rebased = rebase_derivation_constants(source, QQ_I)
+
+    assert source.tower.constants == QQ
+    assert rebased.tower.constants == QQ_I
+    assert len(rebased.tower.levels) == 2
+    rebased_extension = rebased.tower.levels[-1]
+    assert isinstance(rebased_extension, AlgebraicExtension)
+    assert rebased_extension.minimal_polynomial == Poly(
+        y**2 - x,
+        y,
+        domain=QQ_I.frac_field(x),
+    )
+    assert rebased(rebased.field.from_sympy(y)) == rebased.field.from_sympy(y / (2 * x))
+
+
+def test_derivation_rebases_a_cubic_algebraic_level_over_algebraic_constants() -> None:
+    rational = rational_tower()
+    algebraic = AlgebraicExtension(
+        Poly(y**3 - y - x, y, domain=rational.field()),
+    )
+    source = rational.extend(algebraic).derivation()
+
+    rebased = rebase_derivation_constants(
+        source,
+        QQ.algebraic_field(sqrt(2)),
+    )
+    field = rebased.field
+    generator = field.generator
+    generator_derivative = rebased(generator)
+
+    assert (
+        cancel(
+            field.to_sympy(
+                (3 * generator**2 - field.one) * generator_derivative - field.one
+            )
+        )
+        == 0
+    )
+
+
+def test_derivation_rebase_preserves_monomial_proof_metadata() -> None:
+    source = (
+        DifferentialTower(QQ)
+        .extend(
+            MonomialExtension(
+                Poly(1, x, domain=QQ),
+                ConstantFieldStatus.PRESERVED,
+                SpecialPolynomialStatus.ABSENT,
+            )
+        )
+        .derivation()
+    )
+
+    rebased = rebase_derivation_constants(source, QQ_I)
+    extension = rebased.tower.levels[0]
+
+    assert isinstance(extension, MonomialExtension)
+    assert extension.constant_field_status is ConstantFieldStatus.PRESERVED
+    assert extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT
+
+
+def test_derivation_rebase_rejects_a_smaller_constant_field() -> None:
+    source = (
+        DifferentialTower(QQ_I)
+        .extend(MonomialExtension(Poly(1, x, domain=QQ_I)))
+        .derivation()
+    )
+
+    with pytest.raises(ValueError, match="must contain"):
+        rebase_derivation_constants(source, QQ)
 
 
 def test_fraction_helper_uses_the_same_quotient_rule() -> None:
@@ -269,19 +369,19 @@ def test_fraction_helper_uses_the_same_quotient_rule() -> None:
     derivative = tower.derivation()
     parent = tower.field(0)
     numerator = Poly(t**2 + x, t, domain=parent)
-    denominator = Poly(x*t + 1, t, domain=parent)
+    denominator = Poly(x * t + 1, t, domain=parent)
 
     result = derivative.fraction(numerator, denominator)
-    expected = derivative(tower.field().from_sympy((t**2 + x)/(x*t + 1)))
+    expected = derivative(tower.field().from_sympy((t**2 + x) / (x * t + 1)))
 
     assert result == expected
 
 
 def test_nested_ground_field_element_is_embedded_exactly() -> None:
     tower = logarithmic_tower()
-    parent_element = tower.field(0).from_sympy(1/x)
+    parent_element = tower.field(0).from_sympy(1 / x)
 
-    assert tower.derivation()(parent_element) == tower.field().from_sympy(-1/x**2)
+    assert tower.derivation()(parent_element) == tower.field().from_sympy(-1 / x**2)
 
 
 @given(
@@ -295,12 +395,14 @@ def test_generated_polynomials_satisfy_the_chain_rule(coefficients) -> None:
     tower = logarithmic_tower()
     field = tower.field()
     expression = sum(
-        coefficient*x**index*t**(len(coefficients) - index - 1)
+        coefficient * x**index * t ** (len(coefficients) - index - 1)
         for index, coefficient in enumerate(coefficients)
     )
-    expected = diff(expression, x) + diff(expression, t)/x
+    expected = diff(expression, x) + diff(expression, t) / x
 
-    assert tower.derivation()(field.from_sympy(expression)) == field.from_sympy(expected)
+    assert tower.derivation()(field.from_sympy(expression)) == field.from_sympy(
+        expected
+    )
 
 
 @given(
@@ -313,11 +415,11 @@ def test_generated_elements_satisfy_derivation_laws(left_coeffs, right_coeffs) -
     derivative = tower.derivation()
     field = tower.field()
     left_expression = sum(
-        coefficient*x**index*t**(len(left_coeffs) - index - 1)
+        coefficient * x**index * t ** (len(left_coeffs) - index - 1)
         for index, coefficient in enumerate(left_coeffs)
     )
     right_expression = sum(
-        coefficient*x**index*t**(len(right_coeffs) - index - 1)
+        coefficient * x**index * t ** (len(right_coeffs) - index - 1)
         for index, coefficient in enumerate(right_coeffs)
     )
     left = field.from_sympy(left_expression)
@@ -328,7 +430,9 @@ def test_generated_elements_satisfy_derivation_laws(left_coeffs, right_coeffs) -
     denominator_derivative = derivative(denominator)
 
     assert derivative(left + right) == left_derivative + right_derivative
-    assert derivative(left*right) == left_derivative*right + left*right_derivative
-    assert derivative(left/denominator) == (
-        left_derivative*denominator - left*denominator_derivative
-    )/denominator**2
+    assert derivative(left * right) == left_derivative * right + left * right_derivative
+    assert (
+        derivative(left / denominator)
+        == (left_derivative * denominator - left * denominator_derivative)
+        / denominator**2
+    )

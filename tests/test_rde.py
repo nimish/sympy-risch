@@ -28,9 +28,9 @@ x, t = symbols("x t")
     [
         (1, x, x - 1, 1),
         (x, x**2 + 1, x, 1),
-        (2, 2*x**3 + 3*x**2 + 2*x + 1, x**3 + x, 3),
-        (x**2 + 1, x**4 + x**2 + 2*x, x**2, 2),
-        (-1, -x**2 + 2*x, x**2, 2),
+        (2, 2 * x**3 + 3 * x**2 + 2 * x + 1, x**3 + x, 3),
+        (x**2 + 1, x**4 + x**2 + 2 * x, x**2, 2),
+        (-1, -(x**2) + 2 * x, x**2, 2),
     ],
 )
 def test_polynomial_rde_solves_basic_examples(
@@ -46,7 +46,7 @@ def test_polynomial_rde_solves_basic_examples(
     assert result.solution_expression == expected_solution
     assert result.degree_bound == expected_degree
     assert result.obstruction is None
-    assert result.solution.diff() + result.a*result.solution == result.b
+    assert result.solution.diff() + result.a * result.solution == result.b
     assert result.coefficient_rank is None
     assert result.augmented_rank is None
 
@@ -64,17 +64,17 @@ def test_polynomial_rde_integrates_x_times_exp_x_at_the_tower_level() -> None:
     )
     tower = base.extend(exponential)
     field = tower.field()
-    integrand = field.from_sympy(x*t)
+    integrand = field.from_sympy(x * t)
 
     result = solve_polynomial_risch_differential_equation(1, x, x)
-    antiderivative = field.from_sympy(result.solution_expression*t)
+    antiderivative = field.from_sympy(result.solution_expression * t)
 
     assert result.solution_expression == x - 1
     assert tower.derivation()(antiderivative) == integrand
 
 
 def test_polynomial_rde_degree_obstruction_for_exp_x_squared() -> None:
-    result = solve_polynomial_risch_differential_equation(2*x, 1, x)
+    result = solve_polynomial_risch_differential_equation(2 * x, 1, x)
 
     assert not result.has_solution
     assert result.solution is None
@@ -95,7 +95,7 @@ def test_polynomial_rde_degree_obstruction_for_exp_x_squared() -> None:
     [
         (x, 1),
         (x**2 + 1, x),
-        (3*x**4 - 2, x**3 + 1),
+        (3 * x**4 - 2, x**3 + 1),
     ],
 )
 def test_degree_smaller_than_a_proves_nonexistence(a, b) -> None:
@@ -112,7 +112,7 @@ def test_odd_monomial_targets_leave_an_uncancellable_remainder(
 ) -> None:
     # For a=x, cancelling downward from the leading term of x**(d+1)
     # leaves a nonzero constant exactly when d is odd.
-    b = x**(candidate_degree + 1)
+    b = x ** (candidate_degree + 1)
 
     result = solve_polynomial_risch_differential_equation(x, b, x)
 
@@ -127,7 +127,7 @@ def test_odd_monomial_targets_leave_an_uncancellable_remainder(
     assert result.residual.degree() < result.a.degree()
     assert (
         result.partial_solution.diff()
-        + result.a*result.partial_solution
+        + result.a * result.partial_solution
         + result.residual
         == result.b
     )
@@ -137,17 +137,15 @@ def test_odd_monomial_targets_leave_an_uncancellable_remainder(
 def test_even_monomial_targets_have_polynomial_solutions(
     candidate_degree,
 ) -> None:
-    b = x**(candidate_degree + 1)
+    b = x ** (candidate_degree + 1)
 
     result = solve_polynomial_risch_differential_equation(x, b, x)
 
     assert result.has_solution
     assert result.degree_bound == candidate_degree
     assert result.solution.degree() == candidate_degree
-    assert (
-        result.solution.diff()
-        + Poly(x, x, domain=QQ)*result.solution
-        == Poly(b, x, domain=QQ)
+    assert result.solution.diff() + Poly(x, x, domain=QQ) * result.solution == Poly(
+        b, x, domain=QQ
     )
 
 
@@ -155,8 +153,8 @@ def test_even_monomial_targets_have_polynomial_solutions(
     ("b", "expected"),
     [
         (1, x),
-        (x**2, x**3/3),
-        (3*x**4 - 2*x + 7, 3*x**5/5 - x**2 + 7*x),
+        (x**2, x**3 / 3),
+        (3 * x**4 - 2 * x + 7, 3 * x**5 / 5 - x**2 + 7 * x),
     ],
 )
 @pytest.mark.parametrize(
@@ -181,7 +179,7 @@ def test_zero_a_delegates_to_canonical_polynomial_integration(
     assert result.augmented_rank is None
 
 
-@pytest.mark.parametrize("a", [0, 1, x, x**4 - 3*x + 1])
+@pytest.mark.parametrize("a", [0, 1, x, x**4 - 3 * x + 1])
 @pytest.mark.parametrize(
     "solver",
     [
@@ -217,21 +215,20 @@ def test_generated_planted_polynomial_solutions_are_recovered_uniquely(
     solution_coefficients,
 ) -> None:
     a = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(a_coefficients)
+        coefficient * x**degree for degree, coefficient in enumerate(a_coefficients)
     )
     planted_solution = sum(
-        coefficient*x**degree
+        coefficient * x**degree
         for degree, coefficient in enumerate(solution_coefficients)
     )
     assume(a != 0)
-    b = Poly(planted_solution, x).diff().as_expr() + a*planted_solution
+    b = Poly(planted_solution, x).diff().as_expr() + a * planted_solution
 
     result = solve_polynomial_risch_differential_equation(a, b, x)
 
     assert result.has_solution
     assert result.solution == Poly(planted_solution, x, domain=QQ)
-    assert result.solution.diff() + result.a*result.solution == result.b
+    assert result.solution.diff() + result.a * result.solution == result.b
     if planted_solution != 0:
         assert result.degree_bound == Poly(planted_solution, x).degree()
 
@@ -254,12 +251,10 @@ def test_bronstein_recurrence_agrees_with_independent_matrix_solver(
     b_coefficients,
 ) -> None:
     a = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(a_coefficients)
+        coefficient * x**degree for degree, coefficient in enumerate(a_coefficients)
     )
     b = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(b_coefficients)
+        coefficient * x**degree for degree, coefficient in enumerate(b_coefficients)
     )
     assume(a != 0)
 
@@ -271,7 +266,7 @@ def test_bronstein_recurrence_agrees_with_independent_matrix_solver(
     assert recurrence.b == matrix.b
     if recurrence.has_solution:
         assert recurrence.solution == matrix.solution
-        assert recurrence.solution.diff() + recurrence.a*recurrence.solution == (
+        assert recurrence.solution.diff() + recurrence.a * recurrence.solution == (
             recurrence.b
         )
         assert recurrence.obstruction is None
@@ -287,14 +282,11 @@ def test_bronstein_recurrence_agrees_with_independent_matrix_solver(
         assert recurrence.residual.degree() < recurrence.a.degree()
         assert (
             recurrence.partial_solution.diff()
-            + recurrence.a*recurrence.partial_solution
+            + recurrence.a * recurrence.partial_solution
             + recurrence.residual
             == recurrence.b
         )
-        assert (
-            matrix.obstruction
-            is PolynomialRDEObstruction.INCONSISTENT_SYSTEM
-        )
+        assert matrix.obstruction is PolynomialRDEObstruction.INCONSISTENT_SYSTEM
         assert matrix.augmented_rank > matrix.coefficient_rank
 
 
@@ -305,12 +297,11 @@ def test_solvers_agree_exhaustively_for_small_quadratics() -> None:
         if not any(a_coefficients):
             continue
         a = sum(
-            coefficient*x**degree
-            for degree, coefficient in enumerate(a_coefficients)
+            coefficient * x**degree for degree, coefficient in enumerate(a_coefficients)
         )
         for b_coefficients in coefficient_tuples:
             b = sum(
-                coefficient*x**degree
+                coefficient * x**degree
                 for degree, coefficient in enumerate(b_coefficients)
             )
 
@@ -350,17 +341,14 @@ def test_finite_poles_cannot_occur_in_rational_solutions(
     # has order at most k.  This is the local argument that makes the
     # polynomial ansatz complete rather than heuristic.
     a = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(a_coefficients)
+        coefficient * x**degree for degree, coefficient in enumerate(a_coefficients)
     )
-    candidate = pole_numerator/(x - pole_root)**pole_order
-    right_hand_side = (
-        candidate.diff(x) + a*candidate
-    ).cancel()
+    candidate = pole_numerator / (x - pole_root) ** pole_order
+    right_hand_side = (candidate.diff(x) + a * candidate).cancel()
     _, denominator = right_hand_side.as_numer_denom()
 
     assert Poly(denominator, x, domain=QQ).monic() == (
-        Poly(x - pole_root, x, domain=QQ)**(pole_order + 1)
+        Poly(x - pole_root, x, domain=QQ) ** (pole_order + 1)
     )
 
 
@@ -381,15 +369,13 @@ def test_generated_rde_solutions_reconstruct_hyperexponential_tower_derivatives(
     solution_coefficients,
     power,
 ) -> None:
-    exponent = exponent_coefficient*x**exponent_degree
+    exponent = exponent_coefficient * x**exponent_degree
     eta = exponent.diff(x)
     planted_solution = sum(
-        coefficient*x**degree
+        coefficient * x**degree
         for degree, coefficient in enumerate(solution_coefficients)
     )
-    b = Poly(planted_solution, x).diff().as_expr() + (
-        power*eta*planted_solution
-    )
+    b = Poly(planted_solution, x).diff().as_expr() + (power * eta * planted_solution)
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -397,7 +383,7 @@ def test_generated_rde_solutions_reconstruct_hyperexponential_tower_derivatives(
         ),
     )
     extension = MonomialExtension(
-        Poly(eta*t, t, domain=base.field()),
+        Poly(eta * t, t, domain=base.field()),
         ConstantFieldStatus.PRESERVED,
     )
     dependency = analyze_hyperexponential_extension(
@@ -406,14 +392,14 @@ def test_generated_rde_solutions_reconstruct_hyperexponential_tower_derivatives(
     )
 
     result = solve_polynomial_risch_differential_equation(
-        power*eta,
+        power * eta,
         b,
         x,
     )
     tower = base.extend(extension)
     field = tower.field()
-    antiderivative = field.from_sympy(result.solution_expression*t**power)
-    integrand = field.from_sympy(b*t**power)
+    antiderivative = field.from_sympy(result.solution_expression * t**power)
+    integrand = field.from_sympy(b * t**power)
 
     assert dependency.kind is HyperexponentialDependencyKind.TRANSCENDENTAL
     assert dependency.has_exponential_presentation
@@ -434,10 +420,10 @@ def test_generated_exponential_polynomials_expose_degree_obstructions(
     power,
     right_hand_side,
 ) -> None:
-    eta = (exponent_coefficient*x**exponent_degree).diff(x)
+    eta = (exponent_coefficient * x**exponent_degree).diff(x)
 
     result = solve_polynomial_risch_differential_equation(
-        power*eta,
+        power * eta,
         right_hand_side,
         x,
     )
@@ -457,7 +443,7 @@ def test_generated_exponential_polynomials_expose_degree_obstructions(
 def test_polynomial_rde_accepts_native_poly_inputs(solver) -> None:
     a = Poly(x + 1, x, domain=QQ)
     solution = Poly(x**2 - 1, x, domain=QQ)
-    b = solution.diff() + a*solution
+    b = solution.diff() + a * solution
 
     result = solver(a, b, x)
 
@@ -469,10 +455,10 @@ def test_polynomial_rde_accepts_native_poly_inputs(solver) -> None:
 @pytest.mark.parametrize(
     ("a", "b"),
     [
-        (1/x, 1),
-        (1, 1/x),
+        (1 / x, 1),
+        (1, 1 / x),
         (sqrt(2), 1),
-        (1, sqrt(2)*x),
+        (1, sqrt(2) * x),
     ],
 )
 @pytest.mark.parametrize(

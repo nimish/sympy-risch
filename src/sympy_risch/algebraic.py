@@ -1,4 +1,4 @@
-r"""Hermite reduction in finite algebraic function fields."""
+r"""Exact infrastructure for finite algebraic function fields."""
 
 from __future__ import annotations
 
@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import cast
 
+from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
-from sympy.polys.agca.extensions import ExtensionElement
+from sympy.polys.agca.extensions import ExtensionElement, FiniteExtension
+from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.fields import FracElement
@@ -17,7 +19,7 @@ from sympy.polys.matrices.normalforms import smith_normal_decomp
 from sympy.polys.polyclasses import DMP
 from sympy.polys.polytools import Poly, invert, resultant
 
-from ._typing import SupportsAsExpr
+from ._typing import SupportsAsExpr, is_field_zero
 from .tower import AlgebraicExtension, Derivation
 
 
@@ -65,14 +67,13 @@ def _parent_element_polynomial(
     element = parent.convert(element)
     denominator_terms = element.denom.to_dict()
     if any(
-        any(exponent != 0 for exponent in monomial)
-        for monomial in denominator_terms
+        any(exponent != 0 for exponent in monomial) for monomial in denominator_terms
     ):
         raise ValueError("expected a polynomial element of the parent field")
     denominator_constant = denominator_terms.get((0,), constants.one)
     return Poly.from_dict(
         {
-            monomial: coefficient/denominator_constant
+            monomial: coefficient / denominator_constant
             for monomial, coefficient in element.numer.to_dict().items()
         },
         variable,
@@ -172,16 +173,19 @@ class TragerAlgebraicResidueResult:
         """Whether the public polynomial is the monic outer resultant."""
         return (
             not self.raw_residue_polynomial.is_zero
-            and self.raw_residue_polynomial.monic()
-            == self.residue_polynomial
+            and self.raw_residue_polynomial.monic() == self.residue_polynomial
         )
+
+    def place_residues(self) -> tuple[AlgebraicPlaceResidue, ...]:
+        """Factor the unramified pole fibers and return exact local residues."""
+        return trager_algebraic_place_residues(self)
 
     @property
     def reconstructs_input(self) -> bool:
         """Whether ``G/D`` is exactly the supplied algebraic element."""
         field = self.extension.field
         return field.from_sympy(
-            self.numerator.as_expr()/self.denominator.as_expr()
+            self.numerator.as_expr() / self.denominator.as_expr()
         ) == _extension_element(self.extension, self.integrand)
 
 
@@ -205,8 +209,7 @@ class IntegralBasis:
 
     def __post_init__(self) -> None:
         elements = tuple(
-            _extension_element(self.extension, element)
-            for element in self.elements
+            _extension_element(self.extension, element) for element in self.elements
         )
         object.__setattr__(self, "elements", elements)
 
@@ -220,10 +223,7 @@ class IntegralBasis:
         # expression Matrix would repeatedly convert QQ(x) elements to SymPy
         # expressions and call cancel during every coordinate transformation.
         matrix = DomainMatrix(
-            [
-                [columns[column][row] for column in range(rank)]
-                for row in range(rank)
-            ],
+            [[columns[column][row] for column in range(rank)] for row in range(rank)],
             (rank, rank),
             parent,
         )
@@ -261,7 +261,7 @@ class IntegralBasis:
             (rank, 1),
             parent,
         )
-        result = self._power_inverse*vector
+        result = self._power_inverse * vector
         return cast(
             tuple[FracElement, ...],
             tuple(row[0] for row in result.to_list()),
@@ -291,7 +291,7 @@ class IntegralBasis:
         denominator_element = _polynomial_parent_element(denominator, parent)
         numerators = tuple(
             _parent_element_polynomial(
-                coefficient*denominator_element,
+                coefficient * denominator_element,
                 parent,
                 constants,
                 variable,
@@ -317,14 +317,10 @@ def _polynomial_plane_model(
                 constants,
                 variable,
             )
-            expression += (
-                coefficient_polynomial.as_expr()
-                * extension.generator**degree
-            )
+            expression += coefficient_polynomial.as_expr() * extension.generator**degree
     except ValueError as exc:
         raise NotImplementedError(
-            "Trager residues currently require a defining polynomial "
-            "in C[x, y]"
+            "Trager residues currently require a defining polynomial in C[x, y]"
         ) from exc
 
     coefficient_ring = constants.poly_ring(variable)
@@ -333,10 +329,7 @@ def _polynomial_plane_model(
         extension.generator,
         domain=coefficient_ring,
     )
-    if (
-        coefficient_ring.convert(model_in_generator.LC())
-        != coefficient_ring.one
-    ):
+    if coefficient_ring.convert(model_in_generator.LC()) != coefficient_ring.one:
         raise NotImplementedError(
             "Trager residues currently require a model monic in the "
             "algebraic generator over C[x]"
@@ -375,10 +368,7 @@ def _polynomial_power_numerator(
                 constants,
                 variable,
             )
-            expression += (
-                coefficient_polynomial.as_expr()
-                * extension.generator**degree
-            )
+            expression += coefficient_polynomial.as_expr() * extension.generator**degree
     except ValueError as exc:
         raise NotImplementedError(
             "Trager residues currently require the integral numerator "
@@ -392,9 +382,7 @@ def _polynomial_power_numerator(
         domain=constants,
     )
     if (
-        extension.field.from_sympy(
-            numerator.as_expr()/fraction.denominator.as_expr()
-        )
+        extension.field.from_sympy(numerator.as_expr() / fraction.denominator.as_expr())
         != element
     ):
         raise ValueError(
@@ -436,36 +424,34 @@ def trager_algebraic_residue_polynomial(
     extension = basis.extension
     if derivation.field != extension.field:
         raise ValueError(
-            "the derivation and integral basis must describe the same "
-            "algebraic field"
+            "the derivation and integral basis must describe the same algebraic field"
         )
 
     parent, constants, variable = _base_polynomial_ring(extension)
     lower_derivation = derivation.lower()
-    if (
-        lower_derivation.field != parent
-        or lower_derivation(parent.from_sympy(variable)) != parent.one
+    if lower_derivation.field != parent or not is_field_zero(
+        lower_derivation(parent.from_sympy(variable)) - parent.one
     ):
         raise NotImplementedError(
-            "Trager residues currently require the standard rational "
-            "derivation Dx = 1"
+            "Trager residues currently require the standard rational derivation Dx = 1"
         )
     constant_symbols = set(getattr(constants, "symbols", ()))
-    if residue in {
-        variable,
-        extension.generator,
-    } | constant_symbols:
-        raise ValueError(
-            "the residue indeterminate must be new over the plane model"
-        )
+    if (
+        residue
+        in {
+            variable,
+            extension.generator,
+        }
+        | constant_symbols
+    ):
+        raise ValueError("the residue indeterminate must be new over the plane model")
 
     element = _extension_element(extension, integrand)
     fraction = basis.fraction(element)
     denominator = fraction.denominator
     if not fraction.is_square_free:
         raise ValueError(
-            "Trager residues require a Hermite-reduced square-free "
-            "denominator"
+            "Trager residues require a Hermite-reduced square-free denominator"
         )
 
     defining_polynomial = _polynomial_plane_model(
@@ -475,9 +461,7 @@ def trager_algebraic_residue_polynomial(
         variable,
     )
     if residue in defining_polynomial.as_expr().free_symbols:
-        raise ValueError(
-            "the residue indeterminate must be new over the plane model"
-        )
+        raise ValueError("the residue indeterminate must be new over the plane model")
     numerator = _polynomial_power_numerator(
         element,
         fraction,
@@ -522,17 +506,12 @@ def trager_algebraic_residue_polynomial(
             residue_polynomial,
         )
         if not result.reconstructs_input:
-            raise ValueError(
-                "Trager residue data did not reconstruct its input"
-            )
+            raise ValueError("Trager residue data did not reconstruct its input")
         return result
 
     denominator_derivative = denominator.diff()
     inner_expression = resultant(
-        (
-            residue*denominator_derivative.as_expr()
-            - numerator.as_expr()
-        ),
+        (residue * denominator_derivative.as_expr() - numerator.as_expr()),
         defining_polynomial.as_expr(),
         extension.generator,
     )
@@ -553,9 +532,7 @@ def trager_algebraic_residue_polynomial(
         domain=constants,
     )
     if raw_residue_polynomial.is_zero:
-        raise ValueError(
-            "Trager's nested resultant unexpectedly vanished"
-        )
+        raise ValueError("Trager's nested resultant unexpectedly vanished")
     residue_polynomial = raw_residue_polynomial.monic()
 
     result = TragerAlgebraicResidueResult(
@@ -576,6 +553,239 @@ def trager_algebraic_residue_polynomial(
     if not result.reconstructs_input:
         raise ValueError("Trager residue data did not reconstruct its input")
     return result
+
+
+@dataclass(frozen=True, slots=True)
+class UnramifiedFinitePlace:
+    r"""A closed finite place on a monic plane model.
+
+    ``base_prime`` is an irreducible polynomial in the separating variable
+    ``x``.  After adjoining one root of that polynomial to the constants,
+    ``fiber_factor`` is one irreducible factor of the specialized defining
+    polynomial in ``y``.  The pair identifies a closed place.  This initial
+    representation deliberately covers only fibers disjoint from the
+    discriminant, where ``base_prime`` is a uniformizer and the ramification
+    index is one.
+    """
+
+    extension: AlgebraicExtension
+    defining_polynomial: Poly
+    base_prime: Poly
+    base_residue_field: Domain
+    base_root: Expr
+    specialized_polynomial: Poly
+    fiber_factor: Poly
+    residue_field: FiniteExtension
+
+    @property
+    def base_degree(self) -> int:
+        """Degree of the place below over the original constants."""
+        return self.base_prime.degree()
+
+    @property
+    def relative_degree(self) -> int:
+        """Residue degree over the base place."""
+        return self.fiber_factor.degree()
+
+    @property
+    def degree(self) -> int:
+        """Absolute residue-field degree over the original constants."""
+        return self.base_degree * self.relative_degree
+
+    @property
+    def ramification_index(self) -> int:
+        """Ramification index, fixed to one by this representation."""
+        return 1
+
+    @property
+    def uniformizer(self) -> ExtensionElement:
+        """Return the base prime embedded as a local uniformizer."""
+        return _extension_element(
+            self.extension,
+            self.base_prime.as_expr(),
+        )
+
+    def reduce_polynomial(self, polynomial: Poly) -> ExtensionElement:
+        r"""Reduce a polynomial in ``x`` and ``y`` into the residue field."""
+        if not isinstance(polynomial, Poly):
+            raise TypeError("place reduction requires a SymPy Poly")
+        variable = self.base_prime.gens[0]
+        expression = polynomial.as_expr().subs(variable, self.base_root)
+        return cast(
+            ExtensionElement,
+            self.residue_field.from_sympy(expression),
+        )
+
+    def residue(
+        self,
+        result: TragerAlgebraicResidueResult,
+    ) -> ExtensionElement:
+        r"""Return the differential residue represented by ``result``.
+
+        At an unramified simple pole over ``p(x)``, the local parameter is
+        ``p`` and
+
+        ``res_P(G/D dx) = (G/D')(P)``.
+        """
+        if not isinstance(result, TragerAlgebraicResidueResult):
+            raise TypeError("place residues require Trager residue data")
+        if result.extension != self.extension:
+            raise ValueError(
+                "the place and residue data must describe the same extension"
+            )
+        if result.defining_polynomial != self.defining_polynomial:
+            raise ValueError("the place and residue data must use the same plane model")
+        _, remainder = result.denominator.div(self.base_prime)
+        if not remainder.is_zero:
+            raise ValueError("the place does not lie over a pole of the differential")
+
+        denominator_derivative = self.reduce_polynomial(result.denominator.diff())
+        if denominator_derivative == self.residue_field.zero:
+            raise ValueError(
+                "the finite pole is not simple in the selected base parameter"
+            )
+        return self.reduce_polynomial(result.numerator) / denominator_derivative
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicPlaceResidue:
+    """One exact finite residue together with its closed place."""
+
+    place: UnramifiedFinitePlace
+    value: ExtensionElement
+
+
+def _algebraic_constant_domain(constants: Domain) -> Domain:
+    """Return a constant domain that supports algebraic root adjunction."""
+    if constants.is_QQ or constants.is_AlgebraicField:
+        return constants
+    as_algebraic_field = getattr(constants, "as_AlgebraicField", None)
+    if as_algebraic_field is None:
+        raise NotImplementedError(
+            "finite-place factorization currently requires rational or "
+            "algebraic-number constants"
+        )
+    return cast(Domain, as_algebraic_field())
+
+
+def unramified_finite_places(
+    extension: AlgebraicExtension,
+    base_prime: Poly,
+) -> tuple[UnramifiedFinitePlace, ...]:
+    r"""Return the closed places above an unramified finite base prime.
+
+    The plane model must be polynomial and monic in the algebraic generator.
+    ``base_prime`` is normalized to monic form and must be irreducible over
+    the constant field.  A common factor with the model discriminant is
+    rejected because ramified places require integral local models and
+    nontrivial uniformizers.
+    """
+    if not isinstance(extension, AlgebraicExtension):
+        raise TypeError("finite places require an AlgebraicExtension")
+    if not isinstance(base_prime, Poly):
+        raise TypeError("the base prime must be a SymPy Poly")
+
+    parent, constants, variable = _base_polynomial_ring(extension)
+    if base_prime.gens != (variable,):
+        raise ValueError(
+            "the base prime generator must match the rational parent variable"
+        )
+    prime = Poly(
+        base_prime.as_expr(),
+        variable,
+        domain=constants,
+    )
+    if prime.degree() <= 0:
+        raise ValueError("a finite base prime must be nonconstant")
+    prime = prime.monic()
+    if prime.is_irreducible is not True:
+        raise ValueError("a finite base prime must be irreducible")
+
+    defining_polynomial = _polynomial_plane_model(
+        extension,
+        parent,
+        constants,
+        variable,
+    )
+    model_in_generator = Poly(
+        defining_polynomial.as_expr(),
+        extension.generator,
+        domain=constants.poly_ring(variable),
+    )
+    discriminant = Poly(
+        model_in_generator.discriminant(),
+        variable,
+        domain=constants,
+    )
+    branch_gcd = prime.gcd(discriminant)
+    if branch_gcd.degree() > 0:
+        raise NotImplementedError(
+            "finite-place construction requires an unramified fiber; "
+            f"the base prime meets the branch locus {branch_gcd.as_expr()}"
+        )
+
+    algebraic_constants = _algebraic_constant_domain(constants)
+    algebraic_prime = Poly(
+        prime.as_expr(),
+        variable,
+        domain=algebraic_constants,
+    )
+    if algebraic_prime.degree() == 1:
+        base_residue_field = algebraic_constants
+        base_root = cast(
+            Expr,
+            algebraic_constants.to_sympy(-algebraic_prime.nth(0)),
+        )
+    else:
+        base_residue_field = cast(
+            AlgebraicField,
+            algebraic_constants.alg_field_from_poly(algebraic_prime),
+        )
+        base_root = cast(Expr, base_residue_field.orig_ext[-1])
+    specialized_polynomial = Poly(
+        defining_polynomial.as_expr().subs(variable, base_root),
+        extension.generator,
+        domain=base_residue_field,
+    )
+    try:
+        _, factors = specialized_polynomial.factor_list()
+    except NotImplementedError as exc:
+        raise NotImplementedError(
+            "the specialized algebraic fiber could not be factored exactly"
+        ) from exc
+    if any(multiplicity != 1 for _, multiplicity in factors):
+        raise ValueError("an unramified fiber unexpectedly has a repeated factor")
+
+    return tuple(
+        UnramifiedFinitePlace(
+            extension,
+            defining_polynomial,
+            prime,
+            base_residue_field,
+            base_root,
+            specialized_polynomial,
+            factor.monic(),
+            FiniteExtension(factor.monic()),
+        )
+        for factor, _ in factors
+    )
+
+
+def trager_algebraic_place_residues(
+    result: TragerAlgebraicResidueResult,
+) -> tuple[AlgebraicPlaceResidue, ...]:
+    r"""Refine a Trager residue polynomial into exact closed-place residues."""
+    if not isinstance(result, TragerAlgebraicResidueResult):
+        raise TypeError("place residues require Trager residue data")
+
+    residues: list[AlgebraicPlaceResidue] = []
+    _, denominator_factors = result.denominator.factor_list()
+    for base_prime, multiplicity in denominator_factors:
+        if multiplicity != 1:
+            raise ValueError("place-wise residues require a square-free denominator")
+        for place in unramified_finite_places(result.extension, base_prime):
+            residues.append(AlgebraicPlaceResidue(place, place.residue(result)))
+    return tuple(residues)
 
 
 @dataclass(frozen=True, slots=True)
@@ -620,7 +830,7 @@ def recognize_simple_radical(
     denominator = Poly(radicand.denom.as_expr(), variable, domain=constants)
     # If y**n = A/D, then (y*D)**n = A*D**(n-1).  Split the latter as
     # F**n*H by writing each factor multiplicity as n*q + r, 0 <= r < n.
-    powered_radicand = numerator*denominator**(degree - 1)
+    powered_radicand = numerator * denominator ** (degree - 1)
 
     unit, factors = powered_radicand.sqf_list()
     extracted_factor = Poly(1, variable, domain=constants)
@@ -665,9 +875,7 @@ def simple_radical_integral_basis(
     for power in range(radical.degree):
         basis_denominator = radical.normalized_radicand.one
         for factor, multiplicity in factors:
-            basis_denominator *= factor**(
-                (power*multiplicity) // radical.degree
-            )
+            basis_denominator *= factor ** ((power * multiplicity) // radical.degree)
         elements.append(
             radical.normalized_generator**power
             / _embed_parent(extension, basis_denominator),
@@ -683,10 +891,7 @@ def _coordinate_matrix(
     rank = len(basis.elements)
     columns = [basis.coordinates(element) for element in elements]
     return DomainMatrix(
-        [
-            [columns[column][row] for column in range(rank)]
-            for row in range(rank)
-        ],
+        [[columns[column][row] for column in range(rank)] for row in range(rank)],
         (rank, rank),
         parent,
     )
@@ -703,7 +908,7 @@ def _primitive_polynomial_vector(
     denominator_element = _polynomial_parent_element(denominator, parent)
     numerators = tuple(
         _parent_element_polynomial(
-            element*denominator_element,
+            element * denominator_element,
             parent,
             constants,
             variable,
@@ -721,7 +926,7 @@ def _primitive_polynomial_vector(
 
 def _denominator_excess(denominator: Poly) -> int:
     return sum(
-        (multiplicity - 1)*factor.degree()
+        (multiplicity - 1) * factor.degree()
         for factor, multiplicity in denominator.sqf_list()[1]
     )
 
@@ -767,15 +972,14 @@ def _adjoin_integral_element(
         [denominator_coefficient if row == column else zero for column in range(rank)]
         for row in range(rank)
     ]
-    rows.append([
-        polynomial_ring.from_sympy(numerator.as_expr())
-        for numerator in numerators
-    ])
+    rows.append(
+        [polynomial_ring.from_sympy(numerator.as_expr()) for numerator in numerators]
+    )
     generators = DomainMatrix(rows, (rank + 1, rank), polynomial_ring)
     _, left, _ = smith_normal_decomp(generators)
     reduced_rows = [
         row
-        for row in (left*generators).to_list()
+        for row in (left * generators).to_list()
         if any(coefficient != zero for coefficient in row)
     ]
     if len(reduced_rows) != rank:
@@ -783,11 +987,13 @@ def _adjoin_integral_element(
 
     denominator_element = _polynomial_parent_element(denominator, parent)
     elements = tuple(
-        basis.element(tuple(
-            parent.from_sympy(polynomial_ring.to_sympy(coefficient))
-            / denominator_element
-            for coefficient in row
-        ))
+        basis.element(
+            tuple(
+                parent.from_sympy(polynomial_ring.to_sympy(coefficient))
+                / denominator_element
+                for coefficient in row
+            )
+        )
         for row in reduced_rows
     )
     return IntegralBasis(extension, elements)
@@ -813,6 +1019,15 @@ def _hermite_reduce_algebraic(
         raise ValueError("the derivation must be bound to the algebraic extension")
 
     parent, constants, variable = _base_polynomial_ring(extension)
+    lower_derivation = derivation.lower()
+    if (
+        lower_derivation.field != parent
+        or lower_derivation(parent.from_sympy(variable)) != parent.one
+    ):
+        raise NotImplementedError(
+            "algebraic Hermite reduction currently requires the standard "
+            "rational derivation Dx = 1",
+        )
     remainder = _extension_element(extension, integrand)
     exact_part = extension.field.zero
     differentiated_basis: IntegralBasis | None = None
@@ -835,8 +1050,8 @@ def _hermite_reduce_algebraic(
         )
         denominator = representation.denominator
         cofactor = denominator.exquo(repeated_factor**multiplicity)
-        scale = cofactor*repeated_factor**multiplicity
-        candidate_denominator = repeated_factor**(multiplicity - 1)
+        scale = cofactor * repeated_factor**multiplicity
+        candidate_denominator = repeated_factor ** (multiplicity - 1)
 
         if basis is not differentiated_basis:
             # D(w_i) depends only on the basis and derivation, not on the pole
@@ -844,10 +1059,7 @@ def _hermite_reduce_algebraic(
             # lazy refinement replaces the basis.
             basis_derivatives = cast(
                 tuple[ExtensionElement, ...],
-                tuple(
-                    derivation(element)
-                    for element in basis.elements
-                ),
+                tuple(derivation(element) for element in basis.elements),
             )
             derivative_matrix = _coordinate_matrix(
                 basis,
@@ -869,9 +1081,12 @@ def _hermite_reduce_algebraic(
                     constants,
                     variable,
                 )
-                if derivative_denominator.gcd(
-                    derivative_denominator.diff(),
-                ).degree() == 0:
+                if (
+                    derivative_denominator.gcd(
+                        derivative_denominator.diff(),
+                    ).degree()
+                    == 0
+                ):
                     continue
 
                 # Bronstein, Theorem 3: if F = product(F_j**j) is the
@@ -882,8 +1097,7 @@ def _hermite_reduce_algebraic(
                 for factor, _ in derivative_denominator.sqf_list()[1]:
                     squarefree_part *= factor
                 integral_element = (
-                    _embed_parent(extension, squarefree_part)
-                    * basis_derivative
+                    _embed_parent(extension, squarefree_part) * basis_derivative
                 )
                 integral_fraction = basis.fraction(integral_element)
                 if integral_fraction.denominator.degree() == 0:
@@ -914,16 +1128,17 @@ def _hermite_reduce_algebraic(
         )
         # Bronstein (8)--(9): S_i = U*V**m * D(w_i/V**(m-1)).
         # Solving sum(f_i*S_i) = numerator determines the correction modulo V.
-        derivative_scale = scale_parent/candidate_denominator_parent
+        derivative_scale = scale_parent / candidate_denominator_parent
         diagonal_scale = (
-            scale_parent*candidate_denominator_derivative
+            scale_parent
+            * candidate_denominator_derivative
             / candidate_denominator_parent**2
         )
         rank = len(basis.elements)
         system = DomainMatrix(
             [
                 [
-                    derivative_scale*derivative_rows[row][column]
+                    derivative_scale * derivative_rows[row][column]
                     - (diagonal_scale if row == column else parent.zero)
                     for column in range(rank)
                 ]
@@ -932,7 +1147,7 @@ def _hermite_reduce_algebraic(
             (rank, rank),
             parent,
         )
-        numerator_element = remainder*_embed_parent(extension, denominator)
+        numerator_element = remainder * _embed_parent(extension, denominator)
         numerator_coordinates = basis.coordinates(numerator_element)
         right_hand_side = DomainMatrix(
             [[coordinate] for coordinate in numerator_coordinates],
@@ -944,8 +1159,8 @@ def _hermite_reduce_algebraic(
             # Fraction-free solving retains one common denominator.  Besides
             # avoiding expression swell, that denominator is exactly what the
             # lazy-refinement test below must compare with V.
-            solution_numerators_matrix, solution_denominator_element = (
-                system.solve_den(right_hand_side)
+            solution_numerators_matrix, solution_denominator_element = system.solve_den(
+                right_hand_side
             )
         except DMNonInvertibleMatrixError as exc:
             if lazy:
@@ -965,7 +1180,7 @@ def _hermite_reduce_algebraic(
                 )
                 basis = _adjoin_integral_element(
                     basis,
-                    tuple(cofactor*coefficient for coefficient in relation),
+                    tuple(cofactor * coefficient for coefficient in relation),
                     repeated_factor,
                 )
                 continue
@@ -973,7 +1188,7 @@ def _hermite_reduce_algebraic(
                 "the supplied integral basis does not support Hermite reduction",
             ) from exc
         solution = tuple(
-            row[0]/solution_denominator_element
+            row[0] / solution_denominator_element
             for row in solution_numerators_matrix.to_list()
         )
 
@@ -988,7 +1203,7 @@ def _hermite_reduce_algebraic(
         )
         solution_numerators = tuple(
             _parent_element_polynomial(
-                coefficient*solution_denominator_element,
+                coefficient * solution_denominator_element,
                 parent,
                 constants,
                 variable,
@@ -1004,10 +1219,10 @@ def _hermite_reduce_algebraic(
                 #
                 # is integral but absent from the current K[x]-module.  Its
                 # adjunction strictly enlarges that module before we retry V.
-                multiplier = cofactor*repeated_factor.exquo(shared_factor)
+                multiplier = cofactor * repeated_factor.exquo(shared_factor)
                 basis = _adjoin_integral_element(
                     basis,
-                    tuple(multiplier*numerator for numerator in solution_numerators),
+                    tuple(multiplier * numerator for numerator in solution_numerators),
                     shared_factor,
                 )
                 continue
@@ -1019,12 +1234,14 @@ def _hermite_reduce_algebraic(
         inverse = invert(solution_denominator, repeated_factor)
         correction_coordinates = tuple(
             _polynomial_parent_element(
-                (inverse*numerator).rem(repeated_factor),
+                (inverse * numerator).rem(repeated_factor),
                 parent,
             )
             for numerator in solution_numerators
         )
-        correction = basis.element(correction_coordinates) / candidate_denominator_element
+        correction = (
+            basis.element(correction_coordinates) / candidate_denominator_element
+        )
 
         previous_excess = _denominator_excess(denominator)
         new_remainder = remainder - derivation(correction)

@@ -37,7 +37,7 @@ def hyperexponential_tower() -> DifferentialTower:
     )
     return rational.extend(
         MonomialExtension(
-            Poly(x*t, t, domain=rational.field()),
+            Poly(x * t, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -53,13 +53,13 @@ def stacked_hyperexponential_tower() -> DifferentialTower:
     )
     first = base.extend(
         MonomialExtension(
-            Poly(x*s, s, domain=base.field()),
+            Poly(x * s, s, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     return first.extend(
         MonomialExtension(
-            Poly(s*t, t, domain=first.field()),
+            Poly(s * t, t, domain=first.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -71,7 +71,7 @@ def test_normal_factor_removes_its_lower_logarithmic_quotient() -> None:
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    integrand = derivation(factor)/factor
+    integrand = derivation(factor) / factor
 
     result = solve_radical_logarithmic_derivative(integrand, derivation)
 
@@ -93,13 +93,13 @@ def test_hyperexponential_signature_combines_normal_and_special_exponents() -> N
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    integrand = (derivation(factor)/factor + 2*field.from_sympy(x))/3
+    integrand = (derivation(factor) / factor + 2 * field.from_sympy(x)) / 3
 
     result = solve_radical_logarithmic_derivative(integrand, derivation)
 
     assert result.has_solution
     assert result.minimal_power == 3
-    assert result.argument == field.from_sympy(t**2*(t + x))
+    assert result.argument == field.from_sympy(t**2 * (t + x))
     assert result.reconstructs
 
 
@@ -108,20 +108,20 @@ def test_hyperexponential_signature_descends_through_the_special_generator() -> 
     derivation = tower.derivation()
 
     result = solve_radical_logarithmic_derivative(
-        1/(5*x) + 3*x/5,
+        1 / (5 * x) + 3 * x / 5,
         derivation,
     )
 
     assert result.has_solution
     assert result.minimal_power == 5
-    assert result.argument == tower.field().from_sympy(x*t**3)
+    assert result.argument == tower.field().from_sympy(x * t**3)
     assert result.reconstructs
 
 
 def test_hyperexponential_parametric_solver_uses_free_special_direction() -> None:
     tower = hyperexponential_tower()
     outer = MonomialExtension(
-        Poly(x**2*u, u, domain=tower.field()),
+        Poly(x**2 * u, u, domain=tower.field()),
         ConstantFieldStatus.PRESERVED,
     )
 
@@ -142,10 +142,12 @@ def test_hyperexponential_parametric_solver_uses_free_special_direction() -> Non
     assert result.certificate.system.reconstructs
 
 
-def test_hyperexponential_parametric_solver_handles_stacked_special_directions() -> None:
+def test_hyperexponential_parametric_solver_handles_stacked_special_directions() -> (
+    None
+):
     tower = stacked_hyperexponential_tower()
     outer = MonomialExtension(
-        Poly(x**2*u, u, domain=tower.field()),
+        Poly(x**2 * u, u, domain=tower.field()),
         ConstantFieldStatus.PRESERVED,
     )
 
@@ -157,7 +159,7 @@ def test_hyperexponential_parametric_solver_handles_stacked_special_directions()
 
     assert result.has_solution
     assert (result.n, result.m) == (1, 1)
-    assert result.argument == tower.field().from_sympy(s*t)
+    assert result.argument == tower.field().from_sympy(s * t)
     assert result.reconstructs
 
 
@@ -171,19 +173,19 @@ def test_hyperexponential_radical_solver_uses_stacked_special_directions() -> No
 
     assert result.has_solution
     assert result.minimal_power == 1
-    assert result.argument == tower.field().from_sympy(s*t)
+    assert result.argument == tower.field().from_sympy(s * t)
     assert result.reconstructs
 
 
 def test_hyperexponential_parametric_solver_cancels_special_poles() -> None:
     tower = hyperexponential_tower()
     outer = MonomialExtension(
-        Poly(u/t, u, domain=tower.field()),
+        Poly(u / t, u, domain=tower.field()),
         ConstantFieldStatus.PRESERVED,
     )
 
     result = solve_parametric_logarithmic_derivative(
-        2/t,
+        2 / t,
         outer,
         tower.derivation(),
     )
@@ -197,7 +199,7 @@ def test_hyperexponential_parametric_solver_cancels_special_poles() -> None:
 def test_hyperexponential_relation_system_proves_a_top_polynomial_obstruction() -> None:
     tower = hyperexponential_tower()
     outer = MonomialExtension(
-        Poly(x**2*u, u, domain=tower.field()),
+        Poly(x**2 * u, u, domain=tower.field()),
         ConstantFieldStatus.PRESERVED,
     )
 
@@ -217,9 +219,9 @@ def test_hyperexponential_relation_system_proves_a_top_polynomial_obstruction() 
 @pytest.mark.parametrize(
     "integrand",
     [
-        1/t,
-        1/(t + x)**2,
-        1/(t + x),
+        1 / t,
+        1 / (t + x) ** 2,
+        1 / (t + x),
         t,
     ],
 )
@@ -246,13 +248,13 @@ def test_normal_quotient_can_be_compensated_by_the_special_exponent() -> None:
     field = tower.field()
 
     result = solve_radical_logarithmic_derivative(
-        (1 - x**2)/(t + x),
+        (1 - x**2) / (t + x),
         tower.derivation(),
     )
 
     assert result.has_solution
     assert result.minimal_power == 1
-    assert result.argument == field.from_sympy((t + x)/t)
+    assert result.argument == field.from_sympy((t + x) / t)
     assert result.reconstructs
     assert isinstance(
         result.certificate,
@@ -262,11 +264,13 @@ def test_normal_quotient_can_be_compensated_by_the_special_exponent() -> None:
     assert result.certificate.lower_parametric_result.m == -1
 
 
-def test_hyperexponential_signature_keeps_normal_and_special_denominators_separate() -> None:
+def test_hyperexponential_signature_keeps_normal_and_special_denominators_separate() -> (
+    None
+):
     tower = hyperexponential_tower()
     field = tower.field()
     factor = field.from_sympy(t + x)
-    integrand = tower.derivation()(factor)/factor + field.from_sympy(1/t)
+    integrand = tower.derivation()(factor) / factor + field.from_sympy(1 / t)
 
     signature = hyperexponential_logarithmic_derivative_signature(
         integrand,
@@ -282,10 +286,10 @@ def test_hyperexponential_signature_keeps_normal_and_special_denominators_separa
 def test_hyperexponential_signature_handles_degree_two_normal_quotients() -> None:
     tower = hyperexponential_tower()
     field = tower.field()
-    factor = field.from_sympy(t**2 + x*t + 1)
+    factor = field.from_sympy(t**2 + x * t + 1)
 
     result = solve_radical_logarithmic_derivative(
-        tower.derivation()(factor)/(2*factor),
+        tower.derivation()(factor) / (2 * factor),
         tower.derivation(),
     )
 
@@ -304,7 +308,7 @@ def test_gaussian_hyperexponential_signature_rejects_nonrational_valuation() -> 
     )
     tower = rational.extend(
         MonomialExtension(
-            Poly(x*t, t, domain=rational.field()),
+            Poly(x * t, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -312,7 +316,7 @@ def test_gaussian_hyperexponential_signature_rejects_nonrational_valuation() -> 
     factor = field.from_sympy(t + x)
 
     result = solve_radical_logarithmic_derivative(
-        I*tower.derivation()(factor)/factor,
+        I * tower.derivation()(factor) / factor,
         tower.derivation(),
     )
 
@@ -344,19 +348,15 @@ def test_generated_hyperexponential_parametric_witnesses(
     field = tower.field()
     derivation = tower.derivation()
     outer = MonomialExtension(
-        Poly(x**2*u, u, domain=field),
+        Poly(x**2 * u, u, domain=field),
         ConstantFieldStatus.PRESERVED,
     )
     argument = field.from_sympy(
-        x**x_power
-        *(x + 1)**shifted_x_power
-        *t**t_power
-        *(t + x)**normal_power
+        x**x_power * (x + 1) ** shifted_x_power * t**t_power * (t + x) ** normal_power
     )
     integrand = (
-        derivation(argument)/argument
-        + multiplier*field.from_sympy(x**2)
-    )/power
+        derivation(argument) / argument + multiplier * field.from_sympy(x**2)
+    ) / power
 
     result = solve_parametric_logarithmic_derivative(
         integrand,
@@ -388,12 +388,9 @@ def test_generated_hyperexponential_radical_logarithmic_witnesses(
     field = tower.field()
     derivation = tower.derivation()
     argument = field.from_sympy(
-        x**x_power
-        *(x + 1)**shifted_x_power
-        *t**t_power
-        *(t + x)**normal_power
+        x**x_power * (x + 1) ** shifted_x_power * t**t_power * (t + x) ** normal_power
     )
-    integrand = derivation(argument)/(power*argument)
+    integrand = derivation(argument) / (power * argument)
 
     result = solve_radical_logarithmic_derivative(integrand, derivation)
 
@@ -406,7 +403,7 @@ def test_generated_hyperexponential_radical_logarithmic_witnesses(
     ):
         expected_power = lcm(
             expected_power,
-            power//gcd(abs(exponent), power),
+            power // gcd(abs(exponent), power),
         )
     assert result.has_solution
     assert result.minimal_power == expected_power

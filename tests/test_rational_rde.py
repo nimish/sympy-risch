@@ -23,13 +23,13 @@ x, t = symbols("x t")
 @pytest.mark.parametrize(
     ("coefficient", "right_hand_side", "expected"),
     [
-        (1, 1/x - 1/x**2, 1/x),
-        (1/x, 1, x/2),
-        (0, 1/x**2, -1/x),
+        (1, 1 / x - 1 / x**2, 1 / x),
+        (1 / x, 1, x / 2),
+        (0, 1 / x**2, -1 / x),
         (
-            2*x/(x**2 + 1),
+            2 * x / (x**2 + 1),
             1,
-            (x**3 + 3*x)/(3*(x**2 + 1)),
+            (x**3 + 3 * x) / (3 * (x**2 + 1)),
         ),
         (1, x, x - 1),
     ],
@@ -47,11 +47,12 @@ def test_rational_rde_solves_basic_examples(
 
     assert result.has_solution
     assert cancel(result.solution - expected) == 0
-    assert cancel(
-        result.solution.diff(x)
-        + coefficient*result.solution
-        - right_hand_side
-    ) == 0
+    assert (
+        cancel(
+            result.solution.diff(x) + coefficient * result.solution - right_hand_side
+        )
+        == 0
+    )
     assert result.obstruction is None
     assert result.denominator_bound is not None
 
@@ -70,26 +71,26 @@ def test_rational_rde_reconstructs_exponential_tower_derivative() -> None:
         ),
     )
     field = tower.field()
-    coefficient = 1/x - 1/x**2
+    coefficient = 1 / x - 1 / x**2
 
     result = solve_rational_risch_differential_equation(
         1,
         coefficient,
         x,
     )
-    antiderivative = field.from_sympy(result.solution*t)
-    integrand = field.from_sympy(coefficient*t)
+    antiderivative = field.from_sympy(result.solution * t)
+    integrand = field.from_sympy(coefficient * t)
 
-    assert result.solution == 1/x
+    assert result.solution == 1 / x
     assert tower.derivation()(antiderivative) == integrand
 
 
 @pytest.mark.parametrize(
     ("coefficient", "right_hand_side"),
     [
-        (1, 1/x),
-        (0, 1/x),
-        (1, 1/(x**2 + 1)),
+        (1, 1 / x),
+        (0, 1 / x),
+        (1, 1 / (x**2 + 1)),
     ],
 )
 def test_normal_denominator_obstruction_proves_nonexistence(
@@ -118,10 +119,10 @@ def test_normal_denominator_obstruction_proves_nonexistence(
         "expected_obstruction",
     ),
     [
-        (-2, -2/x**2, RationalRDEObstruction.SPDE_DEGREE),
+        (-2, -2 / x**2, RationalRDEObstruction.SPDE_DEGREE),
         (
             -2,
-            (x**2 + 1)/x**2,
+            (x**2 + 1) / x**2,
             RationalRDEObstruction.SPDE_DIVISIBILITY,
         ),
     ],
@@ -179,10 +180,10 @@ def test_final_polynomial_obstruction_is_retained(
         "expected_normalized_coefficient",
     ),
     [
-        (1/x, 1, x, 0),
-        (2*x/(x**2 + 1), 1, x**2 + 1, 0),
-        (-1/x, 1, 1, -1/x),
-        (1/(x**2 + 1), 1, 1, 1/(x**2 + 1)),
+        (1 / x, 1, x, 0),
+        (2 * x / (x**2 + 1), 1, x**2 + 1, 0),
+        (-1 / x, 1, 1, -1 / x),
+        (1 / (x**2 + 1), 1, 1, 1 / (x**2 + 1)),
     ],
 )
 def test_weak_normalization_removes_only_positive_integer_residues(
@@ -202,15 +203,16 @@ def test_weak_normalization_removes_only_positive_integer_residues(
         x,
         domain=QQ,
     )
-    assert cancel(
-        result.normalized_coefficient - expected_normalized_coefficient
-    ) == 0
-    assert cancel(
-        result.normalized_coefficient
-        + result.normalization_factor.diff().as_expr()
-        / result.normalization_factor.as_expr()
-        - coefficient
-    ) == 0
+    assert cancel(result.normalized_coefficient - expected_normalized_coefficient) == 0
+    assert (
+        cancel(
+            result.normalized_coefficient
+            + result.normalization_factor.diff().as_expr()
+            / result.normalization_factor.as_expr()
+            - coefficient
+        )
+        == 0
+    )
 
 
 @given(
@@ -227,15 +229,15 @@ def test_generated_weak_normalizers_match_positive_residue_factors(
     repeated_pole,
 ) -> None:
     coefficient = (
-        x_residue/x
-        + linear_residue/(x - 1)
-        + quadratic_residue*2*x/(x**2 + 1)
-        + repeated_pole/(x + 2)**2
+        x_residue / x
+        + linear_residue / (x - 1)
+        + quadratic_residue * 2 * x / (x**2 + 1)
+        + repeated_pole / (x + 2) ** 2
     )
     expected = (
-        x**max(0, x_residue)
-        * (x - 1)**max(0, linear_residue)
-        * (x**2 + 1)**max(0, quadratic_residue)
+        x ** max(0, x_residue)
+        * (x - 1) ** max(0, linear_residue)
+        * (x**2 + 1) ** max(0, quadratic_residue)
     )
 
     result = solve_rational_risch_differential_equation(
@@ -245,17 +247,20 @@ def test_generated_weak_normalizers_match_positive_residue_factors(
     )
 
     assert result.normalization_factor == Poly(expected, x, domain=QQ)
-    assert cancel(
-        coefficient
-        - result.normalized_coefficient
-        - result.normalization_factor.diff().as_expr()
-        / result.normalization_factor.as_expr()
-    ) == 0
+    assert (
+        cancel(
+            coefficient
+            - result.normalized_coefficient
+            - result.normalization_factor.diff().as_expr()
+            / result.normalization_factor.as_expr()
+        )
+        == 0
+    )
 
 
 def test_degree_bound_includes_resonance_at_infinity() -> None:
     result = solve_rational_risch_differential_equation(
-        -3/x,
+        -3 / x,
         x**2,
         x,
     )
@@ -267,7 +272,7 @@ def test_degree_bound_includes_resonance_at_infinity() -> None:
 
 @pytest.mark.parametrize(
     "coefficient",
-    [0, 1, 1/x, 3/x + 1/(x - 1)**2, x/(x**2 + 1)],
+    [0, 1, 1 / x, 3 / x + 1 / (x - 1) ** 2, x / (x**2 + 1)],
 )
 def test_zero_right_hand_side_uses_canonical_zero_solution(coefficient) -> None:
     result = solve_rational_risch_differential_equation(
@@ -284,21 +289,21 @@ def test_zero_right_hand_side_uses_canonical_zero_solution(coefficient) -> None:
 def test_bounded_matrix_oracle_finds_rational_solution() -> None:
     result = solve_bounded_rational_rde_matrix(
         1,
-        1/x - 1/x**2,
+        1 / x - 1 / x**2,
         x,
         x,
         0,
     )
 
     assert result.has_solution
-    assert result.solution == 1/x
+    assert result.solution == 1 / x
     assert result.coefficient_rank == result.augmented_rank == 1
 
 
 def test_bounded_matrix_oracle_proves_ansatz_inconsistent() -> None:
     result = solve_bounded_rational_rde_matrix(
         1,
-        1/x,
+        1 / x,
         x,
         x,
         4,
@@ -310,7 +315,7 @@ def test_bounded_matrix_oracle_proves_ansatz_inconsistent() -> None:
 
 def test_bounded_matrix_oracle_normalizes_homogeneous_freedom_to_zero() -> None:
     result = solve_bounded_rational_rde_matrix(
-        1/x,
+        1 / x,
         0,
         x,
         x,
@@ -375,24 +380,16 @@ def test_generated_planted_rational_solutions_are_found(
 ) -> None:
     factors = (x, x - 1, x**2 + 1)
     coefficient_numerator = sum(
-        value*x**degree
-        for degree, value in enumerate(coefficient_coefficients)
+        value * x**degree for degree, value in enumerate(coefficient_coefficients)
     )
     solution_numerator = sum(
-        value*x**degree
-        for degree, value in enumerate(solution_coefficients)
+        value * x**degree for degree, value in enumerate(solution_coefficients)
     )
     coefficient_denominator = prod_powers(factors, coefficient_poles)
     solution_denominator = prod_powers(factors, solution_poles)
-    coefficient = cancel(
-        coefficient_numerator/coefficient_denominator
-    )
-    planted_solution = cancel(
-        solution_numerator/solution_denominator
-    )
-    right_hand_side = cancel(
-        planted_solution.diff(x) + coefficient*planted_solution
-    )
+    coefficient = cancel(coefficient_numerator / coefficient_denominator)
+    planted_solution = cancel(solution_numerator / solution_denominator)
+    right_hand_side = cancel(planted_solution.diff(x) + coefficient * planted_solution)
 
     result = solve_rational_risch_differential_equation(
         coefficient,
@@ -401,11 +398,12 @@ def test_generated_planted_rational_solutions_are_found(
     )
 
     assert result.has_solution
-    assert cancel(
-        result.solution.diff(x)
-        + coefficient*result.solution
-        - right_hand_side
-    ) == 0
+    assert (
+        cancel(
+            result.solution.diff(x) + coefficient * result.solution - right_hand_side
+        )
+        == 0
+    )
 
 
 @given(
@@ -437,17 +435,11 @@ def test_full_solver_agrees_with_bounded_matrix_after_denominator_reduction(
 ) -> None:
     factors = (x, x - 1)
     coefficient = cancel(
-        sum(
-            value*x**degree
-            for degree, value in enumerate(coefficient_coefficients)
-        )
+        sum(value * x**degree for degree, value in enumerate(coefficient_coefficients))
         / prod_powers(factors, coefficient_poles)
     )
     right_hand_side = cancel(
-        sum(
-            value*x**degree
-            for degree, value in enumerate(rhs_coefficients)
-        )
+        sum(value * x**degree for degree, value in enumerate(rhs_coefficients))
         / prod_powers(factors, rhs_poles)
     )
     result = solve_rational_risch_differential_equation(
@@ -460,9 +452,7 @@ def test_full_solver_agrees_with_bounded_matrix_after_denominator_reduction(
         assert not result.obstruction_remainder.is_zero
         return
 
-    ansatz_denominator = (
-        result.normalization_factor*result.denominator_bound
-    )
+    ansatz_denominator = result.normalization_factor * result.denominator_bound
     matrix = solve_bounded_rational_rde_matrix(
         coefficient,
         right_hand_side,
@@ -473,11 +463,14 @@ def test_full_solver_agrees_with_bounded_matrix_after_denominator_reduction(
 
     assert result.has_solution is matrix.has_solution
     if result.has_solution:
-        assert cancel(
-            matrix.solution.diff(x)
-            + coefficient*matrix.solution
-            - right_hand_side
-        ) == 0
+        assert (
+            cancel(
+                matrix.solution.diff(x)
+                + coefficient * matrix.solution
+                - right_hand_side
+            )
+            == 0
+        )
     else:
         assert matrix.augmented_rank > matrix.coefficient_rank
 
@@ -496,7 +489,7 @@ def prod_powers(factors, powers):
         (sin(x), 1),
         (1, sin(x)),
         (sqrt(2), 1),
-        (1, sqrt(2)/x),
+        (1, sqrt(2) / x),
     ],
 )
 def test_rational_rde_rejects_inputs_outside_qq_x(
@@ -526,7 +519,7 @@ def test_rational_rde_rejects_nonsymbol_variables(variable) -> None:
         (0, 1, ValueError, "denominator must be nonzero"),
         (x, -1, ValueError, "degree bound must be a nonnegative int"),
         (x, True, ValueError, "degree bound must be a nonnegative int"),
-        (sqrt(2)*x, 1, CoercionFailed, None),
+        (sqrt(2) * x, 1, CoercionFailed, None),
     ],
 )
 def test_bounded_matrix_oracle_rejects_invalid_ansatz(

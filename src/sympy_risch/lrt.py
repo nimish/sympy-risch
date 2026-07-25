@@ -22,7 +22,7 @@ def _remove_vanishing_leading_factors(
         common_factor = factor.gcd(residue_factor)
 
         if common_factor.degree() > 0:
-            divisor = Poly(common_factor.as_expr()**multiplicity, x)
+            divisor = Poly(common_factor.as_expr() ** multiplicity, x)
             subresultant = subresultant.exquo(divisor)
 
     return subresultant
@@ -41,7 +41,7 @@ def _make_monic_modulo(
 
     for monomial, coefficient in polynomial.terms():
         coefficient = Poly(coefficient, residue, field=True)
-        normalized = (inverse*coefficient).rem(modulus)
+        normalized = (inverse * coefficient).rem(modulus)
         normalized_terms[monomial] = normalized.as_expr()
 
     return Poly.from_dict(normalized_terms, x)
@@ -63,18 +63,9 @@ def _differential_lazard_rioboo_trager(
     constants.  Keeping this helper separate preserves the simpler public
     rational LRT interface below.
     """
-    if not (
-        numerator.gens
-        == denominator.gens
-        == denominator_derivative.gens
-        == (x,)
-    ):
+    if not (numerator.gens == denominator.gens == denominator_derivative.gens == (x,)):
         raise ValueError("generalized LRT polynomials must share their generator")
-    if not (
-        numerator.domain
-        == denominator.domain
-        == denominator_derivative.domain
-    ):
+    if not (numerator.domain == denominator.domain == denominator_derivative.domain):
         raise ValueError("generalized LRT polynomials must share their domain")
 
     coefficient_field = denominator.domain
@@ -92,7 +83,7 @@ def _differential_lazard_rioboo_trager(
         domain=residue_field,
     )
     numerator_with_residue = Poly(
-        numerator.as_expr() - residue*denominator_derivative.as_expr(),
+        numerator.as_expr() - residue * denominator_derivative.as_expr(),
         x,
         domain=residue_field,
     )
@@ -103,8 +94,7 @@ def _differential_lazard_rioboo_trager(
         includePRS=True,
     )
     subresultants_by_degree = {
-        polynomial.degree(): polynomial
-        for polynomial in remainder_sequence
+        polynomial.degree(): polynomial for polynomial in remainder_sequence
     }
 
     logarithmic_parts = []
@@ -185,15 +175,14 @@ def lazard_rioboo_trager(
     if residue == x:
         raise ValueError("the residue symbol must differ from the variable")
     coefficient_symbols = (
-        numerator.as_expr().free_symbols
-        | denominator.as_expr().free_symbols
+        numerator.as_expr().free_symbols | denominator.as_expr().free_symbols
     ) - {x}
     if residue in coefficient_symbols:
         raise ValueError("the residue symbol must be new over the coefficient field")
 
     residue_polynomial, remainder_sequence = resultant(
         denominator,
-        numerator - denominator.diff()*Poly(residue, x),
+        numerator - denominator.diff() * Poly(residue, x),
         x,
         includePRS=True,
     )
@@ -203,8 +192,7 @@ def lazard_rioboo_trager(
         raise ValueError("the LRT residue resultant unexpectedly vanished")
 
     subresultants_by_degree = {
-        polynomial.degree(): polynomial
-        for polynomial in remainder_sequence
+        polynomial.degree(): polynomial for polynomial in remainder_sequence
     }
     _, square_free_factors = residue_polynomial.sqf_list()
     logarithmic_parts = []

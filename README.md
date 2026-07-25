@@ -8,19 +8,24 @@ differential tower explicitly.
 The implemented end-to-end dispatcher handles rational functions and explicit
 finite towers of primitive, hyperexponential, and hypertangent extensions
 over `QQ(x)`, in any order when their constant fields have been certified as
-preserved.
+preserved. It also normalizes the exact hyperbolic law
+`Dt = eta*(1 - t**2)` to an isomorphic hyperexponential coordinate.
 Lower-level modules also provide
 recursive radical and parametric logarithmic-derivative decisions over
 primitive towers, primitive RDE weak normalization and cancellation,
-algebraic Hermite reduction, Trager finite-residue polynomials for supported
-algebraic models, generalized monomial residue reduction, family-aware
+algebraic Hermite reduction, certified algebraic maximal orders and
+fractional ideals, ramified and infinite places, exact valuations and
+divisors, Trager finite-residue polynomials for supported algebraic models,
+generalized monomial residue reduction, family-aware
 exact-derivative decisions, and Risch differential-equation solvers.
 Hyperexponential RDEs include general weak normalization, normal and special
 denominator reduction, SPDE, and the Laurent recurrence core. Real coupled
 RDEs include Gaussian scalar certificates over primitive towers and direct
 Chapter 8 cancellation recurrences for hyperexponential Laurent modes and
-hypertangent polynomial systems. The latter terminal solvers are the
-foundation for the remaining nested-tangent rational frontend.
+hypertangent polynomial systems. Together with the immutable Gaussian Cayley
+normal form, those solvers close the declared explicit P/E/T tower contract;
+general polynomial monomials with nonconstant special factors and automatic
+expression-to-tower construction remain future work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.
@@ -32,19 +37,17 @@ From a checkout:
 ```console
 uv sync --no-editable
 uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
 uv run --no-sync ty check
-uv run --no-sync pytest -q -n auto --dist worksteal -m "not slow"
+uv run --no-sync pytest -q -n auto --dist worksteal
 ```
 
 The non-editable install avoids an editable-install issue on Python versions
-that ignore hidden `.pth` files. Pytest still reads the current source tree
-through the configured `src` path. Ruff checks the complete checkout, while ty
-checks the production package under `src`. Run the complete suite, including
-the generated rational stress test, with:
-
-```console
-uv run --no-sync pytest -q -n auto --dist worksteal
-```
+that ignore hidden `.pth` files. If the environment already contains an
+editable installation, add `--reinstall-package sympy-risch` to the sync
+command when switching it to a non-editable install. Pytest still reads the
+current source tree through the configured `src` path. Ruff checks the complete
+checkout, while ty checks the production package under `src`.
 
 The automatic worker count was fastest on the development machine. Use plain
 `pytest -q` when debugging a failure serially.
@@ -71,13 +74,13 @@ base_analysis = certify_primitive_extension(
 )
 tower = constants.extend(base_analysis.extension)
 field = tower.field()
-integrand = field.from_sympy(-1/(x - 1)**2 + 3/x)
+integrand = field.from_sympy(-1 / (x - 1) ** 2 + 3 / x)
 
 result = integrate_elementary(integrand, tower.derivation())
 
 assert result.is_elementary
 assert result.reconstructs
-assert result.antiderivative == 1/(x - 1) + 3*log(x)
+assert result.antiderivative == 1 / (x - 1) + 3 * log(x)
 ```
 
 See the [getting-started guide](docs/getting-started.md) for nested logarithms,
@@ -98,5 +101,7 @@ non-elementarity obstructions, and the supported tower shapes.
   mathematics.
 - [Algebraic-over-hypertangent research note](docs/algebraic-hypertangent.md):
   a proposed future real-algebraic branch.
+- [Algebraic function-field infrastructure](docs/algebraic-infrastructure.md):
+  exact orders, ideals, places, local expansions, divisors, and differentials.
 - [Literature archive](references/README.md): locally available primary papers,
   their provenance, and cited works that still need an authorized copy.

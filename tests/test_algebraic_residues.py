@@ -38,7 +38,7 @@ def test_quadratic_residue_polynomial_records_complete_certificate() -> None:
     tower, _extension, basis = algebraic_tower(y**2 - x)
 
     result = trager_algebraic_residue_polynomial(
-        y/(x - 1),
+        y / (x - 1),
         tower.derivation(),
         basis,
         z,
@@ -53,7 +53,7 @@ def test_quadratic_residue_polynomial_records_complete_certificate() -> None:
     )
     assert result.numerator == Poly(y, y, x, domain=QQ)
     assert result.denominator == Poly(x - 1, x, domain=QQ)
-    assert result.discriminant == Poly(4*x, x, domain=QQ)
+    assert result.discriminant == Poly(4 * x, x, domain=QQ)
     assert result.branch_gcd == Poly(1, x, domain=QQ)
     assert result.inner_resultant == Poly(
         -x + z**2,
@@ -72,13 +72,13 @@ def test_repeated_equal_residues_retain_place_multiplicity() -> None:
     tower, _, basis = algebraic_tower(y**2 - x)
 
     result = trager_algebraic_residue_polynomial(
-        1/(x - 1),
+        1 / (x - 1),
         tower.derivation(),
         basis,
         z,
     )
 
-    assert result.residue_polynomial == Poly((z - 1)**2, z, domain=QQ)
+    assert result.residue_polynomial == Poly((z - 1) ** 2, z, domain=QQ)
     assert result.square_free_residue_polynomial == Poly(
         z - 1,
         z,
@@ -88,7 +88,7 @@ def test_repeated_equal_residues_retain_place_multiplicity() -> None:
 
 def test_y_independent_case_matches_rational_rothstein_trager() -> None:
     tower, extension, basis = algebraic_tower(y**2 - x)
-    integrand = 1/(x - 1) + 2/(x + 1)
+    integrand = 1 / (x - 1) + 2 / (x + 1)
 
     algebraic_result = trager_algebraic_residue_polynomial(
         integrand,
@@ -103,9 +103,10 @@ def test_y_independent_case_matches_rational_rothstein_trager() -> None:
     ).monic()
 
     # Every rational place has one conjugate lift for each algebraic sheet.
-    assert algebraic_result.residue_polynomial == (
-        rational_result**extension.field.rank
-    ).monic()
+    assert (
+        algebraic_result.residue_polynomial
+        == (rational_result**extension.field.rank).monic()
+    )
     assert algebraic_result.square_free_residue_polynomial == rational_result
 
 
@@ -113,7 +114,7 @@ def test_dense_nonradical_cubic_residues() -> None:
     tower, _, basis = algebraic_tower(y**3 + y - x)
 
     result = trager_algebraic_residue_polynomial(
-        y/x,
+        y / x,
         tower.derivation(),
         basis,
         z,
@@ -121,7 +122,7 @@ def test_dense_nonradical_cubic_residues() -> None:
 
     # At x = 0 the three residues are the roots of y**3 + y.
     assert result.residue_polynomial == Poly(z**3 + z, z, domain=QQ)
-    assert result.discriminant == Poly(-27*x**2 - 4, x, domain=QQ)
+    assert result.discriminant == Poly(-27 * x**2 - 4, x, domain=QQ)
     assert result.reconstructs_input
 
 
@@ -138,7 +139,7 @@ def test_nonpower_integral_basis_preserves_the_residue_polynomial() -> None:
     )
 
     result = trager_algebraic_residue_polynomial(
-        y/x,
+        y / x,
         tower.derivation(),
         basis,
         z,
@@ -152,7 +153,7 @@ def test_irreducible_base_poles_are_eliminated_without_root_objects() -> None:
     tower, _, basis = algebraic_tower(y**2 - x)
 
     result = trager_algebraic_residue_polynomial(
-        y/(x**2 + 1),
+        y / (x**2 + 1),
         tower.derivation(),
         basis,
         z,
@@ -173,8 +174,8 @@ def test_residue_polynomial_composes_with_algebraic_hermite_reduction() -> None:
     tower, extension, basis = algebraic_tower(y**2 - x)
     field = extension.field
     derivation = tower.derivation()
-    planted_exact = field.from_sympy((1 + y)/(x + 2))
-    planted_remainder = field.from_sympy(y/(x - 1))
+    planted_exact = field.from_sympy((1 + y) / (x + 2))
+    planted_remainder = field.from_sympy(y / (x - 1))
     integrand = derivation(planted_exact) + planted_remainder
 
     exact, remainder = hermite_reduce_algebraic(
@@ -219,14 +220,14 @@ def test_residues_preserve_an_algebraic_constant_field() -> None:
     tower, _, basis = algebraic_tower(y**2 - x, constants)
 
     result = trager_algebraic_residue_polynomial(
-        (sqrt(2) + y)/(x - 1),
+        (sqrt(2) + y) / (x - 1),
         tower.derivation(),
         basis,
         z,
     )
 
     assert result.residue_polynomial == Poly(
-        z**2 - 2*sqrt(2)*z + 1,
+        z**2 - 2 * sqrt(2) * z + 1,
         z,
         domain=constants,
     )
@@ -237,7 +238,7 @@ def test_high_degree_multiple_poles_match_explicit_local_residues() -> None:
     tower, _, basis = algebraic_tower(y**5 - (x + 2))
 
     result = trager_algebraic_residue_polynomial(
-        y/((x - 1)*(x + 1)),
+        y / ((x - 1) * (x + 1)),
         tower.derivation(),
         basis,
         z,
@@ -245,7 +246,7 @@ def test_high_degree_multiple_poles_match_explicit_local_residues() -> None:
 
     # At x=1, D'=2 and y**5=3. At x=-1, D'=-2 and y**5=1.
     expected = Poly(
-        expand((z**5 - QQ(3, 32))*(z**5 + QQ(1, 32))),
+        expand((z**5 - QQ(3, 32)) * (z**5 + QQ(1, 32))),
         z,
         domain=QQ,
     )
@@ -273,7 +274,7 @@ def test_generated_quadratic_residues_match_specialization_oracle(
     tower, _, basis = algebraic_tower(y**2 - (x + shift))
 
     result = trager_algebraic_residue_polynomial(
-        (constant + generator_coefficient*y)/(x - pole),
+        (constant + generator_coefficient * y) / (x - pole),
         tower.derivation(),
         basis,
         z,
@@ -282,10 +283,7 @@ def test_generated_quadratic_residues_match_specialization_oracle(
     # Specializing x=pole gives the conjugate residues
     # constant +/- generator_coefficient*sqrt(pole + shift).
     expected = Poly(
-        (
-            (z - constant)**2
-            - generator_coefficient**2*(pole + shift)
-        ),
+        ((z - constant) ** 2 - generator_coefficient**2 * (pole + shift)),
         z,
         domain=QQ,
     )
@@ -301,7 +299,7 @@ def test_branch_place_is_rejected_with_its_common_factor() -> None:
         match="branch locus x",
     ):
         trager_algebraic_residue_polynomial(
-            y/x,
+            y / x,
             tower.derivation(),
             basis,
             z,
@@ -313,7 +311,7 @@ def test_repeated_finite_pole_requires_hermite_reduction() -> None:
 
     with pytest.raises(ValueError, match="square-free denominator"):
         trager_algebraic_residue_polynomial(
-            y/(x - 1)**2,
+            y / (x - 1) ** 2,
             tower.derivation(),
             basis,
             z,
@@ -321,14 +319,14 @@ def test_repeated_finite_pole_requires_hermite_reduction() -> None:
 
 
 def test_nonpolynomial_plane_model_is_explicitly_unsupported() -> None:
-    tower, _, basis = algebraic_tower(y**2 - x/(x + 1))
+    tower, _, basis = algebraic_tower(y**2 - x / (x + 1))
 
     with pytest.raises(
         NotImplementedError,
         match=r"defining polynomial in C\[x, y\]",
     ):
         trager_algebraic_residue_polynomial(
-            y/(x - 1),
+            y / (x - 1),
             tower.derivation(),
             basis,
             z,
@@ -336,9 +334,9 @@ def test_nonpolynomial_plane_model_is_explicitly_unsupported() -> None:
 
 
 def test_nonpolynomial_power_numerator_is_explicitly_unsupported() -> None:
-    tower, extension, _ = algebraic_tower(y**2 - x**2*(x + 1))
+    tower, extension, _ = algebraic_tower(y**2 - x**2 * (x + 1))
     field = extension.field
-    integral_generator = field.from_sympy(y/x)
+    integral_generator = field.from_sympy(y / x)
     basis = IntegralBasis(
         extension,
         (field.one, integral_generator),
@@ -349,7 +347,7 @@ def test_nonpolynomial_power_numerator_is_explicitly_unsupported() -> None:
         match="integral numerator",
     ):
         trager_algebraic_residue_polynomial(
-            integral_generator/(x - 1),
+            integral_generator / (x - 1),
             tower.derivation(),
             basis,
             z,
@@ -362,28 +360,28 @@ def test_residue_input_contract_rejects_mismatched_or_reused_data() -> None:
 
     with pytest.raises(TypeError, match="Derivation"):
         trager_algebraic_residue_polynomial(  # type: ignore[arg-type]
-            y/(x - 1),
+            y / (x - 1),
             object(),
             basis,
             z,
         )
     with pytest.raises(TypeError, match="IntegralBasis"):
         trager_algebraic_residue_polynomial(  # type: ignore[arg-type]
-            y/(x - 1),
+            y / (x - 1),
             tower.derivation(),
             object(),
             z,
         )
     with pytest.raises(TypeError, match="must be a Symbol"):
         trager_algebraic_residue_polynomial(  # type: ignore[arg-type]
-            y/(x - 1),
+            y / (x - 1),
             tower.derivation(),
             basis,
             1,
         )
     with pytest.raises(ValueError, match="same algebraic field"):
         trager_algebraic_residue_polynomial(
-            y/(x - 1),
+            y / (x - 1),
             other_tower.derivation(),
             basis,
             z,
@@ -391,7 +389,7 @@ def test_residue_input_contract_rejects_mismatched_or_reused_data() -> None:
     for reused_symbol in (x, y):
         with pytest.raises(ValueError, match="must be new"):
             trager_algebraic_residue_polynomial(
-                y/(x - 1),
+                y / (x - 1),
                 tower.derivation(),
                 basis,
                 reused_symbol,
@@ -410,7 +408,7 @@ def test_nonstandard_rational_derivation_is_explicitly_unsupported() -> None:
 
     with pytest.raises(NotImplementedError, match="Dx = 1"):
         trager_algebraic_residue_polynomial(
-            y/(x - 1),
+            y / (x - 1),
             tower.derivation(),
             basis,
             z,
@@ -420,7 +418,7 @@ def test_nonstandard_rational_derivation_is_explicitly_unsupported() -> None:
 def test_residue_result_is_immutable() -> None:
     tower, _, basis = algebraic_tower(y**2 - x)
     result = trager_algebraic_residue_polynomial(
-        y/(x - 1),
+        y / (x - 1),
         tower.derivation(),
         basis,
         z,

@@ -2,6 +2,7 @@
 
 from .algebraic import (
     AlgebraicFraction,
+    AlgebraicPlaceResidue,
     IntegralBasis,
     SimpleRadicalData,
     TragerAlgebraicResidueResult,
@@ -9,7 +10,21 @@ from .algebraic import (
     lazy_hermite_reduce_algebraic,
     recognize_simple_radical,
     simple_radical_integral_basis,
+    trager_algebraic_place_residues,
     trager_algebraic_residue_polynomial,
+)
+from .algebraic_geometry import (
+    AlgebraicDifferential,
+    AlgebraicDivisor,
+    AlgebraicFractionalIdeal,
+    AlgebraicFunctionField,
+    AlgebraicOrder,
+    FiniteAlgebraicPlace,
+    InfiniteAlgebraicPlace,
+    IntegralClosureResult,
+    LocalLaurentExpansion,
+    integral_closure,
+    polynomial_order,
 )
 from .dependency import (
     HyperexponentialDependency,
@@ -33,6 +48,7 @@ from .dependency import (
 )
 from .elementary import (
     ElementaryIntegralResult,
+    HyperbolicMobiusElementaryCertificate,
     IntegrationObstruction,
     IntegrationObstructionKind,
     LogarithmicTerm,
@@ -43,6 +59,10 @@ from .exact import (
     ExactDerivativeResult,
     TranscendentalExactDerivativeCertificate,
     solve_exact_derivative,
+)
+from .hyperbolic import (
+    HyperbolicMobiusNormalForm,
+    build_hyperbolic_mobius_normal_form,
 )
 from .lrt import lazard_rioboo_trager
 from .monomial import (
@@ -146,6 +166,12 @@ from .rde import (
     solve_rational_risch_differential_equation,
     solve_risch_differential_equation,
 )
+from .special import (
+    SpecialPolynomialAnalysis,
+    SpecialPolynomialCertificate,
+    analyze_special_polynomials,
+    certify_special_polynomial,
+)
 from .tower import (
     AlgebraicExtension,
     ConstantFieldStatus,
@@ -155,13 +181,20 @@ from .tower import (
     MonomialExtension,
     MonomialFamily,
     SpecialPolynomialStatus,
+    rebase_derivation_constants,
 )
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "AlgebraicDifferential",
+    "AlgebraicDivisor",
     "AlgebraicExtension",
     "AlgebraicFraction",
+    "AlgebraicFractionalIdeal",
+    "AlgebraicFunctionField",
+    "AlgebraicOrder",
+    "AlgebraicPlaceResidue",
     "BoundedCoupledRDEMatrixResult",
     "BoundedHyperexponentialLaurentRDEMatrixResult",
     "BoundedPrimitiveCoupledRDEMatrixResult",
@@ -184,6 +217,9 @@ __all__ = [
     "DifferentialTower",
     "ElementaryIntegralResult",
     "ExactDerivativeResult",
+    "FiniteAlgebraicPlace",
+    "HyperbolicMobiusElementaryCertificate",
+    "HyperbolicMobiusNormalForm",
     "HyperexponentialDependency",
     "HyperexponentialDependencyKind",
     "HyperexponentialLaurentRDECorrection",
@@ -200,9 +236,12 @@ __all__ = [
     "HypertangentDependency",
     "HypertangentMonomialReduction",
     "HypertangentSpecialReduction",
+    "InfiniteAlgebraicPlace",
     "IntegralBasis",
+    "IntegralClosureResult",
     "IntegrationObstruction",
     "IntegrationObstructionKind",
+    "LocalLaurentExpansion",
     "LogarithmicTerm",
     "MonomialExtension",
     "MonomialFamily",
@@ -240,26 +279,34 @@ __all__ = [
     "ReducedFunctionReduction",
     "RischDifferentialEquationResult",
     "SimpleRadicalData",
+    "SpecialPolynomialAnalysis",
+    "SpecialPolynomialCertificate",
     "SpecialPolynomialStatus",
     "TragerAlgebraicResidueResult",
     "TranscendentalExactDerivativeCertificate",
     "analyze_hyperexponential_extension",
     "analyze_hypertangent_extension",
+    "analyze_special_polynomials",
     "bronstein_residue_criterion",
+    "build_hyperbolic_mobius_normal_form",
     "certify_primitive_extension",
+    "certify_special_polynomial",
     "hermite_reduce_algebraic",
     "hermite_reduce_monomial",
     "hermite_reduce_rational",
     "hermite_reduce_rational_recursive",
+    "integral_closure",
     "integrate_elementary",
     "integrate_polynomial",
     "integrate_rational",
     "integrate_rational_real",
     "lazard_rioboo_trager",
     "lazy_hermite_reduce_algebraic",
+    "polynomial_order",
     "polynomial_reduce_monomial",
     "polynomial_reduce_primitive",
     "primitive_logarithmic_derivative_signature",
+    "rebase_derivation_constants",
     "recognize_simple_radical",
     "reduce_hyperexponential_laurent",
     "reduce_hyperexponential_monomial",
@@ -298,6 +345,7 @@ __all__ = [
     "solve_rational_risch_differential_equation",
     "solve_risch_differential_equation",
     "split_normal_special",
+    "trager_algebraic_place_residues",
     "trager_algebraic_residue_polynomial",
     "verify_parametric_logarithmic_derivative_witness",
 ]

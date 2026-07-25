@@ -24,7 +24,7 @@ x, t, u, v = symbols("x t u v")
 
 def logarithmic_tower(
     *,
-    eta=1/x,
+    eta=1 / x,
     constant_field_status=ConstantFieldStatus.PRESERVED,
 ) -> DifferentialTower:
     """Return ``QQ(x)(t)``, with ``Dx = 1`` and ``Dt = eta``."""
@@ -57,7 +57,7 @@ def nested_logarithmic_tower(
     )
     tower = tower.extend(
         MonomialExtension(
-            Poly(1/(x*t), u, domain=tower.field()),
+            Poly(1 / (x * t), u, domain=tower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -67,7 +67,7 @@ def nested_logarithmic_tower(
         raise ValueError("nested logarithmic test towers have depth 2 or 3")
     return tower.extend(
         MonomialExtension(
-            Poly(1/(x*t*u), v, domain=tower.field()),
+            Poly(1 / (x * t * u), v, domain=tower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -104,7 +104,7 @@ def _independent_radical_logarithmic_oracle(
     )
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(coefficient)
-    leading_inverse = denominator.domain.one/denominator.domain.convert(
+    leading_inverse = denominator.domain.one / denominator.domain.convert(
         denominator.LC()
     )
     numerator = numerator.mul_ground(leading_inverse)
@@ -112,8 +112,7 @@ def _independent_radical_logarithmic_oracle(
     polynomial_part, _proper_numerator = numerator.div(denominator)
 
     top_factors = tuple(
-        factor.monic()
-        for factor, _multiplicity in denominator.factor_list()[1]
+        factor.monic() for factor, _multiplicity in denominator.factor_list()[1]
     )
     lower_constant = (
         extension.parent_field.zero
@@ -129,31 +128,26 @@ def _independent_radical_logarithmic_oracle(
         domain=QQ,
     )
     lower_factors = tuple(
-        factor.monic()
-        for factor, _multiplicity in lower_denominator.factor_list()[1]
+        factor.monic() for factor, _multiplicity in lower_denominator.factor_list()[1]
     )
 
     top_residues = tuple(
-        Dummy(f"top_residue_{index}")
-        for index in range(len(top_factors))
+        Dummy(f"top_residue_{index}") for index in range(len(top_factors))
     )
     lower_residues = tuple(
-        Dummy(f"lower_residue_{index}")
-        for index in range(len(lower_factors))
+        Dummy(f"lower_residue_{index}") for index in range(len(lower_factors))
     )
     candidate = 0
     for residue, factor in zip(top_residues, top_factors, strict=True):
         candidate += (
-            residue
-            * derivation.polynomial(factor).as_expr()
-            / factor.as_expr()
+            residue * derivation.polynomial(factor).as_expr() / factor.as_expr()
         )
     for residue, factor in zip(
         lower_residues,
         lower_factors,
         strict=True,
     ):
-        candidate += residue*factor.diff().as_expr()/factor.as_expr()
+        candidate += residue * factor.diff().as_expr() / factor.as_expr()
 
     identity_numerator = cancel(
         element_expression - candidate,
@@ -179,8 +173,7 @@ def _independent_nested_radical_logarithmic_oracle(
     element_expression = field.to_sympy(field.from_sympy(expression))
     factor_expressions = (x, x**2 + 1, t, u, u**2 + t)
     residues = tuple(
-        Dummy(f"nested_residue_{index}")
-        for index in range(len(factor_expressions))
+        Dummy(f"nested_residue_{index}") for index in range(len(factor_expressions))
     )
     candidate = 0
     for residue, factor_expression in zip(
@@ -189,7 +182,7 @@ def _independent_nested_radical_logarithmic_oracle(
         strict=True,
     ):
         factor = field.from_sympy(factor_expression)
-        candidate += residue*(derivation(factor)/factor).as_expr()
+        candidate += residue * (derivation(factor) / factor).as_expr()
     identity_numerator = cancel(
         element_expression - candidate,
     ).as_numer_denom()[0]
@@ -202,14 +195,14 @@ def test_signature_combines_lower_and_top_radical_residues() -> None:
     derivation = tower.derivation()
 
     signature = primitive_logarithmic_derivative_signature(
-        1/(2*x) + 1/(3*x*t),
+        1 / (2 * x) + 1 / (3 * x * t),
         derivation,
     )
 
     assert isinstance(signature, PrimitiveLogarithmicDerivativeSignature)
     assert signature.has_solution
     assert signature.minimal_power == 6
-    assert signature.relation_argument == tower.field().from_sympy(x**3*t**2)
+    assert signature.relation_argument == tower.field().from_sympy(x**3 * t**2)
     assert signature.reconstructs_decomposition
     assert signature.reconstructs_relation
     assert not signature.has_positive_degree_polynomial_obstruction
@@ -224,7 +217,7 @@ def test_signature_uses_total_derivative_of_coefficient_dependent_factor() -> No
     field = tower.field()
     factor_expression = t**2 + x
     argument = field.from_sympy(factor_expression)
-    integrand = derivation(argument)/(2*argument)
+    integrand = derivation(argument) / (2 * argument)
 
     signature = primitive_logarithmic_derivative_signature(
         integrand,
@@ -242,7 +235,7 @@ def test_signature_uses_total_derivative_of_coefficient_dependent_factor() -> No
         domain=tower.levels[1].parent_field,
     )
     assert factor.factor_derivative == Poly(
-        2*t/x + 1,
+        2 * t / x + 1,
         t,
         domain=tower.levels[1].parent_field,
     )
@@ -255,11 +248,7 @@ def test_signature_records_every_repeated_principal_part() -> None:
     field = tower.field()
     factor = field.from_sympy(t - x)
     factor_derivative = derivation(factor)
-    integrand = (
-        3*factor_derivative/factor
-        + 5/factor**2
-        + 7/factor**3
-    )
+    integrand = 3 * factor_derivative / factor + 5 / factor**2 + 7 / factor**3
 
     signature = primitive_logarithmic_derivative_signature(
         integrand,
@@ -281,7 +270,7 @@ def test_signature_records_every_repeated_principal_part() -> None:
         )
         for numerator, expected in zip(
             factor_signature.principal_numerators,
-            (3/x - 3, 5, 7),
+            (3 / x - 3, 5, 7),
             strict=True,
         )
     ) == (0, 0, 0)
@@ -297,13 +286,13 @@ def test_signature_records_every_repeated_principal_part() -> None:
         "lower_obstruction",
     ),
     [
-        (t + 1/(x*t), True, False, False, False),
-        (1/t**2 + 1/(x*t), False, True, False, False),
-        (1/t, False, False, True, False),
-        (1/(x**2 + 1), False, False, False, True),
-        (1/x**2, False, False, False, True),
+        (t + 1 / (x * t), True, False, False, False),
+        (1 / t**2 + 1 / (x * t), False, True, False, False),
+        (1 / t, False, False, True, False),
+        (1 / (x**2 + 1), False, False, False, True),
+        (1 / x**2, False, False, False, True),
         (
-            t + 1/t**2 + 1/t + 1/(x**2 + 1),
+            t + 1 / t**2 + 1 / t + 1 / (x**2 + 1),
             True,
             True,
             True,
@@ -325,14 +314,10 @@ def test_signature_distinguishes_independent_obstruction_families(
 
     assert not signature.has_solution
     assert (
-        signature.has_positive_degree_polynomial_obstruction
-        is polynomial_obstruction
+        signature.has_positive_degree_polynomial_obstruction is polynomial_obstruction
     )
     assert signature.has_repeated_pole_obstruction is repeated_obstruction
-    assert (
-        signature.has_nonlogarithmic_residue_obstruction
-        is residue_obstruction
-    )
+    assert signature.has_nonlogarithmic_residue_obstruction is residue_obstruction
     assert signature.has_lower_field_obstruction is lower_obstruction
     assert signature.reconstructs_decomposition
     assert not signature.reconstructs_relation
@@ -340,7 +325,7 @@ def test_signature_distinguishes_independent_obstruction_families(
 
 def test_signature_is_immutable() -> None:
     signature = primitive_logarithmic_derivative_signature(
-        1/(x*t),
+        1 / (x * t),
         logarithmic_tower().derivation(),
     )
 
@@ -363,7 +348,7 @@ def test_signature_rejects_unproved_constant_field_hypothesis(status) -> None:
     ).derivation()
 
     with pytest.raises(ValueError, match="requires Const"):
-        primitive_logarithmic_derivative_signature(1/t, derivation)
+        primitive_logarithmic_derivative_signature(1 / t, derivation)
 
 
 def test_signature_detects_inconsistent_special_factor_hypothesis() -> None:
@@ -371,7 +356,7 @@ def test_signature_detects_inconsistent_special_factor_hypothesis() -> None:
 
     with pytest.raises(ValueError, match="special factor"):
         primitive_logarithmic_derivative_signature(
-            1/(t - x),
+            1 / (t - x),
             derivation,
         )
 
@@ -401,21 +386,21 @@ def test_signature_rejects_rational_base_level() -> None:
     rational_derivation = logarithmic_tower().derivation().lower()
 
     with pytest.raises(NotImplementedError, match="primitive level"):
-        primitive_logarithmic_derivative_signature(1/x, rational_derivation)
+        primitive_logarithmic_derivative_signature(1 / x, rational_derivation)
 
 
 def test_recursive_radical_logarithmic_derivative_at_rational_base() -> None:
     derivation = logarithmic_tower().derivation().lower()
 
     result = solve_radical_logarithmic_derivative(
-        1/(2*x) + 1/(3*(x - 1)),
+        1 / (2 * x) + 1 / (3 * (x - 1)),
         derivation,
     )
 
     assert isinstance(result, RadicalLogarithmicDerivativeResult)
     assert result.has_solution
     assert result.minimal_power == 6
-    assert result.argument == derivation.field.from_sympy(x**3*(x - 1)**2)
+    assert result.argument == derivation.field.from_sympy(x**3 * (x - 1) ** 2)
     assert result.reconstructs
 
 
@@ -424,14 +409,14 @@ def test_signature_descends_through_two_primitive_levels() -> None:
     derivation = tower.derivation()
 
     signature = primitive_logarithmic_derivative_signature(
-        1/(2*x) + 1/(3*x*t) + 1/(5*x*t*u),
+        1 / (2 * x) + 1 / (3 * x * t) + 1 / (5 * x * t * u),
         derivation,
     )
 
     assert signature.has_solution
     assert signature.minimal_power == 30
     assert signature.relation_argument == tower.field().from_sympy(
-        x**15*t**10*u**6,
+        x**15 * t**10 * u**6,
     )
     assert signature.lower_logarithmic_result.minimal_power == 6
     assert signature.lower_logarithmic_result.reconstructs
@@ -444,19 +429,14 @@ def test_recursive_decision_descends_through_three_primitive_levels() -> None:
     derivation = tower.derivation()
 
     result = solve_radical_logarithmic_derivative(
-        (
-            1/(2*x)
-            + 1/(3*x*t)
-            + 1/(5*x*t*u)
-            + 1/(7*x*t*u*v)
-        ),
+        (1 / (2 * x) + 1 / (3 * x * t) + 1 / (5 * x * t * u) + 1 / (7 * x * t * u * v)),
         derivation,
     )
 
     assert result.has_solution
     assert result.minimal_power == 210
     assert result.argument == tower.field().from_sympy(
-        x**105*t**70*u**42*v**30,
+        x**105 * t**70 * u**42 * v**30,
     )
     assert result.reconstructs
 
@@ -466,7 +446,7 @@ def test_recursive_signature_uses_nested_coefficient_derivatives() -> None:
     field = tower.field()
     derivation = tower.derivation()
     argument = field.from_sympy(u**2 + t)
-    integrand = derivation(argument)/(6*argument)
+    integrand = derivation(argument) / (6 * argument)
 
     signature = primitive_logarithmic_derivative_signature(
         integrand,
@@ -477,7 +457,7 @@ def test_recursive_signature_uses_nested_coefficient_derivatives() -> None:
     assert signature.minimal_power == 6
     assert signature.relation_argument == argument
     assert signature.factors[0].factor_derivative == Poly(
-        2*u/(x*t) + 1/x,
+        2 * u / (x * t) + 1 / x,
         u,
         domain=tower.levels[2].parent_field,
     )
@@ -487,10 +467,10 @@ def test_recursive_signature_uses_nested_coefficient_derivatives() -> None:
 @pytest.mark.parametrize(
     "expression",
     [
-        1/(x**2 + 1),
-        1/u**2,
-        1/u,
-        u + 1/(x*t*u),
+        1 / (x**2 + 1),
+        1 / u**2,
+        1 / u,
+        u + 1 / (x * t * u),
     ],
 )
 def test_recursive_signature_propagates_each_obstruction(expression) -> None:
@@ -516,7 +496,7 @@ def test_recursive_signature_requires_preserved_constants_at_every_level() -> No
 
     with pytest.raises(ValueError, match="requires Const"):
         primitive_logarithmic_derivative_signature(
-            1/(x*t*u),
+            1 / (x * t * u),
             derivation,
         )
 
@@ -540,12 +520,9 @@ def test_generated_nested_radical_logarithmic_derivatives(
     field = tower.field()
     derivation = tower.derivation()
     argument = field.from_sympy(
-        x**x_power
-        * t**t_power
-        * u**u_power
-        * (u**2 + t)**mixed_power
+        x**x_power * t**t_power * u**u_power * (u**2 + t) ** mixed_power
     )
-    integrand = derivation(argument)/(power*argument)
+    integrand = derivation(argument) / (power * argument)
 
     result = solve_radical_logarithmic_derivative(
         integrand,
@@ -579,18 +556,18 @@ def test_recursive_decision_matches_independent_nested_global_oracle(
     derivation = tower.derivation()
     mixed = field.from_sympy(u**2 + t)
     basis = (
-        1/x,
-        2*x/(x**2 + 1),
-        1/(x*t),
-        1/(x*t*u),
-        (derivation(mixed)/mixed).as_expr(),
+        1 / x,
+        2 * x / (x**2 + 1),
+        1 / (x * t),
+        1 / (x * t * u),
+        (derivation(mixed) / mixed).as_expr(),
         u,
-        1/u**2,
-        1/u,
-        1/(u**2 + t),
+        1 / u**2,
+        1 / u,
+        1 / (u**2 + t),
     )
     expression = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(coefficients, basis, strict=True)
     )
 
@@ -628,11 +605,11 @@ def test_generated_planted_radical_logarithmic_derivatives(
     derivation = tower.derivation()
     argument = field.from_sympy(
         x**x_power
-        * (x - 1)**shifted_x_power
+        * (x - 1) ** shifted_x_power
         * t**t_power
-        * (t**2 + x)**quadratic_power
+        * (t**2 + x) ** quadratic_power
     )
-    integrand = derivation(argument)/(power*argument)
+    integrand = derivation(argument) / (power * argument)
 
     signature = primitive_logarithmic_derivative_signature(
         integrand,
@@ -674,30 +651,26 @@ def test_signature_matches_independent_global_linear_oracle(
     derivation = tower.derivation()
     field = tower.field()
     quadratic = field.from_sympy(t**2 + x)
-    quadratic_logarithmic_derivative = (
-        derivation(quadratic)/quadratic
-    ).as_expr()
+    quadratic_logarithmic_derivative = (derivation(quadratic) / quadratic).as_expr()
     cubic = field.from_sympy(t**3 + t + x)
-    cubic_logarithmic_derivative = (
-        derivation(cubic)/cubic
-    ).as_expr()
+    cubic_logarithmic_derivative = (derivation(cubic) / cubic).as_expr()
     basis = (
-        1/x,
-        1/(x - 1),
-        1/x**2,
-        1/(x**2 + 1),
+        1 / x,
+        1 / (x - 1),
+        1 / x**2,
+        1 / (x**2 + 1),
         t,
-        1/(x*t),
-        1/t,
+        1 / (x * t),
+        1 / t,
         quadratic_logarithmic_derivative,
-        1/(t**2 + x),
+        1 / (t**2 + x),
         cubic_logarithmic_derivative,
-        1/(t**3 + t + x),
-        1/t**2,
-        1/(t - x)**2,
+        1 / (t**3 + t + x),
+        1 / t**2,
+        1 / (t - x) ** 2,
     )
     expression = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(coefficients, basis, strict=True)
     )
 

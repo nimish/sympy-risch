@@ -19,10 +19,7 @@ x = symbols("x")
 
 def factor_certificates(result):
     """Index factor certificates by their polynomial expressions."""
-    return {
-        certificate.factor.as_expr(): certificate
-        for certificate in result.factors
-    }
+    return {certificate.factor.as_expr(): certificate for certificate in result.factors}
 
 
 @pytest.mark.parametrize(
@@ -30,26 +27,26 @@ def factor_certificates(result):
     [
         (1, 1),
         (x, x),
-        (1/x, 1/x),
-        (x**2/(x - 1)**3, x**2/(x - 1)**3),
+        (1 / x, 1 / x),
+        (x**2 / (x - 1) ** 3, x**2 / (x - 1) ** 3),
         (
-            x**2*(x**2 + 1)**2/(x - 1)**3,
-            x**2*(x**2 + 1)**2/(x - 1)**3,
+            x**2 * (x**2 + 1) ** 2 / (x - 1) ** 3,
+            x**2 * (x**2 + 1) ** 2 / (x - 1) ** 3,
         ),
-        ((x**5 + x + 1)**7, (x**5 + x + 1)**7),
+        ((x**5 + x + 1) ** 7, (x**5 + x + 1) ** 7),
     ],
 )
 def test_rational_logarithmic_solver_recovers_canonical_arguments(
     argument,
     expected,
 ) -> None:
-    integrand = cancel(cancel(argument).diff(x)/argument)
+    integrand = cancel(cancel(argument).diff(x) / argument)
 
     result = solve_rational_logarithmic_derivative(integrand, x)
 
     assert result.has_solution
     assert cancel(result.argument - expected) == 0
-    assert cancel(result.argument.diff(x)/result.argument - integrand) == 0
+    assert cancel(result.argument.diff(x) / result.argument - integrand) == 0
     assert not result.has_polynomial_obstruction
     assert not result.has_repeated_pole_obstruction
     assert not result.has_nonlogarithmic_residue_obstruction
@@ -58,7 +55,7 @@ def test_rational_logarithmic_solver_recovers_canonical_arguments(
 
 
 def test_rational_logarithmic_solver_records_factor_valuations() -> None:
-    integrand = 2/x - 3/(x - 1) + 4*x/(x**2 + 1)
+    integrand = 2 / x - 3 / (x - 1) + 4 * x / (x**2 + 1)
 
     result = solve_rational_logarithmic_derivative(integrand, x)
     certificates = factor_certificates(result)
@@ -78,22 +75,22 @@ def test_rational_logarithmic_solver_records_factor_valuations() -> None:
 
 
 def test_logarithmic_and_ordinary_exactness_are_distinct() -> None:
-    logarithmic_only = solve_rational_logarithmic_derivative(1/x, x)
-    ordinary_failure = solve_rational_exact_derivative(1/x, x)
-    ordinary_only = solve_rational_exact_derivative(-1/x**2, x)
-    logarithmic_failure = solve_rational_logarithmic_derivative(-1/x**2, x)
+    logarithmic_only = solve_rational_logarithmic_derivative(1 / x, x)
+    ordinary_failure = solve_rational_exact_derivative(1 / x, x)
+    ordinary_only = solve_rational_exact_derivative(-1 / x**2, x)
+    logarithmic_failure = solve_rational_logarithmic_derivative(-1 / x**2, x)
 
     assert logarithmic_only.has_solution
     assert logarithmic_only.argument == x
     assert not ordinary_failure.has_solution
     assert ordinary_only.has_solution
-    assert ordinary_only.antiderivative == 1/x
+    assert ordinary_only.antiderivative == 1 / x
     assert not logarithmic_failure.has_solution
     assert logarithmic_failure.has_repeated_pole_obstruction
 
 
 def test_fractional_valuation_is_retained_as_a_radical_certificate() -> None:
-    result = solve_rational_logarithmic_derivative(1/(2*x), x)
+    result = solve_rational_logarithmic_derivative(1 / (2 * x), x)
     certificate = result.factors[0]
 
     assert not result.has_solution
@@ -108,7 +105,7 @@ def test_fractional_valuation_is_retained_as_a_radical_certificate() -> None:
 
 
 def test_nonlogarithmic_residue_is_distinguished_from_fractional_valuation() -> None:
-    result = solve_rational_logarithmic_derivative(1/(x**2 + 1), x)
+    result = solve_rational_logarithmic_derivative(1 / (x**2 + 1), x)
     certificate = result.factors[0]
 
     assert not result.has_solution
@@ -124,9 +121,9 @@ def test_nonlogarithmic_residue_is_distinguished_from_fractional_valuation() -> 
 @pytest.mark.parametrize(
     "integrand",
     [
-        1/x**2,
-        (x + 1)/x**3,
-        1/x**2 + 1/(x - 1),
+        1 / x**2,
+        (x + 1) / x**3,
+        1 / x**2 + 1 / (x - 1),
     ],
 )
 def test_repeated_poles_are_logarithmic_derivative_obstructions(
@@ -137,19 +134,16 @@ def test_repeated_poles_are_logarithmic_derivative_obstructions(
     assert not result.has_solution
     assert result.argument is None
     assert result.has_repeated_pole_obstruction
-    assert any(
-        multiplicity > 1
-        for _, multiplicity in result.denominator_factors
-    )
+    assert any(multiplicity > 1 for _, multiplicity in result.denominator_factors)
 
 
 @pytest.mark.parametrize(
     "integrand",
     [
         1,
-        x**3 - 2*x,
-        1 + 1/x,
-        x + 2/x - 3/(x - 1),
+        x**3 - 2 * x,
+        1 + 1 / x,
+        x + 2 / x - 3 / (x - 1),
     ],
 )
 def test_polynomial_parts_are_logarithmic_derivative_obstructions(
@@ -164,15 +158,13 @@ def test_polynomial_parts_are_logarithmic_derivative_obstructions(
 
 
 def test_input_cancellation_occurs_before_pole_analysis() -> None:
-    integrand = (x + 1)/(x*(x + 1))
+    integrand = (x + 1) / (x * (x + 1))
 
     result = solve_rational_logarithmic_derivative(integrand, x)
 
     assert result.has_solution
     assert result.argument == x
-    assert result.denominator_factors == (
-        (Poly(x, x, domain=QQ), 1),
-    )
+    assert result.denominator_factors == ((Poly(x, x, domain=QQ), 1),)
 
 
 @given(
@@ -188,16 +180,16 @@ def test_generated_integer_valuations_reconstruct_rational_arguments(
 ) -> None:
     argument = cancel(
         x**x_valuation
-        * (x - 1)**linear_valuation
-        * (x**2 + x + 1)**quadratic_valuation
+        * (x - 1) ** linear_valuation
+        * (x**2 + x + 1) ** quadratic_valuation
     )
-    integrand = cancel(argument.diff(x)/argument)
+    integrand = cancel(argument.diff(x) / argument)
 
     result = solve_rational_logarithmic_derivative(integrand, x)
 
     assert result.has_solution
-    assert cancel(result.argument/argument - 1) == 0
-    assert cancel(result.argument.diff(x)/result.argument - integrand) == 0
+    assert cancel(result.argument / argument - 1) == 0
+    assert cancel(result.argument.diff(x) / result.argument - integrand) == 0
     for certificate in result.factors:
         assert certificate.has_integral_multiplicity
 
@@ -220,22 +212,22 @@ def test_generated_arbitrary_rational_arguments_are_recognized(
     denominator_coefficients,
 ) -> None:
     numerator = sum(
-        coefficient*x**degree
+        coefficient * x**degree
         for degree, coefficient in enumerate(numerator_coefficients)
     )
     denominator = sum(
-        coefficient*x**degree
+        coefficient * x**degree
         for degree, coefficient in enumerate(denominator_coefficients)
     )
     assume(numerator != 0 and denominator != 0)
-    argument = cancel(numerator/denominator)
-    integrand = cancel(argument.diff(x)/argument)
+    argument = cancel(numerator / denominator)
+    integrand = cancel(argument.diff(x) / argument)
 
     result = solve_rational_logarithmic_derivative(integrand, x)
 
     assert result.has_solution
-    assert cancel(result.argument.diff(x)/result.argument - integrand) == 0
-    assert cancel((result.argument/argument).diff(x)) == 0
+    assert cancel(result.argument.diff(x) / result.argument - integrand) == 0
+    assert cancel((result.argument / argument).diff(x)) == 0
     for certificate in result.factors:
         assert certificate.has_integral_multiplicity
 
@@ -253,7 +245,7 @@ def test_generated_fractional_valuations_are_rejected_but_preserved(
 ) -> None:
     valuation = Rational(numerator, denominator)
     assume(valuation.q > 1)
-    integrand = valuation/(x - root)
+    integrand = valuation / (x - root)
 
     result = solve_rational_logarithmic_derivative(integrand, x)
 
@@ -276,10 +268,10 @@ def test_minimal_radical_multiplier_is_visible_in_factor_certificates(
     denominator,
 ) -> None:
     common = gcd(numerator, denominator)
-    reduced_numerator = numerator//common
-    reduced_denominator = denominator//common
+    reduced_numerator = numerator // common
+    reduced_denominator = denominator // common
     assume(reduced_denominator > 1)
-    integrand = Rational(reduced_numerator, reduced_denominator)/x
+    integrand = Rational(reduced_numerator, reduced_denominator) / x
 
     result = solve_rational_logarithmic_derivative(integrand, x)
     multiplicity = result.factors[0].multiplicity
@@ -288,7 +280,7 @@ def test_minimal_radical_multiplier_is_visible_in_factor_certificates(
     assert QQ.denom(multiplicity) == reduced_denominator
     assert result.minimal_radical_power == reduced_denominator
     scaled = solve_rational_logarithmic_derivative(
-        reduced_denominator*integrand,
+        reduced_denominator * integrand,
         x,
     )
     assert scaled.has_solution
@@ -296,7 +288,7 @@ def test_minimal_radical_multiplier_is_visible_in_factor_certificates(
 
 
 def test_mixed_obstructions_are_reported_independently() -> None:
-    integrand = x + 1/x**2 + Rational(1, 2)/(x - 1)
+    integrand = x + 1 / x**2 + Rational(1, 2) / (x - 1)
 
     result = solve_rational_logarithmic_derivative(integrand, x)
 
@@ -309,8 +301,8 @@ def test_mixed_obstructions_are_reported_independently() -> None:
 @pytest.mark.parametrize(
     "integrand",
     [
-        sqrt(2)/x,
-        1/(x + symbols("y")),
+        sqrt(2) / x,
+        1 / (x + symbols("y")),
     ],
 )
 def test_nonrational_coefficients_are_rejected(integrand) -> None:
@@ -324,4 +316,4 @@ def test_nonsymbol_differentiation_variables_are_rejected(variable) -> None:
         TypeError,
         match="differentiation variable must be a Symbol",
     ):
-        solve_rational_logarithmic_derivative(1/x, variable)
+        solve_rational_logarithmic_derivative(1 / x, variable)

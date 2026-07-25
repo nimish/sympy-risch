@@ -47,8 +47,8 @@ def test_hyperexponential_factory_certifies_independence() -> None:
 @pytest.mark.parametrize(
     ("eta", "kind", "power"),
     (
-        (1/x, HyperexponentialDependencyKind.RATIONAL, 1),
-        (1/(2*x), HyperexponentialDependencyKind.ALGEBRAIC, 2),
+        (1 / x, HyperexponentialDependencyKind.RATIONAL, 1),
+        (1 / (2 * x), HyperexponentialDependencyKind.ALGEBRAIC, 2),
     ),
 )
 def test_hyperexponential_factory_records_the_new_constant_relation(
@@ -59,7 +59,7 @@ def test_hyperexponential_factory_records_the_new_constant_relation(
     base = _rational_base()
 
     analysis = certify_hyperexponential_extension(
-        Poly(eta*t, t, domain=base.field()),
+        Poly(eta * t, t, domain=base.field()),
         base.derivation(),
     )
 
@@ -71,7 +71,7 @@ def test_hyperexponential_factory_records_the_new_constant_relation(
     assert analysis.dependency.relation_argument == x
     proposed = base.extend(analysis.extension)
     relation = proposed.field().from_sympy(
-        t**power/analysis.dependency.relation_argument,
+        t**power / analysis.dependency.relation_argument,
     )
     assert proposed.derivation()(relation) == proposed.field().zero
 
@@ -79,9 +79,24 @@ def test_hyperexponential_factory_records_the_new_constant_relation(
 @pytest.mark.parametrize(
     ("eta", "status", "kind", "power"),
     (
-        (1, ConstantFieldStatus.PRESERVED, HyperexponentialDependencyKind.TRANSCENDENTAL, None),
-        (1/(x**2 + 1), ConstantFieldStatus.ENLARGED, HyperexponentialDependencyKind.RATIONAL, 1),
-        (1/(2*(x**2 + 1)), ConstantFieldStatus.ENLARGED, HyperexponentialDependencyKind.ALGEBRAIC, 2),
+        (
+            1,
+            ConstantFieldStatus.PRESERVED,
+            HyperexponentialDependencyKind.TRANSCENDENTAL,
+            None,
+        ),
+        (
+            1 / (x**2 + 1),
+            ConstantFieldStatus.ENLARGED,
+            HyperexponentialDependencyKind.RATIONAL,
+            1,
+        ),
+        (
+            1 / (2 * (x**2 + 1)),
+            ConstantFieldStatus.ENLARGED,
+            HyperexponentialDependencyKind.ALGEBRAIC,
+            2,
+        ),
     ),
 )
 def test_hypertangent_factory_certifies_independence_and_dependence(
@@ -93,7 +108,7 @@ def test_hypertangent_factory_certifies_independence_and_dependence(
     base = _rational_base()
 
     analysis = certify_hypertangent_extension(
-        Poly(eta*(1 + t**2), t, domain=base.field()),
+        Poly(eta * (1 + t**2), t, domain=base.field()),
         base.derivation(),
     )
 
@@ -115,7 +130,7 @@ def test_factories_reuse_the_mixed_hypertangent_relation_decision() -> None:
     )
 
     analysis = certify_hyperexponential_extension(
-        Poly(2*t*u, u, domain=tangent.field()),
+        Poly(2 * t * u, u, domain=tangent.field()),
         tangent.derivation(),
     )
 
@@ -123,14 +138,14 @@ def test_factories_reuse_the_mixed_hypertangent_relation_decision() -> None:
     assert analysis.dependency is not None
     assert analysis.dependency.kind is HyperexponentialDependencyKind.RATIONAL
     assert analysis.dependency.extension == analysis.extension
-    assert cancel(analysis.dependency.relation_argument/(1 + t**2)) == Rational(1, 4)
+    assert cancel(analysis.dependency.relation_argument / (1 + t**2)) == Rational(1, 4)
 
 
 def test_hypertangent_factory_reuses_the_hyperexponential_lower_solver() -> None:
     base = _rational_base()
     exponential = base.extend(
         MonomialExtension(
-            Poly(x*t, t, domain=base.field()),
+            Poly(x * t, t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )

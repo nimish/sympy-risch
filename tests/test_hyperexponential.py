@@ -35,7 +35,7 @@ def hyperexponential_tower(
     )
     return base.extend(
         MonomialExtension(
-            Poly(eta*t, t, domain=base.field()),
+            Poly(eta * t, t, domain=base.field()),
             constant_field_status,
         ),
     )
@@ -54,13 +54,13 @@ def hyperexponential_over_log_tower(
     )
     logarithmic = base.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=base.field()),
+            Poly(1 / x, t, domain=base.field()),
             lower_constant_field_status,
         )
     )
     return logarithmic.extend(
         MonomialExtension(
-            Poly(eta*u, u, domain=logarithmic.field()),
+            Poly(eta * u, u, domain=logarithmic.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
@@ -71,19 +71,15 @@ def test_laurent_reduction_handles_positive_and_negative_modes() -> None:
     field = tower.field()
     derivation = tower.derivation()
     integrand = field.from_sympy(
-        (2*x + 3)*t**2
-        + (-1/x - 1/x**2)/t
-        + 1/(x + 1)
+        (2 * x + 3) * t**2 + (-1 / x - 1 / x**2) / t + 1 / (x + 1)
     )
 
     result = reduce_hyperexponential_laurent(integrand, derivation)
 
     assert derivation(result.exact_part) + result.remainder == integrand
-    assert result.exact_part == field.from_sympy(
-        (x + 1)*t**2 + 1/(x*t)
-    )
-    assert result.remainder == field.from_sympy(1/(x + 1))
-    assert result.lower_remainder == tower.field(0).from_sympy(1/(x + 1))
+    assert result.exact_part == field.from_sympy((x + 1) * t**2 + 1 / (x * t))
+    assert result.remainder == field.from_sympy(1 / (x + 1))
+    assert result.lower_remainder == tower.field(0).from_sympy(1 / (x + 1))
     assert tuple(step.power for step in result.steps) == (-1, 2)
     assert all(step.has_solution for step in result.steps)
     assert not result.has_obstruction
@@ -93,7 +89,7 @@ def test_laurent_reduction_handles_positive_and_negative_modes() -> None:
 def test_laurent_reduction_retains_unsolvable_exponential_mode() -> None:
     tower = hyperexponential_tower(1)
     field = tower.field()
-    integrand = field.from_sympy(t/x)
+    integrand = field.from_sympy(t / x)
 
     result = reduce_hyperexponential_laurent(
         integrand,
@@ -113,9 +109,9 @@ def test_laurent_reduction_retains_unsolvable_exponential_mode() -> None:
 
 
 def test_laurent_reduction_returns_a_pure_lower_field_input() -> None:
-    tower = hyperexponential_tower(2*x)
+    tower = hyperexponential_tower(2 * x)
     field = tower.field()
-    lower = tower.field(0).from_sympy((x + 1)/(x**2 + 1))
+    lower = tower.field(0).from_sympy((x + 1) / (x**2 + 1))
     integrand = field.convert(lower)
 
     result = reduce_hyperexponential_laurent(
@@ -134,11 +130,7 @@ def test_full_reduction_composes_normal_residues_and_laurent_modes() -> None:
     tower = hyperexponential_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(
-        t/(t - 1)
-        + (1/x - 1/x**2)*t
-        + 1/(x + 1)
-    )
+    integrand = field.from_sympy(t / (t - 1) + (1 / x - 1 / x**2) * t + 1 / (x + 1))
 
     result = reduce_hyperexponential_monomial(
         integrand,
@@ -146,15 +138,13 @@ def test_full_reduction_composes_normal_residues_and_laurent_modes() -> None:
     )
 
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
-    assert result.exact_part == field.from_sympy(t/x)
-    assert result.logarithmic_derivative == field.from_sympy(t/(t - 1))
-    assert result.remainder == field.from_sympy(1/(x + 1))
-    assert result.lower_remainder == tower.field(0).from_sympy(1/(x + 1))
+    assert result.exact_part == field.from_sympy(t / x)
+    assert result.logarithmic_derivative == field.from_sympy(t / (t - 1))
+    assert result.remainder == field.from_sympy(1 / (x + 1))
+    assert result.lower_remainder == tower.field(0).from_sympy(1 / (x + 1))
     assert result.laurent_reduction is not None
     assert not result.has_finite_residue_obstruction
     assert not result.has_laurent_obstruction
@@ -166,7 +156,7 @@ def test_full_reduction_handles_a_negative_special_power() -> None:
     tower = hyperexponential_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(1/(t*(t - 1)))
+    integrand = field.from_sympy(1 / (t * (t - 1)))
 
     result = reduce_hyperexponential_monomial(
         integrand,
@@ -174,13 +164,11 @@ def test_full_reduction_handles_a_negative_special_power() -> None:
     )
 
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
-    assert result.exact_part == field.from_sympy(1/t)
-    assert result.logarithmic_derivative == field.from_sympy(t/(t - 1))
+    assert result.exact_part == field.from_sympy(1 / t)
+    assert result.logarithmic_derivative == field.from_sympy(t / (t - 1))
     assert result.remainder == field.from_sympy(-1)
     assert result.lower_remainder == tower.field(0).convert(-1)
     assert result.reduced_to_lower_field
@@ -190,7 +178,7 @@ def test_full_reduction_extracts_repeated_normal_pole_derivative() -> None:
     tower = hyperexponential_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact_part = field.from_sympy(1/(t*(t - 1)**2))
+    planted_exact_part = field.from_sympy(1 / (t * (t - 1) ** 2))
     integrand = derivation(planted_exact_part)
 
     result = reduce_hyperexponential_monomial(
@@ -199,9 +187,7 @@ def test_full_reduction_extracts_repeated_normal_pole_derivative() -> None:
     )
 
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
     assert result.logarithmic_derivative == field.zero
@@ -215,7 +201,7 @@ def test_full_reduction_preserves_finite_residue_obstruction() -> None:
     tower = hyperexponential_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(1/(x*(t - 1)))
+    integrand = field.from_sympy(1 / (x * (t - 1)))
 
     result = reduce_hyperexponential_monomial(
         integrand,
@@ -223,9 +209,7 @@ def test_full_reduction_preserves_finite_residue_obstruction() -> None:
     )
 
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
     assert result.has_finite_residue_obstruction
@@ -238,7 +222,7 @@ def test_full_reduction_preserves_finite_residue_obstruction() -> None:
 def test_full_reduction_proves_exp_x_over_x_mode_non_elementary() -> None:
     tower = hyperexponential_tower(1)
     field = tower.field()
-    integrand = field.from_sympy(t/x)
+    integrand = field.from_sympy(t / x)
 
     result = reduce_hyperexponential_monomial(
         integrand,
@@ -256,17 +240,14 @@ def test_each_laurent_step_agrees_with_bounded_matrix_oracle() -> None:
     tower = hyperexponential_tower(1)
     field = tower.field()
     result = reduce_hyperexponential_laurent(
-        field.from_sympy(
-            (2*x + 3)*t**2 + (-1/x - 1/x**2)/t
-        ),
+        field.from_sympy((2 * x + 3) * t**2 + (-1 / x - 1 / x**2) / t),
         tower.derivation(),
     )
 
     for step in result.steps:
         certificate = step.rde_result.certificate
         ansatz_denominator = (
-            certificate.normalization_factor
-            * certificate.denominator_bound
+            certificate.normalization_factor * certificate.denominator_bound
         )
         matrix = solve_bounded_rational_rde_matrix(
             certificate.coefficient,
@@ -277,9 +258,10 @@ def test_each_laurent_step_agrees_with_bounded_matrix_oracle() -> None:
         )
 
         assert matrix.has_solution is step.has_solution
-        assert cancel(
-            matrix.solution - tower.field(0).to_sympy(step.exact_coefficient)
-        ) == 0
+        assert (
+            cancel(matrix.solution - tower.field(0).to_sympy(step.exact_coefficient))
+            == 0
+        )
 
 
 @given(
@@ -301,21 +283,13 @@ def test_generated_full_reductions_compose_logs_exact_modes_and_lower_terms(
     field = tower.field()
     derivation = tower.derivation()
     normal_factor = field.from_sympy(t - normal_shift)
-    exact_part = field.from_sympy(
-        (exact_linear*x + exact_constant)*t**2
-    )
-    lower_remainder = tower.field(0).from_sympy(
-        lower_numerator/(x + 1)
-    )
+    exact_part = field.from_sympy((exact_linear * x + exact_constant) * t**2)
+    lower_remainder = tower.field(0).from_sympy(lower_numerator / (x + 1))
     logarithmic_derivative = (
-        logarithmic_coefficient
-        * derivation(normal_factor)
-        / normal_factor
+        logarithmic_coefficient * derivation(normal_factor) / normal_factor
     )
     integrand = (
-        derivation(exact_part)
-        + logarithmic_derivative
-        + field.convert(lower_remainder)
+        derivation(exact_part) + logarithmic_derivative + field.convert(lower_remainder)
     )
 
     result = reduce_hyperexponential_monomial(
@@ -324,9 +298,7 @@ def test_generated_full_reductions_compose_logs_exact_modes_and_lower_terms(
     )
 
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
     assert result.logarithmic_derivative == logarithmic_derivative
@@ -357,7 +329,7 @@ def test_generated_planted_laurent_derivatives_reduce_exactly(
     solution_data,
     lower_numerator,
 ) -> None:
-    eta = eta_coefficient*x**eta_degree
+    eta = eta_coefficient * x**eta_degree
     tower = hyperexponential_tower(eta)
     field = tower.field()
     derivation = tower.derivation()
@@ -368,13 +340,9 @@ def test_generated_planted_laurent_derivatives_reduce_exactly(
         solution_data,
         strict=True,
     ):
-        exact_expression += (
-            (linear*x + constant)/x**pole_order
-        )*t**power
+        exact_expression += ((linear * x + constant) / x**pole_order) * t**power
     exact_part = field.from_sympy(exact_expression)
-    lower_remainder = tower.field(0).from_sympy(
-        lower_numerator/(x + 1)
-    )
+    lower_remainder = tower.field(0).from_sympy(lower_numerator / (x + 1))
     integrand = derivation(exact_part) + field.convert(lower_remainder)
 
     result = reduce_hyperexponential_laurent(
@@ -439,7 +407,7 @@ def test_hyperexponential_reduction_requires_preserved_constants(
         )
 
 
-@pytest.mark.parametrize("eta", [1/x, 1/(2*x)])
+@pytest.mark.parametrize("eta", [1 / x, 1 / (2 * x)])
 def test_hyperexponential_reduction_rejects_dependent_generators(eta) -> None:
     tower = hyperexponential_tower(eta)
 
@@ -451,11 +419,11 @@ def test_hyperexponential_reduction_rejects_dependent_generators(eta) -> None:
 
 
 def test_laurent_reduction_supports_a_rational_logarithmic_derivative() -> None:
-    eta = 1/(x**2 + 1)
+    eta = 1 / (x**2 + 1)
     tower = hyperexponential_tower(eta)
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact_part = field.from_sympy(x*t)
+    planted_exact_part = field.from_sympy(x * t)
     integrand = derivation(planted_exact_part)
 
     result = reduce_hyperexponential_laurent(
@@ -473,7 +441,7 @@ def test_laurent_reduction_rejects_a_normal_denominator() -> None:
 
     with pytest.raises(ValueError, match="power of the generator"):
         reduce_hyperexponential_laurent(
-            tower.field().from_sympy(1/(t - 1)),
+            tower.field().from_sympy(1 / (t - 1)),
             tower.derivation(),
         )
 
@@ -494,15 +462,15 @@ def test_hyperexponential_reduction_requires_a_nonconstant_lower_field() -> None
 
 
 def test_laurent_reduction_over_a_primitive_field_solves_the_lower_rde() -> None:
-    tower = hyperexponential_over_log_tower(2*t/x)
+    tower = hyperexponential_over_log_tower(2 * t / x)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy((1 + 2*t)*u)
+    integrand = field.from_sympy((1 + 2 * t) * u)
 
     result = reduce_hyperexponential_laurent(integrand, derivation)
 
     assert derivation(result.exact_part) + result.remainder == integrand
-    assert result.exact_part == field.from_sympy(x*u)
+    assert result.exact_part == field.from_sympy(x * u)
     assert result.remainder == field.zero
     assert result.reduced_to_lower_field
     assert len(result.steps) == 1
@@ -519,13 +487,13 @@ def test_primitive_lower_rde_uses_lower_field_cancellation() -> None:
     tower = hyperexponential_over_log_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy((t + 1/x)*u)
+    integrand = field.from_sympy((t + 1 / x) * u)
 
     result = reduce_hyperexponential_laurent(integrand, derivation)
 
     assert result.reduced_to_lower_field
     assert result.remainder == field.zero
-    assert result.exact_part == field.from_sympy(t*u)
+    assert result.exact_part == field.from_sympy(t * u)
     step = result.steps[0]
     assert step.has_solution
     certificate = step.rde_result.certificate
@@ -534,32 +502,32 @@ def test_primitive_lower_rde_uses_lower_field_cancellation() -> None:
 
 
 def test_primitive_lower_rde_handles_a_repeated_normal_denominator() -> None:
-    tower = hyperexponential_over_log_tower(2*t/x)
+    tower = hyperexponential_over_log_tower(2 * t / x)
     field = tower.field()
     derivation = tower.derivation()
     lower_derivation = derivation.lower()
-    lower_exact = tower.field(1).from_sympy((x + 1)/(t - 1)**2)
+    lower_exact = tower.field(1).from_sympy((x + 1) / (t - 1) ** 2)
     coefficient = (
         lower_derivation(lower_exact)
-        + tower.field(1).from_sympy(2*t/x)*lower_exact
+        + tower.field(1).from_sympy(2 * t / x) * lower_exact
     )
-    integrand = field.from_sympy(coefficient.as_expr()*u)
+    integrand = field.from_sympy(coefficient.as_expr() * u)
 
     result = reduce_hyperexponential_laurent(integrand, derivation)
 
     assert result.reduced_to_lower_field
-    assert result.exact_part == field.from_sympy(lower_exact.as_expr()*u)
+    assert result.exact_part == field.from_sympy(lower_exact.as_expr() * u)
     certificate = result.steps[0].rde_result.certificate
     assert isinstance(certificate, PrimitiveRischDifferentialEquationResult)
     assert certificate.denominator_bound == Poly(
-        (t - 1)**2,
+        (t - 1) ** 2,
         t,
         domain=tower.field(0),
     )
 
 
 def test_unsolvable_primitive_lower_rde_is_retained_as_an_obstruction() -> None:
-    tower = hyperexponential_over_log_tower(2*t/x)
+    tower = hyperexponential_over_log_tower(2 * t / x)
     field = tower.field()
     integrand = field.from_sympy(u)
 
@@ -576,7 +544,7 @@ def test_unsolvable_primitive_lower_rde_is_retained_as_an_obstruction() -> None:
 
 
 def test_dependent_primitive_hyperexponential_is_rejected() -> None:
-    tower = hyperexponential_over_log_tower(1/x)
+    tower = hyperexponential_over_log_tower(1 / x)
 
     with pytest.raises(ValueError, match="algebraically dependent"):
         reduce_hyperexponential_laurent(
@@ -586,7 +554,7 @@ def test_dependent_primitive_hyperexponential_is_rejected() -> None:
 
 
 def test_primitive_coefficient_pole_produces_a_certified_obstruction() -> None:
-    tower = hyperexponential_over_log_tower(1/(t - 1))
+    tower = hyperexponential_over_log_tower(1 / (t - 1))
     field = tower.field()
 
     result = reduce_hyperexponential_laurent(
@@ -604,9 +572,9 @@ def test_primitive_coefficient_pole_produces_a_certified_obstruction() -> None:
 
 
 def test_primitive_coefficient_pole_integrates_end_to_end() -> None:
-    tower = hyperexponential_over_log_tower(1/(t - 1))
+    tower = hyperexponential_over_log_tower(1 / (t - 1))
     field = tower.field()
-    integrand = field.from_sympy((1 + x/(t - 1))*u)
+    integrand = field.from_sympy((1 + x / (t - 1)) * u)
 
     result = integrate_elementary(
         integrand,
@@ -615,12 +583,12 @@ def test_primitive_coefficient_pole_integrates_end_to_end() -> None:
 
     assert result.is_elementary
     assert result.reconstructs
-    assert result.antiderivative == x*u
+    assert result.antiderivative == x * u
 
 
 def test_primitive_independence_requires_lower_constant_field_evidence() -> None:
     tower = hyperexponential_over_log_tower(
-        2*t/x,
+        2 * t / x,
         lower_constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
 
@@ -656,31 +624,25 @@ def test_generated_mixed_tower_reductions_reconstruct(
     logarithmic_residue,
     lower_residue,
 ) -> None:
-    eta = eta_coefficient*t**eta_degree/x
+    eta = eta_coefficient * t**eta_degree / x
     tower = hyperexponential_over_log_tower(eta)
     field = tower.field()
     derivation = tower.derivation()
     exact_part = field.from_sympy(
         (
-            (exact_linear*x + exact_constant)
+            (exact_linear * x + exact_constant)
             * t**primitive_degree
-            / (x + 1)**lower_denominator_power
+            / (x + 1) ** lower_denominator_power
         )
         * u**top_power
     )
     normal_factor = field.from_sympy(u - normal_shift)
     logarithmic_derivative = (
-        logarithmic_residue
-        * derivation(normal_factor)
-        / normal_factor
+        logarithmic_residue * derivation(normal_factor) / normal_factor
     )
-    lower_remainder = tower.field(1).from_sympy(
-        lower_residue/(x + 1)
-    )
+    lower_remainder = tower.field(1).from_sympy(lower_residue / (x + 1))
     integrand = (
-        derivation(exact_part)
-        + logarithmic_derivative
-        + field.convert(lower_remainder)
+        derivation(exact_part) + logarithmic_derivative + field.convert(lower_remainder)
     )
 
     result = reduce_hyperexponential_monomial(
@@ -689,9 +651,7 @@ def test_generated_mixed_tower_reductions_reconstruct(
     )
 
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
     assert result.logarithmic_derivative == logarithmic_derivative

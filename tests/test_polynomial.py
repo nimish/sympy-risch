@@ -13,10 +13,10 @@ x, a = symbols("x a")
     ("integrand", "expected"),
     [
         (0, 0),
-        (5, 5*x),
-        (3*x**2 + 2*x + 1, x**3 + x**2 + x),
-        (x**4 - 2*x**2 + 7, x**5/5 - 2*x**3/3 + 7*x),
-        (Rational(3, 2)*x, Rational(3, 4)*x**2),
+        (5, 5 * x),
+        (3 * x**2 + 2 * x + 1, x**3 + x**2 + x),
+        (x**4 - 2 * x**2 + 7, x**5 / 5 - 2 * x**3 / 3 + 7 * x),
+        (Rational(3, 2) * x, Rational(3, 4) * x**2),
     ],
 )
 def test_integrate_polynomial(integrand, expected) -> None:
@@ -29,17 +29,17 @@ def test_integrate_polynomial(integrand, expected) -> None:
 def test_integrate_polynomial_accepts_poly() -> None:
     result = integrate_polynomial(Poly(x**2 + 1, x, domain="QQ"), x)
 
-    assert result == x**3/3 + x
+    assert result == x**3 / 3 + x
 
 
 def test_integrate_polynomial_rejects_rational_function() -> None:
     with pytest.raises(PolynomialError):
-        integrate_polynomial(1/x, x)
+        integrate_polynomial(1 / x, x)
 
 
 def test_integrate_polynomial_rejects_non_rational_coefficient() -> None:
     with pytest.raises(CoercionFailed):
-        integrate_polynomial(a*x, x)
+        integrate_polynomial(a * x, x)
 
 
 @given(
@@ -55,7 +55,7 @@ def test_integrate_polynomial_rejects_non_rational_coefficient() -> None:
 @settings(max_examples=40, deadline=None)
 def test_generated_rational_polynomials_differentiate_back(coefficients) -> None:
     integrand = sum(
-        Rational(numerator, denominator)*x**degree
+        Rational(numerator, denominator) * x**degree
         for degree, (numerator, denominator) in enumerate(coefficients)
     )
 

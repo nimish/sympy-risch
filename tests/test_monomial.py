@@ -52,24 +52,24 @@ def monomial_tower(
 def test_exponential_normal_special_decomposition() -> None:
     tower = monomial_tower(t)
     parent = tower.field(0)
-    polynomial = Poly(6*t**2*(t - 1)**3*(t + 1), t, domain=parent)
+    polynomial = Poly(6 * t**2 * (t - 1) ** 3 * (t + 1), t, domain=parent)
 
     normal, special = split_normal_special(polynomial, tower.derivation())
 
-    assert normal == Poly(6*(t - 1)**3*(t + 1), t, domain=parent)
+    assert normal == Poly(6 * (t - 1) ** 3 * (t + 1), t, domain=parent)
     assert special == Poly(t**2, t, domain=parent)
-    assert normal*special == polynomial
+    assert normal * special == polynomial
 
 
 def test_tangent_normal_special_decomposition() -> None:
     tower = monomial_tower(1 + t**2)
     parent = tower.field(0)
-    polynomial = Poly(t**2*(1 + t**2)**3, t, domain=parent)
+    polynomial = Poly(t**2 * (1 + t**2) ** 3, t, domain=parent)
 
     normal, special = split_normal_special(polynomial, tower.derivation())
 
     assert normal == Poly(t**2, t, domain=parent)
-    assert special == Poly((1 + t**2)**3, t, domain=parent)
+    assert special == Poly((1 + t**2) ** 3, t, domain=parent)
 
 
 def test_coefficient_derivatives_expose_a_special_new_constant() -> None:
@@ -77,22 +77,22 @@ def test_coefficient_derivatives_expose_a_special_new_constant() -> None:
     # the total tower derivative rather than only differentiation in t.
     tower = monomial_tower(1)
     parent = tower.field(0)
-    polynomial = Poly((t - x)**2*(t + 1)**3, t, domain=parent)
+    polynomial = Poly((t - x) ** 2 * (t + 1) ** 3, t, domain=parent)
 
     normal, special = split_normal_special(polynomial, tower.derivation())
 
-    assert normal == Poly((t + 1)**3, t, domain=parent)
-    assert special == Poly((t - x)**2, t, domain=parent)
+    assert normal == Poly((t + 1) ** 3, t, domain=parent)
+    assert special == Poly((t - x) ** 2, t, domain=parent)
 
 
 def test_general_polynomial_monomials_use_the_same_decomposition() -> None:
     tower = monomial_tower(t**3)
     parent = tower.field(0)
-    polynomial = Poly(t**4*(t - 1)**2, t, domain=parent)
+    polynomial = Poly(t**4 * (t - 1) ** 2, t, domain=parent)
 
     normal, special = split_normal_special(polynomial, tower.derivation())
 
-    assert normal == Poly((t - 1)**2, t, domain=parent)
+    assert normal == Poly((t - 1) ** 2, t, domain=parent)
     assert special == Poly(t**4, t, domain=parent)
 
 
@@ -109,7 +109,7 @@ def test_generated_exponential_decompositions_reconstruct_the_input(
     tower = monomial_tower(t)
     parent = tower.field(0)
     polynomial = Poly(
-        coefficient*t**special_multiplicity*(t - 1)**normal_multiplicity,
+        coefficient * t**special_multiplicity * (t - 1) ** normal_multiplicity,
         t,
         domain=parent,
     )
@@ -117,12 +117,12 @@ def test_generated_exponential_decompositions_reconstruct_the_input(
     normal, special = split_normal_special(polynomial, tower.derivation())
 
     assert normal == Poly(
-        coefficient*(t - 1)**normal_multiplicity,
+        coefficient * (t - 1) ** normal_multiplicity,
         t,
         domain=parent,
     )
     assert special == Poly(t**special_multiplicity, t, domain=parent)
-    assert normal*special == polynomial
+    assert normal * special == polynomial
 
 
 def test_reduced_function_zero_properties_use_the_native_algebraic_zero() -> None:
@@ -166,9 +166,7 @@ def test_generated_tangent_decompositions_reconstruct_the_input(
     tower = monomial_tower(1 + t**2)
     parent = tower.field(0)
     polynomial = Poly(
-        coefficient
-        * (1 + t**2)**special_multiplicity
-        * t**normal_multiplicity,
+        coefficient * (1 + t**2) ** special_multiplicity * t**normal_multiplicity,
         t,
         domain=parent,
     )
@@ -176,36 +174,36 @@ def test_generated_tangent_decompositions_reconstruct_the_input(
     normal, special = split_normal_special(polynomial, tower.derivation())
 
     assert normal == Poly(
-        coefficient*t**normal_multiplicity,
+        coefficient * t**normal_multiplicity,
         t,
         domain=parent,
     )
     assert special == Poly(
-        (1 + t**2)**special_multiplicity,
+        (1 + t**2) ** special_multiplicity,
         t,
         domain=parent,
     )
-    assert normal*special == polynomial
+    assert normal * special == polynomial
 
 
 def test_general_nonlinear_decomposition_can_have_multiple_special_factors() -> None:
-    tower = monomial_tower(t*(1 + t**2))
+    tower = monomial_tower(t * (1 + t**2))
     parent = tower.field(0)
     polynomial = Poly(
-        3*t**2*(1 + t**2)**3*(t - 1)**4,
+        3 * t**2 * (1 + t**2) ** 3 * (t - 1) ** 4,
         t,
         domain=parent,
     )
 
     normal, special = split_normal_special(polynomial, tower.derivation())
 
-    assert normal == Poly(3*(t - 1)**4, t, domain=parent)
-    assert special == Poly(t**2*(1 + t**2)**3, t, domain=parent)
-    assert normal*special == polynomial
+    assert normal == Poly(3 * (t - 1) ** 4, t, domain=parent)
+    assert special == Poly(t**2 * (1 + t**2) ** 3, t, domain=parent)
+    assert normal * special == polynomial
 
 
 def test_normal_special_decomposition_validates_its_polynomial() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
 
     with pytest.raises(TypeError, match="SymPy Poly"):
         split_normal_special(t, tower.derivation())  # type: ignore[arg-type]
@@ -228,7 +226,7 @@ def test_tangent_polynomial_reduction() -> None:
         tower.derivation(),
     )
 
-    assert exact == Poly(t**3/3 - t, t, domain=parent)
+    assert exact == Poly(t**3 / 3 - t, t, domain=parent)
     assert remainder == Poly(1, t, domain=parent)
     assert tower.derivation().polynomial(exact) + remainder == polynomial
 
@@ -236,28 +234,28 @@ def test_tangent_polynomial_reduction() -> None:
 def test_polynomial_reduction_differentiates_lower_field_coefficients() -> None:
     tower = monomial_tower(1 + t**2)
     parent = tower.field(0)
-    polynomial = Poly(x*t**3, t, domain=parent)
+    polynomial = Poly(x * t**3, t, domain=parent)
 
     exact, remainder = polynomial_reduce_monomial(
         polynomial,
         tower.derivation(),
     )
 
-    assert exact == Poly(x*t**2/2 - t/2, t, domain=parent)
-    assert remainder == Poly(-x*t + 1/2, t, domain=parent)
+    assert exact == Poly(x * t**2 / 2 - t / 2, t, domain=parent)
+    assert remainder == Poly(-x * t + 1 / 2, t, domain=parent)
     assert tower.derivation().polynomial(exact) + remainder == polynomial
 
 
 @pytest.mark.parametrize(
     "generator_derivative",
-    [1 + t**2, t**3 + x, x*t**2 + t + 1],
+    [1 + t**2, t**3 + x, x * t**2 + t + 1],
 )
 def test_nonlinear_polynomial_reduction_reaches_the_degree_bound(
     generator_derivative,
 ) -> None:
     tower = monomial_tower(generator_derivative)
     parent = tower.field(0)
-    polynomial = Poly((x + 1)*t**8 + x*t**5 + t + 1, t, domain=parent)
+    polynomial = Poly((x + 1) * t**8 + x * t**5 + t + 1, t, domain=parent)
     delta = tower.levels[-1].generator_derivative.degree()
 
     exact, remainder = polynomial_reduce_monomial(
@@ -282,7 +280,7 @@ def test_nonlinear_polynomial_reduction_handles_zero_and_low_degree() -> None:
 
     for polynomial in (
         Poly(0, t, domain=parent),
-        Poly(x*t**2 + 1, t, domain=parent),
+        Poly(x * t**2 + 1, t, domain=parent),
     ):
         exact, remainder = polynomial_reduce_monomial(
             polynomial,
@@ -293,7 +291,7 @@ def test_nonlinear_polynomial_reduction_handles_zero_and_low_degree() -> None:
         assert remainder == polynomial
 
 
-@pytest.mark.parametrize("generator_derivative", [1/x, t, t + 1])
+@pytest.mark.parametrize("generator_derivative", [1 / x, t, t + 1])
 def test_nonlinear_polynomial_reduction_rejects_linear_families(
     generator_derivative,
 ) -> None:
@@ -320,7 +318,7 @@ def test_nonlinear_polynomial_reduction_validates_the_polynomial() -> None:
 
 @given(
     generator_derivative=st.sampled_from(
-        (1 + t**2, t**3 + x, x*t**2 + t + 1),
+        (1 + t**2, t**3 + x, x * t**2 + t + 1),
     ),
     coefficient=st.integers(min_value=-4, max_value=4),
     constant=st.integers(min_value=-4, max_value=4),
@@ -341,12 +339,12 @@ def test_generated_nonlinear_polynomial_reductions_reconstruct_input(
     parent = tower.field(0)
     derivation = tower.derivation()
     planted_exact = Poly(
-        (coefficient*x + constant)*t**exponent,
+        (coefficient * x + constant) * t**exponent,
         t,
         domain=parent,
     )
     planted_remainder = Poly(
-        remainder_linear*t + remainder_constant,
+        remainder_linear * t + remainder_constant,
         t,
         domain=parent,
     )
@@ -362,16 +360,16 @@ def test_generated_nonlinear_polynomial_reductions_reconstruct_input(
 @pytest.mark.parametrize(
     ("polynomial_expression", "expected_exact_expression"),
     [
-        (t, x*t - x),
-        (t**2, x*(t**2 - 2*t + 2)),
-        (t**3/x, t**4/4),
+        (t, x * t - x),
+        (t**2, x * (t**2 - 2 * t + 2)),
+        (t**3 / x, t**4 / 4),
     ],
 )
 def test_primitive_polynomial_reduction_basic_logarithmic_examples(
     polynomial_expression,
     expected_exact_expression,
 ) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     polynomial = Poly(polynomial_expression, t, domain=parent)
 
@@ -388,13 +386,13 @@ def test_primitive_polynomial_reduction_basic_logarithmic_examples(
 
 
 def test_primitive_polynomial_reduction_records_the_eta_direction() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
-    polynomial = Poly(t**5/x, t, domain=parent)
+    polynomial = Poly(t**5 / x, t, domain=parent)
 
     result = polynomial_reduce_primitive(polynomial, tower.derivation())
 
-    assert result.exact_part == Poly(t**6/6, t, domain=parent)
+    assert result.exact_part == Poly(t**6 / 6, t, domain=parent)
     assert result.remainder.is_zero
     assert len(result.steps) == 1
     step = result.steps[0]
@@ -407,9 +405,9 @@ def test_primitive_polynomial_reduction_records_the_eta_direction() -> None:
 @pytest.mark.parametrize(
     "eta",
     [
-        1/x - 1/(x - 1)**2,
-        1/x + 2/(x - 1),
-        1/(x**2 + 1),
+        1 / x - 1 / (x - 1) ** 2,
+        1 / x + 2 / (x - 1),
+        1 / (x**2 + 1),
     ],
 )
 def test_primitive_polynomial_reduction_handles_general_rational_eta(
@@ -417,11 +415,11 @@ def test_primitive_polynomial_reduction_handles_general_rational_eta(
 ) -> None:
     tower = monomial_tower(eta)
     parent = tower.field(0)
-    polynomial = Poly(eta*t**4, t, domain=parent)
+    polynomial = Poly(eta * t**4, t, domain=parent)
 
     result = polynomial_reduce_primitive(polynomial, tower.derivation())
 
-    assert result.exact_part == Poly(t**5/5, t, domain=parent)
+    assert result.exact_part == Poly(t**5 / 5, t, domain=parent)
     assert result.remainder.is_zero
     assert result.steps[0].eta_multiple == QQ.one
 
@@ -430,11 +428,11 @@ def test_primitive_polynomial_reduction_uses_one_residue_coordinate_as_pivot() -
     # In QQ[x]/(x**2 + 1), the residue numerators 1 and x are independent
     # over QQ.  Quotienting by C*eta removes the constant coordinate while
     # retaining the x coordinate as a canonical obstruction.
-    eta = 1/(x**2 + 1)
+    eta = 1 / (x**2 + 1)
     tower = monomial_tower(eta)
     parent = tower.field(0)
-    independent_obstruction = parent.from_sympy(x/(x**2 + 1))
-    polynomial = Poly((x + 3)*t**2/(x**2 + 1), t, domain=parent)
+    independent_obstruction = parent.from_sympy(x / (x**2 + 1))
+    polynomial = Poly((x + 3) * t**2 / (x**2 + 1), t, domain=parent)
 
     result = polynomial_reduce_primitive(polynomial, tower.derivation())
     leading_step = result.steps[0]
@@ -443,8 +441,7 @@ def test_primitive_polynomial_reduction_uses_one_residue_coordinate_as_pivot() -
     assert leading_step.obstruction == independent_obstruction
     assert parent.convert(result.remainder.nth(2)) == independent_obstruction
     assert (
-        tower.derivation().polynomial(result.exact_part)
-        + result.remainder
+        tower.derivation().polynomial(result.exact_part) + result.remainder
         == polynomial
     )
 
@@ -457,9 +454,9 @@ def test_primitive_polynomial_reduction_uses_one_residue_coordinate_as_pivot() -
 
 
 def test_primitive_polynomial_reduction_exposes_a_nonproportional_class() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
-    polynomial = Poly(t**3/(x - 1), t, domain=parent)
+    polynomial = Poly(t**3 / (x - 1), t, domain=parent)
 
     result = polynomial_reduce_primitive(polynomial, tower.derivation())
 
@@ -470,13 +467,13 @@ def test_primitive_polynomial_reduction_exposes_a_nonproportional_class() -> Non
     step = result.steps[0]
     assert step.exact_coefficient == parent.zero
     assert step.eta_multiple == QQ.zero
-    assert step.obstruction == parent.from_sympy(1/(x - 1))
+    assert step.obstruction == parent.from_sympy(1 / (x - 1))
 
     # The obstruction has a pole at x=1 while eta=1/x does not, so no
     # rational constant multiple of eta can cancel its residue class.
     assert cancel(
-        step.obstruction.as_expr()/(parent.from_sympy(1/x)).as_expr()
-    ) == x/(x - 1)
+        step.obstruction.as_expr() / (parent.from_sympy(1 / x)).as_expr()
+    ) == x / (x - 1)
 
     second = polynomial_reduce_primitive(
         result.remainder,
@@ -487,17 +484,13 @@ def test_primitive_polynomial_reduction_exposes_a_nonproportional_class() -> Non
 
 
 def test_primitive_polynomial_reduction_separates_all_three_components() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     derivation = tower.derivation()
-    exact_coefficient = parent.from_sympy(1/(x - 2))
-    eta = parent.from_sympy(1/x)
-    obstruction = parent.from_sympy(1/(x - 1))
-    coefficient = (
-        derivation.lower()(exact_coefficient)
-        + 2*eta
-        + obstruction
-    )
+    exact_coefficient = parent.from_sympy(1 / (x - 2))
+    eta = parent.from_sympy(1 / x)
+    obstruction = parent.from_sympy(1 / (x - 1))
+    coefficient = derivation.lower()(exact_coefficient) + 2 * eta + obstruction
     polynomial = Poly.from_dict({(2,): coefficient}, t, domain=parent)
 
     result = polynomial_reduce_primitive(polynomial, derivation)
@@ -513,13 +506,12 @@ def test_primitive_polynomial_reduction_separates_all_three_components() -> None
 
 
 def test_primitive_polynomial_steps_are_independently_reconstructible() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     derivation = tower.derivation()
-    eta = parent.from_sympy(1/x)
+    eta = parent.from_sympy(1 / x)
     polynomial = Poly(
-        (1/(x - 1) - 1/(x - 2)**2 + 3/x)*t**3
-        + (x + 1)*t,
+        (1 / (x - 1) - 1 / (x - 2) ** 2 + 3 / x) * t**3 + (x + 1) * t,
         t,
         domain=parent,
     )
@@ -530,13 +522,13 @@ def test_primitive_polynomial_steps_are_independently_reconstructible() -> None:
     for step in result.steps:
         assert step.coefficient == (
             derivation.lower()(step.exact_coefficient)
-            + parent.convert(step.eta_multiple)*eta
+            + parent.convert(step.eta_multiple) * eta
             + step.obstruction
         )
 
 
 def test_primitive_polynomial_reduction_handles_zero() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     zero = Poly(0, t, domain=tower.field(0))
 
     result = polynomial_reduce_primitive(zero, tower.derivation())
@@ -546,7 +538,7 @@ def test_primitive_polynomial_reduction_handles_zero() -> None:
     assert result.steps == ()
 
 
-@pytest.mark.parametrize("eta", [1, 1/x**2, 2*x + 1])
+@pytest.mark.parametrize("eta", [1, 1 / x**2, 2 * x + 1])
 def test_primitive_polynomial_reduction_rejects_an_exact_Dt(eta) -> None:
     # If eta = Du in QQ(x), then D(t-u)=0, contradicting the asserted
     # no-new-constants hypothesis.
@@ -571,7 +563,7 @@ def test_primitive_polynomial_reduction_requires_constant_field_evidence() -> No
     )
     unknown = rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
         ),
     )
 
@@ -598,7 +590,7 @@ def test_primitive_polynomial_reduction_validates_family_and_base() -> None:
     )
     primitive = scaled_base.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=scaled_base.field()),
+            Poly(1 / x, t, domain=scaled_base.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -611,17 +603,17 @@ def test_primitive_polynomial_reduction_validates_family_and_base() -> None:
     with pytest.raises(TypeError, match="SymPy Poly"):
         polynomial_reduce_primitive(
             t,  # type: ignore[arg-type]
-            monomial_tower(1/x).derivation(),
+            monomial_tower(1 / x).derivation(),
         )
 
 
 @given(
     eta=st.sampled_from(
         (
-            1/x,
-            1/x - 1/(x - 1)**2,
-            1/x + 2/(x - 1),
-            1/(x**2 + 1),
+            1 / x,
+            1 / x - 1 / (x - 1) ** 2,
+            1 / x + 2 / (x - 1),
+            1 / (x**2 + 1),
         )
     ),
     numerator_x=st.integers(min_value=-4, max_value=4),
@@ -644,10 +636,8 @@ def test_generated_exact_primitive_polynomials_reduce_to_zero(
     tower = monomial_tower(eta)
     parent = tower.field(0)
     derivation = tower.derivation()
-    coefficient = (
-        parent.from_sympy(
-            (numerator_x*x + numerator_constant)/(x - pole_root)**pole_power
-        )
+    coefficient = parent.from_sympy(
+        (numerator_x * x + numerator_constant) / (x - pole_root) ** pole_power
     )
     planted_exact = Poly.from_dict(
         {
@@ -683,24 +673,22 @@ def test_generated_nonproportional_primitive_obstructions_are_canonical(
     obstruction_root,
     obstruction_degree,
 ) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     derivation = tower.derivation()
     planted_exact = Poly(
-        exact_numerator*t**(obstruction_degree + 1)
-        /(x - exact_root)**exact_power,
+        exact_numerator
+        * t ** (obstruction_degree + 1)
+        / (x - exact_root) ** exact_power,
         t,
         domain=parent,
     )
     planted_obstruction = Poly(
-        obstruction_residue*t**obstruction_degree/(x - obstruction_root),
+        obstruction_residue * t**obstruction_degree / (x - obstruction_root),
         t,
         domain=parent,
     )
-    polynomial = (
-        derivation.polynomial(planted_exact)
-        + planted_obstruction
-    )
+    polynomial = derivation.polynomial(planted_exact) + planted_obstruction
 
     result = polynomial_reduce_primitive(polynomial, derivation)
 
@@ -716,16 +704,16 @@ def test_generated_nonproportional_primitive_obstructions_are_canonical(
 @pytest.mark.parametrize(
     ("integrand_expression", "expected_exact_expression"),
     [
-        (t, x*t - x),
-        (t**2, x*(t**2 - 2*t + 2)),
-        (t**4/x, t**5/5),
+        (t, x * t - x),
+        (t**2, x * (t**2 - 2 * t + 2)),
+        (t**4 / x, t**5 / 5),
     ],
 )
 def test_primitive_pipeline_integrates_polynomial_examples(
     integrand_expression,
     expected_exact_expression,
 ) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
 
     result = reduce_primitive_monomial(
@@ -742,9 +730,9 @@ def test_primitive_pipeline_integrates_polynomial_examples(
 
 
 def test_primitive_pipeline_extracts_log_log_x() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
-    integrand = field.from_sympy(1/(x*t))
+    integrand = field.from_sympy(1 / (x * t))
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
@@ -757,9 +745,9 @@ def test_primitive_pipeline_extracts_log_log_x() -> None:
 
 
 def test_primitive_pipeline_certifies_one_over_log_x_non_elementary() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
-    integrand = field.from_sympy(1/t)
+    integrand = field.from_sympy(1 / t)
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
@@ -778,9 +766,9 @@ def test_primitive_pipeline_certifies_one_over_log_x_non_elementary() -> None:
 
 
 def test_primitive_pipeline_certifies_a_positive_degree_obstruction() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
-    integrand = field.from_sympy(t/(x - 1))
+    integrand = field.from_sympy(t / (x - 1))
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
@@ -797,16 +785,16 @@ def test_primitive_pipeline_certifies_a_positive_degree_obstruction() -> None:
 
 
 def test_primitive_pipeline_returns_a_constant_polynomial_to_the_lower_field() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     field = tower.field()
-    integrand = field.from_sympy(1/(x - 1))
+    integrand = field.from_sympy(1 / (x - 1))
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
     assert result.reduced_to_lower_field
     assert not result.is_non_elementary
-    assert result.lower_remainder == parent.from_sympy(1/(x - 1))
+    assert result.lower_remainder == parent.from_sympy(1 / (x - 1))
     lower_integral = integrate_rational(
         result.lower_remainder.as_expr(),
         x,
@@ -815,15 +803,15 @@ def test_primitive_pipeline_returns_a_constant_polynomial_to_the_lower_field() -
 
 
 def test_primitive_pipeline_combines_every_reduction_stage() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     field = tower.field()
     derivation = tower.derivation()
-    repeated_pole_exact = field.from_sympy((x + 1)/(t - 2)**2)
+    repeated_pole_exact = field.from_sympy((x + 1) / (t - 2) ** 2)
     polynomial_exact = field.from_sympy(t**4)
     normal_factor = field.from_sympy(t - 1)
-    logarithmic_derivative = 3*derivation(normal_factor)/normal_factor
-    lower_remainder = parent.from_sympy(1/(x - 3))
+    logarithmic_derivative = 3 * derivation(normal_factor) / normal_factor
+    lower_remainder = parent.from_sympy(1 / (x - 3))
     integrand = (
         derivation(repeated_pole_exact + polynomial_exact)
         + logarithmic_derivative
@@ -838,22 +826,18 @@ def test_primitive_pipeline_combines_every_reduction_stage() -> None:
     assert result.lower_remainder == lower_remainder
     assert result.reduced_to_lower_field
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
 
 
 def test_primitive_pipeline_preserves_simultaneous_obstructions() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     derivation = tower.derivation()
     normal_factor = field.from_sympy(t - 1)
-    finite_obstruction = (
-        field.from_sympy(x)*derivation(normal_factor)/normal_factor
-    )
-    polynomial_obstruction = field.from_sympy(t/(x - 2))
+    finite_obstruction = field.from_sympy(x) * derivation(normal_factor) / normal_factor
+    polynomial_obstruction = field.from_sympy(t / (x - 2))
     integrand = finite_obstruction + polynomial_obstruction
 
     result = reduce_primitive_monomial(integrand, derivation)
@@ -863,9 +847,7 @@ def test_primitive_pipeline_preserves_simultaneous_obstructions() -> None:
     assert result.is_non_elementary
     assert result.lower_remainder is None
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
 
@@ -886,7 +868,7 @@ def test_primitive_pipeline_enforces_public_preconditions() -> None:
     )
     unknown = rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
         ),
     )
     with pytest.raises(ValueError, match="status is unknown"):
@@ -902,10 +884,10 @@ def test_primitive_pipeline_enforces_public_preconditions() -> None:
             exact_eta.derivation(),
         )
 
-    residue_collision = monomial_tower(1/x)
+    residue_collision = monomial_tower(1 / x)
     with pytest.raises(ValueError, match="residue symbol must be new"):
         reduce_primitive_monomial(
-            residue_collision.field().from_sympy(1/t),
+            residue_collision.field().from_sympy(1 / t),
             residue_collision.derivation(),
             residue=x,
         )
@@ -928,19 +910,19 @@ def test_generated_primitive_pipelines_reconstruct_successful_stages(
     logarithmic_residue,
     lower_residue,
 ) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     field = tower.field()
     derivation = tower.derivation()
     planted_exact = field.from_sympy(
-        repeated_coefficient/(t - 2)**repeated_power
-        + polynomial_coefficient*t**polynomial_power
+        repeated_coefficient / (t - 2) ** repeated_power
+        + polynomial_coefficient * t**polynomial_power
     )
     normal_factor = field.from_sympy(t - 1)
     planted_logarithmic_derivative = (
-        logarithmic_residue*derivation(normal_factor)/normal_factor
+        logarithmic_residue * derivation(normal_factor) / normal_factor
     )
-    lower_remainder = parent.from_sympy(lower_residue/(x - 3))
+    lower_remainder = parent.from_sympy(lower_residue / (x - 3))
     integrand = (
         derivation(planted_exact)
         + planted_logarithmic_derivative
@@ -952,9 +934,7 @@ def test_generated_primitive_pipelines_reconstruct_successful_stages(
     assert result.reduced_to_lower_field
     assert result.lower_remainder == lower_remainder
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
 
@@ -972,15 +952,13 @@ def test_generated_primitive_finite_residue_obstructions_are_preserved(
     factor_shift,
     exact_coefficient,
 ) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t - factor_shift)
-    residue_value = field.from_sympy(
-        residue_x_coefficient*x + residue_constant
-    )
-    finite_obstruction = residue_value*derivation(factor)/factor
-    planted_exact = field.from_sympy(exact_coefficient/(t + 1)**2)
+    residue_value = field.from_sympy(residue_x_coefficient * x + residue_constant)
+    finite_obstruction = residue_value * derivation(factor) / factor
+    planted_exact = field.from_sympy(exact_coefficient / (t + 1) ** 2)
     integrand = derivation(planted_exact) + finite_obstruction
 
     result = reduce_primitive_monomial(integrand, derivation)
@@ -989,9 +967,7 @@ def test_generated_primitive_finite_residue_obstructions_are_preserved(
     assert result.is_non_elementary
     assert result.lower_remainder is None
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
 
@@ -1011,19 +987,18 @@ def test_generated_primitive_polynomial_obstructions_are_preserved(
     exact_coefficient,
     exact_power,
 ) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     parent = tower.field(0)
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact = field.from_sympy(exact_coefficient*t**exact_power)
+    planted_exact = field.from_sympy(exact_coefficient * t**exact_power)
     planted_obstruction = Poly(
-        obstruction_residue*t**obstruction_degree/(x - obstruction_root),
+        obstruction_residue * t**obstruction_degree / (x - obstruction_root),
         t,
         domain=parent,
     )
-    integrand = (
-        derivation(planted_exact)
-        + field.from_sympy(planted_obstruction.as_expr())
+    integrand = derivation(planted_exact) + field.from_sympy(
+        planted_obstruction.as_expr()
     )
 
     result = reduce_primitive_monomial(integrand, derivation)
@@ -1033,9 +1008,7 @@ def test_generated_primitive_polynomial_obstructions_are_preserved(
     assert result.is_non_elementary
     assert result.polynomial_reduction.remainder == planted_obstruction
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
 
@@ -1066,9 +1039,9 @@ def test_tangent_reduced_function_extracts_the_logarithm_at_infinity() -> None:
 
 
 def test_reduced_function_handles_a_nonunit_derivative_leading_coefficient() -> None:
-    tower = monomial_tower(x*(1 + t**2))
+    tower = monomial_tower(x * (1 + t**2))
     field = tower.field()
-    integrand = field.from_sympy(x*t)
+    integrand = field.from_sympy(x * t)
 
     reduction = reduce_monomial_reduced_function(
         integrand,
@@ -1099,7 +1072,7 @@ def test_structure_theorems_reject_new_constant_counterexamples(
     )
     tower = rational.extend(
         MonomialExtension(
-            Poly(scale*t**(exponent + 1), t, domain=rational.field()),
+            Poly(scale * t ** (exponent + 1), t, domain=rational.field()),
             ConstantFieldStatus.ENLARGED,
         ),
     )
@@ -1107,18 +1080,16 @@ def test_structure_theorems_reject_new_constant_counterexamples(
     derivation = tower.derivation()
     generator = field.from_sympy(t)
     new_constant = field.from_sympy(
-        x + 1/(exponent*scale*t**exponent),
+        x + 1 / (exponent * scale * t**exponent),
     )
-    integrand = field.from_sympy(scale*x*t**exponent)
+    integrand = field.from_sympy(scale * x * t**exponent)
     normal_factor = field.from_sympy(t - 1)
-    logarithmic_integrand = (
-        new_constant*derivation(normal_factor)/normal_factor
-    )
+    logarithmic_integrand = new_constant * derivation(normal_factor) / normal_factor
 
     assert derivation(new_constant) == field.zero
     # D(new_constant*log(t) - x/exponent) equals the polynomial integrand.
     assert (
-        new_constant*derivation(generator)/generator
+        new_constant * derivation(generator) / generator
         - field.from_sympy(Rational(1, exponent))
         == integrand
     )
@@ -1131,7 +1102,7 @@ def test_structure_theorems_reject_new_constant_counterexamples(
 def test_reduced_function_certifies_a_nonconstant_infinity_residue() -> None:
     tower = monomial_tower(1 + t**2)
     field = tower.field()
-    integrand = field.from_sympy(x*t + 3)
+    integrand = field.from_sympy(x * t + 3)
 
     reduction = reduce_monomial_reduced_function(
         integrand,
@@ -1151,7 +1122,7 @@ def test_reduced_function_certifies_a_nonconstant_infinity_residue() -> None:
 def test_reduced_function_uses_its_special_denominator() -> None:
     tower = monomial_tower(t**3)
     field = tower.field()
-    integrand = field.from_sympy(2*t**2 + 1/t)
+    integrand = field.from_sympy(2 * t**2 + 1 / t)
 
     reduction = reduce_monomial_reduced_function(
         integrand,
@@ -1170,13 +1141,13 @@ def test_reduced_function_uses_its_special_denominator() -> None:
     )
     assert reduction.logarithmic_coefficient == 2
     assert reduction.logarithmic_argument == reduction.special_denominator
-    assert reduction.logarithmic_derivative == field.from_sympy(2*t**2)
-    assert reduction.remainder == field.from_sympy(1/t)
+    assert reduction.logarithmic_derivative == field.from_sympy(2 * t**2)
+    assert reduction.remainder == field.from_sympy(1 / t)
 
 
 def test_reduced_function_can_use_a_supplied_special_polynomial() -> None:
     # q = t - x is special because Dq = t*q, but it is not a factor of Dt.
-    tower = monomial_tower(t**2 - x*t + 1)
+    tower = monomial_tower(t**2 - x * t + 1)
     parent = tower.field(0)
     field = tower.field()
     special = Poly(t - x, t, domain=parent)
@@ -1214,7 +1185,7 @@ def test_reduced_function_defers_when_no_special_polynomial_is_known() -> None:
 def test_reduced_function_leaves_lower_degree_and_special_parts() -> None:
     tower = monomial_tower(1 + t**2)
     field = tower.field()
-    integrand = field.from_sympy(4*t + 3 + 1/(1 + t**2))
+    integrand = field.from_sympy(4 * t + 3 + 1 / (1 + t**2))
 
     reduction = reduce_monomial_reduced_function(
         integrand,
@@ -1222,8 +1193,8 @@ def test_reduced_function_leaves_lower_degree_and_special_parts() -> None:
     )
 
     assert reduction.logarithmic_coefficient == 2
-    assert reduction.logarithmic_derivative == field.from_sympy(4*t)
-    assert reduction.remainder == field.from_sympy(3 + 1/(1 + t**2))
+    assert reduction.logarithmic_derivative == field.from_sympy(4 * t)
+    assert reduction.remainder == field.from_sympy(3 + 1 / (1 + t**2))
     assert reduction.logarithmic_derivative + reduction.remainder == integrand
 
 
@@ -1234,7 +1205,7 @@ def test_reduced_function_requires_the_previous_reductions() -> None:
 
     with pytest.raises(ValueError, match="normal residues"):
         reduce_monomial_reduced_function(
-            field.from_sympy(t + 1/(t - 1)),
+            field.from_sympy(t + 1 / (t - 1)),
             derivation,
         )
     with pytest.raises(ValueError, match="polynomial reduction"):
@@ -1270,7 +1241,7 @@ def test_generated_reduced_function_logarithms_reconstruct_input(
     derivation = tower.derivation()
     special = field.from_sympy(special_expression)
     planted_logarithmic_derivative = (
-        logarithmic_coefficient*derivation(special)/special
+        logarithmic_coefficient * derivation(special) / special
     )
     integrand = planted_logarithmic_derivative + background
 
@@ -1286,14 +1257,12 @@ def test_nonlinear_pipeline_combines_every_common_reduction_stage() -> None:
     tower = monomial_tower(1 + t**2)
     field = tower.field()
     derivation = tower.derivation()
-    repeated_pole_exact = field.from_sympy((x + 1)/(t - 1)**2)
+    repeated_pole_exact = field.from_sympy((x + 1) / (t - 1) ** 2)
     polynomial_exact = field.from_sympy(t**5)
     normal_factor = field.from_sympy(t - 2)
-    normal_logarithmic_derivative = (
-        3*derivation(normal_factor)/normal_factor
-    )
-    infinity_logarithmic_derivative = field.from_sympy(4*t)
-    final_remainder = field.from_sympy(3 + 1/(1 + t**2))
+    normal_logarithmic_derivative = 3 * derivation(normal_factor) / normal_factor
+    infinity_logarithmic_derivative = field.from_sympy(4 * t)
+    final_remainder = field.from_sympy(3 + 1 / (1 + t**2))
     integrand = (
         derivation(repeated_pole_exact + polynomial_exact)
         + normal_logarithmic_derivative
@@ -1310,7 +1279,7 @@ def test_nonlinear_pipeline_combines_every_common_reduction_stage() -> None:
         domain=tower.field(0),
     )
     assert reduction.polynomial_remainder == Poly(
-        4*t + 3,
+        4 * t + 3,
         t,
         domain=tower.field(0),
     )
@@ -1323,8 +1292,7 @@ def test_nonlinear_pipeline_combines_every_common_reduction_stage() -> None:
         infinity_logarithmic_derivative
     )
     assert reduction.logarithmic_derivative == (
-        normal_logarithmic_derivative
-        + infinity_logarithmic_derivative
+        normal_logarithmic_derivative + infinity_logarithmic_derivative
     )
     assert reduction.remainder == final_remainder
     assert (
@@ -1347,9 +1315,7 @@ def test_nonlinear_pipeline_stops_after_a_finite_residue_obstruction() -> None:
     field = tower.field()
     derivation = tower.derivation()
     normal_factor = field.from_sympy(t - 1)
-    finite_obstruction = (
-        field.from_sympy(x)*derivation(normal_factor)/normal_factor
-    )
+    finite_obstruction = field.from_sympy(x) * derivation(normal_factor) / normal_factor
     polynomial_exact = field.from_sympy(t**4)
     integrand = derivation(polynomial_exact) + finite_obstruction
 
@@ -1380,7 +1346,7 @@ def test_nonlinear_pipeline_stops_after_a_finite_residue_obstruction() -> None:
 def test_nonlinear_pipeline_reports_the_infinity_obstruction() -> None:
     tower = monomial_tower(1 + t**2)
     field = tower.field()
-    integrand = field.from_sympy(x*t + 3)
+    integrand = field.from_sympy(x * t + 3)
 
     reduction = reduce_nonlinear_monomial(
         integrand,
@@ -1409,7 +1375,7 @@ def test_nonlinear_pipeline_records_an_unknown_special_polynomial() -> None:
 
 
 def test_nonlinear_pipeline_accepts_a_supplied_special_polynomial() -> None:
-    tower = monomial_tower(t**2 - x*t + 1)
+    tower = monomial_tower(t**2 - x * t + 1)
     parent = tower.field(0)
     field = tower.field()
     special = Poly(t - x, t, domain=parent)
@@ -1429,7 +1395,7 @@ def test_nonlinear_pipeline_accepts_a_supplied_special_polynomial() -> None:
 
 
 def test_nonlinear_pipeline_enforces_its_family_and_constant_hypotheses() -> None:
-    primitive_tower = monomial_tower(1/x)
+    primitive_tower = monomial_tower(1 / x)
     with pytest.raises(ValueError, match=r"degree\(Dt\) >= 2"):
         reduce_nonlinear_monomial(
             primitive_tower.field().from_sympy(t),
@@ -1463,11 +1429,11 @@ def test_nonlinear_no_special_reduces_recursively_to_the_lower_field() -> None:
     )
     field = tower.field()
     derivation = tower.derivation()
-    repeated_pole_exact = field.from_sympy((x + 1)/(t - 2)**2)
+    repeated_pole_exact = field.from_sympy((x + 1) / (t - 2) ** 2)
     polynomial_exact = field.from_sympy(t**5)
     normal_factor = field.from_sympy(t - 1)
-    logarithmic_derivative = 3*derivation(normal_factor)/normal_factor
-    lower_remainder = tower.field(0).from_sympy((x**2 + 1)/(x + 1))
+    logarithmic_derivative = 3 * derivation(normal_factor) / normal_factor
+    lower_remainder = tower.field(0).from_sympy((x**2 + 1) / (x + 1))
     integrand = (
         derivation(repeated_pole_exact + polynomial_exact)
         + logarithmic_derivative
@@ -1483,9 +1449,7 @@ def test_nonlinear_no_special_reduces_recursively_to_the_lower_field() -> None:
     assert result.lower_remainder == lower_remainder
     assert common.remainder == field.convert(lower_remainder)
     assert (
-        derivation(common.exact_part)
-        + common.logarithmic_derivative
-        + common.remainder
+        derivation(common.exact_part) + common.logarithmic_derivative + common.remainder
         == integrand
     )
 
@@ -1502,10 +1466,7 @@ def test_nonlinear_no_special_proves_a_reduced_t_term_non_elementary() -> None:
         tower.derivation(),
     )
 
-    assert (
-        result.status
-        is NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL
-    )
+    assert result.status is NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL
     assert result.is_non_elementary
     assert not result.reduced_to_lower_field
     assert result.lower_remainder is None
@@ -1520,7 +1481,7 @@ def test_nonlinear_no_special_preserves_the_infinity_certificate() -> None:
     field = tower.field()
 
     result = reduce_nonlinear_no_special(
-        field.from_sympy(x*t),
+        field.from_sympy(x * t),
         tower.derivation(),
     )
 
@@ -1540,14 +1501,16 @@ def test_nonlinear_no_special_preserves_the_finite_residue_certificate() -> None
     field = tower.field()
     derivation = tower.derivation()
     normal_factor = field.from_sympy(t - 1)
-    integrand = field.from_sympy(x)*derivation(normal_factor)/normal_factor
+    integrand = field.from_sympy(x) * derivation(normal_factor) / normal_factor
 
     result = reduce_nonlinear_no_special(integrand, derivation)
 
     assert result.status is NonlinearNoSpecialStatus.FINITE_RESIDUE_OBSTRUCTION
     assert result.is_non_elementary
     assert result.common_reduction.has_finite_residue_obstruction
-    assert not result.common_reduction.residue_reduction.certificate.all_residues_constant
+    assert (
+        not result.common_reduction.residue_reduction.certificate.all_residues_constant
+    )
 
 
 @pytest.mark.parametrize(
@@ -1571,7 +1534,7 @@ def test_nonlinear_no_special_requires_structure_theorem_evidence(
 
 def test_nonlinear_no_special_rejects_an_obvious_metadata_contradiction() -> None:
     tower = monomial_tower(
-        t*(1 + t**2),
+        t * (1 + t**2),
         special_polynomial_status=SpecialPolynomialStatus.ABSENT,
     )
 
@@ -1587,7 +1550,7 @@ def test_nonlinear_no_special_rejects_a_hidden_special_denominator() -> None:
     # t - x is not a factor of Dt.  This exercises the second consistency
     # check rather than the inexpensive factor check above.
     tower = monomial_tower(
-        t**2 - x*t + 1,
+        t**2 - x * t + 1,
         special_polynomial_status=SpecialPolynomialStatus.ABSENT,
     )
 
@@ -1596,7 +1559,7 @@ def test_nonlinear_no_special_rejects_a_hidden_special_denominator() -> None:
         match="reduced remainder has a nonconstant special denominator",
     ):
         reduce_nonlinear_no_special(
-            tower.field().from_sympy(1/(t - x)),
+            tower.field().from_sympy(1 / (t - x)),
             tower.derivation(),
         )
 
@@ -1627,16 +1590,16 @@ def test_generated_nonlinear_no_special_inputs_reduce_to_the_lower_field(
     field = tower.field()
     derivation = tower.derivation()
     exact = field.from_sympy(
-        fraction_coefficient/(t - 2)**fraction_power
-        + polynomial_coefficient*t**polynomial_power
+        fraction_coefficient / (t - 2) ** fraction_power
+        + polynomial_coefficient * t**polynomial_power
     )
     normal_factor = field.from_sympy(t - 1)
     lower_remainder = tower.field(0).from_sympy(
-        (lower_numerator_x*x + lower_numerator_constant)/(x + 1)
+        (lower_numerator_x * x + lower_numerator_constant) / (x + 1)
     )
     integrand = (
         derivation(exact)
-        + residue_value*derivation(normal_factor)/normal_factor
+        + residue_value * derivation(normal_factor) / normal_factor
         + field.convert(lower_remainder)
     )
 
@@ -1646,9 +1609,7 @@ def test_generated_nonlinear_no_special_inputs_reduce_to_the_lower_field(
     assert result.status is NonlinearNoSpecialStatus.REDUCED_TO_LOWER_FIELD
     assert result.lower_remainder == lower_remainder
     assert (
-        derivation(common.exact_part)
-        + common.logarithmic_derivative
-        + common.remainder
+        derivation(common.exact_part) + common.logarithmic_derivative + common.remainder
         == integrand
     )
 
@@ -1668,17 +1629,14 @@ def test_generated_nonconstant_reduced_polynomials_are_certified(
     )
 
     result = reduce_nonlinear_no_special(
-        tower.field().from_sympy(top_coefficient*t + lower_constant),
+        tower.field().from_sympy(top_coefficient * t + lower_constant),
         tower.derivation(),
     )
 
-    assert (
-        result.status
-        is NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL
-    )
+    assert result.status is NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL
     assert result.is_non_elementary
     assert result.common_reduction.remainder == tower.field().from_sympy(
-        top_coefficient*t + lower_constant
+        top_coefficient * t + lower_constant
     )
     assert result.common_reduction.needs_special_polynomial
 
@@ -1713,14 +1671,14 @@ def test_generated_nonlinear_pipelines_reconstruct_planted_stages(
     field = tower.field()
     derivation = tower.derivation()
     fraction_exact = field.from_sympy(
-        fraction_coefficient/(t - 2)**fraction_power,
+        fraction_coefficient / (t - 2) ** fraction_power,
     )
     polynomial_exact = field.from_sympy(
-        polynomial_coefficient*t**polynomial_power,
+        polynomial_coefficient * t**polynomial_power,
     )
     normal_factor = field.from_sympy(normal_factor_expression)
     planted_logarithmic_derivative = (
-        residue_value*derivation(normal_factor)/normal_factor
+        residue_value * derivation(normal_factor) / normal_factor
     )
     final_remainder = field.from_sympy(final_constant)
     integrand = (
@@ -1759,21 +1717,18 @@ def assert_normal_part_is_square_free(
     tower: DifferentialTower,
 ) -> None:
     normal, _ = denominator_parts(element, tower)
-    assert all(
-        multiplicity == 1
-        for _, multiplicity in normal.sqf_list()[1]
-    )
+    assert all(multiplicity == 1 for _, multiplicity in normal.sqf_list()[1])
 
 
 def test_monomial_hermite_reduces_a_logarithmic_repeated_pole() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(1/(x*t**2))
+    integrand = field.from_sympy(1 / (x * t**2))
 
     exact, remainder = hermite_reduce_monomial(integrand, derivation)
 
-    assert exact == field.from_sympy(-1/t)
+    assert exact == field.from_sympy(-1 / t)
     assert remainder == field.zero
     assert derivation(exact) + remainder == integrand
 
@@ -1782,7 +1737,7 @@ def test_monomial_hermite_preserves_an_exponential_special_part() -> None:
     tower = monomial_tower(t)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(1/(t**2*(t - 1)**2))
+    integrand = field.from_sympy(1 / (t**2 * (t - 1) ** 2))
 
     exact, remainder = hermite_reduce_monomial(integrand, derivation)
     normal, special = denominator_parts(remainder, tower)
@@ -1796,17 +1751,17 @@ def test_monomial_hermite_preserves_a_tangent_special_part() -> None:
     tower = monomial_tower(1 + t**2)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(1/(t**2*(1 + t**2)**2))
+    integrand = field.from_sympy(1 / (t**2 * (1 + t**2) ** 2))
 
     exact, remainder = hermite_reduce_monomial(integrand, derivation)
     normal, special = denominator_parts(remainder, tower)
 
     assert derivation(exact) + remainder == integrand
     assert normal == Poly(1, t, domain=tower.field(0))
-    assert special == Poly((1 + t**2)**2, t, domain=tower.field(0))
+    assert special == Poly((1 + t**2) ** 2, t, domain=tower.field(0))
 
 
-@pytest.mark.parametrize("expression", [t**3 + x*t, 1/t**3, 1/(t - 1)])
+@pytest.mark.parametrize("expression", [t**3 + x * t, 1 / t**3, 1 / (t - 1)])
 def test_monomial_hermite_leaves_polynomial_and_special_terms_for_later(
     expression,
 ) -> None:
@@ -1825,10 +1780,10 @@ def test_monomial_hermite_leaves_polynomial_and_special_terms_for_later(
 
 @given(st.integers(min_value=1, max_value=6))
 def test_generated_logarithmic_exact_derivatives_are_recovered(power) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact = field.from_sympy(t**(-power))
+    planted_exact = field.from_sympy(t ** (-power))
     integrand = derivation(planted_exact)
 
     exact, remainder = hermite_reduce_monomial(integrand, derivation)
@@ -1845,7 +1800,7 @@ def test_monomial_hermite_requires_a_monomial_level() -> None:
 
 
 @given(
-    generator_derivative=st.sampled_from((1/x, t, 1 + t**2, t**3 + x)),
+    generator_derivative=st.sampled_from((1 / x, t, 1 + t**2, t**3 + x)),
     left_power=st.integers(min_value=1, max_value=5),
     right_power=st.integers(min_value=1, max_value=5),
     coefficient=st.integers(min_value=-4, max_value=4),
@@ -1861,8 +1816,8 @@ def test_generated_planted_derivatives_across_monomial_families(
     field = tower.field()
     derivation = tower.derivation()
     planted_exact = field.from_sympy(
-        (coefficient*x + 1)/(t - 1)**left_power
-        + (x - coefficient)/(t + 1)**right_power,
+        (coefficient * x + 1) / (t - 1) ** left_power
+        + (x - coefficient) / (t + 1) ** right_power,
     )
     integrand = derivation(planted_exact)
 
@@ -1895,7 +1850,7 @@ def test_generated_mixed_special_and_normal_denominators(
     field = tower.field()
     derivation = tower.derivation()
     planted_exact = field.from_sympy(
-        1/(special_factor**special_power*(t - 1)**normal_power),
+        1 / (special_factor**special_power * (t - 1) ** normal_power),
     )
     integrand = derivation(planted_exact)
 
@@ -1908,10 +1863,7 @@ def test_generated_mixed_special_and_normal_denominators(
     )
 
     assert derivation(exact) + remainder == integrand
-    assert all(
-        multiplicity == 1
-        for _, multiplicity in normal.sqf_list()[1]
-    )
+    assert all(multiplicity == 1 for _, multiplicity in normal.sqf_list()[1])
     assert expected_special.rem(special).is_zero
 
     second_exact, second_remainder = hermite_reduce_monomial(
@@ -1938,8 +1890,8 @@ def test_monomial_reducer_agrees_with_classical_rational_hermite_reduction(
     tower = DifferentialTower(QQ).extend(
         MonomialExtension(Poly(1, x, domain=QQ)),
     )
-    integrand = (linear*x + constant) / (
-        (x - 1)**left_power*(x + 1)**right_power
+    integrand = (linear * x + constant) / (
+        (x - 1) ** left_power * (x + 1) ** right_power
     )
 
     exact, remainder = hermite_reduce_monomial(
@@ -1957,14 +1909,14 @@ def test_monomial_reducer_agrees_with_classical_rational_hermite_reduction(
 
 
 def test_monomial_hermite_handles_multiple_multiplicities_and_lower_terms() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     derivation = tower.derivation()
     planted_exact = field.from_sympy(
-        (x + 1)/(t - 2)**4 + (x - 1)/(t + 2)**2,
+        (x + 1) / (t - 2) ** 4 + (x - 1) / (t + 2) ** 2,
     )
     planted_remainder = field.from_sympy(
-        t**2 + 1/x**2 + 1/(t - 1),
+        t**2 + 1 / x**2 + 1 / (t - 1),
     )
     integrand = derivation(planted_exact) + planted_remainder
 
@@ -1979,10 +1931,10 @@ def test_monomial_hermite_handles_multiple_multiplicities_and_lower_terms() -> N
 @pytest.mark.parametrize(
     ("generator_derivative", "normal_factor"),
     [
-        (1/x, t**2 + x),
+        (1 / x, t**2 + x),
         (t, t**2 + t + 1),
         (1 + t**2, t**2 + t + 2),
-        (t**3 + x, t**2 + x*t + 1),
+        (t**3 + x, t**2 + x * t + 1),
     ],
 )
 def test_monomial_hermite_reduces_nonlinear_normal_factors(
@@ -1992,7 +1944,7 @@ def test_monomial_hermite_reduces_nonlinear_normal_factors(
     tower = monomial_tower(generator_derivative)
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact = field.from_sympy((x + 1)/normal_factor**3)
+    planted_exact = field.from_sympy((x + 1) / normal_factor**3)
     integrand = derivation(planted_exact)
 
     exact, remainder = hermite_reduce_monomial(integrand, derivation)
@@ -2011,10 +1963,10 @@ def test_residue_algorithms_require_preserved_constants() -> None:
     )
     tower = rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
         ),
     )
-    integrand = tower.field().from_sympy(1/t)
+    integrand = tower.field().from_sympy(1 / t)
 
     with pytest.raises(ValueError, match="status is unknown"):
         bronstein_residue_criterion(integrand, tower.derivation())
@@ -2023,11 +1975,11 @@ def test_residue_algorithms_require_preserved_constants() -> None:
 
 
 def test_bronstein_criterion_requires_a_symbolic_residue_indeterminate() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
 
     with pytest.raises(TypeError, match="must be a Symbol"):
         bronstein_residue_criterion(
-            tower.field().from_sympy(1/t),
+            tower.field().from_sympy(1 / t),
             tower.derivation(),
             0,  # type: ignore[arg-type]
         )
@@ -2036,11 +1988,11 @@ def test_bronstein_criterion_requires_a_symbolic_residue_indeterminate() -> None
 def test_bronstein_criterion_rejects_the_logarithmic_integral_residue() -> None:
     # With t = log(x), 1/t has residue x because D(t) = 1/x.  Since Dx != 0,
     # Liouville's theorem rules out an elementary logarithmic term.
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     z = symbols("z")
 
     certificate = bronstein_residue_criterion(
-        tower.field().from_sympy(1/t),
+        tower.field().from_sympy(1 / t),
         tower.derivation(),
         z,
     )
@@ -2068,16 +2020,16 @@ def test_bronstein_criterion_rejects_the_logarithmic_integral_residue() -> None:
 
 def test_bronstein_criterion_accepts_log_log_residue() -> None:
     # 1/(x*t) has the constant residue 1 and integrates to log(t).
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     z = symbols("z")
 
     certificate = bronstein_residue_criterion(
-        tower.field().from_sympy(1/(x*t)),
+        tower.field().from_sympy(1 / (x * t)),
         tower.derivation(),
         z,
     )
 
-    assert certificate.normal_numerator == Poly(1/x, t, domain=tower.field(0))
+    assert certificate.normal_numerator == Poly(1 / x, t, domain=tower.field(0))
     assert certificate.normal_denominator == Poly(t, t, domain=tower.field(0))
     assert certificate.residue_polynomial == Poly(z - 1, z, domain=tower.field(0))
     assert certificate.kappa_residue_polynomial.is_zero
@@ -2095,11 +2047,11 @@ def test_bronstein_criterion_accepts_log_log_residue() -> None:
 
 
 def test_bronstein_criterion_splits_constant_and_nonconstant_roots() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     z = symbols("z")
     # The residues at t=0 and t=1 are respectively 1 and x.
     remainder = tower.field().from_sympy(
-        1/(x*t) + 1/(t - 1),
+        1 / (x * t) + 1 / (t - 1),
     )
 
     certificate = bronstein_residue_criterion(
@@ -2110,7 +2062,7 @@ def test_bronstein_criterion_splits_constant_and_nonconstant_roots() -> None:
 
     factor = certificate.factors[0]
     assert certificate.residue_polynomial == Poly(
-        (z - 1)*(z - x),
+        (z - 1) * (z - x),
         z,
         domain=tower.field(0),
     )
@@ -2126,7 +2078,7 @@ def test_bronstein_criterion_isolates_normal_from_special_fraction() -> None:
     z = symbols("z")
 
     certificate = bronstein_residue_criterion(
-        tower.field().from_sympy(1/(t*(t - 1))),
+        tower.field().from_sympy(1 / (t * (t - 1))),
         tower.derivation(),
         z,
     )
@@ -2142,7 +2094,7 @@ def test_bronstein_criterion_ignores_polynomial_and_special_only_parts() -> None
     z = symbols("z")
 
     certificate = bronstein_residue_criterion(
-        tower.field().from_sympy(t**2 + 1/t),
+        tower.field().from_sympy(t**2 + 1 / t),
         tower.derivation(),
         z,
     )
@@ -2156,16 +2108,16 @@ def test_bronstein_criterion_ignores_polynomial_and_special_only_parts() -> None
 
 
 def test_bronstein_criterion_requires_prior_hermite_reduction() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
 
     with pytest.raises(ValueError, match="Hermite-reduced normal denominator"):
         bronstein_residue_criterion(
-            tower.field().from_sympy(1/t**2),
+            tower.field().from_sympy(1 / t**2),
             tower.derivation(),
         )
     with pytest.raises(ValueError, match="new over the tower field"):
         bronstein_residue_criterion(
-            tower.field().from_sympy(1/t),
+            tower.field().from_sympy(1 / t),
             tower.derivation(),
             x,
         )
@@ -2174,7 +2126,7 @@ def test_bronstein_criterion_requires_prior_hermite_reduction() -> None:
 @pytest.mark.parametrize(
     ("generator_derivative", "normal_factor"),
     [
-        (1/x, t),
+        (1 / x, t),
         (t, t - 1),
         (1 + t**2, t),
         (t**3 + x, t - 1),
@@ -2190,11 +2142,11 @@ def test_bronstein_criterion_across_monomial_families(
     logarithmic_derivative /= field.from_sympy(normal_factor)
 
     constant_certificate = bronstein_residue_criterion(
-        2*logarithmic_derivative,
+        2 * logarithmic_derivative,
         tower.derivation(),
     )
     variable_certificate = bronstein_residue_criterion(
-        field.from_sympy(x)*logarithmic_derivative,
+        field.from_sympy(x) * logarithmic_derivative,
         tower.derivation(),
     )
 
@@ -2213,12 +2165,11 @@ def test_generated_bronstein_criterion_matches_planted_residues(
     slope,
     intercept,
 ) -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
-    variable_residue = slope*x + intercept
+    variable_residue = slope * x + intercept
     remainder = field.from_sympy(
-        constant_residue/(x*t)
-        + variable_residue/(x*(t - 1)),
+        constant_residue / (x * t) + variable_residue / (x * (t - 1)),
     )
 
     certificate = bronstein_residue_criterion(
@@ -2230,10 +2181,10 @@ def test_generated_bronstein_criterion_matches_planted_residues(
 
 
 def test_residue_reduction_extracts_log_log_term() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     z = symbols("z")
-    integrand = field.from_sympy(1/(x*t))
+    integrand = field.from_sympy(1 / (x * t))
 
     reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
 
@@ -2247,9 +2198,9 @@ def test_residue_reduction_extracts_log_log_term() -> None:
 
 
 def test_residue_reduction_preserves_nonconstant_residue_obstruction() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
-    integrand = field.from_sympy(1/t)
+    integrand = field.from_sympy(1 / t)
 
     reduction = residue_reduce_monomial(integrand, tower.derivation())
 
@@ -2260,10 +2211,10 @@ def test_residue_reduction_preserves_nonconstant_residue_obstruction() -> None:
 
 
 def test_residue_reduction_extracts_only_constant_residue_roots() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     z = symbols("z")
-    integrand = field.from_sympy(1/(x*t) + 1/(t - 1))
+    integrand = field.from_sympy(1 / (x * t) + 1 / (t - 1))
 
     reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
 
@@ -2271,8 +2222,8 @@ def test_residue_reduction_extracts_only_constant_residue_roots() -> None:
     logand, residue_factor = reduction.logarithmic_parts[0]
     assert logand.as_expr() == t
     assert residue_factor == Poly(z - 1, z, domain=tower.field(0))
-    assert reduction.logarithmic_derivative == field.from_sympy(1/(x*t))
-    assert reduction.remainder == field.from_sympy(1/(t - 1))
+    assert reduction.logarithmic_derivative == field.from_sympy(1 / (x * t))
+    assert reduction.remainder == field.from_sympy(1 / (t - 1))
     assert not reduction.all_normal_residues_removed
 
     remaining_certificate = bronstein_residue_criterion(
@@ -2291,27 +2242,27 @@ def test_residue_reduction_extracts_only_constant_residue_roots() -> None:
 def test_residue_reduction_traces_algebraic_constant_residues() -> None:
     # The residues are +/-i/2.  Their encoded logarithmic sum differentiates
     # to the input without constructing either algebraic constant explicitly.
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     z = symbols("z")
-    integrand = field.from_sympy(1/(x*(t**2 + 1)))
+    integrand = field.from_sympy(1 / (x * (t**2 + 1)))
 
     reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
 
     assert len(reduction.logarithmic_parts) == 1
     logand, residue_factor = reduction.logarithmic_parts[0]
-    assert logand.as_expr() == t + 2*z
-    assert residue_factor == Poly(z**2 + 1/4, z, domain=tower.field(0))
+    assert logand.as_expr() == t + 2 * z
+    assert residue_factor == Poly(z**2 + 1 / 4, z, domain=tower.field(0))
     assert reduction.logarithmic_derivative == integrand
     assert reduction.remainder == field.zero
     assert reduction.all_normal_residues_removed
 
 
 def test_residue_reduction_traces_degree_five_constant_residues() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     integrand = field.from_sympy(
-        (t**2 + 1)/(x*(t**5 + t + 1)),
+        (t**2 + 1) / (x * (t**5 + t + 1)),
     )
 
     reduction = residue_reduce_monomial(integrand, tower.derivation())
@@ -2326,17 +2277,17 @@ def test_residue_reduction_traces_degree_five_constant_residues() -> None:
 
 
 def test_residue_reduction_groups_repeated_equal_residues() -> None:
-    tower = monomial_tower(1/x)
+    tower = monomial_tower(1 / x)
     field = tower.field()
     z = symbols("z")
-    normal_factor = field.from_sympy(t*(t - 1))
-    integrand = tower.derivation()(normal_factor)/normal_factor
+    normal_factor = field.from_sympy(t * (t - 1))
+    integrand = tower.derivation()(normal_factor) / normal_factor
 
     reduction = residue_reduce_monomial(integrand, tower.derivation(), z)
 
     assert len(reduction.logarithmic_parts) == 1
     logand, residue_factor = reduction.logarithmic_parts[0]
-    assert logand == Poly(t*(t - 1), t, domain=tower.field(0))
+    assert logand == Poly(t * (t - 1), t, domain=tower.field(0))
     assert residue_factor == Poly(z - 1, z, domain=tower.field(0))
     assert reduction.certificate.factors[0].multiplicity == 2
     assert reduction.logarithmic_derivative == integrand
@@ -2346,12 +2297,12 @@ def test_residue_reduction_groups_repeated_equal_residues() -> None:
 def test_residue_reduction_leaves_only_exponential_special_terms() -> None:
     tower = monomial_tower(t)
     field = tower.field()
-    integrand = field.from_sympy(1/(t*(t - 1)))
+    integrand = field.from_sympy(1 / (t * (t - 1)))
 
     reduction = residue_reduce_monomial(integrand, tower.derivation())
 
-    assert reduction.logarithmic_derivative == field.from_sympy(t/(t - 1))
-    assert reduction.remainder == field.from_sympy(-1 - 1/t)
+    assert reduction.logarithmic_derivative == field.from_sympy(t / (t - 1))
+    assert reduction.remainder == field.from_sympy(-1 - 1 / t)
     assert reduction.logarithmic_derivative + reduction.remainder == integrand
     remaining_certificate = bronstein_residue_criterion(
         reduction.remainder,
@@ -2363,7 +2314,7 @@ def test_residue_reduction_leaves_only_exponential_special_terms() -> None:
 @given(
     example=st.sampled_from(
         (
-            (1/x, t**2 + 1),
+            (1 / x, t**2 + 1),
             (t, t**2 - 1),
             (1 + t**2, t),
             (t**3 + x, t - 1),
@@ -2386,9 +2337,9 @@ def test_generated_residue_reductions_reconstruct_planted_logarithms(
     derivation = tower.derivation()
     normal_factor = field.from_sympy(normal_factor_expression)
     planted_logarithmic_derivative = (
-        residue_value*derivation(normal_factor)/normal_factor
+        residue_value * derivation(normal_factor) / normal_factor
     )
-    background = field.from_sympy(background_linear*t + background_constant)
+    background = field.from_sympy(background_linear * t + background_constant)
     integrand = planted_logarithmic_derivative + background
 
     reduction = residue_reduce_monomial(integrand, derivation)

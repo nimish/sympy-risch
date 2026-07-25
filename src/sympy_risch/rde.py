@@ -118,6 +118,15 @@ def _field_element_is_zero(value: FieldElement, field: Domain) -> bool:
     return value == field.zero or cancel(field.to_sympy(value)) == 0
 
 
+def _field_elements_equal(
+    left: FieldElement,
+    right: FieldElement,
+    field: Domain,
+) -> bool:
+    """Test exact field equality through the zero test for ``left - right``."""
+    return _field_element_is_zero(left - right, field)
+
+
 @dataclass(frozen=True, slots=True)
 class PolynomialRischDifferentialEquationResult:
     r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``QQ[x]``.
@@ -258,9 +267,7 @@ class PrimitivePolynomialRischDifferentialEquationResult:
     partial_solution: Poly
     residual: Poly
     lower_field_results: tuple[RischDifferentialEquationResult, ...] = ()
-    logarithmic_derivative_result: (
-        RadicalLogarithmicDerivativeResult | None
-    ) = None
+    logarithmic_derivative_result: RadicalLogarithmicDerivativeResult | None = None
     exact_derivative_result: ExactDerivativeResult | None = None
 
     @property
@@ -271,18 +278,12 @@ class PrimitivePolynomialRischDifferentialEquationResult:
     @property
     def has_lower_field_obstruction(self) -> bool:
         """Whether a recursively solved leading coefficient failed."""
-        return (
-            self.obstruction
-            is PrimitivePolynomialRDEObstruction.LOWER_FIELD
-        )
+        return self.obstruction is PrimitivePolynomialRDEObstruction.LOWER_FIELD
 
     @property
     def has_exact_derivative_obstruction(self) -> bool:
         """Whether the transformed exact-derivative problem failed."""
-        return (
-            self.obstruction
-            is PrimitivePolynomialRDEObstruction.EXACT_DERIVATIVE
-        )
+        return self.obstruction is PrimitivePolynomialRDEObstruction.EXACT_DERIVATIVE
 
 
 @dataclass(frozen=True, slots=True)
@@ -313,14 +314,10 @@ class PrimitiveRischDifferentialEquationResult:
     normalized_right_hand_side: FieldElement
     denominator_bound: Poly
     degree_bound: int | None = None
-    polynomial_result: (
-        PrimitivePolynomialRischDifferentialEquationResult | None
-    ) = None
+    polynomial_result: PrimitivePolynomialRischDifferentialEquationResult | None = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
-    logarithmic_derivative_result: (
-        RadicalLogarithmicDerivativeResult | None
-    ) = None
+    logarithmic_derivative_result: RadicalLogarithmicDerivativeResult | None = None
     exact_derivative_result: ExactDerivativeResult | None = None
 
     @property
@@ -426,9 +423,7 @@ class HyperexponentialLaurentRischDifferentialEquationResult:
         HyperexponentialLaurentRDEDirection.DIAGONAL
     )
     corrections: tuple[HyperexponentialLaurentRDECorrection, ...] = ()
-    boundary_logarithmic_result: (
-        ParametricLogarithmicDerivativeResult | None
-    ) = None
+    boundary_logarithmic_result: ParametricLogarithmicDerivativeResult | None = None
     exceptional_power: int | None = None
 
     @property
@@ -439,17 +434,13 @@ class HyperexponentialLaurentRischDifferentialEquationResult:
     @property
     def has_lower_field_obstruction(self) -> bool:
         """Whether at least one diagonal lower-field equation failed."""
-        return (
-            self.obstruction
-            is HyperexponentialLaurentRDEObstruction.LOWER_FIELD
-        )
+        return self.obstruction is HyperexponentialLaurentRDEObstruction.LOWER_FIELD
 
     @property
     def has_nonzero_remainder_obstruction(self) -> bool:
         """Whether forced recurrence leaves an uncancellable residual."""
         return (
-            self.obstruction
-            is HyperexponentialLaurentRDEObstruction.NONZERO_REMAINDER
+            self.obstruction is HyperexponentialLaurentRDEObstruction.NONZERO_REMAINDER
         )
 
     @property
@@ -489,18 +480,12 @@ class HyperexponentialRischDifferentialEquationResult:
     special_denominator_power: int | None = None
     special_clearing_power: int | None = None
     degree_bound: int | None = None
-    laurent_result: (
-        HyperexponentialLaurentRischDifferentialEquationResult | None
-    ) = None
+    laurent_result: HyperexponentialLaurentRischDifferentialEquationResult | None = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
-    special_boundary_result: (
-        ParametricLogarithmicDerivativeResult | None
-    ) = None
+    special_boundary_result: ParametricLogarithmicDerivativeResult | None = None
     special_exceptional_power: int | None = None
-    degree_boundary_result: (
-        ParametricLogarithmicDerivativeResult | None
-    ) = None
+    degree_boundary_result: ParametricLogarithmicDerivativeResult | None = None
     degree_exceptional_power: int | None = None
 
     @property
@@ -560,7 +545,7 @@ class RischDifferentialEquationResult:
         """Whether a returned solution satisfies the differential equation."""
         return self.solution is not None and _field_element_is_zero(
             self.derivation(self.solution)
-            + self.coefficient*self.solution
+            + self.coefficient * self.solution
             - self.right_hand_side,
             self.derivation.field,
         )
@@ -642,10 +627,7 @@ class BoundedPrimitiveCoupledRDEMatrixResult:
     @property
     def has_solution(self) -> bool:
         """Whether the bounded real-pair ansatz contains a solution."""
-        return (
-            self.real_solution is not None
-            and self.imaginary_solution is not None
-        )
+        return self.real_solution is not None and self.imaginary_solution is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -714,23 +696,20 @@ class CoupledHyperexponentialLaurentRDEResult:
     @property
     def has_solution(self) -> bool:
         """Whether every Laurent mode has a lower-field solution."""
-        return (
-            self.real_solution is not None
-            and self.imaginary_solution is not None
-        )
+        return self.real_solution is not None and self.imaginary_solution is not None
 
     @property
     def reconstructs(self) -> bool:
         """Whether the partial solutions and residuals reconstruct the input."""
         return (
             self.derivation(self.partial_real_solution)
-            + self.diagonal_coefficient*self.partial_real_solution
-            - self.rotation_coefficient*self.partial_imaginary_solution
+            + self.diagonal_coefficient * self.partial_real_solution
+            - self.rotation_coefficient * self.partial_imaginary_solution
             + self.real_residual
             == self.real_right_hand_side
             and self.derivation(self.partial_imaginary_solution)
-            + self.rotation_coefficient*self.partial_real_solution
-            + self.diagonal_coefficient*self.partial_imaginary_solution
+            + self.rotation_coefficient * self.partial_real_solution
+            + self.diagonal_coefficient * self.partial_imaginary_solution
             + self.imaginary_residual
             == self.imaginary_right_hand_side
         )
@@ -779,26 +758,21 @@ class CoupledHypertangentPolynomialRDEResult:
     @property
     def has_solution(self) -> bool:
         """Whether the polynomial coupled system has a solution."""
-        return (
-            self.real_solution is not None
-            and self.imaginary_solution is not None
-        )
+        return self.real_solution is not None and self.imaginary_solution is not None
 
     @property
     def reconstructs(self) -> bool:
         """Whether the partial pair and residual reconstruct both equations."""
-        rotation = self.diagonal_coefficient.domain.convert(
-            self.rotation_coefficient
-        )
+        rotation = self.diagonal_coefficient.domain.convert(self.rotation_coefficient)
         return (
             self.derivation.polynomial(self.partial_real_solution)
-            + self.diagonal_coefficient*self.partial_real_solution
+            + self.diagonal_coefficient * self.partial_real_solution
             - self.partial_imaginary_solution.mul_ground(rotation)
             + self.real_residual
             == self.real_right_hand_side
             and self.derivation.polynomial(self.partial_imaginary_solution)
             + self.partial_real_solution.mul_ground(rotation)
-            + self.diagonal_coefficient*self.partial_imaginary_solution
+            + self.diagonal_coefficient * self.partial_imaginary_solution
             + self.imaginary_residual
             == self.imaginary_right_hand_side
         )
@@ -848,10 +822,7 @@ class CoupledRationalRDEResult:
     @property
     def has_solution(self) -> bool:
         """Whether both coupled equations have a rational solution."""
-        return (
-            self.real_solution is not None
-            and self.imaginary_solution is not None
-        )
+        return self.real_solution is not None and self.imaginary_solution is not None
 
     @property
     def has_denominator_obstruction(self) -> bool:
@@ -907,29 +878,23 @@ class CoupledRischDifferentialEquationResult:
     @property
     def has_solution(self) -> bool:
         """Whether both coupled equations have a solution."""
-        return (
-            self.real_solution is not None
-            and self.imaginary_solution is not None
-        )
+        return self.real_solution is not None and self.imaginary_solution is not None
 
     @property
     def reconstructs(self) -> bool:
         """Whether the returned pair satisfies both coupled equations."""
-        if (
-            self.real_solution is None
-            or self.imaginary_solution is None
-        ):
+        if self.real_solution is None or self.imaginary_solution is None:
             return False
         return _field_element_is_zero(
             self.derivation(self.real_solution)
-            + self.diagonal_coefficient*self.real_solution
-            - self.lambda_coefficient*self.imaginary_solution
+            + self.diagonal_coefficient * self.real_solution
+            - self.lambda_coefficient * self.imaginary_solution
             - self.real_right_hand_side,
             self.derivation.field,
         ) and _field_element_is_zero(
             self.derivation(self.imaginary_solution)
-            + self.lambda_coefficient*self.real_solution
-            + self.diagonal_coefficient*self.imaginary_solution
+            + self.lambda_coefficient * self.real_solution
+            + self.diagonal_coefficient * self.imaginary_solution
             - self.imaginary_right_hand_side,
             self.derivation.field,
         )
@@ -949,10 +914,7 @@ class BoundedCoupledRDEMatrixResult:
     @property
     def has_solution(self) -> bool:
         """Whether the bounded real-pair ansatz contains a solution."""
-        return (
-            self.real_solution is not None
-            and self.imaginary_solution is not None
-        )
+        return self.real_solution is not None and self.imaginary_solution is not None
 
 
 def _polynomial_rde_system(
@@ -965,28 +927,25 @@ def _polynomial_rde_system(
     columns = []
     for degree in range(degree_bound + 1):
         monomial = Poly(variable**degree, variable, domain=QQ)
-        columns.append(monomial.diff() + a*monomial)
+        columns.append(monomial.diff() + a * monomial)
 
-    equation_count = max(
-        b.degree(),
-        max(column.degree() for column in columns),
-    ) + 1
+    equation_count = (
+        max(
+            b.degree(),
+            max(column.degree() for column in columns),
+        )
+        + 1
+    )
     system = DomainMatrix(
         [
-            [
-                QQ.convert(column.nth(degree))
-                for column in columns
-            ]
+            [QQ.convert(column.nth(degree)) for column in columns]
             for degree in range(equation_count)
         ],
         (equation_count, degree_bound + 1),
         QQ,
     )
     right_hand_side = DomainMatrix(
-        [
-            [QQ.convert(b.nth(degree))]
-            for degree in range(equation_count)
-        ],
+        [[QQ.convert(b.nth(degree))] for degree in range(equation_count)],
         (equation_count, 1),
         QQ,
     )
@@ -1088,15 +1047,8 @@ def solve_polynomial_risch_differential_equation(
     while not residual.is_zero:
         candidate_degree = residual.degree() - a_polynomial.degree()
         if candidate_degree < 0:
-            if (
-                solution.diff()
-                + a_polynomial*solution
-                + residual
-                != b_polynomial
-            ):
-                raise ValueError(
-                    "polynomial Risch equation reduction invariant failed"
-                )
+            if solution.diff() + a_polynomial * solution + residual != b_polynomial:
+                raise ValueError("polynomial Risch equation reduction invariant failed")
             return PolynomialRischDifferentialEquationResult(
                 a_polynomial,
                 b_polynomial,
@@ -1109,28 +1061,21 @@ def solve_polynomial_risch_differential_equation(
 
         term = Poly.from_dict(
             {
-                (candidate_degree,): (
-                    residual.LC()/a_polynomial.LC()
-                ),
+                (candidate_degree,): (residual.LC() / a_polynomial.LC()),
             },
             x,
             domain=QQ,
         )
-        new_residual = residual - term.diff() - a_polynomial*term
-        if (
-            not new_residual.is_zero
-            and new_residual.degree() >= residual.degree()
-        ):
+        new_residual = residual - term.diff() - a_polynomial * term
+        if not new_residual.is_zero and new_residual.degree() >= residual.degree():
             raise ValueError(
                 "polynomial Risch equation residual degree did not decrease"
             )
         solution += term
         residual = new_residual
 
-    if solution.diff() + a_polynomial*solution != b_polynomial:
-        raise ValueError(
-            "polynomial Risch equation reconstruction failed"
-        )
+    if solution.diff() + a_polynomial * solution != b_polynomial:
+        raise ValueError("polynomial Risch equation reconstruction failed")
     return PolynomialRischDifferentialEquationResult(
         a_polynomial,
         b_polynomial,
@@ -1190,31 +1135,20 @@ def solve_polynomial_risch_differential_equation_matrix(
         )
 
     coefficients = [
-        row[0]/solution_denominator
-        for row in solution_numerators.to_list()
+        row[0] / solution_denominator for row in solution_numerators.to_list()
     ]
     solution = Poly.from_dict(
-        {
-            (degree,): coefficient
-            for degree, coefficient in enumerate(coefficients)
-        },
+        {(degree,): coefficient for degree, coefficient in enumerate(coefficients)},
         x,
         domain=QQ,
     )
-    if solution.diff() + a_polynomial*solution != b_polynomial:
-        raise ValueError(
-            "matrix polynomial Risch equation reconstruction failed"
-        )
+    if solution.diff() + a_polynomial * solution != b_polynomial:
+        raise ValueError("matrix polynomial Risch equation reconstruction failed")
 
     coefficient_rank = system.rank()
     augmented_rank = system.hstack(right_hand_side).rank()
-    if (
-        coefficient_rank != search_degree + 1
-        or augmented_rank != coefficient_rank
-    ):
-        raise ValueError(
-            "matrix polynomial Risch equation returned invalid ranks"
-        )
+    if coefficient_rank != search_degree + 1 or augmented_rank != coefficient_rank:
+        raise ValueError("matrix polynomial Risch equation returned invalid ranks")
 
     # The matrix searches beyond the forced degree on purpose.  The extra
     # solution coefficients are zero, but the reported ranks describe the
@@ -1245,7 +1179,7 @@ def _as_qq_rational(
     )
     numerator_polynomial = numerator_polynomial.mul_ground(coefficient)
     expression = cancel(
-        numerator_polynomial.as_expr()/denominator_polynomial.as_expr()
+        numerator_polynomial.as_expr() / denominator_polynomial.as_expr()
     )
     return expression, numerator_polynomial, denominator_polynomial
 
@@ -1265,20 +1199,20 @@ def _weakly_normalize_rational_rde_coefficient(
         if factor.multiplicity is None:
             continue
         multiplicity = QQ.convert(factor.multiplicity)
-        if (
-            QQ.denom(multiplicity) == 1
-            and QQ.numer(multiplicity) > 0
-        ):
-            normalizer *= factor.factor**int(QQ.numer(multiplicity))
+        if QQ.denom(multiplicity) == 1 and QQ.numer(multiplicity) > 0:
+            normalizer *= factor.factor ** int(QQ.numer(multiplicity))
 
     normalized = cancel(
-        coefficient - normalizer.diff().as_expr()/normalizer.as_expr()
+        coefficient - normalizer.diff().as_expr() / normalizer.as_expr()
     )
-    if cancel(
-        normalized
-        + normalizer.diff().as_expr()/normalizer.as_expr()
-        - coefficient
-    ) != 0:
+    if (
+        cancel(
+            normalized
+            + normalizer.diff().as_expr() / normalizer.as_expr()
+            - coefficient
+        )
+        != 0
+    ):
         raise ValueError("weak normalization reconstruction failed")
     return normalizer, normalized
 
@@ -1335,22 +1269,16 @@ def _reduce_normal_denominator(
     shared_denominator = coefficient_denominator.gcd(rhs_denominator)
     denominator_bound = (
         rhs_denominator.gcd(rhs_denominator.diff())
-        .exquo(
-            shared_denominator.gcd(shared_denominator.diff())
-        )
+        .exquo(shared_denominator.gcd(shared_denominator.diff()))
         .monic()
     )
 
-    derivative_coefficient = coefficient_denominator*denominator_bound
+    derivative_coefficient = coefficient_denominator * denominator_bound
     solution_coefficient = (
-        denominator_bound*coefficient_numerator
-        - coefficient_denominator*denominator_bound.diff()
+        denominator_bound * coefficient_numerator
+        - coefficient_denominator * denominator_bound.diff()
     )
-    multiplier = (
-        coefficient_denominator
-        * denominator_bound
-        * denominator_bound
-    )
+    multiplier = coefficient_denominator * denominator_bound * denominator_bound
     quotient, remainder = multiplier.div(rhs_denominator)
     if not remainder.is_zero:
         return _NormalDenominatorReduction(
@@ -1362,7 +1290,7 @@ def _reduce_normal_denominator(
             remainder,
         )
 
-    transformed_rhs = quotient*rhs_numerator
+    transformed_rhs = quotient * rhs_numerator
     return _NormalDenominatorReduction(
         denominator_bound,
         derivative_coefficient,
@@ -1396,7 +1324,7 @@ def _base_polynomial_rde_degree_bound(
         and solution_coefficient.degree() == derivative_degree - 1
     ):
         cancellation_degree = QQ.convert(
-            -solution_coefficient.LC()/derivative_coefficient.LC()
+            -solution_coefficient.LC() / derivative_coefficient.LC()
         )
         if QQ.denom(cancellation_degree) == 1:
             bound = max(
@@ -1434,8 +1362,8 @@ def _solve_special_polynomial_differential_equation(
     while True:
         if right_hand_side.is_zero:
             if (
-                original_derivative_coefficient*beta.diff()
-                + original_solution_coefficient*beta
+                original_derivative_coefficient * beta.diff()
+                + original_solution_coefficient * beta
                 != original_rhs
             ):
                 raise ValueError("SPDE zero-tail reconstruction failed")
@@ -1461,13 +1389,11 @@ def _solve_special_polynomial_differential_equation(
         right_hand_side = quotient
 
         if derivative_coefficient.degree() == 0:
-            inverse_leading_coefficient = QQ.one/derivative_coefficient.LC()
+            inverse_leading_coefficient = QQ.one / derivative_coefficient.LC()
             normalized_coefficient = solution_coefficient.mul_ground(
                 inverse_leading_coefficient
             )
-            normalized_rhs = right_hand_side.mul_ground(
-                inverse_leading_coefficient
-            )
+            normalized_rhs = right_hand_side.mul_ground(inverse_leading_coefficient)
             polynomial_result = solve_polynomial_risch_differential_equation(
                 normalized_coefficient,
                 normalized_rhs,
@@ -1482,19 +1408,16 @@ def _solve_special_polynomial_differential_equation(
             tail = polynomial_result.solution
             if tail is None:
                 raise ValueError("a solved polynomial RDE lacks its solution")
-            if (
-                not tail.is_zero
-                and tail.degree() > current_bound
-            ):
+            if not tail.is_zero and tail.degree() > current_bound:
                 return _SPDEResult(
                     None,
                     RationalRDEObstruction.SPDE_DEGREE,
                     polynomial_result,
                 )
-            solution = alpha*tail + beta
+            solution = alpha * tail + beta
             if (
-                original_derivative_coefficient*solution.diff()
-                + original_solution_coefficient*solution
+                original_derivative_coefficient * solution.diff()
+                + original_solution_coefficient * solution
                 != original_rhs
             ):
                 raise ValueError("SPDE reconstruction failed")
@@ -1505,17 +1428,15 @@ def _solve_special_polynomial_differential_equation(
             )
 
         inverse = invert(solution_coefficient, derivative_coefficient)
-        residue = (right_hand_side*inverse).rem(
+        residue = (right_hand_side * inverse).rem(derivative_coefficient)
+        quotient = (right_hand_side - solution_coefficient * residue).exquo(
             derivative_coefficient
         )
-        quotient = (
-            right_hand_side - solution_coefficient*residue
-        ).exquo(derivative_coefficient)
 
         right_hand_side = quotient - residue.diff()
         solution_coefficient += derivative_coefficient.diff()
         current_bound -= derivative_coefficient.degree()
-        beta += alpha*residue
+        beta += alpha * residue
         alpha *= derivative_coefficient
 
 
@@ -1544,9 +1465,7 @@ def solve_rational_risch_differential_equation(
     normalization_factor, normalized_coefficient = (
         _weakly_normalize_rational_rde_coefficient(coefficient, x)
     )
-    normalized_rhs = cancel(
-        normalization_factor.as_expr()*right_hand_side
-    )
+    normalized_rhs = cancel(normalization_factor.as_expr() * right_hand_side)
 
     if normalized_rhs == 0:
         zero = S.Zero
@@ -1578,12 +1497,8 @@ def solve_rational_risch_differential_equation(
             normalized_coefficient,
             normalized_rhs,
             denominator_reduction.denominator_bound,
-            obstruction_polynomial=(
-                denominator_reduction.obstruction_polynomial
-            ),
-            obstruction_remainder=(
-                denominator_reduction.obstruction_remainder
-            ),
+            obstruction_polynomial=(denominator_reduction.obstruction_polynomial),
+            obstruction_remainder=(denominator_reduction.obstruction_remainder),
         )
 
     denominator_bound = denominator_reduction.denominator_bound
@@ -1621,16 +1536,9 @@ def solve_rational_risch_differential_equation(
 
     solution = cancel(
         spde_result.solution.as_expr()
-        / (
-            normalization_factor.as_expr()
-            * denominator_bound.as_expr()
-        )
+        / (normalization_factor.as_expr() * denominator_bound.as_expr())
     )
-    if cancel(
-        solution.diff(x)
-        + coefficient*solution
-        - right_hand_side
-    ) != 0:
+    if cancel(solution.diff(x) + coefficient * solution - right_hand_side) != 0:
         raise ValueError("rational Risch equation reconstruction failed")
     return RationalRischDifferentialEquationResult(
         coefficient,
@@ -1689,10 +1597,14 @@ def _as_primitive_fraction(
     )
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(parent.convert(coefficient))
-    leading_inverse = parent.one/parent.convert(denominator.LC())
+    leading_inverse = parent.one / parent.convert(denominator.LC())
     numerator = numerator.mul_ground(leading_inverse)
     denominator = denominator.monic()
-    if _coerce(field, numerator.as_expr()/denominator.as_expr()) != element:
+    if not _field_elements_equal(
+        _coerce(field, numerator.as_expr() / denominator.as_expr()),
+        element,
+        field,
+    ):
         raise ValueError("primitive fraction normalization failed")
     return element, numerator, denominator
 
@@ -1708,10 +1620,9 @@ def _as_primitive_polynomial(
     )
     if denominator.degree() > 0:
         raise NotImplementedError(
-            "primitive RDE coefficients with top-generator poles are not "
-            "implemented"
+            "primitive RDE coefficients with top-generator poles are not implemented"
         )
-    scale = extension.parent_field.one/extension.parent_field.convert(
+    scale = extension.parent_field.one / extension.parent_field.convert(
         denominator.LC()
     )
     return numerator.mul_ground(scale)
@@ -1769,16 +1680,16 @@ def _weakly_normalize_hyperexponential_rde_coefficient(
         return one, element
 
     cofactor = denominator.exquo(simple_normal_part)
-    partial_numerator = (
-        numerator*invert(cofactor, simple_normal_part)
-    ).rem(simple_normal_part)
+    partial_numerator = (numerator * invert(cofactor, simple_normal_part)).rem(
+        simple_normal_part
+    )
     simple_derivative = derivation.polynomial(simple_normal_part)
     residue_symbol = Dummy("z")
     residue_polynomial = Poly(
         resultant(
             (
                 partial_numerator.as_expr()
-                - residue_symbol*simple_derivative.as_expr()
+                - residue_symbol * simple_derivative.as_expr()
             ),
             simple_normal_part.as_expr(),
             extension.generator,
@@ -1802,15 +1713,13 @@ def _weakly_normalize_hyperexponential_rde_coefficient(
         return normalizer, element
 
     normalizer_element = _coerce(field, normalizer.as_expr())
-    normalized = element - derivation(normalizer_element)/normalizer_element
-    if (
-        normalized
-        + derivation(normalizer_element)/normalizer_element
-        != element
+    normalized = element - derivation(normalizer_element) / normalizer_element
+    if not _field_elements_equal(
+        normalized + derivation(normalizer_element) / normalizer_element,
+        element,
+        field,
     ):
-        raise ValueError(
-            "hyperexponential weak normalization failed to reconstruct"
-        )
+        raise ValueError("hyperexponential weak normalization failed to reconstruct")
     return normalizer, normalized
 
 
@@ -1865,7 +1774,7 @@ def _reduce_hyperexponential_normal_denominator(
         .exquo(shared_normal.gcd(shared_normal.diff()))
         .monic()
     )
-    divisibility_target = coefficient_normal*denominator_bound**2
+    divisibility_target = coefficient_normal * denominator_bound**2
     _, remainder = divisibility_target.div(rhs_normal)
     if not remainder.is_zero:
         return _HyperexponentialNormalDenominatorReduction(
@@ -1881,14 +1790,12 @@ def _reduce_hyperexponential_normal_denominator(
     rhs_element = _coerce(field, right_hand_side)
     normal_element = _coerce(field, coefficient_normal.as_expr())
     bound_element = _coerce(field, denominator_bound.as_expr())
-    derivative_coefficient = normal_element*bound_element
+    derivative_coefficient = normal_element * bound_element
     solution_coefficient = (
-        derivative_coefficient*coefficient_element
-        - normal_element*derivation(bound_element)
+        derivative_coefficient * coefficient_element
+        - normal_element * derivation(bound_element)
     )
-    transformed_rhs = (
-        normal_element*bound_element*bound_element*rhs_element
-    )
+    transformed_rhs = normal_element * bound_element * bound_element * rhs_element
     return _HyperexponentialNormalDenominatorReduction(
         denominator_bound,
         derivative_coefficient,
@@ -1951,11 +1858,11 @@ def _weakly_normalize_primitive_rde_coefficient(
         return normalizer, element
 
     normalizer_element = _coerce(field, normalizer.as_expr())
-    normalized = element - derivation(normalizer_element)/normalizer_element
-    if (
-        normalized
-        + derivation(normalizer_element)/normalizer_element
-        != element
+    normalized = element - derivation(normalizer_element) / normalizer_element
+    if not _field_elements_equal(
+        normalized + derivation(normalizer_element) / normalizer_element,
+        element,
+        field,
     ):
         raise ValueError("primitive weak normalization failed to reconstruct")
 
@@ -1991,8 +1898,8 @@ def _reduce_primitive_normal_denominator(
     the transformed equation is the total tower derivative.
     """
     extension = _primitive_rde_extension(derivation)
-    _, coefficient_numerator, coefficient_denominator = (
-        _as_primitive_fraction(coefficient, extension)
+    _, coefficient_numerator, coefficient_denominator = _as_primitive_fraction(
+        coefficient, extension
     )
     _, rhs_numerator, rhs_denominator = _as_primitive_fraction(
         right_hand_side,
@@ -2002,22 +1909,15 @@ def _reduce_primitive_normal_denominator(
     shared_denominator = coefficient_denominator.gcd(rhs_denominator)
     denominator_bound = (
         rhs_denominator.gcd(rhs_denominator.diff())
-        .exquo(
-            shared_denominator.gcd(shared_denominator.diff())
-        )
+        .exquo(shared_denominator.gcd(shared_denominator.diff()))
         .monic()
     )
-    derivative_coefficient = coefficient_denominator*denominator_bound
+    derivative_coefficient = coefficient_denominator * denominator_bound
     solution_coefficient = (
-        denominator_bound*coefficient_numerator
-        - coefficient_denominator
-        * derivation.polynomial(denominator_bound)
+        denominator_bound * coefficient_numerator
+        - coefficient_denominator * derivation.polynomial(denominator_bound)
     )
-    multiplier = (
-        coefficient_denominator
-        * denominator_bound
-        * denominator_bound
-    )
+    multiplier = coefficient_denominator * denominator_bound * denominator_bound
     quotient, remainder = multiplier.div(rhs_denominator)
     if not remainder.is_zero:
         return _NormalDenominatorReduction(
@@ -2032,7 +1932,7 @@ def _reduce_primitive_normal_denominator(
         denominator_bound,
         derivative_coefficient,
         solution_coefficient,
-        quotient*rhs_numerator,
+        quotient * rhs_numerator,
     )
 
 
@@ -2049,7 +1949,7 @@ def _primitive_limited_integration_relation(
     extension = _primitive_rde_extension(derivation)
     parent = extension.parent_field
     element = parent.convert(value)
-    if element == parent.zero:
+    if _field_element_is_zero(element, parent):
         return 0, parent.zero
 
     # See the cycle note in primitive weak normalization above.
@@ -2074,10 +1974,10 @@ def _primitive_limited_integration_relation(
         return None
     exact_part = parent.convert(step.exact_coefficient)
     eta = parent.convert(extension.generator_derivative.nth(0))
-    if (
-        derivation.lower()(exact_part)
-        + parent.convert(integer_multiple)*eta
-        != element
+    if not _field_elements_equal(
+        derivation.lower()(exact_part) + parent.convert(integer_multiple) * eta,
+        element,
+        parent,
     ):
         raise ValueError("primitive limited-integration relation is invalid")
     return integer_multiple, exact_part
@@ -2102,11 +2002,7 @@ def _primitive_rde_degree_bound(
         return 0
 
     degree_a = derivative_coefficient.degree()
-    degree_b = (
-        solution_coefficient.degree()
-        if not solution_coefficient.is_zero
-        else -1
-    )
+    degree_b = solution_coefficient.degree() if not solution_coefficient.is_zero else -1
     degree_c = right_hand_side.degree()
     if degree_b > degree_a:
         bound = max(0, degree_c - degree_b)
@@ -2114,13 +2010,8 @@ def _primitive_rde_degree_bound(
         bound = max(0, degree_c - degree_a + 1)
 
     parent = derivative_coefficient.domain
-    if (
-        not solution_coefficient.is_zero
-        and degree_b == degree_a - 1
-    ):
-        alpha = parent.convert(
-            -solution_coefficient.LC()/derivative_coefficient.LC()
-        )
+    if not solution_coefficient.is_zero and degree_b == degree_a - 1:
+        alpha = parent.convert(-solution_coefficient.LC() / derivative_coefficient.LC())
         relation = _primitive_limited_integration_relation(
             alpha,
             derivation,
@@ -2129,28 +2020,21 @@ def _primitive_rde_degree_bound(
             bound = max(bound, relation[0])
 
     if degree_b == degree_a:
-        alpha = parent.convert(
-            -solution_coefficient.LC()/derivative_coefficient.LC()
-        )
+        alpha = parent.convert(-solution_coefficient.LC() / derivative_coefficient.LC())
         from .monomial import solve_radical_logarithmic_derivative
 
         logarithmic_result = solve_radical_logarithmic_derivative(
             alpha,
             derivation.lower(),
         )
-        if (
-            logarithmic_result.has_solution
-            and logarithmic_result.minimal_power == 1
-        ):
+        if logarithmic_result.has_solution and logarithmic_result.minimal_power == 1:
             z = parent.convert(logarithmic_result.argument)
             dz = derivation.lower()(z)
-            transformed = (
-                derivative_coefficient.mul_ground(dz)
-                + solution_coefficient.mul_ground(z)
-            )
+            transformed = derivative_coefficient.mul_ground(
+                dz
+            ) + solution_coefficient.mul_ground(z)
             beta = parent.convert(
-                -transformed.LC()
-                / (z*parent.convert(derivative_coefficient.LC()))
+                -transformed.LC() / (z * parent.convert(derivative_coefficient.LC()))
             )
             relation = _primitive_limited_integration_relation(
                 beta,
@@ -2183,17 +2067,12 @@ def _solve_primitive_polynomial_exact_case(
     field = extension.field
     zero = rhs_polynomial.zero
     multiplier_element = _coerce(field, multiplier)
-    transformed_rhs = (
-        multiplier_element
-        * _coerce(field, rhs_polynomial.as_expr())
-    )
+    transformed_rhs = multiplier_element * _coerce(field, rhs_polynomial.as_expr())
     exact_result = solve_exact_derivative(
         transformed_rhs,
         derivation,
     )
-    degree_bound = (
-        0 if rhs_polynomial.is_zero else rhs_polynomial.degree() + 1
-    )
+    degree_bound = 0 if rhs_polynomial.is_zero else rhs_polynomial.degree() + 1
     if not exact_result.has_solution:
         return PrimitivePolynomialRischDifferentialEquationResult(
             coefficient_polynomial,
@@ -2207,23 +2086,18 @@ def _solve_primitive_polynomial_exact_case(
             exact_derivative_result=exact_result,
         )
 
-    solution_element = exact_result.antiderivative/multiplier_element
+    solution_element = exact_result.antiderivative / multiplier_element
     solution = _as_primitive_polynomial(
         solution_element,
         extension,
     )
     if not solution.is_zero and solution.degree() > degree_bound:
-        raise ValueError(
-            "primitive exact cancellation exceeded its degree bound"
-        )
+        raise ValueError("primitive exact cancellation exceeded its degree bound")
     if (
-        derivation.polynomial(solution)
-        + coefficient_polynomial*solution
+        derivation.polynomial(solution) + coefficient_polynomial * solution
         != rhs_polynomial
     ):
-        raise ValueError(
-            "primitive exact cancellation reconstruction failed"
-        )
+        raise ValueError("primitive exact cancellation reconstruction failed")
     return PrimitivePolynomialRischDifferentialEquationResult(
         coefficient_polynomial,
         rhs_polynomial,
@@ -2251,7 +2125,7 @@ def _solve_primitive_polynomial_lower_coefficient(
     coefficient = parent.convert(coefficient_polynomial.nth(0))
     zero = rhs_polynomial.zero
 
-    if coefficient == parent.zero:
+    if _field_element_is_zero(coefficient, parent):
         return _solve_primitive_polynomial_exact_case(
             coefficient_polynomial,
             rhs_polynomial,
@@ -2263,10 +2137,7 @@ def _solve_primitive_polynomial_lower_coefficient(
         coefficient,
         lower_derivation,
     )
-    if (
-        logarithmic_result.has_solution
-        and logarithmic_result.minimal_power == 1
-    ):
+    if logarithmic_result.has_solution and logarithmic_result.minimal_power == 1:
         return _solve_primitive_polynomial_exact_case(
             coefficient_polynomial,
             rhs_polynomial,
@@ -2303,13 +2174,11 @@ def _solve_primitive_polynomial_lower_coefficient(
         if not lower_result.has_solution:
             if (
                 derivation.polynomial(solution)
-                + coefficient_polynomial*solution
+                + coefficient_polynomial * solution
                 + residual
                 != rhs_polynomial
             ):
-                raise ValueError(
-                    "primitive cancellation obstruction invariant failed"
-                )
+                raise ValueError("primitive cancellation obstruction invariant failed")
             return PrimitivePolynomialRischDifferentialEquationResult(
                 coefficient_polynomial,
                 rhs_polynomial,
@@ -2332,21 +2201,15 @@ def _solve_primitive_polynomial_lower_coefficient(
         new_residual = (
             residual
             - derivation.polynomial(correction)
-            - coefficient_polynomial*correction
+            - coefficient_polynomial * correction
         )
-        if (
-            not new_residual.is_zero
-            and new_residual.degree() >= residual.degree()
-        ):
-            raise ValueError(
-                "primitive cancellation residual degree did not decrease"
-            )
+        if not new_residual.is_zero and new_residual.degree() >= residual.degree():
+            raise ValueError("primitive cancellation residual degree did not decrease")
         solution += correction
         residual = new_residual
 
     if (
-        derivation.polynomial(solution)
-        + coefficient_polynomial*solution
+        derivation.polynomial(solution) + coefficient_polynomial * solution
         != rhs_polynomial
     ):
         raise ValueError("primitive cancellation reconstruction failed")
@@ -2389,10 +2252,7 @@ def solve_primitive_polynomial_risch_differential_equation(
         right_hand_side,
         extension,
     )
-    if (
-        coefficient_polynomial.is_zero
-        or coefficient_polynomial.degree() <= 0
-    ):
+    if coefficient_polynomial.is_zero or coefficient_polynomial.degree() <= 0:
         return _solve_primitive_polynomial_lower_coefficient(
             coefficient_polynomial,
             rhs_polynomial,
@@ -2415,9 +2275,7 @@ def solve_primitive_polynomial_risch_differential_equation(
             zero,
         )
 
-    degree_bound = (
-        rhs_polynomial.degree() - coefficient_polynomial.degree()
-    )
+    degree_bound = rhs_polynomial.degree() - coefficient_polynomial.degree()
     if degree_bound < 0:
         return PrimitivePolynomialRischDifferentialEquationResult(
             coefficient_polynomial,
@@ -2432,13 +2290,11 @@ def solve_primitive_polynomial_risch_differential_equation(
     solution = zero
     residual = rhs_polynomial
     while not residual.is_zero:
-        correction_degree = (
-            residual.degree() - coefficient_polynomial.degree()
-        )
+        correction_degree = residual.degree() - coefficient_polynomial.degree()
         if correction_degree < 0:
             if (
                 derivation.polynomial(solution)
-                + coefficient_polynomial*solution
+                + coefficient_polynomial * solution
                 + residual
                 != rhs_polynomial
             ):
@@ -2456,23 +2312,16 @@ def solve_primitive_polynomial_risch_differential_equation(
             )
 
         correction = Poly.from_dict(
-            {
-                (correction_degree,): (
-                    residual.LC()/coefficient_polynomial.LC()
-                )
-            },
+            {(correction_degree,): (residual.LC() / coefficient_polynomial.LC())},
             extension.generator,
             domain=extension.parent_field,
         )
         new_residual = (
             residual
             - derivation.polynomial(correction)
-            - coefficient_polynomial*correction
+            - coefficient_polynomial * correction
         )
-        if (
-            not new_residual.is_zero
-            and new_residual.degree() >= residual.degree()
-        ):
+        if not new_residual.is_zero and new_residual.degree() >= residual.degree():
             raise ValueError(
                 "primitive polynomial RDE residual degree did not decrease"
             )
@@ -2480,8 +2329,7 @@ def solve_primitive_polynomial_risch_differential_equation(
         residual = new_residual
 
     if (
-        derivation.polynomial(solution)
-        + coefficient_polynomial*solution
+        derivation.polynomial(solution) + coefficient_polynomial * solution
         != rhs_polynomial
     ):
         raise ValueError("primitive polynomial RDE reconstruction failed")
@@ -2502,9 +2350,7 @@ class _PrimitiveSPDEResult:
 
     solution: Poly | None
     obstruction: PrimitiveRDEObstruction | None
-    polynomial_result: (
-        PrimitivePolynomialRischDifferentialEquationResult | None
-    ) = None
+    polynomial_result: PrimitivePolynomialRischDifferentialEquationResult | None = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
 
@@ -2528,9 +2374,8 @@ def _solve_primitive_spde(
     while True:
         if right_hand_side.is_zero:
             if (
-                original_derivative_coefficient
-                * derivation.polynomial(beta)
-                + original_solution_coefficient*beta
+                original_derivative_coefficient * derivation.polynomial(beta)
+                + original_solution_coefficient * beta
                 != original_rhs
             ):
                 raise ValueError("primitive SPDE zero-tail reconstruction failed")
@@ -2555,18 +2400,15 @@ def _solve_primitive_spde(
         right_hand_side = quotient
 
         if derivative_coefficient.degree() == 0:
-            inverse = (
-                extension.parent_field.one
-                / extension.parent_field.convert(derivative_coefficient.LC())
+            inverse = extension.parent_field.one / extension.parent_field.convert(
+                derivative_coefficient.LC()
             )
             normalized_coefficient = solution_coefficient.mul_ground(inverse)
             normalized_rhs = right_hand_side.mul_ground(inverse)
-            polynomial_result = (
-                solve_primitive_polynomial_risch_differential_equation(
-                    normalized_coefficient,
-                    normalized_rhs,
-                    derivation,
-                )
+            polynomial_result = solve_primitive_polynomial_risch_differential_equation(
+                normalized_coefficient,
+                normalized_rhs,
+                derivation,
             )
             if not polynomial_result.has_solution:
                 return _PrimitiveSPDEResult(
@@ -2576,20 +2418,17 @@ def _solve_primitive_spde(
                 )
             tail = polynomial_result.solution
             if tail is None:
-                raise ValueError(
-                    "a solved primitive polynomial RDE lacks its solution"
-                )
+                raise ValueError("a solved primitive polynomial RDE lacks its solution")
             if not tail.is_zero and tail.degree() > current_bound:
                 return _PrimitiveSPDEResult(
                     None,
                     PrimitiveRDEObstruction.SPDE_DEGREE,
                     polynomial_result,
                 )
-            solution = alpha*tail + beta
+            solution = alpha * tail + beta
             if (
-                original_derivative_coefficient
-                * derivation.polynomial(solution)
-                + original_solution_coefficient*solution
+                original_derivative_coefficient * derivation.polynomial(solution)
+                + original_solution_coefficient * solution
                 != original_rhs
             ):
                 raise ValueError("primitive SPDE reconstruction failed")
@@ -2600,16 +2439,14 @@ def _solve_primitive_spde(
             )
 
         inverse = invert(solution_coefficient, derivative_coefficient)
-        residue = (right_hand_side*inverse).rem(derivative_coefficient)
-        quotient = (
-            right_hand_side - solution_coefficient*residue
-        ).exquo(derivative_coefficient)
-        right_hand_side = quotient - derivation.polynomial(residue)
-        solution_coefficient += derivation.polynomial(
+        residue = (right_hand_side * inverse).rem(derivative_coefficient)
+        quotient = (right_hand_side - solution_coefficient * residue).exquo(
             derivative_coefficient
         )
+        right_hand_side = quotient - derivation.polynomial(residue)
+        solution_coefficient += derivation.polynomial(derivative_coefficient)
         current_bound -= derivative_coefficient.degree()
-        beta += alpha*residue
+        beta += alpha * residue
         alpha *= derivative_coefficient
 
 
@@ -2639,7 +2476,7 @@ def _solve_primitive_rde_exact_case(
     )
     multiplier_element = _coerce(field, multiplier)
     exact_result = solve_exact_derivative(
-        multiplier_element*normalized_right_hand_side,
+        multiplier_element * normalized_right_hand_side,
         derivation,
     )
     if not exact_result.has_solution:
@@ -2656,13 +2493,12 @@ def _solve_primitive_rde_exact_case(
             exact_derivative_result=exact_result,
         )
 
-    normalized_solution = (
-        exact_result.antiderivative/multiplier_element
-    )
-    solution = normalized_solution/normalization_element
-    if (
-        derivation(solution) + coefficient*solution
-        != right_hand_side
+    normalized_solution = exact_result.antiderivative / multiplier_element
+    solution = normalized_solution / normalization_element
+    if not _field_elements_equal(
+        derivation(solution) + coefficient * solution,
+        right_hand_side,
+        field,
     ):
         raise ValueError("primitive exact RDE reconstruction failed")
     return PrimitiveRischDifferentialEquationResult(
@@ -2716,13 +2552,13 @@ def solve_primitive_risch_differential_equation(
         field,
         normalization_factor.as_expr(),
     )
-    normalized_rhs = normalization_element*rhs_element
+    normalized_rhs = normalization_element * rhs_element
     one = Poly(
         1,
         extension.generator,
         domain=extension.parent_field,
     )
-    if normalized_rhs == field.zero:
+    if _field_element_is_zero(normalized_rhs, field):
         return PrimitiveRischDifferentialEquationResult(
             coefficient=coefficient_element,
             right_hand_side=rhs_element,
@@ -2735,30 +2571,26 @@ def solve_primitive_risch_differential_equation(
             degree_bound=0,
         )
 
-    _, normalized_numerator, normalized_denominator = (
-        _as_primitive_fraction(normalized_coefficient, extension)
+    _, normalized_numerator, normalized_denominator = _as_primitive_fraction(
+        normalized_coefficient, extension
     )
     normalized_polynomial = None
     if normalized_denominator.degree() == 0:
-        inverse = (
-            extension.parent_field.one
-            / extension.parent_field.convert(normalized_denominator.LC())
+        inverse = extension.parent_field.one / extension.parent_field.convert(
+            normalized_denominator.LC()
         )
         normalized_polynomial = normalized_numerator.mul_ground(inverse)
 
     coefficient_logarithmic_result = None
-    coefficient_is_lower = (
-        normalized_polynomial is not None
-        and (
-            normalized_polynomial.is_zero
-            or normalized_polynomial.degree() <= 0
-        )
+    coefficient_is_lower = normalized_polynomial is not None and (
+        normalized_polynomial.is_zero or normalized_polynomial.degree() <= 0
     )
     if coefficient_is_lower:
-        coefficient_lower = extension.parent_field.convert(
-            normalized_polynomial.nth(0)
-        )
-        if coefficient_lower == extension.parent_field.zero:
+        coefficient_lower = extension.parent_field.convert(normalized_polynomial.nth(0))
+        if _field_element_is_zero(
+            coefficient_lower,
+            extension.parent_field,
+        ):
             return _solve_primitive_rde_exact_case(
                 coefficient_element,
                 rhs_element,
@@ -2771,11 +2603,9 @@ def solve_primitive_risch_differential_equation(
 
         from .monomial import solve_radical_logarithmic_derivative
 
-        coefficient_logarithmic_result = (
-            solve_radical_logarithmic_derivative(
-                coefficient_lower,
-                derivation.lower(),
-            )
+        coefficient_logarithmic_result = solve_radical_logarithmic_derivative(
+            coefficient_lower,
+            derivation.lower(),
         )
         if (
             coefficient_logarithmic_result.has_solution
@@ -2807,15 +2637,9 @@ def solve_primitive_risch_differential_equation(
             normalized_coefficient=normalized_coefficient,
             normalized_right_hand_side=normalized_rhs,
             denominator_bound=denominator_reduction.denominator_bound,
-            obstruction_polynomial=(
-                denominator_reduction.obstruction_polynomial
-            ),
-            obstruction_remainder=(
-                denominator_reduction.obstruction_remainder
-            ),
-            logarithmic_derivative_result=(
-                coefficient_logarithmic_result
-            ),
+            obstruction_polynomial=(denominator_reduction.obstruction_polynomial),
+            obstruction_remainder=(denominator_reduction.obstruction_remainder),
+            logarithmic_derivative_result=(coefficient_logarithmic_result),
         )
 
     denominator_bound = denominator_reduction.denominator_bound
@@ -2827,9 +2651,7 @@ def solve_primitive_risch_differential_equation(
         or solution_coefficient is None
         or transformed_rhs is None
     ):
-        raise ValueError(
-            "successful primitive denominator reduction lacks an equation"
-        )
+        raise ValueError("successful primitive denominator reduction lacks an equation")
     degree_bound = _primitive_rde_degree_bound(
         derivative_coefficient,
         solution_coefficient,
@@ -2857,22 +2679,18 @@ def solve_primitive_risch_differential_equation(
             polynomial_result=spde_result.polynomial_result,
             obstruction_polynomial=spde_result.obstruction_polynomial,
             obstruction_remainder=spde_result.obstruction_remainder,
-            logarithmic_derivative_result=(
-                coefficient_logarithmic_result
-            ),
+            logarithmic_derivative_result=(coefficient_logarithmic_result),
         )
 
     solution = _coerce(
         field,
         spde_result.solution.as_expr()
-        / (
-            normalization_factor.as_expr()
-            * denominator_bound.as_expr()
-        ),
+        / (normalization_factor.as_expr() * denominator_bound.as_expr()),
     )
-    if (
-        derivation(solution) + coefficient_element*solution
-        != rhs_element
+    if not _field_elements_equal(
+        derivation(solution) + coefficient_element * solution,
+        rhs_element,
+        field,
     ):
         raise ValueError("primitive RDE reconstruction failed")
     return PrimitiveRischDifferentialEquationResult(
@@ -2917,8 +2735,7 @@ def _hyperexponential_laurent_rde_extension(
     """Validate a hyperexponential top level with unchanged constants."""
     if derivation.level < 1:
         raise TypeError(
-            "hyperexponential Laurent RDE solving requires a nonconstant "
-            "lower field"
+            "hyperexponential Laurent RDE solving requires a nonconstant lower field"
         )
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
@@ -2927,12 +2744,8 @@ def _hyperexponential_laurent_rde_extension(
             "algebraic tower levels"
         )
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
-        raise ValueError(
-            "hyperexponential Laurent RDE solving requires Dt = eta*t"
-        )
-    extension.require_preserved_constants(
-        "hyperexponential Laurent RDE solving"
-    )
+        raise ValueError("hyperexponential Laurent RDE solving requires Dt = eta*t")
+    extension.require_preserved_constants("hyperexponential Laurent RDE solving")
     return extension
 
 
@@ -2954,13 +2767,11 @@ def _hyperexponential_laurent_coefficients(
         )
     (denominator_power,), denominator_coefficient = denominator_terms[0]
     parent = extension.parent_field
-    scale = parent.one/parent.convert(denominator_coefficient)
+    scale = parent.one / parent.convert(denominator_coefficient)
     coefficients = {
-        numerator_power - denominator_power: (
-            parent.convert(coefficient)*scale
-        )
+        numerator_power - denominator_power: (parent.convert(coefficient) * scale)
         for (numerator_power,), coefficient in numerator.terms()
-        if parent.convert(coefficient) != parent.zero
+        if not _field_element_is_zero(parent.convert(coefficient), parent)
     }
     return element, coefficients
 
@@ -2973,8 +2784,7 @@ def _hyperexponential_laurent_term(
     """Embed one lower-field Laurent term in the top field."""
     return _coerce(
         extension.field,
-        extension.parent_field.to_sympy(coefficient)
-        * extension.generator**power,
+        extension.parent_field.to_sympy(coefficient) * extension.generator**power,
     )
 
 
@@ -2998,9 +2808,7 @@ def _hyperexponential_boundary_power(
         )
     if result.has_solution and result.n == 1:
         if result.m is None:
-            raise ValueError(
-                "a solved boundary relation lacks its integer power"
-            )
+            raise ValueError("a solved boundary relation lacks its integer power")
         return result, result.m
     return result, None
 
@@ -3040,17 +2848,18 @@ def _hyperexponential_special_denominator(
         derivative_coefficient,
         extension,
     )
-    if derivative_polynomial.eval(parent.zero) == parent.zero:
+    if _field_element_is_zero(
+        derivative_polynomial.eval(parent.zero),
+        parent,
+    ):
         raise ValueError(
             "the special-denominator derivative coefficient must be "
             "coprime to the hyperexponential generator"
         )
-    solution_element, solution_terms = (
-        _hyperexponential_laurent_coefficients(
-            solution_coefficient,
-            extension,
-            "special-denominator solution coefficient",
-        )
+    solution_element, solution_terms = _hyperexponential_laurent_coefficients(
+        solution_coefficient,
+        extension,
+        "special-denominator solution coefficient",
     )
     rhs_element, rhs_terms = _hyperexponential_laurent_coefficients(
         right_hand_side,
@@ -3072,16 +2881,11 @@ def _hyperexponential_special_denominator(
     boundary_result = None
     exceptional_power = None
     if solution_valuation == 0:
-        alpha = (
-            -solution_terms[0]
-            / parent.convert(derivative_polynomial.nth(0))
-        )
-        boundary_result, exceptional_power = (
-            _hyperexponential_boundary_power(
-                -alpha,
-                extension,
-                derivation.lower(),
-            )
+        alpha = -solution_terms[0] / parent.convert(derivative_polynomial.nth(0))
+        boundary_result, exceptional_power = _hyperexponential_boundary_power(
+            -alpha,
+            extension,
+            derivation.lower(),
         )
         if exceptional_power is not None:
             valuation_bound = min(valuation_bound, exceptional_power)
@@ -3099,14 +2903,13 @@ def _hyperexponential_special_denominator(
         field,
         derivative_polynomial.as_expr(),
     )
-    transformed_derivative = derivative_element*t_power
+    transformed_derivative = derivative_element * t_power
     transformed_solution = (
         solution_element
-        + field.convert(valuation_bound)*derivative_element*eta_element
-    )*t_power
-    transformed_rhs = (
-        rhs_element
-        * _coerce(field, t**(clearing_power - valuation_bound))
+        + field.convert(valuation_bound) * derivative_element * eta_element
+    ) * t_power
+    transformed_rhs = rhs_element * _coerce(
+        field, t ** (clearing_power - valuation_bound)
     )
     derivative_output = _as_primitive_polynomial(
         transformed_derivative,
@@ -3145,27 +2948,19 @@ def _hyperexponential_rde_degree_bound(
         return 0, None, None
 
     degree_a = derivative_coefficient.degree()
-    degree_b = (
-        solution_coefficient.degree()
-        if not solution_coefficient.is_zero
-        else -1
-    )
+    degree_b = solution_coefficient.degree() if not solution_coefficient.is_zero else -1
     degree_c = right_hand_side.degree()
     bound = max(0, degree_c - max(degree_b, degree_a))
     boundary_result = None
     exceptional_power = None
     if degree_a == degree_b:
         parent = derivative_coefficient.domain
-        alpha = parent.convert(
-            -solution_coefficient.LC()/derivative_coefficient.LC()
-        )
+        alpha = parent.convert(-solution_coefficient.LC() / derivative_coefficient.LC())
         extension = _hyperexponential_laurent_rde_extension(derivation)
-        boundary_result, exceptional_power = (
-            _hyperexponential_boundary_power(
-                -alpha,
-                extension,
-                derivation.lower(),
-            )
+        boundary_result, exceptional_power = _hyperexponential_boundary_power(
+            -alpha,
+            extension,
+            derivation.lower(),
         )
         if exceptional_power is not None:
             bound = max(bound, exceptional_power)
@@ -3178,9 +2973,7 @@ class _HyperexponentialSPDEResult:
 
     solution: Poly | None
     obstruction: HyperexponentialRDEObstruction | None
-    laurent_result: (
-        HyperexponentialLaurentRischDifferentialEquationResult | None
-    ) = None
+    laurent_result: HyperexponentialLaurentRischDifferentialEquationResult | None = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
 
@@ -3205,8 +2998,8 @@ def _solve_hyperexponential_spde(
     while True:
         if right_hand_side.is_zero:
             if (
-                original_derivative*derivation.polynomial(beta)
-                + original_solution*beta
+                original_derivative * derivation.polynomial(beta)
+                + original_solution * beta
                 != original_rhs
             ):
                 raise ValueError(
@@ -3233,15 +3026,13 @@ def _solve_hyperexponential_spde(
         right_hand_side = quotient
 
         if derivative_coefficient.degree() == 0:
-            inverse = parent.one/parent.convert(derivative_coefficient.LC())
+            inverse = parent.one / parent.convert(derivative_coefficient.LC())
             normalized_coefficient = solution_coefficient.mul_ground(inverse)
             normalized_rhs = right_hand_side.mul_ground(inverse)
-            laurent_result = (
-                solve_hyperexponential_laurent_risch_differential_equation(
-                    normalized_coefficient,
-                    normalized_rhs,
-                    derivation,
-                )
+            laurent_result = solve_hyperexponential_laurent_risch_differential_equation(
+                normalized_coefficient,
+                normalized_rhs,
+                derivation,
             )
             if not laurent_result.has_solution:
                 return _HyperexponentialSPDEResult(
@@ -3265,7 +3056,7 @@ def _solve_hyperexponential_spde(
                     laurent_result,
                 )
             tail = tail_numerator.mul_ground(
-                parent.one/parent.convert(tail_denominator.LC())
+                parent.one / parent.convert(tail_denominator.LC())
             )
             if not tail.is_zero and tail.degree() > current_bound:
                 return _HyperexponentialSPDEResult(
@@ -3273,10 +3064,10 @@ def _solve_hyperexponential_spde(
                     HyperexponentialRDEObstruction.SPDE_DEGREE,
                     laurent_result,
                 )
-            numerator_solution = alpha*tail + beta
+            numerator_solution = alpha * tail + beta
             if (
-                original_derivative*derivation.polynomial(numerator_solution)
-                + original_solution*numerator_solution
+                original_derivative * derivation.polynomial(numerator_solution)
+                + original_solution * numerator_solution
                 != original_rhs
             ):
                 raise ValueError("hyperexponential SPDE reconstruction failed")
@@ -3287,16 +3078,14 @@ def _solve_hyperexponential_spde(
             )
 
         inverse = invert(solution_coefficient, derivative_coefficient)
-        residue = (right_hand_side*inverse).rem(derivative_coefficient)
-        quotient = (
-            right_hand_side - solution_coefficient*residue
-        ).exquo(derivative_coefficient)
-        right_hand_side = quotient - derivation.polynomial(residue)
-        solution_coefficient += derivation.polynomial(
+        residue = (right_hand_side * inverse).rem(derivative_coefficient)
+        quotient = (right_hand_side - solution_coefficient * residue).exquo(
             derivative_coefficient
         )
+        right_hand_side = quotient - derivation.polynomial(residue)
+        solution_coefficient += derivation.polynomial(derivative_coefficient)
         current_bound -= derivative_coefficient.degree()
-        beta += alpha*residue
+        beta += alpha * residue
         alpha *= derivative_coefficient
 
 
@@ -3329,12 +3118,10 @@ def _hyperexponential_laurent_support_bounds(
     exceptional_power = None
 
     if minimum_coefficient_power == 0 or maximum_coefficient_power == 0:
-        boundary_result, exceptional_power = (
-            _hyperexponential_boundary_power(
-                coefficient[0],
-                extension,
-                lower_derivation,
-            )
+        boundary_result, exceptional_power = _hyperexponential_boundary_power(
+            coefficient[0],
+            extension,
+            lower_derivation,
         )
 
     if minimum_coefficient_power < 0:
@@ -3390,9 +3177,7 @@ def _solve_hyperexponential_diagonal_laurent_rde(
 
     for power in sorted(coefficients):
         rhs_coefficient = coefficients[power]
-        shifted_coefficient = (
-            lower_coefficient + parent.convert(power)*eta
-        )
+        shifted_coefficient = lower_coefficient + parent.convert(power) * eta
         lower_result = solve_risch_differential_equation(
             shifted_coefficient,
             rhs_coefficient,
@@ -3422,16 +3207,17 @@ def _solve_hyperexponential_diagonal_laurent_rde(
             )
         )
 
-    if (
+    if not _field_elements_equal(
         derivation(partial_solution)
-        + coefficient_element*partial_solution
-        + residual
-        != rhs_element
+        + coefficient_element * partial_solution
+        + residual,
+        rhs_element,
+        field,
     ):
         raise ValueError(
             "hyperexponential diagonal RDE decomposition failed to reconstruct"
         )
-    has_obstruction = residual != field.zero
+    has_obstruction = not _field_element_is_zero(residual, field)
     powers = tuple(coefficients)
     return HyperexponentialLaurentRischDifferentialEquationResult(
         coefficient_element,
@@ -3473,12 +3259,10 @@ def solve_hyperexponential_laurent_risch_differential_equation(
     extension = _hyperexponential_laurent_rde_extension(derivation)
     field = extension.field
     parent = extension.parent_field
-    coefficient_element, coefficient_terms = (
-        _hyperexponential_laurent_coefficients(
-            coefficient,
-            extension,
-            "coefficient",
-        )
+    coefficient_element, coefficient_terms = _hyperexponential_laurent_coefficients(
+        coefficient,
+        extension,
+        "coefficient",
     )
     rhs_element, coefficients = _hyperexponential_laurent_coefficients(
         right_hand_side,
@@ -3525,9 +3309,7 @@ def solve_hyperexponential_laurent_risch_differential_equation(
     residual = rhs_element
     corrections: list[HyperexponentialLaurentRDECorrection] = []
     if minimum_power_bound > maximum_power_bound:
-        raise ValueError(
-            "hyperexponential Laurent support bounds are inconsistent"
-        )
+        raise ValueError("hyperexponential Laurent support bounds are inconsistent")
 
     maximum_coefficient_power = max(coefficient_terms)
     minimum_coefficient_power = min(coefficient_terms)
@@ -3542,7 +3324,7 @@ def solve_hyperexponential_laurent_risch_differential_equation(
         edge_power = minimum_coefficient_power
         edge_coefficient = coefficient_terms[edge_power]
 
-    while residual != field.zero:
+    while not _field_element_is_zero(residual, field):
         _, residual_terms = _hyperexponential_laurent_coefficients(
             residual,
             extension,
@@ -3553,52 +3335,38 @@ def solve_hyperexponential_laurent_risch_differential_equation(
         if direction is HyperexponentialLaurentRDEDirection.DESCENDING:
             residual_edge_power = max(residual_terms)
             correction_power = residual_edge_power - edge_power
-            inside_support = (
-                minimum_power_bound
-                <= correction_power
-                <= active_bound
-            )
+            inside_support = minimum_power_bound <= correction_power <= active_bound
         else:
             residual_edge_power = min(residual_terms)
             correction_power = residual_edge_power - edge_power
-            inside_support = (
-                active_bound
-                <= correction_power
-                <= maximum_power_bound
-            )
+            inside_support = active_bound <= correction_power <= maximum_power_bound
         if not inside_support:
             break
 
-        correction_coefficient = (
-            residual_terms[residual_edge_power]/edge_coefficient
-        )
+        correction_coefficient = residual_terms[residual_edge_power] / edge_coefficient
         correction = _hyperexponential_laurent_term(
             correction_coefficient,
             correction_power,
             extension,
         )
         new_residual = (
-            residual
-            - derivation(correction)
-            - coefficient_element*correction
+            residual - derivation(correction) - coefficient_element * correction
         )
-        if new_residual != field.zero:
+        if not _field_element_is_zero(new_residual, field):
             _, new_terms = _hyperexponential_laurent_coefficients(
                 new_residual,
                 extension,
                 "recurrence residual",
             )
             if (
-                direction
-                is HyperexponentialLaurentRDEDirection.DESCENDING
+                direction is HyperexponentialLaurentRDEDirection.DESCENDING
                 and max(new_terms) >= residual_edge_power
             ):
                 raise ValueError(
                     "descending Laurent RDE recurrence did not lower degree"
                 )
             if (
-                direction
-                is HyperexponentialLaurentRDEDirection.ASCENDING
+                direction is HyperexponentialLaurentRDEDirection.ASCENDING
                 and min(new_terms) <= residual_edge_power
             ):
                 raise ValueError(
@@ -3620,16 +3388,17 @@ def solve_hyperexponential_laurent_risch_differential_equation(
         else:
             active_bound = correction_power + 1
 
-    if (
+    if not _field_elements_equal(
         derivation(partial_solution)
-        + coefficient_element*partial_solution
-        + residual
-        != rhs_element
+        + coefficient_element * partial_solution
+        + residual,
+        rhs_element,
+        field,
     ):
         raise ValueError(
             "hyperexponential Laurent RDE decomposition failed to reconstruct"
         )
-    has_obstruction = residual != field.zero
+    has_obstruction = not _field_element_is_zero(residual, field)
     return HyperexponentialLaurentRischDifferentialEquationResult(
         coefficient_element,
         rhs_element,
@@ -3690,9 +3459,9 @@ def solve_hyperexponential_risch_differential_equation(
         field,
         normalization_factor.as_expr(),
     )
-    normalized_rhs = normalization_element*rhs_element
+    normalized_rhs = normalization_element * rhs_element
     one = Poly(1, extension.generator, domain=parent)
-    if normalized_rhs == field.zero:
+    if _field_element_is_zero(normalized_rhs, field):
         return HyperexponentialRischDifferentialEquationResult(
             coefficient_element,
             rhs_element,
@@ -3722,12 +3491,8 @@ def solve_hyperexponential_risch_differential_equation(
             normalized_coefficient,
             normalized_rhs,
             denominator_reduction.denominator_bound,
-            obstruction_polynomial=(
-                denominator_reduction.obstruction_polynomial
-            ),
-            obstruction_remainder=(
-                denominator_reduction.obstruction_remainder
-            ),
+            obstruction_polynomial=(denominator_reduction.obstruction_polynomial),
+            obstruction_remainder=(denominator_reduction.obstruction_remainder),
         )
     derivative_element = denominator_reduction.derivative_coefficient
     solution_element = denominator_reduction.solution_coefficient
@@ -3738,8 +3503,7 @@ def solve_hyperexponential_risch_differential_equation(
         or transformed_rhs_element is None
     ):
         raise ValueError(
-            "successful hyperexponential denominator reduction lacks "
-            "an equation"
+            "successful hyperexponential denominator reduction lacks an equation"
         )
 
     special_reduction = _hyperexponential_special_denominator(
@@ -3793,13 +3557,13 @@ def solve_hyperexponential_risch_differential_equation(
         / (
             normalization_factor.as_expr()
             * denominator_reduction.denominator_bound.as_expr()
-            * extension.generator
-            ** special_reduction.solution_denominator_power
+            * extension.generator**special_reduction.solution_denominator_power
         ),
     )
-    if (
-        derivation(solution) + coefficient_element*solution
-        != rhs_element
+    if not _field_elements_equal(
+        derivation(solution) + coefficient_element * solution,
+        rhs_element,
+        field,
     ):
         raise ValueError("hyperexponential RDE reconstruction failed")
     return HyperexponentialRischDifferentialEquationResult(
@@ -3850,9 +3614,7 @@ def solve_risch_differential_equation(
             extension.generator,
         )
         solution = (
-            _coerce(field, certificate.solution)
-            if certificate.has_solution
-            else None
+            _coerce(field, certificate.solution) if certificate.has_solution else None
         )
     elif _is_standard_rational_derivation_over(derivation, QQ_I):
         extension = derivation.tower.levels[0]
@@ -3863,8 +3625,7 @@ def solve_risch_differential_equation(
             QQ_I,
         )
         normalized_rhs = cancel(
-            domain_result.normalization_factor.as_expr()
-            * field.to_sympy(rhs_element)
+            domain_result.normalization_factor.as_expr() * field.to_sympy(rhs_element)
         )
         certificate = RationalRischDifferentialEquationResult(
             field.to_sympy(coefficient_element),
@@ -3876,12 +3637,8 @@ def solve_risch_differential_equation(
             normalized_rhs,
             domain_result.denominator_bound,
             domain_result.degree_bound,
-            obstruction_polynomial=(
-                domain_result.obstruction_polynomial
-            ),
-            obstruction_remainder=(
-                domain_result.obstruction_remainder
-            ),
+            obstruction_polynomial=(domain_result.obstruction_polynomial),
+            obstruction_remainder=(domain_result.obstruction_remainder),
         )
         solution = (
             _coerce(field, domain_result.solution)
@@ -3914,12 +3671,10 @@ def solve_risch_differential_equation(
                     "right-hand side",
                 )
             except NotImplementedError:
-                certificate = (
-                    solve_hyperexponential_risch_differential_equation(
-                        coefficient_element,
-                        rhs_element,
-                        derivation,
-                    )
+                certificate = solve_hyperexponential_risch_differential_equation(
+                    coefficient_element,
+                    rhs_element,
+                    derivation,
                 )
             else:
                 certificate = (
@@ -4003,15 +3758,12 @@ def solve_bounded_rational_rde_matrix(
 
     column_expressions = []
     for degree in range(numerator_degree_bound + 1):
-        candidate = x**degree/denominator.as_expr()
-        column_expressions.append(
-            cancel(candidate.diff(x) + coefficient*candidate)
-        )
+        candidate = x**degree / denominator.as_expr()
+        column_expressions.append(cancel(candidate.diff(x) + coefficient * candidate))
 
     rational_expressions = [*column_expressions, right_hand_side]
     reduced_expressions = [
-        _as_qq_rational(expression, x)
-        for expression in rational_expressions
+        _as_qq_rational(expression, x) for expression in rational_expressions
     ]
     common_denominator = Poly(1, x, domain=QQ)
     for _, _, expression_denominator in reduced_expressions:
@@ -4019,7 +3771,7 @@ def solve_bounded_rational_rde_matrix(
 
     cleared_polynomials = [
         Poly(
-            cancel(expression*common_denominator.as_expr()),
+            cancel(expression * common_denominator.as_expr()),
             x,
             domain=QQ,
         )
@@ -4039,20 +3791,14 @@ def solve_bounded_rational_rde_matrix(
     unknown_count = numerator_degree_bound + 1
     system = DomainMatrix(
         [
-            [
-                QQ.convert(polynomial.nth(degree))
-                for polynomial in column_polynomials
-            ]
+            [QQ.convert(polynomial.nth(degree)) for polynomial in column_polynomials]
             for degree in range(equation_count)
         ],
         (equation_count, unknown_count),
         QQ,
     )
     rhs = DomainMatrix(
-        [
-            [QQ.convert(rhs_polynomial.nth(degree))]
-            for degree in range(equation_count)
-        ],
+        [[QQ.convert(rhs_polynomial.nth(degree))] for degree in range(equation_count)],
         (equation_count, 1),
         QQ,
     )
@@ -4075,19 +3821,12 @@ def solve_bounded_rational_rde_matrix(
         if pivot < unknown_count:
             coefficients[pivot] = reduced_rows[row][unknown_count]
     numerator = Poly.from_dict(
-        {
-            (degree,): value
-            for degree, value in enumerate(coefficients)
-        },
+        {(degree,): value for degree, value in enumerate(coefficients)},
         x,
         domain=QQ,
     )
-    solution = cancel(numerator.as_expr()/denominator.as_expr())
-    if cancel(
-        solution.diff(x)
-        + coefficient*solution
-        - right_hand_side
-    ) != 0:
+    solution = cancel(numerator.as_expr() / denominator.as_expr())
+    if cancel(solution.diff(x) + coefficient * solution - right_hand_side) != 0:
         raise ValueError("bounded matrix RDE reconstruction failed")
     return BoundedRationalRDEMatrixResult(
         denominator,
@@ -4104,9 +3843,7 @@ def _as_qq_bivariate_fraction(
     top_generator: Symbol,
 ) -> tuple[Poly, Poly]:
     """Return a reduced fraction in ``QQ[lower_generator, top_generator]``."""
-    numerator_expression, denominator_expression = cancel(
-        expression
-    ).as_numer_denom()
+    numerator_expression, denominator_expression = cancel(expression).as_numer_denom()
     numerator = Poly(
         numerator_expression,
         lower_generator,
@@ -4121,7 +3858,7 @@ def _as_qq_bivariate_fraction(
     )
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(QQ.convert(coefficient))
-    leading_inverse = QQ.one/denominator.LC()
+    leading_inverse = QQ.one / denominator.LC()
     return (
         numerator.mul_ground(leading_inverse),
         denominator.monic(),
@@ -4159,11 +3896,7 @@ def solve_bounded_primitive_rde_matrix(
         ("lower numerator", lower_numerator_degree_bound),
         ("top", top_degree_bound),
     ):
-        if (
-            not isinstance(bound, int)
-            or isinstance(bound, bool)
-            or bound < 0
-        ):
+        if not isinstance(bound, int) or isinstance(bound, bool) or bound < 0:
             raise ValueError(f"the {name} degree bound must be nonnegative")
 
     lower_extension = derivation.tower.levels[lower_derivation.level]
@@ -4200,18 +3933,15 @@ def solve_bounded_primitive_rde_matrix(
     basis = [
         _coerce(
             field,
-            x**lower_degree*t**top_degree
-            / (
-                denominator.as_expr()
-                * top_denominator_polynomial.as_expr()
-            ),
+            x**lower_degree
+            * t**top_degree
+            / (denominator.as_expr() * top_denominator_polynomial.as_expr()),
         )
         for top_degree in range(top_degree_bound + 1)
         for lower_degree in range(lower_numerator_degree_bound + 1)
     ]
     columns = [
-        derivation(candidate) + coefficient_element*candidate
-        for candidate in basis
+        derivation(candidate) + coefficient_element * candidate for candidate in basis
     ]
     fractions = [
         _as_qq_bivariate_fraction(field.to_sympy(element), x, t)
@@ -4221,17 +3951,13 @@ def solve_bounded_primitive_rde_matrix(
     for _, element_denominator in fractions:
         common_denominator = common_denominator.lcm(element_denominator)
     cleared = [
-        numerator*common_denominator.exquo(element_denominator)
+        numerator * common_denominator.exquo(element_denominator)
         for numerator, element_denominator in fractions
     ]
     column_polynomials = cleared[:-1]
     rhs_polynomial = cleared[-1]
     monomials = sorted(
-        {
-            monomial
-            for polynomial in cleared
-            for monomial, _ in polynomial.terms()
-        },
+        {monomial for polynomial in cleared for monomial, _ in polynomial.terms()},
         reverse=True,
     )
     if not monomials:
@@ -4239,16 +3965,10 @@ def solve_bounded_primitive_rde_matrix(
 
     unknown_count = len(basis)
     coefficient_rows = [
-        [
-            QQ.convert(polynomial.nth(*monomial))
-            for polynomial in column_polynomials
-        ]
+        [QQ.convert(polynomial.nth(*monomial)) for polynomial in column_polynomials]
         for monomial in monomials
     ]
-    rhs_rows = [
-        [QQ.convert(rhs_polynomial.nth(*monomial))]
-        for monomial in monomials
-    ]
+    rhs_rows = [[QQ.convert(rhs_polynomial.nth(*monomial))] for monomial in monomials]
     system = DomainMatrix(
         coefficient_rows,
         (len(coefficient_rows), unknown_count),
@@ -4281,8 +4001,8 @@ def solve_bounded_primitive_rde_matrix(
             coefficients[pivot] = rows[row][unknown_count]
     solution = field.zero
     for value, candidate in zip(coefficients, basis, strict=True):
-        solution += field.convert(value)*candidate
-    if derivation(solution) + coefficient_element*solution != rhs_element:
+        solution += field.convert(value) * candidate
+    if derivation(solution) + coefficient_element * solution != rhs_element:
         raise ValueError("bounded primitive matrix RDE reconstruction failed")
     return BoundedPrimitiveRDEMatrixResult(
         denominator,
@@ -4322,11 +4042,7 @@ def solve_bounded_primitive_coupled_rde_matrix(
         ("lower numerator", lower_numerator_degree_bound),
         ("top", top_degree_bound),
     ):
-        if (
-            not isinstance(bound, int)
-            or isinstance(bound, bool)
-            or bound < 0
-        ):
+        if not isinstance(bound, int) or isinstance(bound, bool) or bound < 0:
             raise ValueError(f"the {name} degree bound must be nonnegative")
 
     lower_extension = derivation.tower.levels[0]
@@ -4356,11 +4072,9 @@ def solve_bounded_primitive_coupled_rde_matrix(
     basis = [
         _coerce(
             field,
-            x**lower_degree*t**top_degree
-            / (
-                denominator.as_expr()
-                * top_denominator_polynomial.as_expr()
-            ),
+            x**lower_degree
+            * t**top_degree
+            / (denominator.as_expr() * top_denominator_polynomial.as_expr()),
         )
         for top_degree in range(top_degree_bound + 1)
         for lower_degree in range(lower_numerator_degree_bound + 1)
@@ -4368,10 +4082,10 @@ def solve_bounded_primitive_coupled_rde_matrix(
     basis_derivatives = [derivation(candidate) for candidate in basis]
     real_columns = [
         *basis_derivatives,
-        *(-lambda_element*candidate for candidate in basis),
+        *(-lambda_element * candidate for candidate in basis),
     ]
     imaginary_columns = [
-        *(lambda_element*candidate for candidate in basis),
+        *(lambda_element * candidate for candidate in basis),
         *basis_derivatives,
     ]
     all_elements = [
@@ -4388,15 +4102,15 @@ def solve_bounded_primitive_coupled_rde_matrix(
     for _, element_denominator in fractions:
         common_denominator = common_denominator.lcm(element_denominator)
     cleared = [
-        numerator*common_denominator.exquo(element_denominator)
+        numerator * common_denominator.exquo(element_denominator)
         for numerator, element_denominator in fractions
     ]
-    unknown_count = 2*len(basis)
+    unknown_count = 2 * len(basis)
     real_columns_polynomial = cleared[:unknown_count]
     real_rhs_polynomial = cleared[unknown_count]
     imaginary_start = unknown_count + 1
     imaginary_columns_polynomial = cleared[
-        imaginary_start:imaginary_start + unknown_count
+        imaginary_start : imaginary_start + unknown_count
     ]
     imaginary_rhs_polynomial = cleared[-1]
     all_polynomials = [
@@ -4417,10 +4131,7 @@ def solve_bounded_primitive_coupled_rde_matrix(
         monomials = [(0, 0)]
 
     coefficient_rows = [
-        [
-            QQ.convert(polynomial.nth(*monomial))
-            for polynomial in columns
-        ]
+        [QQ.convert(polynomial.nth(*monomial)) for polynomial in columns]
         for columns in (
             real_columns_polynomial,
             imaginary_columns_polynomial,
@@ -4470,24 +4181,19 @@ def solve_bounded_primitive_coupled_rde_matrix(
         basis,
         strict=True,
     ):
-        real_solution += field.convert(value)*candidate
+        real_solution += field.convert(value) * candidate
     for value, candidate in zip(
         coefficients[basis_count:],
         basis,
         strict=True,
     ):
-        imaginary_solution += field.convert(value)*candidate
+        imaginary_solution += field.convert(value) * candidate
     if (
-        derivation(real_solution)
-        - lambda_element*imaginary_solution
-        != real_rhs
-        or derivation(imaginary_solution)
-        + lambda_element*real_solution
+        derivation(real_solution) - lambda_element * imaginary_solution != real_rhs
+        or derivation(imaginary_solution) + lambda_element * real_solution
         != imaginary_rhs
     ):
-        raise ValueError(
-            "bounded primitive coupled matrix reconstruction failed"
-        )
+        raise ValueError("bounded primitive coupled matrix reconstruction failed")
     return BoundedPrimitiveCoupledRDEMatrixResult(
         denominator,
         lower_numerator_degree_bound,
@@ -4533,9 +4239,7 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
         or isinstance(lower_numerator_degree_bound, bool)
         or lower_numerator_degree_bound < 0
     ):
-        raise ValueError(
-            "the lower numerator degree bound must be a nonnegative int"
-        )
+        raise ValueError("the lower numerator degree bound must be a nonnegative int")
     for name, power in (
         ("minimum", minimum_power),
         ("maximum", maximum_power),
@@ -4579,18 +4283,15 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
     basis = [
         _coerce(
             field,
-            x**lower_degree*t**top_power
-            / (
-                denominator.as_expr()
-                * top_denominator_polynomial.as_expr()
-            ),
+            x**lower_degree
+            * t**top_power
+            / (denominator.as_expr() * top_denominator_polynomial.as_expr()),
         )
         for top_power in range(minimum_power, maximum_power + 1)
         for lower_degree in range(lower_numerator_degree_bound + 1)
     ]
     columns = [
-        derivation(candidate) + coefficient_element*candidate
-        for candidate in basis
+        derivation(candidate) + coefficient_element * candidate for candidate in basis
     ]
     fractions = [
         _as_qq_bivariate_fraction(field.to_sympy(element), x, t)
@@ -4600,17 +4301,13 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
     for _, element_denominator in fractions:
         common_denominator = common_denominator.lcm(element_denominator)
     cleared = [
-        numerator*common_denominator.exquo(element_denominator)
+        numerator * common_denominator.exquo(element_denominator)
         for numerator, element_denominator in fractions
     ]
     column_polynomials = cleared[:-1]
     rhs_polynomial = cleared[-1]
     monomials = sorted(
-        {
-            monomial
-            for polynomial in cleared
-            for monomial, _ in polynomial.terms()
-        },
+        {monomial for polynomial in cleared for monomial, _ in polynomial.terms()},
         reverse=True,
     )
     if not monomials:
@@ -4618,16 +4315,10 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
 
     unknown_count = len(basis)
     coefficient_rows = [
-        [
-            QQ.convert(polynomial.nth(*monomial))
-            for polynomial in column_polynomials
-        ]
+        [QQ.convert(polynomial.nth(*monomial)) for polynomial in column_polynomials]
         for monomial in monomials
     ]
-    rhs_rows = [
-        [QQ.convert(rhs_polynomial.nth(*monomial))]
-        for monomial in monomials
-    ]
+    rhs_rows = [[QQ.convert(rhs_polynomial.nth(*monomial))] for monomial in monomials]
     system = DomainMatrix(
         coefficient_rows,
         (len(coefficient_rows), unknown_count),
@@ -4661,8 +4352,8 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
             coefficients[pivot] = rows[row][unknown_count]
     solution = field.zero
     for value, candidate in zip(coefficients, basis, strict=True):
-        solution += field.convert(value)*candidate
-    if derivation(solution) + coefficient_element*solution != rhs_element:
+        solution += field.convert(value) * candidate
+    if derivation(solution) + coefficient_element * solution != rhs_element:
         raise ValueError(
             "bounded hyperexponential Laurent matrix RDE reconstruction failed"
         )
@@ -4681,9 +4372,7 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
 def _maximum_polynomial_degree(*polynomials: Poly) -> int | None:
     """Return the largest degree among nonzero polynomials, if one exists."""
     degrees = [
-        polynomial.degree()
-        for polynomial in polynomials
-        if not polynomial.is_zero
+        polynomial.degree() for polynomial in polynomials if not polynomial.is_zero
     ]
     return max(degrees) if degrees else None
 
@@ -4745,10 +4434,8 @@ def _weakly_normalize_over_constant_field(
         if multiplicity != 1:
             continue
         cofactor = denominator.exquo(factor)
-        local_denominator = (cofactor*factor.diff()).rem(factor)
-        residue = (
-            numerator*invert(local_denominator, factor)
-        ).rem(factor)
+        local_denominator = (cofactor * factor.diff()).rem(factor)
+        residue = (numerator * invert(local_denominator, factor)).rem(factor)
         if residue.degree() > 0:
             continue
         integer_residue = _integer_constant(residue.nth(0), domain)
@@ -4756,13 +4443,16 @@ def _weakly_normalize_over_constant_field(
             normalizer *= factor**integer_residue
 
     normalized = cancel(
-        coefficient - normalizer.diff().as_expr()/normalizer.as_expr()
+        coefficient - normalizer.diff().as_expr() / normalizer.as_expr()
     )
-    if cancel(
-        normalized
-        + normalizer.diff().as_expr()/normalizer.as_expr()
-        - coefficient
-    ) != 0:
+    if (
+        cancel(
+            normalized
+            + normalizer.diff().as_expr() / normalizer.as_expr()
+            - coefficient
+        )
+        != 0
+    ):
         raise ValueError("constant-field weak normalization failed")
     return normalizer.monic(), normalized
 
@@ -4816,21 +4506,15 @@ def _reduce_normal_denominator_over_constant_field(
     shared_denominator = coefficient_denominator.gcd(rhs_denominator)
     denominator_bound = (
         rhs_denominator.gcd(rhs_denominator.diff())
-        .exquo(
-            shared_denominator.gcd(shared_denominator.diff())
-        )
+        .exquo(shared_denominator.gcd(shared_denominator.diff()))
         .monic()
     )
-    derivative_coefficient = coefficient_denominator*denominator_bound
+    derivative_coefficient = coefficient_denominator * denominator_bound
     solution_coefficient = (
-        denominator_bound*coefficient_numerator
-        - coefficient_denominator*denominator_bound.diff()
+        denominator_bound * coefficient_numerator
+        - coefficient_denominator * denominator_bound.diff()
     )
-    multiplier = (
-        coefficient_denominator
-        * denominator_bound
-        * denominator_bound
-    )
+    multiplier = coefficient_denominator * denominator_bound * denominator_bound
     quotient, remainder = multiplier.div(rhs_denominator)
     if not remainder.is_zero:
         return _DomainNormalDenominatorReduction(
@@ -4845,7 +4529,7 @@ def _reduce_normal_denominator_over_constant_field(
         denominator_bound,
         derivative_coefficient,
         solution_coefficient,
-        quotient*rhs_numerator,
+        quotient * rhs_numerator,
     )
 
 
@@ -4949,20 +4633,13 @@ def _solve_polynomial_rde_over_constant_field(
             x,
             domain=domain,
         )
-        new_residual = residual - term.diff() - coefficient*term
-        if (
-            not new_residual.is_zero
-            and new_residual.degree() >= residual.degree()
-        ):
-            raise ValueError(
-                "constant-field polynomial RDE degree did not decrease"
-            )
+        new_residual = residual - term.diff() - coefficient * term
+        if not new_residual.is_zero and new_residual.degree() >= residual.degree():
+            raise ValueError("constant-field polynomial RDE degree did not decrease")
         solution += term
         residual = new_residual
-    if solution.diff() + coefficient*solution != right_hand_side:
-        raise ValueError(
-            "constant-field polynomial RDE reconstruction failed"
-        )
+    if solution.diff() + coefficient * solution != right_hand_side:
+        raise ValueError("constant-field polynomial RDE reconstruction failed")
     return _DomainPolynomialRDEResult(solution, degree_bound)
 
 
@@ -4993,13 +4670,11 @@ def _solve_spde_over_constant_field(
     while True:
         if right_hand_side.is_zero:
             if (
-                original_derivative_coefficient*beta.diff()
-                + original_solution_coefficient*beta
+                original_derivative_coefficient * beta.diff()
+                + original_solution_coefficient * beta
                 != original_rhs
             ):
-                raise ValueError(
-                    "constant-field SPDE zero-tail reconstruction failed"
-                )
+                raise ValueError("constant-field SPDE zero-tail reconstruction failed")
             return _DomainSPDEResult(beta, None)
         if current_bound < 0:
             return _DomainSPDEResult(
@@ -5028,9 +4703,7 @@ def _solve_spde_over_constant_field(
             normalized_coefficient = solution_coefficient.mul_ground(
                 inverse_leading_coefficient
             )
-            normalized_rhs = right_hand_side.mul_ground(
-                inverse_leading_coefficient
-            )
+            normalized_rhs = right_hand_side.mul_ground(inverse_leading_coefficient)
             polynomial_result = _solve_polynomial_rde_over_constant_field(
                 normalized_coefficient,
                 normalized_rhs,
@@ -5048,28 +4721,24 @@ def _solve_spde_over_constant_field(
                     None,
                     RationalRDEObstruction.SPDE_DEGREE,
                 )
-            solution = alpha*tail + beta
+            solution = alpha * tail + beta
             if (
-                original_derivative_coefficient*solution.diff()
-                + original_solution_coefficient*solution
+                original_derivative_coefficient * solution.diff()
+                + original_solution_coefficient * solution
                 != original_rhs
             ):
-                raise ValueError(
-                    "constant-field SPDE reconstruction failed"
-                )
+                raise ValueError("constant-field SPDE reconstruction failed")
             return _DomainSPDEResult(solution, None)
 
         inverse = invert(solution_coefficient, derivative_coefficient)
-        residue = (right_hand_side*inverse).rem(
+        residue = (right_hand_side * inverse).rem(derivative_coefficient)
+        quotient = (right_hand_side - solution_coefficient * residue).exquo(
             derivative_coefficient
         )
-        quotient = (
-            right_hand_side - solution_coefficient*residue
-        ).exquo(derivative_coefficient)
         right_hand_side = quotient - residue.diff()
         solution_coefficient += derivative_coefficient.diff()
         current_bound -= derivative_coefficient.degree()
-        beta += alpha*residue
+        beta += alpha * residue
         alpha *= derivative_coefficient
 
 
@@ -5105,9 +4774,7 @@ def _solve_rde_over_constant_field(
             domain,
         )
     )
-    normalized_rhs = cancel(
-        normalization_factor.as_expr()*right_hand_side
-    )
+    normalized_rhs = cancel(normalization_factor.as_expr() * right_hand_side)
     if normalized_rhs == 0:
         return _DomainRDEResult(
             S.Zero,
@@ -5118,13 +4785,11 @@ def _solve_rde_over_constant_field(
             0,
         )
 
-    denominator_reduction = (
-        _reduce_normal_denominator_over_constant_field(
-            normalized_coefficient,
-            normalized_rhs,
-            x,
-            domain,
-        )
+    denominator_reduction = _reduce_normal_denominator_over_constant_field(
+        normalized_coefficient,
+        normalized_rhs,
+        x,
+        domain,
     )
     equation = denominator_reduction.equation
     if equation is None:
@@ -5172,14 +4837,8 @@ def _solve_rde_over_constant_field(
             * denominator_reduction.denominator_bound.as_expr()
         )
     )
-    if cancel(
-        solution.diff(x)
-        + coefficient*solution
-        - right_hand_side
-    ) != 0:
-        raise ValueError(
-            "constant-field rational RDE reconstruction failed"
-        )
+    if cancel(solution.diff(x) + coefficient * solution - right_hand_side) != 0:
+        raise ValueError("constant-field rational RDE reconstruction failed")
     return _DomainRDEResult(
         solution,
         None,
@@ -5206,20 +4865,15 @@ def _real_candidate_denominator(
 ) -> tuple[Poly, int]:
     """Return the least real common denominator and numerator-degree shift."""
     x = normalization_factor.gens[0]
-    gaussian_denominator = normalization_factor*denominator_bound
-    conjugate_denominator = _conjugate_gaussian_polynomial(
-        gaussian_denominator
-    )
-    real_common = gaussian_denominator.lcm(
-        conjugate_denominator
-    ).monic()
+    gaussian_denominator = normalization_factor * denominator_bound
+    conjugate_denominator = _conjugate_gaussian_polynomial(gaussian_denominator)
+    real_common = gaussian_denominator.lcm(conjugate_denominator).monic()
     real_coefficients = {}
     for monomial, coefficient in real_common.terms():
         coefficient = QQ_I.convert(coefficient)
         if coefficient.y != 0:
             raise ValueError(
-                "Gaussian common denominator unexpectedly has "
-                "nonreal coefficients"
+                "Gaussian common denominator unexpectedly has nonreal coefficients"
             )
         real_coefficients[monomial] = QQ.convert(coefficient.x)
     real_denominator = Poly.from_dict(
@@ -5227,9 +4881,7 @@ def _real_candidate_denominator(
         x,
         domain=QQ,
     ).monic()
-    numerator_degree_shift = (
-        real_common.degree() - gaussian_denominator.degree()
-    )
+    numerator_degree_shift = real_common.degree() - gaussian_denominator.degree()
     return real_denominator, numerator_degree_shift
 
 
@@ -5239,8 +4891,8 @@ def _split_gaussian_rational(
 ) -> tuple[Expr, Expr]:
     """Split a member of ``QQ_I(x)`` into canonical real rational parts."""
     conjugate = cancel(value.xreplace({I: -I}))
-    real_part = cancel((value + conjugate)/2)
-    imaginary_part = cancel((value - conjugate)/(2*I))
+    real_part = cancel((value + conjugate) / 2)
+    imaginary_part = cancel((value - conjugate) / (2 * I))
     real_part, _, _ = _as_qq_rational(real_part, x)
     imaginary_part, _, _ = _as_qq_rational(imaginary_part, x)
     return real_part, imaginary_part
@@ -5254,8 +4906,8 @@ def _solve_coupled_rational_rotation(
 ) -> CoupledRationalRDEResult:
     """Solve a rational rotation through one Gaussian scalar RDE."""
     scalar_result = _solve_rde_over_constant_field(
-        I*lambda_coefficient,
-        real_rhs + I*imaginary_rhs,
+        I * lambda_coefficient,
+        real_rhs + I * imaginary_rhs,
         x,
         QQ_I,
     )
@@ -5269,15 +4921,9 @@ def _solve_coupled_rational_rotation(
             None,
             Poly(1, x, domain=QQ),
             0,
-            gaussian_normalization_factor=(
-                scalar_result.normalization_factor
-            ),
-            gaussian_normalized_coefficient=(
-                scalar_result.normalized_coefficient
-            ),
-            gaussian_denominator_bound=(
-                scalar_result.denominator_bound
-            ),
+            gaussian_normalization_factor=(scalar_result.normalization_factor),
+            gaussian_normalized_coefficient=(scalar_result.normalized_coefficient),
+            gaussian_denominator_bound=(scalar_result.denominator_bound),
         )
     real_denominator, numerator_degree_shift = _real_candidate_denominator(
         scalar_result.normalization_factor,
@@ -5289,16 +4935,12 @@ def _solve_coupled_rational_rotation(
         else scalar_result.degree_bound + numerator_degree_shift
     )
     obstruction_map = {
-        RationalRDEObstruction.DENOMINATOR: (
-            CoupledRDEObstruction.DENOMINATOR
-        ),
+        RationalRDEObstruction.DENOMINATOR: (CoupledRDEObstruction.DENOMINATOR),
         RationalRDEObstruction.SPDE_DEGREE: CoupledRDEObstruction.DEGREE,
         RationalRDEObstruction.SPDE_DIVISIBILITY: (
             CoupledRDEObstruction.NONZERO_REMAINDER
         ),
-        RationalRDEObstruction.POLYNOMIAL: (
-            CoupledRDEObstruction.NONZERO_REMAINDER
-        ),
+        RationalRDEObstruction.POLYNOMIAL: (CoupledRDEObstruction.NONZERO_REMAINDER),
     }
     if scalar_result.solution is None:
         if scalar_result.obstruction is None:
@@ -5312,22 +4954,12 @@ def _solve_coupled_rational_rotation(
             obstruction_map[scalar_result.obstruction],
             real_denominator,
             real_degree_bound,
-            gaussian_normalization_factor=(
-                scalar_result.normalization_factor
-            ),
-            gaussian_normalized_coefficient=(
-                scalar_result.normalized_coefficient
-            ),
-            gaussian_denominator_bound=(
-                scalar_result.denominator_bound
-            ),
+            gaussian_normalization_factor=(scalar_result.normalization_factor),
+            gaussian_normalized_coefficient=(scalar_result.normalized_coefficient),
+            gaussian_denominator_bound=(scalar_result.denominator_bound),
             gaussian_obstruction=scalar_result.obstruction,
-            gaussian_obstruction_polynomial=(
-                scalar_result.obstruction_polynomial
-            ),
-            gaussian_obstruction_remainder=(
-                scalar_result.obstruction_remainder
-            ),
+            gaussian_obstruction_polynomial=(scalar_result.obstruction_polynomial),
+            gaussian_obstruction_remainder=(scalar_result.obstruction_remainder),
         )
 
     real_solution, imaginary_solution = _split_gaussian_rational(
@@ -5336,21 +4968,17 @@ def _solve_coupled_rational_rotation(
     )
     if (
         cancel(
-            real_solution.diff(x)
-            - lambda_coefficient*imaginary_solution
-            - real_rhs
+            real_solution.diff(x) - lambda_coefficient * imaginary_solution - real_rhs
         )
         != 0
         or cancel(
             imaginary_solution.diff(x)
-            + lambda_coefficient*real_solution
+            + lambda_coefficient * real_solution
             - imaginary_rhs
         )
         != 0
     ):
-        raise ValueError(
-            "rational-rotation coupled RDE reconstruction failed"
-        )
+        raise ValueError("rational-rotation coupled RDE reconstruction failed")
     return CoupledRationalRDEResult(
         lambda_coefficient,
         real_rhs,
@@ -5361,9 +4989,7 @@ def _solve_coupled_rational_rotation(
         real_denominator,
         real_degree_bound,
         gaussian_normalization_factor=scalar_result.normalization_factor,
-        gaussian_normalized_coefficient=(
-            scalar_result.normalized_coefficient
-        ),
+        gaussian_normalized_coefficient=(scalar_result.normalized_coefficient),
         gaussian_denominator_bound=scalar_result.denominator_bound,
     )
 
@@ -5392,8 +5018,8 @@ def solve_coupled_rational_rde(
     """
     if not isinstance(x, Symbol):
         raise TypeError("the differentiation variable must be a Symbol")
-    lambda_expression, lambda_numerator, lambda_denominator = (
-        _as_qq_rational(lambda_coefficient, x)
+    lambda_expression, lambda_numerator, lambda_denominator = _as_qq_rational(
+        lambda_coefficient, x
     )
     if lambda_numerator.is_zero:
         raise ValueError("the coupled rotation coefficient must be nonzero")
@@ -5401,8 +5027,8 @@ def solve_coupled_rational_rde(
         real_right_hand_side,
         x,
     )
-    imaginary_rhs, imaginary_numerator, imaginary_denominator = (
-        _as_qq_rational(imaginary_right_hand_side, x)
+    imaginary_rhs, imaginary_numerator, imaginary_denominator = _as_qq_rational(
+        imaginary_right_hand_side, x
     )
     if lambda_denominator.degree() > 0:
         return _solve_coupled_rational_rotation(
@@ -5414,24 +5040,19 @@ def solve_coupled_rational_rde(
     lambda_coefficient = Poly(lambda_expression, x, domain=QQ)
 
     common_denominator = real_denominator.lcm(imaginary_denominator)
-    common_real_numerator = (
-        real_numerator*common_denominator.exquo(real_denominator)
-    )
-    common_imaginary_numerator = (
-        imaginary_numerator
-        * common_denominator.exquo(imaginary_denominator)
+    common_real_numerator = real_numerator * common_denominator.exquo(real_denominator)
+    common_imaginary_numerator = imaginary_numerator * common_denominator.exquo(
+        imaginary_denominator
     )
     # At a finite pole, differentiation raises the order while multiplication
     # by polynomial lambda does not.  A right-hand-side pole of order e
     # therefore forces a solution pole of order e - 1.  For a common
     # denominator D, h = gcd(D, D') has precisely those exponents.  The test
     # D | h**2 rejects a simple pole before any coefficient solving.
-    denominator_bound = common_denominator.gcd(
-        common_denominator.diff()
-    ).monic()
-    quotient, denominator_remainder = (
-        denominator_bound*denominator_bound
-    ).div(common_denominator)
+    denominator_bound = common_denominator.gcd(common_denominator.diff()).monic()
+    quotient, denominator_remainder = (denominator_bound * denominator_bound).div(
+        common_denominator
+    )
     if not denominator_remainder.is_zero:
         return CoupledRationalRDEResult(
             lambda_coefficient,
@@ -5449,9 +5070,9 @@ def solve_coupled_rational_rde(
     #
     # h*P' - h'*P - lambda*h*Q = U
     # h*Q' - h'*Q + lambda*h*P = V.
-    transformed_real_rhs = quotient*common_real_numerator
-    transformed_imaginary_rhs = quotient*common_imaginary_numerator
-    rotation = lambda_coefficient*denominator_bound
+    transformed_real_rhs = quotient * common_real_numerator
+    transformed_imaginary_rhs = quotient * common_imaginary_numerator
+    rotation = lambda_coefficient * denominator_bound
     residual_degree = _maximum_polynomial_degree(
         transformed_real_rhs,
         transformed_imaginary_rhs,
@@ -5501,14 +5122,14 @@ def solve_coupled_rational_rde(
         candidate_degree = residual_degree - rotation.degree()
         if candidate_degree < 0 or candidate_degree > current_bound:
             if (
-                denominator_bound*real_numerator_solution.diff()
-                - denominator_bound.diff()*real_numerator_solution
-                - rotation*imaginary_numerator_solution
+                denominator_bound * real_numerator_solution.diff()
+                - denominator_bound.diff() * real_numerator_solution
+                - rotation * imaginary_numerator_solution
                 + real_residual
                 != transformed_real_rhs
-                or denominator_bound*imaginary_numerator_solution.diff()
-                - denominator_bound.diff()*imaginary_numerator_solution
-                + rotation*real_numerator_solution
+                or denominator_bound * imaginary_numerator_solution.diff()
+                - denominator_bound.diff() * imaginary_numerator_solution
+                + rotation * real_numerator_solution
                 + imaginary_residual
                 != transformed_imaginary_rhs
             ):
@@ -5529,41 +5150,31 @@ def solve_coupled_rational_rde(
             )
 
         real_leading_residual = real_residual.nth(residual_degree)
-        imaginary_leading_residual = imaginary_residual.nth(
-            residual_degree
-        )
+        imaginary_leading_residual = imaginary_residual.nth(residual_degree)
         # The rotation terms have one degree more than the derivative terms
         # (at least), so their invertible 2-by-2 leading matrix uniquely fixes
         # the next coefficients of P and Q.
         real_term = Poly.from_dict(
-            {
-                (candidate_degree,): (
-                    imaginary_leading_residual/rotation.LC()
-                )
-            },
+            {(candidate_degree,): (imaginary_leading_residual / rotation.LC())},
             x,
             domain=QQ,
         )
         imaginary_term = Poly.from_dict(
-            {
-                (candidate_degree,): (
-                    -real_leading_residual/rotation.LC()
-                )
-            },
+            {(candidate_degree,): (-real_leading_residual / rotation.LC())},
             x,
             domain=QQ,
         )
         new_real_residual = (
             real_residual
-            - denominator_bound*real_term.diff()
-            + denominator_bound.diff()*real_term
-            + rotation*imaginary_term
+            - denominator_bound * real_term.diff()
+            + denominator_bound.diff() * real_term
+            + rotation * imaginary_term
         )
         new_imaginary_residual = (
             imaginary_residual
-            - denominator_bound*imaginary_term.diff()
-            + denominator_bound.diff()*imaginary_term
-            - rotation*real_term
+            - denominator_bound * imaginary_term.diff()
+            + denominator_bound.diff() * imaginary_term
+            - rotation * real_term
         )
         new_degree = _maximum_polynomial_degree(
             new_real_residual,
@@ -5579,23 +5190,20 @@ def solve_coupled_rational_rde(
         current_bound = candidate_degree - 1
 
     real_solution = cancel(
-        real_numerator_solution.as_expr()/denominator_bound.as_expr()
+        real_numerator_solution.as_expr() / denominator_bound.as_expr()
     )
     imaginary_solution = cancel(
-        imaginary_numerator_solution.as_expr()
-        / denominator_bound.as_expr()
+        imaginary_numerator_solution.as_expr() / denominator_bound.as_expr()
     )
     lambda_expression = lambda_coefficient.as_expr()
     if (
         cancel(
-            real_solution.diff(x)
-            - lambda_expression*imaginary_solution
-            - real_rhs
+            real_solution.diff(x) - lambda_expression * imaginary_solution - real_rhs
         )
         != 0
         or cancel(
             imaginary_solution.diff(x)
-            + lambda_expression*real_solution
+            + lambda_expression * real_solution
             - imaginary_rhs
         )
         != 0
@@ -5631,19 +5239,15 @@ def solve_hyperexponential_coupled_laurent_rde(
     extension = _hyperexponential_laurent_rde_extension(derivation)
     field = extension.field
     parent = extension.parent_field
-    diagonal_element, diagonal_terms = (
-        _hyperexponential_laurent_coefficients(
-            diagonal_coefficient,
-            extension,
-            "diagonal coefficient",
-        )
+    diagonal_element, diagonal_terms = _hyperexponential_laurent_coefficients(
+        diagonal_coefficient,
+        extension,
+        "diagonal coefficient",
     )
-    rotation_element, rotation_terms = (
-        _hyperexponential_laurent_coefficients(
-            rotation_coefficient,
-            extension,
-            "rotation coefficient",
-        )
+    rotation_element, rotation_terms = _hyperexponential_laurent_coefficients(
+        rotation_coefficient,
+        extension,
+        "rotation coefficient",
     )
     if any(power != 0 for power in diagonal_terms):
         raise NotImplementedError(
@@ -5660,12 +5264,10 @@ def solve_hyperexponential_coupled_laurent_rde(
         extension,
         "real right-hand side",
     )
-    imaginary_rhs, imaginary_terms = (
-        _hyperexponential_laurent_coefficients(
-            imaginary_right_hand_side,
-            extension,
-            "imaginary right-hand side",
-        )
+    imaginary_rhs, imaginary_terms = _hyperexponential_laurent_coefficients(
+        imaginary_right_hand_side,
+        extension,
+        "imaginary right-hand side",
     )
     diagonal_lower = diagonal_terms.get(0, parent.zero)
     rotation_lower = rotation_terms.get(0, parent.zero)
@@ -5680,9 +5282,7 @@ def solve_hyperexponential_coupled_laurent_rde(
     for power in sorted(set(real_terms) | set(imaginary_terms)):
         real_coefficient = real_terms.get(power, parent.zero)
         imaginary_coefficient = imaginary_terms.get(power, parent.zero)
-        shifted_diagonal = (
-            diagonal_lower + parent.convert(power)*eta
-        )
+        shifted_diagonal = diagonal_lower + parent.convert(power) * eta
         lower_result = _solve_general_coupled_risch_differential_equation(
             shifted_diagonal,
             rotation_lower,
@@ -5704,9 +5304,7 @@ def solve_hyperexponential_coupled_laurent_rde(
                 lower_result.real_solution is None
                 or lower_result.imaginary_solution is None
             ):
-                raise ValueError(
-                    "a solved lower coupled RDE lacks its solution pair"
-                )
+                raise ValueError("a solved lower coupled RDE lacks its solution pair")
             partial_real += _hyperexponential_laurent_term(
                 lower_result.real_solution,
                 power,
@@ -5729,10 +5327,7 @@ def solve_hyperexponential_coupled_laurent_rde(
                 extension,
             )
 
-    has_obstruction = (
-        real_residual != field.zero
-        or imaginary_residual != field.zero
-    )
+    has_obstruction = real_residual != field.zero or imaginary_residual != field.zero
     result = CoupledHyperexponentialLaurentRDEResult(
         derivation,
         diagonal_element,
@@ -5759,22 +5354,16 @@ def _hypertangent_extension(derivation: Derivation) -> MonomialExtension:
     """Validate a hypertangent top level for coupled polynomial solving."""
     if derivation.level < 1:
         raise TypeError(
-            "hypertangent coupled RDE solving requires a nonconstant "
-            "lower field"
+            "hypertangent coupled RDE solving requires a nonconstant lower field"
         )
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise NotImplementedError(
-            "hypertangent coupled RDE solving does not support algebraic "
-            "tower levels"
+            "hypertangent coupled RDE solving does not support algebraic tower levels"
         )
     if extension.family is not MonomialFamily.HYPERTANGENT:
-        raise ValueError(
-            "hypertangent coupled RDE solving requires Dt = eta*(1+t**2)"
-        )
-    extension.require_preserved_constants(
-        "hypertangent coupled RDE solving"
-    )
+        raise ValueError("hypertangent coupled RDE solving requires Dt = eta*(1+t**2)")
+    extension.require_preserved_constants("hypertangent coupled RDE solving")
     return extension
 
 
@@ -5833,9 +5422,7 @@ def _zero_hypertangent_coupled_result(
         recursive_result=recursive_result,
     )
     if not result.reconstructs:
-        raise ValueError(
-            "hypertangent coupled failure certificate did not reconstruct"
-        )
+        raise ValueError("hypertangent coupled failure certificate did not reconstruct")
     return result
 
 
@@ -5877,16 +5464,12 @@ def solve_hypertangent_coupled_cancellation_rde(
         extension,
     )
     diagonal = Poly(
-        parent.to_sympy(base_diagonal)
-        - degree_bound*parent.to_sympy(eta)*t,
+        parent.to_sympy(base_diagonal) - degree_bound * parent.to_sympy(eta) * t,
         t,
         domain=parent,
     )
     maximum_rhs_degree = _maximum_polynomial_degree(real_rhs, imaginary_rhs)
-    if (
-        maximum_rhs_degree is not None
-        and maximum_rhs_degree > degree_bound
-    ):
+    if maximum_rhs_degree is not None and maximum_rhs_degree > degree_bound:
         return _zero_hypertangent_coupled_result(
             derivation,
             CoupledHypertangentPolynomialRDEMode.CANCELLATION,
@@ -5922,9 +5505,7 @@ def solve_hypertangent_coupled_cancellation_rde(
             boundary_result.real_solution is None
             or boundary_result.imaginary_solution is None
         ):
-            raise ValueError(
-                "a solved tangent boundary system lacks its solution pair"
-            )
+            raise ValueError("a solved tangent boundary system lacks its solution pair")
         real_solution = Poly(
             parent.to_sympy(boundary_result.real_solution),
             t,
@@ -5954,22 +5535,14 @@ def solve_hypertangent_coupled_cancellation_rde(
             boundary_result=boundary_result,
         )
         if not result.reconstructs:
-            raise ValueError(
-                "tangent cancellation base case failed to reconstruct"
-            )
+            raise ValueError("tangent cancellation base case failed to reconstruct")
         return result
 
-    real_at_i, real_at_i_imaginary = _polynomial_at_i_coordinates(
-        real_rhs
-    )
-    imaginary_at_i_real, imaginary_at_i = _polynomial_at_i_coordinates(
-        imaginary_rhs
-    )
+    real_at_i, real_at_i_imaginary = _polynomial_at_i_coordinates(real_rhs)
+    imaginary_at_i_real, imaginary_at_i = _polynomial_at_i_coordinates(imaginary_rhs)
     boundary_real = real_at_i - imaginary_at_i
-    boundary_imaginary = (
-        real_at_i_imaginary + imaginary_at_i_real
-    )
-    shifted_rotation = rotation - parent.convert(degree_bound)*eta
+    boundary_imaginary = real_at_i_imaginary + imaginary_at_i_real
+    shifted_rotation = rotation - parent.convert(degree_bound) * eta
     boundary_result = _solve_general_coupled_risch_differential_equation(
         base_diagonal,
         shifted_rotation,
@@ -5993,18 +5566,15 @@ def solve_hypertangent_coupled_cancellation_rde(
         boundary_result.real_solution is None
         or boundary_result.imaginary_solution is None
     ):
-        raise ValueError(
-            "a solved tangent boundary system lacks its solution pair"
-        )
+        raise ValueError("a solved tangent boundary system lacks its solution pair")
     s1 = parent.convert(boundary_result.real_solution)
     s2 = parent.convert(boundary_result.imaginary_solution)
-    n_eta = parent.convert(degree_bound)*eta
+    n_eta = parent.convert(degree_bound) * eta
     real_numerator = (
         real_rhs
         - Poly(parent.to_sympy(boundary_real), t, domain=parent)
         + Poly(
-            parent.to_sympy(n_eta)
-            * (parent.to_sympy(s1)*t + parent.to_sympy(s2)),
+            parent.to_sympy(n_eta) * (parent.to_sympy(s1) * t + parent.to_sympy(s2)),
             t,
             domain=parent,
         )
@@ -6013,8 +5583,7 @@ def solve_hypertangent_coupled_cancellation_rde(
         imaginary_rhs
         - Poly(parent.to_sympy(boundary_imaginary), t, domain=parent)
         + Poly(
-            parent.to_sympy(n_eta)
-            * (parent.to_sympy(s2)*t - parent.to_sympy(s1)),
+            parent.to_sympy(n_eta) * (parent.to_sympy(s2) * t - parent.to_sympy(s1)),
             t,
             domain=parent,
         )
@@ -6022,15 +5591,13 @@ def solve_hypertangent_coupled_cancellation_rde(
     top_generator = Poly(t, t, domain=parent)
     special = Poly(t**2 + 1, t, domain=parent)
     reduced_real, real_remainder = (
-        top_generator*real_numerator - imaginary_numerator
+        top_generator * real_numerator - imaginary_numerator
     ).div(special)
     reduced_imaginary, imaginary_remainder = (
-        real_numerator + top_generator*imaginary_numerator
+        real_numerator + top_generator * imaginary_numerator
     ).div(special)
     if not real_remainder.is_zero or not imaginary_remainder.is_zero:
-        raise ValueError(
-            "tangent cancellation numerator is not divisible by t - i"
-        )
+        raise ValueError("tangent cancellation numerator is not divisible by t - i")
 
     recursive_result = solve_hypertangent_coupled_cancellation_rde(
         base_diagonal,
@@ -6057,16 +5624,14 @@ def solve_hypertangent_coupled_cancellation_rde(
         recursive_result.real_solution is None
         or recursive_result.imaginary_solution is None
     ):
-        raise ValueError(
-            "a solved recursive tangent system lacks its solution pair"
-        )
+        raise ValueError("a solved recursive tangent system lacks its solution pair")
     real_solution = (
-        recursive_result.real_solution*top_generator
+        recursive_result.real_solution * top_generator
         + recursive_result.imaginary_solution
         + Poly(parent.to_sympy(s1), t, domain=parent)
     )
     imaginary_solution = (
-        recursive_result.imaginary_solution*top_generator
+        recursive_result.imaginary_solution * top_generator
         - recursive_result.real_solution
         + Poly(parent.to_sympy(s2), t, domain=parent)
     )
@@ -6074,9 +5639,7 @@ def solve_hypertangent_coupled_cancellation_rde(
         real_solution.degree() > degree_bound
         or imaginary_solution.degree() > degree_bound
     ):
-        raise ValueError(
-            "tangent cancellation recurrence exceeded its degree bound"
-        )
+        raise ValueError("tangent cancellation recurrence exceeded its degree bound")
     zero = real_rhs.zero
     result = CoupledHypertangentPolynomialRDEResult(
         derivation,
@@ -6097,9 +5660,7 @@ def solve_hypertangent_coupled_cancellation_rde(
         recursive_result=recursive_result,
     )
     if not result.reconstructs:
-        raise ValueError(
-            "tangent cancellation recurrence failed to reconstruct"
-        )
+        raise ValueError("tangent cancellation recurrence failed to reconstruct")
     return result
 
 
@@ -6163,12 +5724,10 @@ def _solve_hypertangent_coupled_no_cancellation(
                     "tangent no-cancellation obstruction did not reconstruct"
                 )
             return result
-        divisor = parent.convert(correction_degree)*eta
-        real_coefficient = (
-            parent.convert(real_residual.nth(residual_degree))/divisor
-        )
+        divisor = parent.convert(correction_degree) * eta
+        real_coefficient = parent.convert(real_residual.nth(residual_degree)) / divisor
         imaginary_coefficient = (
-            parent.convert(imaginary_residual.nth(residual_degree))/divisor
+            parent.convert(imaginary_residual.nth(residual_degree)) / divisor
         )
         real_correction = Poly.from_dict(
             {(correction_degree,): real_coefficient},
@@ -6183,23 +5742,21 @@ def _solve_hypertangent_coupled_no_cancellation(
         new_real_residual = (
             real_residual
             - derivation.polynomial(real_correction)
-            - diagonal*real_correction
+            - diagonal * real_correction
             + imaginary_correction.mul_ground(rotation_coefficient)
         )
         new_imaginary_residual = (
             imaginary_residual
             - derivation.polynomial(imaginary_correction)
             - real_correction.mul_ground(rotation_coefficient)
-            - diagonal*imaginary_correction
+            - diagonal * imaginary_correction
         )
         new_degree = _maximum_polynomial_degree(
             new_real_residual,
             new_imaginary_residual,
         )
         if new_degree is not None and new_degree >= residual_degree:
-            raise ValueError(
-                "tangent no-cancellation recurrence did not lower degree"
-            )
+            raise ValueError("tangent no-cancellation recurrence did not lower degree")
         corrections.append(
             CoupledHypertangentPolynomialRDECorrection(
                 correction_degree,
@@ -6243,17 +5800,10 @@ def _solve_hypertangent_coupled_no_cancellation(
             boundary_result=lower_result,
         )
         if not result.reconstructs:
-            raise ValueError(
-                "tangent lower-field obstruction did not reconstruct"
-            )
+            raise ValueError("tangent lower-field obstruction did not reconstruct")
         return result
-    if (
-        lower_result.real_solution is None
-        or lower_result.imaginary_solution is None
-    ):
-        raise ValueError(
-            "a solved tangent constant system lacks its solution pair"
-        )
+    if lower_result.real_solution is None or lower_result.imaginary_solution is None:
+        raise ValueError("a solved tangent constant system lacks its solution pair")
     real_solution += Poly(
         parent.to_sympy(lower_result.real_solution),
         t,
@@ -6283,9 +5833,7 @@ def _solve_hypertangent_coupled_no_cancellation(
         boundary_result=lower_result,
     )
     if not result.reconstructs:
-        raise ValueError(
-            "tangent no-cancellation recurrence failed to reconstruct"
-        )
+        raise ValueError("tangent no-cancellation recurrence failed to reconstruct")
     return result
 
 
@@ -6341,7 +5889,7 @@ def solve_hypertangent_coupled_polynomial_rde(
         )
     eta = parent.convert(extension.generator_derivative.nth(2))
     cancellation_degree = _positive_integer_in_domain(
-        -parent.convert(diagonal.nth(1))/eta,
+        -parent.convert(diagonal.nth(1)) / eta,
         parent,
     )
     if cancellation_degree is None:
@@ -6387,23 +5935,17 @@ def _require_supported_coupled_tower(
     derivation: Derivation,
 ) -> None:
     """Validate the monomial families understood by coupled recursion."""
-    if not _is_standard_rational_derivation(
-        Derivation(derivation.tower, 0)
-    ):
+    if not _is_standard_rational_derivation(Derivation(derivation.tower, 0)):
         raise NotImplementedError(
             "recursive coupled RDEs require the standard QQ(x) base"
         )
     for level in range(1, derivation.level + 1):
         extension = derivation.tower.levels[level]
-        if (
-            not isinstance(extension, MonomialExtension)
-            or extension.family
-            not in {
-                MonomialFamily.PRIMITIVE,
-                MonomialFamily.HYPEREXPONENTIAL,
-                MonomialFamily.HYPERTANGENT,
-            }
-        ):
+        if not isinstance(extension, MonomialExtension) or extension.family not in {
+            MonomialFamily.PRIMITIVE,
+            MonomialFamily.HYPEREXPONENTIAL,
+            MonomialFamily.HYPERTANGENT,
+        }:
             raise NotImplementedError(
                 "recursive coupled RDEs currently support primitive, "
                 "hyperexponential, and hypertangent monomial levels"
@@ -6420,7 +5962,7 @@ def _coupled_tower_is_gaussian_safe(derivation: Derivation) -> bool:
             MonomialFamily.PRIMITIVE,
             MonomialFamily.HYPEREXPONENTIAL,
         }
-        for extension in derivation.tower.levels[1:derivation.level + 1]
+        for extension in derivation.tower.levels[1 : derivation.level + 1]
     )
 
 
@@ -6455,9 +5997,8 @@ def _has_direct_hyperexponential_laurent_shape(
         )
     except NotImplementedError:
         return False
-    return (
-        all(power == 0 for power in diagonal_terms)
-        and all(power == 0 for power in rotation_terms)
+    return all(power == 0 for power in diagonal_terms) and all(
+        power == 0 for power in rotation_terms
     )
 
 
@@ -6469,13 +6010,12 @@ def _split_gaussian_tower_element(
     """Split a Gaussian tower element into exact real-field coordinates."""
     expression = gaussian_field.to_sympy(value)
     conjugate = expression.xreplace({I: -I})
-    real_expression = cancel((expression + conjugate)/2)
-    imaginary_expression = cancel((expression - conjugate)/(2*I))
+    real_expression = cancel((expression + conjugate) / 2)
+    imaginary_expression = cancel((expression - conjugate) / (2 * I))
     real_part = _coerce(real_field, real_expression)
     imaginary_part = _coerce(real_field, imaginary_expression)
     reconstructed = gaussian_field.from_sympy(
-        real_field.to_sympy(real_part)
-        + I*real_field.to_sympy(imaginary_part)
+        real_field.to_sympy(real_part) + I * real_field.to_sympy(imaginary_part)
     )
     if not _field_element_is_zero(
         reconstructed - value,
@@ -6541,8 +6081,7 @@ def _solve_general_coupled_risch_differential_equation(
             )
             if result.has_solution and not result.reconstructs:
                 raise ValueError(
-                    "direct hyperexponential coupled result failed to "
-                    "reconstruct"
+                    "direct hyperexponential coupled result failed to reconstruct"
                 )
             return result
         if extension.family is MonomialFamily.HYPERTANGENT:
@@ -6586,8 +6125,7 @@ def _solve_general_coupled_risch_differential_equation(
                 )
                 if result.has_solution and not result.reconstructs:
                     raise ValueError(
-                        "direct hypertangent coupled result failed to "
-                        "reconstruct"
+                        "direct hypertangent coupled result failed to reconstruct"
                     )
                 return result
 
@@ -6613,21 +6151,18 @@ def _solve_general_coupled_risch_differential_equation(
         )
         gaussian_rhs = _coerce(
             gaussian_field,
-            real_field.to_sympy(real_rhs)
-            + I*real_field.to_sympy(imaginary_rhs),
+            real_field.to_sympy(real_rhs) + I * real_field.to_sympy(imaginary_rhs),
         )
     else:
         gaussian_diagonal = gaussian_normal_form.forward(diagonal_element)
         gaussian_rotation = gaussian_normal_form.forward(rotation_element)
-        gaussian_rhs = (
-            gaussian_normal_form.forward(real_rhs)
-            + gaussian_field.from_sympy(I)*gaussian_normal_form.forward(
-                imaginary_rhs,
-            )
+        gaussian_rhs = gaussian_normal_form.forward(
+            real_rhs
+        ) + gaussian_field.from_sympy(I) * gaussian_normal_form.forward(
+            imaginary_rhs,
         )
     scalar_result = solve_risch_differential_equation(
-        gaussian_diagonal
-        + gaussian_field.from_sympy(I)*gaussian_rotation,
+        gaussian_diagonal + gaussian_field.from_sympy(I) * gaussian_rotation,
         gaussian_rhs,
         gaussian_derivation,
     )
@@ -6642,9 +6177,7 @@ def _solve_general_coupled_risch_differential_equation(
             imaginary_right_hand_side=imaginary_rhs,
             real_solution=None,
             imaginary_solution=None,
-            obstruction=_coupled_obstruction_from_scalar(
-                scalar_result.obstruction
-            ),
+            obstruction=_coupled_obstruction_from_scalar(scalar_result.obstruction),
             scalar_result=scalar_result,
             gaussian_normal_form=gaussian_normal_form,
         )
@@ -6745,16 +6278,16 @@ def solve_bounded_coupled_rde_matrix(
     denominator = denominator.monic()
 
     basis = [
-        x**degree/denominator.as_expr()
+        x**degree / denominator.as_expr()
         for degree in range(numerator_degree_bound + 1)
     ]
     real_columns: list[Expr] = []
     imaginary_columns: list[Expr] = []
     for candidate in basis:
         real_columns.append(cancel(candidate.diff(x)))
-        imaginary_columns.append(cancel(lambda_expression*candidate))
+        imaginary_columns.append(cancel(lambda_expression * candidate))
     for candidate in basis:
-        real_columns.append(cancel(-lambda_expression*candidate))
+        real_columns.append(cancel(-lambda_expression * candidate))
         imaginary_columns.append(cancel(candidate.diff(x)))
 
     rational_expressions = [
@@ -6769,25 +6302,19 @@ def solve_bounded_coupled_rde_matrix(
         common_denominator = common_denominator.lcm(expression_denominator)
     cleared = [
         Poly(
-            cancel(expression*common_denominator.as_expr()),
+            cancel(expression * common_denominator.as_expr()),
             x,
             domain=QQ,
         )
         for expression in rational_expressions
     ]
-    unknown_count = 2*(numerator_degree_bound + 1)
+    unknown_count = 2 * (numerator_degree_bound + 1)
     cleared_real_columns = cleared[:unknown_count]
-    cleared_imaginary_columns = cleared[
-        unknown_count:2*unknown_count
-    ]
+    cleared_imaginary_columns = cleared[unknown_count : 2 * unknown_count]
     cleared_real_rhs = cleared[-2]
     cleared_imaginary_rhs = cleared[-1]
     equation_degree = max(
-        (
-            polynomial.degree()
-            for polynomial in cleared
-            if not polynomial.is_zero
-        ),
+        (polynomial.degree() for polynomial in cleared if not polynomial.is_zero),
         default=0,
     )
     coefficient_rows = []
@@ -6798,10 +6325,7 @@ def solve_bounded_coupled_rde_matrix(
     ):
         for degree in range(equation_degree + 1):
             coefficient_rows.append(
-                [
-                    QQ.convert(column.nth(degree))
-                    for column in columns
-                ]
+                [QQ.convert(column.nth(degree)) for column in columns]
             )
             rhs_rows.append([QQ.convert(rhs_polynomial.nth(degree))])
 
@@ -6851,22 +6375,16 @@ def solve_bounded_coupled_rde_matrix(
         x,
         domain=QQ,
     )
-    real_solution = cancel(
-        real_numerator.as_expr()/denominator.as_expr()
-    )
-    imaginary_solution = cancel(
-        imaginary_numerator.as_expr()/denominator.as_expr()
-    )
+    real_solution = cancel(real_numerator.as_expr() / denominator.as_expr())
+    imaginary_solution = cancel(imaginary_numerator.as_expr() / denominator.as_expr())
     if (
         cancel(
-            real_solution.diff(x)
-            - lambda_expression*imaginary_solution
-            - real_rhs
+            real_solution.diff(x) - lambda_expression * imaginary_solution - real_rhs
         )
         != 0
         or cancel(
             imaginary_solution.diff(x)
-            + lambda_expression*real_solution
+            + lambda_expression * real_solution
             - imaginary_rhs
         )
         != 0

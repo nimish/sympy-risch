@@ -1,0 +1,420 @@
+# Algebraic function-field infrastructure
+
+This document describes the exact algebraic-curve layer that supports future
+algebraic Risch algorithms. It is software infrastructure, not a tutorial and
+not an algebraic integrator.
+
+The implementation lives in
+`src/sympy_risch/algebraic_geometry.py`. It reuses SymPy for exact finite
+extensions, polynomial factorization, and `DomainMatrix` arithmetic. It adds
+the function-field structures that SymPy does not currently provide as a
+coherent exact API:
+
+- certified polynomial orders and maximal orders;
+- full-rank fractional ideals;
+- ramified and unramified finite places;
+- every place at infinity;
+- exact valuations, residue maps, and uniformizers;
+- finite local Laurent expansions;
+- differents, divisors, principal divisors, and differentials.
+
+It deliberately does **not** implement the later Risch components:
+
+- algebraic logarithmic reconstruction;
+- residue-basis descent;
+- principal- or torsion-divisor solving;
+- exactness decisions for differentials of the second kind;
+- an algebraic-curve Risch differential-equation solver.
+
+Those algorithms can now consume a tested algebraic substrate rather than
+embedding their own curve arithmetic.
+
+## Coefficient contract
+
+The current global model is one finite separable extension
+
+```text
+L = C(x)[y]/(m(y))
+```
+
+with these requirements:
+
+1. `C` is an exact characteristic-zero field.
+2. `m` is monic and irreducible over `C(x)`.
+3. SymPy can factor the univariate residue polynomials created over `C` and
+   its exact algebraic extensions.
+4. The rational base has one generator `x`.
+
+`QQ` and SymPy algebraic number fields are the primary tested constant
+domains. Positive characteristic is rejected by maximal-order construction:
+the trace-radical identity used here needs a separate inseparability and wild
+ramification treatment there.
+
+Order, ideal, and place arithmetic remains valid for a constant extension
+such as `QQ(x)(sqrt(2))`. The reported genus assumes that `C` is the exact
+constant field of `L`; the genus invariant rejects inconsistent negative
+results rather than silently treating a larger constant field as exact.
+
+## Public API
+
+| Structure | Purpose |
+| --- | --- |
+| `AlgebraicOrder` | Certified full-rank `C[x]` subring of `L` |
+| `AlgebraicFractionalIdeal` | Nonzero full-rank fractional ideal |
+| `IntegralClosureResult` | Maximal order plus all refinement evidence |
+| `FiniteAlgebraicPlace` | Closed finite place, including ramified places |
+| `InfiniteAlgebraicPlace` | Closed place above infinity |
+| `LocalLaurentExpansion` | Certified finite Laurent segment |
+| `AlgebraicDivisor` | Immutable formal sum of closed places |
+| `AlgebraicDifferential` | Differential represented as `h dx` |
+| `AlgebraicFunctionField` | Cached global owner for orders and places |
+
+The constructors `polynomial_order` and `integral_closure` are available for
+lower-level consumers. Most code should start from
+`AlgebraicFunctionField`.
+
+Refinement-step, maximality-certificate, reciprocal-chart, and union-type
+records are implementation-facing details in
+`sympy_risch.algebraic_geometry`; they are deliberately not re-exported from
+the package root. Likewise, the plane-model-only
+`sympy_risch.algebraic.unramified_finite_places` helper remains available to
+the Trager resultant implementation, but it is not the canonical place API.
+New code should use `AlgebraicFunctionField.finite_places`, which handles
+ramification and singular displayed models after normalization.
+
+## Minimal example
+
+```python
+from sympy import Poly, symbols
+from sympy.polys.domains import QQ
+
+from sympy_risch import (
+    AlgebraicExtension,
+    AlgebraicFunctionField,
+    DifferentialTower,
+    MonomialExtension,
+)
+
+x, y = symbols("x y")
+rational = DifferentialTower(QQ).extend(MonomialExtension(Poly(1, x, domain=QQ)))
+extension = AlgebraicExtension(Poly(y**2 - x, y, domain=rational.field()))
+curve = AlgebraicFunctionField(extension)
+
+branch_place = curve.finite_places(Poly(x, x, domain=QQ))[0]
+infinity = curve.infinite_places()[0]
+
+assert branch_place.ramification_index == 2
+assert branch_place.valuation(extension.field.generator) == 1
+assert infinity.valuation(extension.field.from_sympy(x)) == -2
+assert curve.principal_divisor(extension.field.from_sympy(x)).degree == 0
+assert curve.genus == 0
+```
+
+## Orders and normalization
+
+### Polynomial starting order
+
+An `AlgebraicExtension` may have rational-function coefficients, so its
+displayed generator need not be integral over `C[x]`.
+`polynomial_order(extension)` takes one common denominator `d(x)` of the
+nonleading coefficients and uses
+
+```text
+z = d(x) y.
+```
+
+The powers `1, z, ..., z^(n-1)` form a full-rank integral starting order.
+`AlgebraicOrder` then certifies:
+
+- the basis contains `1`;
+- all basis products have polynomial coordinates; and
+- the basis has full field rank.
+
+Closure and finite generation imply integrality; no floating approximation or
+root selection is involved.
+
+### Maximal-order algorithm
+
+`integral_closure` implements the characteristic-zero trace-radical and
+idealizer algorithm described in Trager's thesis.
+
+For a current order `A`:
+
+1. compute the trace-pairing discriminant;
+2. consider every irreducible `p(x)` for which `p**2` divides it;
+3. compute the trace radical of `A/pA`;
+4. compute the idealizer of that radical;
+5. replace `A` when the idealizer is strictly larger; and
+6. repeat until every candidate prime has trivial idealizer enlargement.
+
+Every strict enlargement records the monic principal-ideal identity
+
+```text
+disc(A_old) = disc(A_new) * index(A_new : A_old)**2.
+```
+
+The final result records a separate maximality certificate for each remaining
+square-discriminant prime. Verification recomputes every stored
+discriminant, index, trace radical, and idealizer rather than trusting the
+recorded evidence. Primes occurring only to the first power cannot divide an
+order index because order indices enter discriminants as squares.
+
+This algorithm finds normalization hidden by a singular plane presentation.
+For example, the model
+
+```text
+y**2 = x**2 * (x + 1)
+```
+
+starts with the nonmaximal power order `C[x][y]`; normalization adjoins
+`y/x`. The fiber over `x = 0` then has two unramified places rather than one
+spurious branch point.
+
+## Fractional ideals
+
+`AlgebraicFractionalIdeal` stores a full-rank `C[x]` lattice in the field.
+Generator matrices are reduced exactly with Smith decomposition over the PID
+`C[x]`. Construction checks stability under multiplication by the owning
+order.
+
+Implemented operations are:
+
+- containment and equality;
+- sum, product, scaling, and integer powers;
+- ideal quotients `(I : J)`;
+- inverses;
+- module intersections;
+- determinant indices; and
+- conversion between finite divisors and fractional ideals.
+
+The intersection implementation is lattice-theoretic:
+
+```text
+I intersect J = dual(dual(I) + dual(J)).
+```
+
+The temporary duals use the coordinate pairing only; the final result is
+validated again as an order ideal.
+
+Ideal arithmetic requires the exact same `AlgebraicOrder` instance. The
+global model owns one canonical maximal-order instance so place and divisor
+operations satisfy this automatically.
+
+## Finite places
+
+`AlgebraicFunctionField.finite_places(p)` decomposes an irreducible base prime
+in the maximal order, without relying on the singularities of the original
+plane equation.
+
+The residue algebra is
+
+```text
+A = O / pO.
+```
+
+In characteristic zero its nilradical is the kernel of the reduced trace
+pairing. The implementation finds and certifies a separating element `a` of
+the reduced algebra. If
+
+```text
+charpoly_A(a) = product(q_i**e_i),
+```
+
+then:
+
+- each irreducible `q_i` identifies one closed place;
+- `degree(q_i)` is its relative residue degree; and
+- `e_i` is its ramification index.
+
+The decomposition checks the fundamental identity
+
+```text
+sum(e_i * f_i) = [L : C(x)].
+```
+
+Each place stores:
+
+- its exact nested residue field;
+- the kernel prime ideal in the maximal order;
+- residue images of the order basis;
+- ramification and residue degrees; and
+- a global element in `P \ P**2`, which is a local uniformizer.
+
+This covers branch fibers, inert fibers, split fibers, and closed base points
+of degree greater than one.
+
+## Infinity
+
+Every infinite place is represented on an exact reciprocal chart.
+
+Set
+
+```text
+s = 1/x
+z = s**k y,
+```
+
+where `k` is chosen so the transformed defining polynomial is integral at
+`s = 0`. The reciprocal field receives its own certified maximal order, and
+the finite-place machinery decomposes the prime `s`.
+
+The internal reciprocal chart's forward and backward maps are exact field
+isomorphisms. `InfiniteAlgebraicPlace` maps uniformizers, valuations, local
+reductions, and Laurent expansions back to the original presentation.
+
+## Valuations and local data
+
+For a finite place `P`, valuation is normalized by `v_P(P) = 1`.
+
+For an integral element, the implementation tests membership in successive
+powers `P**k`. For a general field element, it first clears one common
+polynomial denominator and subtracts
+
+```text
+e(P/p) * ord_p(denominator).
+```
+
+The same method factors arbitrary fractional ideals at a place.
+
+`reduce_local` handles every element regular at the place, not only global
+order elements. It computes a denominator ideal, selects a denominator
+outside `P`, and reduces the resulting numerator/denominator pair.
+
+`local_expansion(element, stop=N)` returns coefficients from the element's
+valuation through `N - 1`. At each power it:
+
+1. divides by the selected uniformizer power;
+2. reduces the leading local unit;
+3. lifts that residue exactly into the maximal order; and
+4. subtracts the corresponding term.
+
+The result certifies exact reconstruction and that the remainder has
+valuation at least `N`. Coefficients below the starting valuation are known
+zeros. A coefficient at or above `N` raises `IndexError` unless the exact
+remainder is zero, because a truncated segment must not claim an uncomputed
+tail coefficient is zero.
+
+## Differents and differentials
+
+For an order basis with trace matrix `T`, the codifferent coordinate lattice
+is generated by the columns of `T**-1`. Its ideal inverse is the different.
+
+At a finite place:
+
+```text
+ord_P(h dx) = v_P(h) + v_P(Different).
+```
+
+At infinity:
+
+```text
+ord_P(h dx) =
+    v_P(h) + v_P(Different) - 2*e(P/infinity).
+```
+
+The second formula is the reciprocal identity `dx = -s**-2 ds`.
+
+General residues are computed in a true local uniformizer. If `t` is the
+place's uniformizer and `D = d/dx`, then
+
+```text
+h dx = (h / D(t)) dt.
+```
+
+The residue is the coefficient of `t**-1` in the exact local expansion. This
+works at ramified places; it does not assume the base prime itself is a
+uniformizer.
+
+## Divisors
+
+`AlgebraicDivisor` is an immutable formal sum with:
+
+- addition, subtraction, and integer scaling;
+- coefficient lookup and support;
+- positive and negative parts;
+- effectivity; and
+- residue-degree-weighted degree.
+
+Places are canonical objects owned and cached by one
+`AlgebraicFunctionField`. Divisor arithmetic intentionally requires that
+shared model identity.
+
+`principal_divisor(f)` first clears a common polynomial denominator in the
+maximal-order basis. It discovers finite support from the norm of that
+integral numerator together with the clearing denominator, computes all place
+valuations above those base primes, adds every infinite valuation, and
+certifies total degree zero. This avoids losing a zero and pole above the same
+base prime when their contributions cancel in `Norm(f)`.
+
+`ideal_divisor(I)` similarly clears a common coordinate denominator and uses
+the determinant of the resulting integral ideal together with that
+denominator. Thus opposite exponents above one split base prime cannot cancel
+out of support discovery. `ideal_divisor(I)` and `finite_ideal(D)` are inverse
+conversions for divisors supported away from infinity.
+
+The canonical divisor is the divisor of `dx`. Its degree yields
+
+```text
+genus = (degree(K) + 2) / 2.
+```
+
+No divisor-class or principal-divisor solver is hidden in these operations.
+
+## Testing contract
+
+`tests/test_algebraic_geometry.py` covers:
+
+- already maximal and nonmaximal orders;
+- hidden quadratic, cubic, and quartic normalization;
+- every discriminant-index certificate;
+- unstable-lattice rejection;
+- ideal sum, product, inverse, quotient, intersection, and powers;
+- codifferent/different inversion;
+- ramified, split, inert, and algebraic-constant fibers;
+- singular plane models whose normalized fibers split;
+- finite and infinite uniformizers;
+- exact local reduction with nontrivial denominators;
+- negative-power Laurent expansions;
+- rejection of uncomputed Laurent tail coefficients;
+- generated valuation identities;
+- branch-point and infinity residues;
+- ideal/divisor round trips, including opposite split-prime exponents;
+- principal-divisor degree zero and split-fiber norm cancellation;
+- independently recomputed and adversarially forged closure certificates; and
+- genus-zero and genus-one canonical divisors.
+
+The broader test suite continues to cover the older plane-model Trager
+resultant independently. That code remains useful for the aggregate
+unramified logarithmic coefficient polynomial; the new place layer is the
+general local substrate for its future ramified extension.
+
+## Literature mapping
+
+No paper was downloaded while implementing this module. The primary sources
+were already present locally:
+
+- `references/books/integration-in-finite-terms-fundamental-sources-2022.pdf`,
+  Trager thesis reprint, especially the integral-basis, idealizer, place, and
+  divisor chapters;
+- `references/papers/trager-1984-integration-of-algebraic-functions.pdf`;
+- `references/papers/davenport-1984-integration-on-an-algebraic-curve.pdf`;
+  and
+- `references/papers/bronstein-1991-risch-differential-equation-algebraic-curve.pdf`.
+
+See `references/README.md` for provenance and source links.
+
+## Remaining algorithm boundary
+
+The next algebraic Risch implementation may assume all of the following:
+
+1. a certified finite maximal order;
+2. exact decomposition of every requested finite prime;
+3. complete infinity-place enumeration;
+4. exact element and ideal valuations;
+5. local residue fields, reduction, lifting, and Laurent coefficients;
+6. principal and canonical divisor construction; and
+7. finite divisor/fractional-ideal conversion.
+
+It must still implement its own mathematical decision algorithms for residue
+descent, divisor-class solving, logarithmic reconstruction, and algebraic
+RDEs. Those are intentionally not infrastructure methods.

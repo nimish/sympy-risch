@@ -33,6 +33,10 @@ from sympy.polys.polytools import Poly
 from sympy.polys.rootoftools import RootSum
 
 from ._typing import FieldElement, is_field_zero
+from .hyperbolic import (
+    HyperbolicMobiusNormalForm,
+    build_hyperbolic_mobius_normal_form,
+)
 from .monomial import (
     BronsteinResidueReduction,
     HyperexponentialMonomialReduction,
@@ -54,6 +58,7 @@ from .tower import (
     MonomialFamily,
     SpecialPolynomialStatus,
     _coerce,
+    _domain_symbols,
 )
 
 MonomialLevelCertificate = (
@@ -71,9 +76,7 @@ class IntegrationObstructionKind(Enum):
     NONCONSTANT_RESIDUE = "nonconstant_residue"
     INFINITY_RESIDUE = "infinity_residue"
     REDUCED_POLYNOMIAL = "reduced_polynomial"
-    UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION = (
-        "unsolvable_risch_differential_equation"
-    )
+    UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION = "unsolvable_risch_differential_equation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +159,12 @@ class ElementaryIntegralResult:
     remainder: FieldElement
     lower_result: ElementaryIntegralResult | None
     obstruction: IntegrationObstruction | None
-    certificate: RationalElementaryReduction | MonomialLevelCertificate | None
+    certificate: (
+        RationalElementaryReduction
+        | MonomialLevelCertificate
+        | HyperbolicMobiusElementaryCertificate
+        | None
+    )
 
     @property
     def is_elementary(self) -> bool:
@@ -222,20 +230,30 @@ class ElementaryIntegralResult:
         """
         if not self.is_elementary:
             return None
-        exact_expression = self.derivation.field.to_sympy(
-            self.total_exact_part
-        )
+        exact_expression = self.derivation.field.to_sympy(self.total_exact_part)
         return exact_expression + Add(
             *(term.antiderivative for term in self.all_logarithmic_terms)
         )
 
 
+@dataclass(frozen=True, slots=True)
+class HyperbolicMobiusElementaryCertificate:
+    r"""Record an elementary decision pulled back through a Möbius normal form.
+
+    The target decision is a complete hyperexponential decision in the
+    isomorphic coordinate ``u = (1 + t)/(1 - t)``.  Keeping it intact makes
+    the transformed RDE and residue certificates inspectable without falsely
+    presenting them as reductions performed in the source coordinate.
+    """
+
+    normal_form: HyperbolicMobiusNormalForm
+    target_result: ElementaryIntegralResult
+
+
 def _is_standard_rational_level(extension: MonomialExtension) -> bool:
     """Whether ``extension`` is the standard base ``QQ(x)``, ``Dx = 1``."""
-    return (
-        extension.parent_field == QQ
-        and extension.generator_derivative
-        == Poly(1, extension.generator, domain=QQ)
+    return extension.parent_field == QQ and extension.generator_derivative == Poly(
+        1, extension.generator, domain=QQ
     )
 
 
@@ -244,7 +262,7 @@ def _root_sum_logarithm(logand: Poly, residue_factor: Poly) -> Expr:
     residue = residue_factor.gens[0]
     return RootSum(
         residue_factor,
-        Lambda(residue, residue*log(logand.as_expr())),
+        Lambda(residue, residue * log(logand.as_expr())),
         quadratic=True,
     )
 
@@ -264,13 +282,9 @@ def _logarithmic_expression(
     ):
         coefficient = reduced_function_reduction.logarithmic_coefficient
         if coefficient is None:
-            raise ValueError(
-                "a logarithmic argument needs a logarithmic coefficient"
-            )
+            raise ValueError("a logarithmic argument needs a logarithmic coefficient")
         argument = reduced_function_reduction.logarithmic_argument
-        terms.append(
-            argument.domain.to_sympy(coefficient) * log(argument.as_expr())
-        )
+        terms.append(argument.domain.to_sympy(coefficient) * log(argument.as_expr()))
     return Add(*terms)
 
 
@@ -287,14 +301,10 @@ def _monomial_logarithmic_terms(
     )
     if is_field_zero(logarithmic_derivative):
         if expression != 0:
-            raise ValueError(
-                "zero logarithmic derivative has a nonzero encoding"
-            )
+            raise ValueError("zero logarithmic derivative has a nonzero encoding")
         return ()
     if expression == 0:
-        raise ValueError(
-            "nonzero logarithmic derivative has no encoded antiderivative"
-        )
+        raise ValueError("nonzero logarithmic derivative has no encoded antiderivative")
     return (
         LogarithmicTerm(
             expression,
@@ -422,9 +432,7 @@ def _hyperexponential_level(
     if reduction.has_finite_residue_obstruction:
         kinds.append(IntegrationObstructionKind.NONCONSTANT_RESIDUE)
     if reduction.has_laurent_obstruction:
-        kinds.append(
-            IntegrationObstructionKind.UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION
-        )
+        kinds.append(IntegrationObstructionKind.UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION)
     obstruction = (
         _obstruction(derivation, kinds, reduction.remainder, reduction)
         if kinds
@@ -459,9 +467,7 @@ def _hypertangent_level(
     if common.has_infinity_obstruction:
         kinds.append(IntegrationObstructionKind.INFINITY_RESIDUE)
     if reduction.has_special_obstruction:
-        kinds.append(
-            IntegrationObstructionKind.UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION
-        )
+        kinds.append(IntegrationObstructionKind.UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION)
     obstruction = (
         _obstruction(derivation, kinds, reduction.remainder, reduction)
         if kinds
@@ -518,6 +524,113 @@ def _nonlinear_no_special_level(
     )
 
 
+def _is_hyperbolic_mobius_law(extension: MonomialExtension) -> bool:
+    r"""Whether ``Dt`` has the narrow normalizable law ``eta*(1-t**2)``."""
+    derivative = extension.generator_derivative
+    if derivative.degree() != 2:
+        return False
+    parent = extension.parent_field
+    eta = parent.convert(derivative.nth(0))
+    return (
+        not is_field_zero(eta)
+        and is_field_zero(parent.convert(derivative.nth(1)))
+        and is_field_zero(parent.convert(derivative.nth(2)) + eta)
+    )
+
+
+def _fresh_hyperbolic_target_generator(derivation: Derivation) -> Symbol:
+    """Choose a fresh internal coordinate for a hyperbolic Möbius transform."""
+    source_symbols = set(_domain_symbols(derivation.field))
+    index = 0
+    while True:
+        candidate = Symbol(f"_risch_hyperbolic_{index}")
+        if candidate not in source_symbols:
+            return candidate
+        index += 1
+
+
+def _pullback_hyperbolic_logarithmic_terms(
+    target_terms: tuple[LogarithmicTerm, ...],
+    normal_form: HyperbolicMobiusNormalForm,
+) -> tuple[LogarithmicTerm, ...]:
+    """Map encoded target logarithms back to the source Möbius coordinate."""
+    substitution = {
+        normal_form.target_generator: normal_form.inverse_generator_expression,
+    }
+    return tuple(
+        LogarithmicTerm(
+            term.antiderivative.xreplace(substitution),
+            normal_form.inverse(term.derivative),
+            term.level,
+            term.certificate,
+        )
+        for term in target_terms
+    )
+
+
+def _pullback_hyperbolic_obstruction(
+    obstruction: IntegrationObstruction | None,
+    derivation: Derivation,
+    normal_form: HyperbolicMobiusNormalForm,
+) -> IntegrationObstruction | None:
+    """Re-express a target obstruction in the source tower coordinate."""
+    if obstruction is None:
+        return None
+    if obstruction.level == derivation.level:
+        extension = derivation.tower.levels[derivation.level]
+        if not isinstance(extension, MonomialExtension):
+            raise TypeError("a hyperbolic source level must be a monomial extension")
+        generator = extension.generator
+        family = extension.family
+    else:
+        generator = obstruction.generator
+        family = obstruction.family
+    return IntegrationObstruction(
+        obstruction.level,
+        generator,
+        family,
+        obstruction.kinds,
+        normal_form.inverse(obstruction.remainder),
+        obstruction.certificate,
+    )
+
+
+def _integrate_hyperbolic_mobius_level(
+    element: FieldElement,
+    derivation: Derivation,
+) -> ElementaryIntegralResult:
+    """Integrate one exact hyperbolic Möbius law through its exponential form."""
+    normal_form = build_hyperbolic_mobius_normal_form(
+        derivation,
+        _fresh_hyperbolic_target_generator(derivation),
+    )
+    target_result = integrate_elementary(
+        normal_form.forward(element),
+        normal_form.target_derivation,
+    )
+    result = ElementaryIntegralResult(
+        derivation,
+        element,
+        normal_form.inverse(target_result.total_exact_part),
+        _pullback_hyperbolic_logarithmic_terms(
+            target_result.all_logarithmic_terms,
+            normal_form,
+        ),
+        normal_form.inverse(target_result.total_logarithmic_derivative),
+        normal_form.inverse(target_result.unintegrated_remainder),
+        None,
+        _pullback_hyperbolic_obstruction(
+            target_result.obstruction,
+            derivation,
+            normal_form,
+        ),
+        HyperbolicMobiusElementaryCertificate(normal_form, target_result),
+    )
+    if not result.reconstructs:
+        raise ValueError("hyperbolic Möbius elementary pullback failed to reconstruct")
+    return result
+
+
 def integrate_elementary(
     integrand: object,
     derivation: Derivation,
@@ -527,10 +640,11 @@ def integrate_elementary(
     Implemented tower levels are the standard rational base ``QQ(x)`` with
     ``Dx = 1`` and any finite ordering of primitive, hyperexponential, and
     hypertangent levels above it, provided every non-base level carries a
-    certified preserved-constants status. The nonlinear no-special branch is
-    additionally available when its required absence-of-special-polynomials
-    certificate is recorded on the
-    :class:`~sympy_risch.tower.MonomialExtension`.
+    certified preserved-constants status. The exact hyperbolic law
+    ``Dt = eta*(1 - t**2)`` is normalized immutably to a hyperexponential
+    coordinate. The nonlinear no-special branch is additionally available
+    when its required absence-of-special-polynomials certificate is recorded
+    on the :class:`~sympy_risch.tower.MonomialExtension`.
 
     Algebraic levels, generalized monomials without the needed structure
     theorem, and automatic tower discovery remain deliberately unsupported.
@@ -586,10 +700,11 @@ def integrate_elementary(
         level_data = _hyperexponential_level(element, derivation)
     elif extension.family is MonomialFamily.HYPERTANGENT:
         level_data = _hypertangent_level(element, derivation)
+    elif _is_hyperbolic_mobius_law(extension):
+        return _integrate_hyperbolic_mobius_level(element, derivation)
     elif (
         extension.generator_derivative.degree() >= 2
-        and extension.special_polynomial_status
-        is SpecialPolynomialStatus.ABSENT
+        and extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT
     ):
         level_data = _nonlinear_no_special_level(element, derivation)
     else:

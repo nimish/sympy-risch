@@ -118,19 +118,24 @@ The current implementation already has a strong exact-arithmetic kernel:
   algebraic extensions with SymPy's `FiniteExtension`, and differentiates
   algebraic generators implicitly.
 - `src/sympy_risch/dependency.py` provides complete parametric
-  logarithmic-derivative decisions over `QQ(x)` and recursively primitive
-  towers, plus recursive hyperexponential dependency classification.
+  logarithmic-derivative decisions for the normalized P/E/T tower contract:
+  rational and primitive fast paths, mixed relation-system fallbacks, and
+  hypertangent Gaussian normalization.
 - `src/sympy_risch/monomial.py` provides recursive radical logarithmic
-  decisions, recursive primitive reduction, direct transcendental family
-  reducers, and the supported primitive-lower hyperexponential branches.
-- `src/sympy_risch/rde.py` implements rational and polynomial RDEs,
-  weak normalization and full degree bounds for rational primitive RDE
-  coefficients, and Bronstein's recursive primitive cancellation case.
+  decisions, primitive reduction, and direct P/E/T family reducers. Its
+  nonlinear reducer is complete only under a certified absence-of-special
+  hypothesis.
+- `src/sympy_risch/rde.py` implements scalar and coupled RDEs throughout the
+  normalized P/E/T contract, including rational frontends, weak
+  normalization, denominator/degree bounds, SPDE, and direct Chapter 8
+  cancellation recurrences. General polynomial special-factor RDEs and
+  parametric RDEs remain open.
 - `src/sympy_risch/exact.py` dispatches exact derivatives at rational and
-  primitive levels.
-- `src/sympy_risch/elementary.py` recursively integrates the supported
-  transcendental tower shapes but still rejects algebraic levels and
-  incomplete special-polynomial branches.
+  normalized P/E/T levels.
+- `src/sympy_risch/elementary.py` recursively integrates any finite explicit
+  P/E/T ordering with certified preserved constants. It deliberately rejects
+  algebraic levels and general polynomial monomials whose special structure
+  has not been decided.
 - `src/sympy_risch/algebraic.py` validates algebraic extensions and implements
   algebraic Hermite reduction over `QQ(x)` with explicit, simple-radical, or
   lazily refined integral bases, plus Trager's finite-residue polynomial for
@@ -157,10 +162,10 @@ bc763f1  Reconcile recursive primitive checkpoint
 4d732c6  Complete primitive RDE weak normalization
 ```
 
-At the last reconciliation, the full test suite is:
+At the last reconciliation, the full parallel test suite is:
 
 ```text
-949 passed in 166.10s
+1274 passed in 46.74s
 ```
 
 using:
@@ -187,9 +192,9 @@ The existing design conventions to preserve are:
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Partial: result outcomes and certificate conventions exist; a machine-readable accepted-input matrix is still missing. |
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist; general constant capabilities and canonical mixed algebraic towers remain. |
-| 2. Dependency and structure decisions | Partial: radical and parametric logarithmic derivatives are total over recursively primitive towers; general mixed Chapter 9 structure decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial: polynomial/rational RDEs, rational-coefficient primitive RDEs, recursive primitive cancellation, and the rational hypertangent coupled system exist. |
-| 4. Transcendental integration | Partial: several complete explicit tower shapes exist, but arbitrary family orderings and special branches do not. |
+| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation and Gaussian fallbacks are complete over `QQ(x)`; general effective constants, fundamental signatures, and non-generator special factors remain. |
+| 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
+| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete; general polynomial special branches and expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: finite extensions, integral-basis Hermite reduction, and certified finite-residue resultants at unbranched poles exist; branch, residue-field, and divisor machinery remain. |
 | 6. Pure algebraic integration | Not started beyond its Hermite-reduction prerequisite. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
@@ -324,8 +329,10 @@ the integration algorithms.
 
 ## Milestone 2: Complete dependency and structure-theorem decisions
 
-This transcendental track is active and partially completed. It can proceed in
-parallel with the algebraic-function-field kernel.
+This transcendental track is active. The normalized P/E/T relation system is
+complete over `QQ(x)`; this milestone extends that theorem machinery to the
+remaining effective fields and general polynomial monomials. It can proceed
+in parallel with the algebraic-function-field kernel.
 
 ### 2.1 Parametric logarithmic derivative over current towers
 
@@ -335,11 +342,13 @@ Implement Bronstein §7.3 for the existing rational and primitive towers:
 n*f = D(v)/v + m*D(theta)/theta
 ```
 
-Status: complete over `QQ(x)` and recursively primitive towers, including the
-fast rational path, recursive structure fallbacks, integer normalization,
-exact witness reconstruction, Example 7.3.2, generated planted witnesses, and
-independent one-level and nested global linear-system oracles. General mixed
-transcendental towers still need the Chapter 9 fundamental-signature solver.
+Status: complete throughout the normalized P/E/T contract, including the fast
+rational and recursive primitive paths, mixed relation-system fallback,
+hypertangent Gaussian normalization, integer normalization, exact witness
+reconstruction, generated planted witnesses, and independent global
+linear-system oracles. The remaining work is to expose the underlying
+fundamental signatures and extend them to non-generator special factors and
+general effective constant fields.
 
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.
@@ -350,6 +359,10 @@ transcendental towers still need the Chapter 9 fundamental-signature solver.
   structure fallback finds the obvious solution.
 
 ### 2.2 Complex Risch structure theorem
+
+Status: the P/E/T relation compiler supplies a specialized implementation.
+Generalize it into an explicit fundamental-signature solver rather than
+duplicating its current P/E/T logic.
 
 - Compute and retain the ordered logarithmic and exponential index sets for
   the tower.
@@ -370,12 +383,20 @@ transcendental towers still need the Chapter 9 fundamental-signature solver.
 
 ### 2.3 Real structure theorem
 
+Status: hypertangent P/E/T inputs currently use an immutable Cayley Gaussian
+normal form. A direct real signature remains necessary for general special
+polynomials and for a branch-aware public presentation.
+
 - Add the tangent and arctangent index sets from Theorem 9.3.2.
 - Implement the real rational relations of Corollary 9.3.2.
 - Keep the complex Cayley transform as an independent oracle, not the only
   production presentation.
 
 ### 2.4 Special-polynomial decision
+
+Status: primitive, hyperexponential, and hypertangent special behavior is
+handled by family-specific theorems. General polynomial monomials still rely
+on manually supplied `SpecialPolynomialStatus` metadata.
 
 - Replace caller assertions of `SpecialPolynomialStatus` with an algorithmic
   decision wherever the structure theorems make it effective.
@@ -392,6 +413,11 @@ questions are total decisions. `UNKNOWN` is possible only when a declared
 effective-field prerequisite is absent.
 
 ## Milestone 3: Complete scalar, parametric, and coupled RDEs
+
+Status: scalar and coupled RDE dispatch is complete over the normalized P/E/T
+contract. The work below applies to general special polynomial monomials and
+to the public parametric/limited-integration layer; it must not reopen or
+replace the P/E/T production recurrences.
 
 ### 3.1 Scalar RDE over arbitrary supported lower towers
 
@@ -449,6 +475,10 @@ Scalar RDE, parametric RDE, limited integration, and required coupled systems
 are total over every supported explicit transcendental tower.
 
 ## Milestone 4: Complete transcendental integration
+
+Status: the primitive, hyperexponential, and hypertangent branches are
+complete for explicit certified towers. The remaining integration branch is
+the general polynomial monomial with nonconstant special factors.
 
 Using the completed RDE and dependency engines, finish every branch in
 Bronstein Chapter 5:
@@ -737,7 +767,7 @@ The dependency checkpoints completed since the roadmap was written are:
 9. [x] Consume the recursive decisions in primitive RDE cancellation,
    degree bounds, and hyperexponential dependency validation.
 
-The selected next track is algebraic:
+The algebraic track continues in parallel:
 
 10. [x] Compute Trager's nested-resultant residue polynomial for a square-free
    Hermite remainder with certified simple, unbranched finite poles.
@@ -750,18 +780,35 @@ The selected next track is algebraic:
    for the residues.
 14. [ ] Build the divisor attached to each residue-basis coefficient and solve
     its principal/torsion problem.
-15. [ ] Add finite/infinite place operations and exactness of the remaining
-    differential of the second kind.
+15. [x] Add finite/infinite place operations, valuations, and local
+    expansions.
+16. [ ] Decide exactness of the remaining differential of the second kind.
 
-The parallel transcendental backlog remains:
+The active transcendental execution order is:
 
-- [x] generalize primitive radical-logarithmic signatures recursively;
-- [x] generalize the primitive parametric fallback recursively;
-- [x] use the recursive logarithmic decision in primitive RDE cancellation
-  and degree bounds;
-- [x] add weak normalization for primitive coefficients with top-generator
-  poles; and
-- generalize the completed scalar RDE one lower-field family at a time.
+1. [x] Add a verified Möbius normal form for the hyperbolic law
+   `Dt = eta*(1 - t**2)`, with exact field maps and derivation conjugacy to
+   `Du = 2*eta*u`. This is a bounded normalization checkpoint, not a claim to
+   solve arbitrary Riccati equations.
+2. [x] Add conservative special-factor certificates for visible or
+   caller-supplied candidates. They certify `PRESENT` only; an empty search is
+   explicitly `UNKNOWN`, never an absence theorem.
+3. [ ] Build an expression-to-tower normalization layer that uses such exact
+   normal forms for `exp`, `log`, trigonometric, and hyperbolic syntax while
+   preserving a reversible source presentation.
+4. [ ] Extract the current P/E/T relation logic into explicit complex and real
+   fundamental signatures, then extend it to effective constant fields and
+   non-generator special polynomials.
+5. [ ] Solve the complete special-polynomial/Darboux problem as a distinct
+   structure-theorem milestone. In particular, testing a linear candidate
+   `t-a` requires deciding the Riccati equation `D(a) = Dt|_(t=a)`; it is not
+   a factorization-only extension of the current RDE solver.
+6. [ ] Use those decisions to implement general special-polynomial reduction,
+   then the associated scalar/parametric RDE, limited-integration, and coupled
+   branches.
+7. [ ] Add a generated coverage matrix asserting that every declared explicit
+   transcendental cell terminates constructively or with a theorem-backed
+   obstruction.
 
 Each item is a separate commit after focused and full-suite verification.
 
@@ -770,8 +817,10 @@ Each item is a separate commit after focused and full-suite verification.
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
 | Focused tests | `uv run --no-sync pytest -q tests/test_relevant_module.py` | exit 0 |
-| Ordinary suite | `uv run --no-sync pytest -q -m "not slow"` | all pass |
-| Complete suite | `uv run --no-sync pytest -q` | all pass |
+| Ruff lint | `uv run --no-sync ruff check .` | exit 0 |
+| Ruff format | `uv run --no-sync ruff format --check .` | exit 0 |
+| Type check | `uv run --no-sync ty check` | exit 0 |
+| Complete suite | `uv run --no-sync pytest -q -n auto --dist worksteal` | all pass |
 | Patch hygiene | `git diff --check` | no output, exit 0 |
 | Changed files | `git status --short` | only checkpoint files and pre-existing user changes |
 

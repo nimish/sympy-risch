@@ -44,7 +44,7 @@ def _nested_hyperexponential_tower(
     )
     return lower.extend(
         MonomialExtension(
-            Poly(x*u, u, domain=lower.field()),
+            Poly(x * u, u, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -72,7 +72,7 @@ def _adversarial_hyperexponential_tower() -> DifferentialTower:
     )
     return second.extend(
         MonomialExtension(
-            Poly(x*u, u, domain=second.field()),
+            Poly(x * u, u, domain=second.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -94,7 +94,7 @@ def _hypertangent_lower_tower() -> DifferentialTower:
     )
     return lower.extend(
         MonomialExtension(
-            Poly(x*u, u, domain=lower.field()),
+            Poly(x * u, u, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -130,7 +130,7 @@ def test_universal_nested_hyperexponential_witnesses_bypass_an_unavailable_relat
     integrands = {
         "zero": field.zero,
         "generator_logarithmic_derivative": field.from_sympy(x),
-        "normal_factor_logarithmic_derivative": derivation(factor)/factor,
+        "normal_factor_logarithmic_derivative": derivation(factor) / factor,
     }
     monkeypatch.setattr(
         dependency_module,
@@ -206,7 +206,9 @@ def test_universal_parametric_witnesses_precede_hypertangent_normalization(
     assert result.reconstructs
 
 
-def test_hyperexponential_dependency_is_transcendental_only_after_a_proved_negative() -> None:
+def test_hyperexponential_dependency_is_transcendental_only_after_a_proved_negative() -> (
+    None
+):
     """A normal dependency classification retains its lower obstruction."""
     tower = _nested_hyperexponential_tower()
     lower_derivation = tower.derivation().lower()

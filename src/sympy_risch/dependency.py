@@ -119,8 +119,7 @@ class PrimitiveExtensionAnalysis:
             return None
         return _coerce(
             self.extension.field,
-            self.extension.generator
-            - self.extension.parent_field.to_sympy(witness),
+            self.extension.generator - self.extension.parent_field.to_sympy(witness),
         )
 
 
@@ -177,9 +176,7 @@ class RationalParametricLogarithmicDerivativeResidue:
     eta_obstruction: tuple[FieldElement, ...]
     f_residue: FieldElement | None = None
     eta_residue: FieldElement | None = None
-    rationality_constraints: tuple[
-        tuple[FieldElement, FieldElement], ...
-    ] = ()
+    rationality_constraints: tuple[tuple[FieldElement, FieldElement], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,17 +280,13 @@ def _parametric_logarithmic_derivative_eta(
             "parametric logarithmic derivatives require a monomial extension"
         )
     if not isinstance(lower_derivation, Derivation):
-        raise TypeError(
-            "parametric logarithmic derivatives require a Derivation"
-        )
+        raise TypeError("parametric logarithmic derivatives require a Derivation")
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
         raise ValueError(
             "parametric logarithmic derivatives require Dtheta = eta*theta"
         )
     if extension.parent_field != lower_derivation.field:
-        raise ValueError(
-            "extension parent field does not match the lower derivation"
-        )
+        raise ValueError("extension parent field does not match the lower derivation")
     return _coerce(
         lower_derivation.field,
         extension.generator_derivative.nth(1),
@@ -344,9 +337,8 @@ def verify_parametric_logarithmic_derivative_witness(
         return False
 
     return (
-        n_integer*element
-        == lower_derivation(witness_argument)/witness_argument
-        + m_integer*eta
+        n_integer * element
+        == lower_derivation(witness_argument) / witness_argument + m_integer * eta
     )
 
 
@@ -392,9 +384,7 @@ class ParametricLogarithmicDerivativeResult:
             self.outcome,
             ParametricLogarithmicDerivativeOutcome,
         ):
-            raise TypeError(
-                "outcome must be a ParametricLogarithmicDerivativeOutcome"
-            )
+            raise TypeError("outcome must be a ParametricLogarithmicDerivativeOutcome")
 
         field = self.lower_derivation.field
         object.__setattr__(self, "f", _coerce(field, self.f))
@@ -419,7 +409,7 @@ class ParametricLogarithmicDerivativeResult:
             if n < 0:
                 n = -n
                 m = -m
-                argument = field.one/argument
+                argument = field.one / argument
 
             object.__setattr__(self, "n", n)
             object.__setattr__(self, "m", m)
@@ -431,22 +421,15 @@ class ParametricLogarithmicDerivativeResult:
                 )
             return
 
-        if (
-            self.n is not None
-            or self.m is not None
-            or self.argument is not None
-        ):
+        if self.n is not None or self.m is not None or self.argument is not None:
             raise ValueError(
                 "a nonsolution outcome cannot carry solution witness fields"
             )
         if (
-            self.outcome
-            is ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION
+            self.outcome is ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION
             and self.certificate is None
         ):
-            raise ValueError(
-                "a proved nonsolution requires an obstruction certificate"
-            )
+            raise ValueError("a proved nonsolution requires an obstruction certificate")
         if (
             self.outcome
             in {
@@ -455,9 +438,7 @@ class ParametricLogarithmicDerivativeResult:
             }
             and not self.detail
         ):
-            raise ValueError(
-                "an inconclusive or unsupported result requires a detail"
-            )
+            raise ValueError("an inconclusive or unsupported result requires a detail")
 
     @property
     def eta(self) -> FieldElement:
@@ -475,26 +456,17 @@ class ParametricLogarithmicDerivativeResult:
     @property
     def proves_no_solution(self) -> bool:
         """Whether a complete obstruction proves that no witness exists."""
-        return (
-            self.outcome
-            is ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION
-        )
+        return self.outcome is ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION
 
     @property
     def is_inconclusive(self) -> bool:
         """Whether a complete fallback must still decide the problem."""
-        return (
-            self.outcome
-            is ParametricLogarithmicDerivativeOutcome.INCONCLUSIVE
-        )
+        return self.outcome is ParametricLogarithmicDerivativeOutcome.INCONCLUSIVE
 
     @property
     def is_unsupported(self) -> bool:
         """Whether an effective-field prerequisite is unavailable."""
-        return (
-            self.outcome
-            is ParametricLogarithmicDerivativeOutcome.UNSUPPORTED
-        )
+        return self.outcome is ParametricLogarithmicDerivativeOutcome.UNSUPPORTED
 
     @property
     def reconstructs(self) -> bool:
@@ -712,16 +684,13 @@ def _uncertified_lower_tower_detail(
             "transcendental extension certification requires a supported "
             "nonconstant lower differential field"
         )
-    lower_levels = lower_derivation.tower.levels[
-        : lower_derivation.level + 1
-    ]
+    lower_levels = lower_derivation.tower.levels[: lower_derivation.level + 1]
     uncertified_level = next(
         (
             level
             for level in lower_levels
             if isinstance(level, MonomialExtension)
-            and level.constant_field_status
-            is not ConstantFieldStatus.PRESERVED
+            and level.constant_field_status is not ConstantFieldStatus.PRESERVED
         ),
         None,
     )
@@ -743,8 +712,7 @@ def _standard_rational_variable(derivation: Derivation) -> Symbol:
     """
     if derivation.level != 0:
         raise NotImplementedError(
-            "rational-base dependency analysis currently requires QQ(x) "
-            "or QQ_I(x)"
+            "rational-base dependency analysis currently requires QQ(x) or QQ_I(x)"
         )
     constants = derivation.tower.constants
     extension = derivation.tower.levels[0]
@@ -917,8 +885,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
         )
         if not consistent:
             obstruction = certificate(
-                "polynomial coefficients above the degree bound are not "
-                "proportional",
+                "polynomial coefficients above the degree bound are not proportional",
                 ratio=None,
             )
             return ParametricLogarithmicDerivativeResult(
@@ -929,9 +896,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
                 certificate=obstruction,
             )
         if candidate_ratio is None:
-            raise ValueError(
-                "a nonconstant eta polynomial part did not determine m/n"
-            )
+            raise ValueError("a nonconstant eta polynomial part did not determine m/n")
     elif p.degree() > degree_bound:
         obstruction = certificate(
             "f has polynomial degree above the bound while eta does not",
@@ -945,9 +910,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
             certificate=obstruction,
         )
     else:
-        branch = (
-            ParametricLogarithmicDerivativeHeuristicBranch.DENOMINATOR_CONGRUENCE
-        )
+        branch = ParametricLogarithmicDerivativeHeuristicBranch.DENOMINATOR_CONGRUENCE
         common_denominator = d.lcm(e)
 
         # In QQ[x] every nonconstant irreducible polynomial is normal for
@@ -970,12 +933,8 @@ def solve_parametric_logarithmic_derivative_heuristic(
                 ),
             )
 
-        scaled_f = (
-            common_denominator.exquo(d)*(p*d + a)
-        ).rem(modulus)
-        scaled_eta = (
-            common_denominator.exquo(e)*(q*e + b)
-        ).rem(modulus)
+        scaled_f = (common_denominator.exquo(d) * (p * d + a)).rem(modulus)
+        scaled_eta = (common_denominator.exquo(e) * (q * e + b)).rem(modulus)
         consistent, candidate_ratio = _rational_coefficient_ratio(
             scaled_f,
             scaled_eta,
@@ -1016,7 +975,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
     # Q*(N*f - M*eta) a rational logarithmic derivative.
     m = int(QQ.numer(candidate_ratio))
     n = int(QQ.denom(candidate_ratio))
-    residual = n*element - m*eta
+    residual = n * element - m * eta
     logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
         field.to_sympy(residual),
         variable,
@@ -1040,7 +999,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
 
     if logarithmic_power > 1:
         logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
-            logarithmic_power*field.to_sympy(residual),
+            logarithmic_power * field.to_sympy(residual),
             variable,
             constant_field,
         )
@@ -1061,8 +1020,8 @@ def solve_parametric_logarithmic_derivative_heuristic(
         lower_derivation,
         element,
         ParametricLogarithmicDerivativeOutcome.SOLUTION,
-        n=logarithmic_power*n,
-        m=logarithmic_power*m,
+        n=logarithmic_power * n,
+        m=logarithmic_power * m,
         argument=logarithmic_result.argument,
         certificate=solution_certificate,
     )
@@ -1082,12 +1041,10 @@ def _rational_residue_coefficient(
     pivot_degree = factor_degree - 1
     pivot = constant_field.convert(derivative.nth(pivot_degree))
     if pivot == constant_field.zero:
-        raise ValueError(
-            "characteristic-zero factor derivative lost its leading term"
-        )
+        raise ValueError("characteristic-zero factor derivative lost its leading term")
     return cast(
         FieldElement,
-        constant_field.convert(partial_numerator.nth(pivot_degree))/pivot
+        constant_field.convert(partial_numerator.nth(pivot_degree)) / pivot,
     )
 
 
@@ -1110,7 +1067,7 @@ def _rational_residue_obstruction(
     )
     return tuple(
         constant_field.convert(partial_numerator.nth(degree))
-        - multiple*constant_field.convert(derivative.nth(degree))
+        - multiple * constant_field.convert(derivative.nth(degree))
         for degree in range(pivot_degree)
     )
 
@@ -1131,9 +1088,7 @@ def _rational_residue_rationality_constraints(
     if constant_field == QQ:
         return ()
     if constant_field != QQ_I:
-        raise ValueError(
-            "rational residue constraints require QQ or QQ_I constants"
-        )
+        raise ValueError("rational residue constraints require QQ or QQ_I constants")
     _, f_imaginary = constant_field.to_sympy(f_residue).as_real_imag()
     _, eta_imaginary = constant_field.to_sympy(
         eta_residue,
@@ -1169,9 +1124,7 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
         heuristic_certificate,
         ParametricLogarithmicDerivativeHeuristicCertificate,
     ):
-        raise TypeError(
-            "the rational fallback requires a Section 7.3 certificate"
-        )
+        raise TypeError("the rational fallback requires a Section 7.3 certificate")
 
     extension = heuristic_result.extension
     lower_derivation = heuristic_result.lower_derivation
@@ -1189,8 +1142,7 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
 
     if p.degree() > 0 or q.degree() > 0:
         raise ValueError(
-            "an inconclusive Section 7.3 result has a nonconstant "
-            "polynomial part"
+            "an inconclusive Section 7.3 result has a nonconstant polynomial part"
         )
 
     common_denominator = d.lcm(e)
@@ -1200,27 +1152,21 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
             "an inconclusive Section 7.3 result has a repeated denominator"
         )
 
-    common_f_numerator = common_denominator.exquo(d)*a
-    common_eta_numerator = common_denominator.exquo(e)*b
+    common_f_numerator = common_denominator.exquo(d) * a
+    common_eta_numerator = common_denominator.exquo(e) * b
     constraints: list[tuple[FieldElement, FieldElement]] = [
         (
             constant_field.convert(p.nth(0)),
             constant_field.convert(q.nth(0)),
         )
     ]
-    residue_certificates: list[
-        RationalParametricLogarithmicDerivativeResidue
-    ] = []
+    residue_certificates: list[RationalParametricLogarithmicDerivativeResidue] = []
 
     for factor, _ in factorization:
         cofactor = common_denominator.exquo(factor)
         inverse_cofactor = invert(cofactor, factor)
-        f_partial_numerator = (
-            common_f_numerator*inverse_cofactor
-        ).rem(factor)
-        eta_partial_numerator = (
-            common_eta_numerator*inverse_cofactor
-        ).rem(factor)
+        f_partial_numerator = (common_f_numerator * inverse_cofactor).rem(factor)
+        eta_partial_numerator = (common_eta_numerator * inverse_cofactor).rem(factor)
         f_residue = _rational_residue_coefficient(
             f_partial_numerator,
             factor,
@@ -1293,7 +1239,7 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
 
     m = int(QQ.numer(candidate_ratio))
     n = int(QQ.denom(candidate_ratio))
-    residual = n*heuristic_result.f - m*eta
+    residual = n * heuristic_result.f - m * eta
     logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
         field.to_sympy(residual),
         variable,
@@ -1306,14 +1252,13 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
         )
     if logarithmic_power > 1:
         logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
-            logarithmic_power*field.to_sympy(residual),
+            logarithmic_power * field.to_sympy(residual),
             variable,
             constant_field,
         )
         if not logarithmic_result.has_solution:
             raise ValueError(
-                "clearing fallback logarithmic residues did not produce "
-                "an argument"
+                "clearing fallback logarithmic residues did not produce an argument"
             )
 
     certificate = RationalParametricLogarithmicDerivativeCertificate(
@@ -1331,8 +1276,8 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
         lower_derivation,
         heuristic_result.f,
         ParametricLogarithmicDerivativeOutcome.SOLUTION,
-        n=logarithmic_power*n,
-        m=logarithmic_power*m,
+        n=logarithmic_power * n,
+        m=logarithmic_power * m,
         argument=logarithmic_result.argument,
         certificate=certificate,
     )
@@ -1352,7 +1297,7 @@ def _constant_field_linear_ratio(
                 return False, None
             continue
 
-        quotient = left_element/right_element
+        quotient = left_element / right_element
         try:
             current = QQ.from_sympy(field.to_sympy(quotient))
         except CoercionFailed:
@@ -1376,18 +1321,12 @@ def _primitive_parametric_signature_constraints(
     r"""Align two primitive signatures and project away every ``QQ*Dp``."""
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
-        raise TypeError(
-            "primitive parametric constraints require a monomial level"
-        )
+        raise TypeError("primitive parametric constraints require a monomial level")
     parent = extension.parent_field
     f_polynomial = f_signature.polynomial_part
     eta_polynomial = eta_signature.polynomial_part
     maximum_degree = max(
-        (
-            polynomial.degree()
-            if not polynomial.is_zero
-            else 0
-        )
+        (polynomial.degree() if not polynomial.is_zero else 0)
         for polynomial in (f_polynomial, eta_polynomial)
     )
     polynomial_constraints = tuple(
@@ -1399,12 +1338,10 @@ def _primitive_parametric_signature_constraints(
     )
 
     f_by_expression = {
-        factor.factor.as_expr(): factor
-        for factor in f_signature.factors
+        factor.factor.as_expr(): factor for factor in f_signature.factors
     }
     eta_by_expression = {
-        factor.factor.as_expr(): factor
-        for factor in eta_signature.factors
+        factor.factor.as_expr(): factor for factor in eta_signature.factors
     }
     factor_expressions = list(f_by_expression)
     factor_expressions.extend(
@@ -1432,27 +1369,17 @@ def _primitive_parametric_signature_constraints(
         )
 
         if f_factor is None:
-            f_principal_numerators = (
-                factor.zero,
-            )*maximum_multiplicity
+            f_principal_numerators = (factor.zero,) * maximum_multiplicity
         else:
-            f_principal_numerators = f_factor.principal_numerators + (
-                factor.zero,
-            )*(
-                maximum_multiplicity
-                - len(f_factor.principal_numerators)
+            f_principal_numerators = f_factor.principal_numerators + (factor.zero,) * (
+                maximum_multiplicity - len(f_factor.principal_numerators)
             )
         if eta_factor is None:
-            eta_principal_numerators = (
-                factor.zero,
-            )*maximum_multiplicity
+            eta_principal_numerators = (factor.zero,) * maximum_multiplicity
         else:
             eta_principal_numerators = eta_factor.principal_numerators + (
                 factor.zero,
-            )*(
-                maximum_multiplicity
-                - len(eta_factor.principal_numerators)
-            )
+            ) * (maximum_multiplicity - len(eta_factor.principal_numerators))
         factor_derivative = derivation.polynomial(factor).rem(factor)
         if factor_derivative.is_zero:
             raise ValueError(
@@ -1481,15 +1408,13 @@ def _primitive_parametric_signature_constraints(
         for degree in range(factor.degree()):
             if degree == pivot_degree:
                 continue
-            derivative_coefficient = parent.convert(
-                factor_derivative.nth(degree)
-            )
+            derivative_coefficient = parent.convert(factor_derivative.nth(degree))
             factor_constraints.append(
                 (
-                    parent.convert(f_simple.nth(degree))*pivot_value
-                    - f_pivot*derivative_coefficient,
-                    parent.convert(eta_simple.nth(degree))*pivot_value
-                    - eta_pivot*derivative_coefficient,
+                    parent.convert(f_simple.nth(degree)) * pivot_value
+                    - f_pivot * derivative_coefficient,
+                    parent.convert(eta_simple.nth(degree)) * pivot_value
+                    - eta_pivot * derivative_coefficient,
                 )
             )
 
@@ -1538,9 +1463,7 @@ def _solve_primitive_parametric_logarithmic_derivative(
         raise ValueError(
             "primitive parametric solving requires a primitive lower field"
         )
-    primitive_extension = lower_derivation.tower.levels[
-        lower_derivation.level
-    ]
+    primitive_extension = lower_derivation.tower.levels[lower_derivation.level]
     if (
         not isinstance(primitive_extension, MonomialExtension)
         or primitive_extension.family is not MonomialFamily.PRIMITIVE
@@ -1660,8 +1583,7 @@ def _solve_primitive_parametric_logarithmic_derivative(
             lower_theta = Dummy("theta_lower")
             lower_extension = MonomialExtension(
                 Poly(
-                    primitive_extension.parent_field.to_sympy(eta_lower)
-                    * lower_theta,
+                    primitive_extension.parent_field.to_sympy(eta_lower) * lower_theta,
                     lower_theta,
                     domain=primitive_extension.parent_field,
                 )
@@ -1701,10 +1623,7 @@ def _solve_primitive_parametric_logarithmic_derivative(
 
     ratio_numerator = int(QQ.numer(candidate_ratio))
     ratio_denominator = int(QQ.denom(candidate_ratio))
-    integer_residual = (
-        ratio_denominator*element
-        - ratio_numerator*eta
-    )
+    integer_residual = ratio_denominator * element - ratio_numerator * eta
     residual_signature = primitive_logarithmic_derivative_signature(
         integer_residual,
         lower_derivation,
@@ -1729,8 +1648,8 @@ def _solve_primitive_parametric_logarithmic_derivative(
         lower_derivation,
         element,
         ParametricLogarithmicDerivativeOutcome.SOLUTION,
-        n=logarithmic_power*ratio_denominator,
-        m=logarithmic_power*ratio_numerator,
+        n=logarithmic_power * ratio_denominator,
+        m=logarithmic_power * ratio_numerator,
         argument=residual_signature.relation_argument,
         certificate=certificate(
             "the primitive signature constraints produced a verified witness"
@@ -1772,10 +1691,13 @@ def _solve_monomial_relation_system_parametric_logarithmic_derivative(
     element = _coerce(field, f)
     try:
         system = solve_logarithmic_relation_system(
-            (element, _parametric_logarithmic_derivative_eta(
-                extension,
-                lower_derivation,
-            )),
+            (
+                element,
+                _parametric_logarithmic_derivative_eta(
+                    extension,
+                    lower_derivation,
+                ),
+            ),
             lower_derivation,
         )
     except NotImplementedError as exc:
@@ -1801,8 +1723,7 @@ def _solve_monomial_relation_system_parametric_logarithmic_derivative(
             argument=relation.argument,
             certificate=MonomialRelationSystemParametricCertificate(
                 system,
-                "the complete monomial relation system produced a verified "
-                "witness",
+                "the complete monomial relation system produced a verified witness",
             ),
         )
 
@@ -1813,8 +1734,7 @@ def _solve_monomial_relation_system_parametric_logarithmic_derivative(
         ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
         certificate=MonomialRelationSystemParametricCertificate(
             system,
-            "no rational relation-system kernel vector has a nonzero f "
-            "coordinate",
+            "no rational relation-system kernel vector has a nonzero f coordinate",
         ),
     )
 
@@ -1877,11 +1797,7 @@ def _solve_hypertangent_parametric_logarithmic_derivative(
             lower_derivation,
             element,
             target_result.outcome,
-            certificate=(
-                certificate
-                if target_result.proves_no_solution
-                else None
-            ),
+            certificate=(certificate if target_result.proves_no_solution else None),
             detail=target_result.detail,
         )
     if (
@@ -1893,11 +1809,7 @@ def _solve_hypertangent_parametric_logarithmic_derivative(
     real_part, imaginary_part = normal_form.split_inverse(
         target_result.argument,
     )
-    argument = (
-        real_part
-        if real_part != field.zero
-        else imaginary_part
-    )
+    argument = real_part if real_part != field.zero else imaginary_part
     if argument == field.zero:
         raise ValueError("a nonzero Gaussian witness has no real coordinate")
     return ParametricLogarithmicDerivativeResult(
@@ -1983,8 +1895,7 @@ def solve_parametric_logarithmic_derivative(
                     1 : lower_derivation.level + 1
                 ]
                 if isinstance(level, MonomialExtension)
-                and level.constant_field_status
-                is not ConstantFieldStatus.PRESERVED
+                and level.constant_field_status is not ConstantFieldStatus.PRESERVED
             ),
             None,
         )
@@ -2006,9 +1917,7 @@ def solve_parametric_logarithmic_derivative(
         )
 
     if lower_derivation.level >= 1:
-        lower_extension = lower_derivation.tower.levels[
-            lower_derivation.level
-        ]
+        lower_extension = lower_derivation.tower.levels[lower_derivation.level]
         if (
             isinstance(lower_extension, MonomialExtension)
             and lower_extension.family is MonomialFamily.PRIMITIVE
@@ -2068,10 +1977,8 @@ def _gaussian_logarithmic_relation(
         if multiplicity != 1:
             return None
         cofactor = denominator.exquo(factor)
-        local_denominator = (cofactor*factor.diff()).rem(factor)
-        residue = (
-            proper_numerator*invert(local_denominator, factor)
-        ).rem(factor)
+        local_denominator = (cofactor * factor.diff()).rem(factor)
+        residue = (proper_numerator * invert(local_denominator, factor)).rem(factor)
         if residue.degree() > 0:
             return None
         value = QQ_I.convert(residue.nth(0))
@@ -2083,20 +1990,19 @@ def _gaussian_logarithmic_relation(
 
     relation_argument = S.One
     for factor, residue in residues:
-        multiplicity = QQ.convert(power)*residue
+        multiplicity = QQ.convert(power) * residue
         if QQ.denom(multiplicity) != 1:
-            raise ValueError(
-                "Gaussian logarithmic relation did not clear residues"
-            )
-        relation_argument *= factor.as_expr()**int(QQ.numer(multiplicity))
+            raise ValueError("Gaussian logarithmic relation did not clear residues")
+        relation_argument *= factor.as_expr() ** int(QQ.numer(multiplicity))
     relation_argument = cancel(relation_argument)
-    if cancel(
-        relation_argument.diff(variable)/relation_argument
-        - power*logarithmic_derivative
-    ) != 0:
-        raise ValueError(
-            "Gaussian logarithmic dependency reconstruction failed"
+    if (
+        cancel(
+            relation_argument.diff(variable) / relation_argument
+            - power * logarithmic_derivative
         )
+        != 0
+    ):
+        raise ValueError("Gaussian logarithmic dependency reconstruction failed")
     return power, relation_argument
 
 
@@ -2117,26 +2023,19 @@ def analyze_hypertangent_extension(
             "hypertangent dependency analysis requires a monomial extension"
         )
     if not isinstance(lower_derivation, Derivation):
-        raise TypeError(
-            "hypertangent dependency analysis requires a Derivation"
-        )
+        raise TypeError("hypertangent dependency analysis requires a Derivation")
     if extension.family is not MonomialFamily.HYPERTANGENT:
         raise ValueError(
-            "hypertangent dependency analysis requires "
-            "Dt = eta*(1 + t**2)"
+            "hypertangent dependency analysis requires Dt = eta*(1 + t**2)"
         )
     if extension.parent_field != lower_derivation.field:
-        raise ValueError(
-            "extension parent field does not match the lower derivation"
-        )
+        raise ValueError("extension parent field does not match the lower derivation")
 
-    eta = extension.parent_field.convert(
-        extension.generator_derivative.nth(2)
-    )
+    eta = extension.parent_field.convert(extension.generator_derivative.nth(2))
     if lower_derivation.level == 0:
         variable = _standard_rational_variable(lower_derivation)
         relation = _gaussian_logarithmic_relation(
-            2*I*extension.parent_field.to_sympy(eta),
+            2 * I * extension.parent_field.to_sympy(eta),
             variable,
         )
         if relation is None:
@@ -2170,7 +2069,7 @@ def analyze_hypertangent_extension(
                 normal_form.forward(eta),
             )
         gaussian_eta = gaussian_field.from_sympy(
-            2*I*eta_expression,
+            2 * I * eta_expression,
         )
         from .monomial import solve_radical_logarithmic_derivative
 
@@ -2221,29 +2120,22 @@ def certify_primitive_extension(
     unknown mathematical outcomes, and are therefore rejected.
     """
     if not isinstance(lower_derivation, Derivation):
-        raise TypeError(
-            "primitive extension certification requires a Derivation"
-        )
+        raise TypeError("primitive extension certification requires a Derivation")
     extension = MonomialExtension(generator_derivative)
     if extension.family is not MonomialFamily.PRIMITIVE:
         raise ValueError(
             "primitive extension certification requires Dt in the lower field"
         )
     if extension.parent_field != lower_derivation.field:
-        raise ValueError(
-            "extension parent field does not match the lower derivation"
-        )
+        raise ValueError("extension parent field does not match the lower derivation")
 
-    lower_levels = lower_derivation.tower.levels[
-        : lower_derivation.level + 1
-    ]
+    lower_levels = lower_derivation.tower.levels[: lower_derivation.level + 1]
     uncertified_level = next(
         (
             level
             for level in lower_levels
             if isinstance(level, MonomialExtension)
-            and level.constant_field_status
-            is not ConstantFieldStatus.PRESERVED
+            and level.constant_field_status is not ConstantFieldStatus.PRESERVED
         ),
         None,
     )
@@ -2302,21 +2194,13 @@ def analyze_hyperexponential_extension(
             "hyperexponential dependency analysis requires a monomial extension"
         )
     if not isinstance(lower_derivation, Derivation):
-        raise TypeError(
-            "hyperexponential dependency analysis requires a Derivation"
-        )
+        raise TypeError("hyperexponential dependency analysis requires a Derivation")
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
-        raise ValueError(
-            "hyperexponential dependency analysis requires Dt = eta*t"
-        )
+        raise ValueError("hyperexponential dependency analysis requires Dt = eta*t")
     if extension.parent_field != lower_derivation.field:
-        raise ValueError(
-            "extension parent field does not match the lower derivation"
-        )
+        raise ValueError("extension parent field does not match the lower derivation")
 
-    eta = extension.parent_field.convert(
-        extension.generator_derivative.nth(1)
-    )
+    eta = extension.parent_field.convert(extension.generator_derivative.nth(1))
     # Local imports avoid the module cycle: primitive monomial reductions use
     # the dependency analyses defined in this module.
     from .exact import solve_exact_derivative
@@ -2353,9 +2237,7 @@ def analyze_hyperexponential_extension(
         else None
     )
     logarithmic_result = (
-        radical_result.certificate
-        if lower_derivation.level == 0
-        else radical_result
+        radical_result.certificate if lower_derivation.level == 0 else radical_result
     )
     exact_result = (
         recursive_exact_result.certificate
@@ -2383,23 +2265,16 @@ def _validate_transcendental_extension_proposal(
 ) -> MonomialExtension:
     """Construct and validate a proposed exponential or tangent extension."""
     if not isinstance(lower_derivation, Derivation):
-        raise TypeError(
-            "transcendental extension certification requires a Derivation"
-        )
+        raise TypeError("transcendental extension certification requires a Derivation")
     if not isinstance(generator_derivative, Poly):
-        raise TypeError(
-            "transcendental extension certification requires a SymPy Poly"
-        )
+        raise TypeError("transcendental extension certification requires a SymPy Poly")
     extension = MonomialExtension(generator_derivative)
     if extension.family is not family:
         raise ValueError(
-            "transcendental extension certification requires "
-            f"{derivative_description}"
+            f"transcendental extension certification requires {derivative_description}"
         )
     if extension.parent_field != lower_derivation.field:
-        raise ValueError(
-            "extension parent field does not match the lower derivation"
-        )
+        raise ValueError("extension parent field does not match the lower derivation")
     return extension
 
 

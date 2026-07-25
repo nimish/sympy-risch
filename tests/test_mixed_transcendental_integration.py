@@ -35,8 +35,8 @@ def _extend_family(
     """Adjoin an independent representative of one monomial family."""
     parent = tower.field()
     derivative_by_family = {
-        "P": 1/(x**2 + 1),
-        "E": x*generator,
+        "P": 1 / (x**2 + 1),
+        "E": x * generator,
         "T": 1 + generator**2,
     }
     return tower.extend(
@@ -71,11 +71,9 @@ def test_mixed_family_orders_integrate_planted_rational_derivatives(
     top = generators[-1]
     lower = generators[-2]
     planted_by_shape = {
-        "linear_normal": (top**2 + lower)/(top + 1),
-        "repeated_normal": (top + lower)/(top**2 + top + 1)**2,
-        "mixed_lower_coefficient": (
-            top**2 + lower*top + 1
-        )/(top + lower + 1),
+        "linear_normal": (top**2 + lower) / (top + 1),
+        "repeated_normal": (top + lower) / (top**2 + top + 1) ** 2,
+        "mixed_lower_coefficient": (top**2 + lower * top + 1) / (top + lower + 1),
     }
     planted = field.from_sympy(planted_by_shape[shape])
 
@@ -89,13 +87,13 @@ def _hyperexponential_hypertangent_tower() -> DifferentialTower:
     base = _base_tower()
     exponential = base.extend(
         MonomialExtension(
-            Poly(x*a, a, domain=base.field()),
+            Poly(x * a, a, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     return exponential.extend(
         MonomialExtension(
-            Poly((a + 1)*(1 + b**2), b, domain=exponential.field()),
+            Poly((a + 1) * (1 + b**2), b, domain=exponential.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -111,7 +109,7 @@ def _hypertangent_hypertangent_tower() -> DifferentialTower:
     )
     return first.extend(
         MonomialExtension(
-            Poly((a + 1)*(1 + b**2), b, domain=first.field()),
+            Poly((a + 1) * (1 + b**2), b, domain=first.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -128,7 +126,7 @@ def test_mixed_hypertangent_special_modes_reduce_and_integrate(
     tower = tower_factory()
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy((b*(a + 2) + 1)/(1 + b**2))
+    planted = field.from_sympy((b * (a + 2) + 1) / (1 + b**2))
 
     reduction = reduce_hypertangent_monomial(
         derivation(planted),
@@ -148,7 +146,7 @@ def test_mixed_hypertangent_special_obstruction_is_a_certificate() -> None:
     tower = _hyperexponential_hypertangent_tower()
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(2*(1 - b**2)/(x*(1 + b**2)))
+    integrand = field.from_sympy(2 * (1 - b**2) / (x * (1 + b**2)))
 
     reduction = reduce_hypertangent_monomial(integrand, derivation)
     result = integrate_elementary(integrand, derivation)
@@ -161,18 +159,20 @@ def test_mixed_hypertangent_special_obstruction_is_a_certificate() -> None:
     )
 
 
-def test_hyperexponential_hypertangent_hypertangent_chain_uses_all_level_cayley() -> None:
+def test_hyperexponential_hypertangent_hypertangent_chain_uses_all_level_cayley() -> (
+    None
+):
     """Later tangent levels rewrite earlier ones before solving the lower RDE."""
     lower = _hyperexponential_hypertangent_tower()
     tower = lower.extend(
         MonomialExtension(
-            Poly((b + 1)*(1 + c**2), c, domain=lower.field()),
+            Poly((b + 1) * (1 + c**2), c, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy((c*(b + 2) + 1)/(1 + c**2))
+    planted = field.from_sympy((c * (b + 2) + 1) / (1 + c**2))
 
     reduction = reduce_hypertangent_monomial(
         derivation(planted),
@@ -209,18 +209,12 @@ def test_generated_mixed_special_modes_round_trip(
     tower = _hyperexponential_hypertangent_tower()
     field = tower.field()
     derivation = tower.derivation()
-    real_coefficient = (
-        real_constants[0]
-        + real_constants[1]*x
-        + real_constants[2]*a
-    )
+    real_coefficient = real_constants[0] + real_constants[1] * x + real_constants[2] * a
     tangent_coefficient = (
-        tangent_constants[0]
-        + tangent_constants[1]*x
-        + tangent_constants[2]*a
+        tangent_constants[0] + tangent_constants[1] * x + tangent_constants[2] * a
     )
     planted = field.from_sympy(
-        (real_coefficient + tangent_coefficient*b)/(1 + b**2)**special_power,
+        (real_coefficient + tangent_coefficient * b) / (1 + b**2) ** special_power,
     )
 
     result = integrate_elementary(derivation(planted), derivation)

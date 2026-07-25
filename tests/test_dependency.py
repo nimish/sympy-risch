@@ -45,7 +45,7 @@ def proposed_hyperexponential(
     if base is None:
         base = rational_base()
     extension = MonomialExtension(
-        Poly(eta*t, t, domain=base.field()),
+        Poly(eta * t, t, domain=base.field()),
         constant_field_status,
     )
     return base, extension
@@ -60,7 +60,7 @@ def proposed_hypertangent(
     if base is None:
         base = rational_base()
     extension = MonomialExtension(
-        Poly(eta*(1 + t**2), t, domain=base.field()),
+        Poly(eta * (1 + t**2), t, domain=base.field()),
         constant_field_status,
     )
     return base, extension
@@ -89,16 +89,14 @@ def test_primitive_factory_certifies_recursive_independence() -> None:
     )
     base = DifferentialTower(QQ).extend(base_analysis.extension)
     logarithm_analysis = certify_primitive_extension(
-        Poly(1/x, t, domain=base.field()),
+        Poly(1 / x, t, domain=base.field()),
         base.derivation(),
     )
 
     assert logarithm_analysis.status is ConstantFieldStatus.PRESERVED
     assert not logarithm_analysis.is_dependent
     assert logarithm_analysis.exact_result is not None
-    assert logarithm_analysis.exact_result.obstruction == base.field().from_sympy(
-        1/x
-    )
+    assert logarithm_analysis.exact_result.obstruction == base.field().from_sympy(1 / x)
 
 
 def test_primitive_factory_finds_dependencies_between_generators() -> None:
@@ -108,22 +106,20 @@ def test_primitive_factory_finds_dependencies_between_generators() -> None:
     )
     base = DifferentialTower(QQ).extend(base_analysis.extension)
     logarithm_analysis = certify_primitive_extension(
-        Poly(1/x, t, domain=base.field()),
+        Poly(1 / x, t, domain=base.field()),
         base.derivation(),
     )
     logarithmic_tower = base.extend(logarithm_analysis.extension)
 
     dependent = certify_primitive_extension(
-        Poly(2/x, z, domain=logarithmic_tower.field()),
+        Poly(2 / x, z, domain=logarithmic_tower.field()),
         logarithmic_tower.derivation(),
     )
 
     assert dependent.status is ConstantFieldStatus.ENLARGED
     assert dependent.is_dependent
     assert dependent.exact_result is not None
-    assert dependent.dependency_witness == logarithmic_tower.field().from_sympy(
-        2*t
-    )
+    assert dependent.dependency_witness == logarithmic_tower.field().from_sympy(2 * t)
     assert dependent.constant_relation is not None
     proposed_tower = logarithmic_tower.extend(dependent.extension)
     assert (
@@ -169,7 +165,7 @@ def test_primitive_factory_requires_a_certified_lower_tower() -> None:
     )
 
     analysis = certify_primitive_extension(
-        Poly(1/x, t, domain=uncertified_base.field()),
+        Poly(1 / x, t, domain=uncertified_base.field()),
         uncertified_base.derivation(),
     )
 
@@ -182,8 +178,8 @@ def test_primitive_factory_requires_a_certified_lower_tower() -> None:
 @pytest.mark.parametrize(
     ("generator_derivative", "dependent_eta", "independent_eta"),
     [
-        (t, t, t/(t - 1)),
-        (1 + t**2, 1 + t**2, 2*t),
+        (t, t, t / (t - 1)),
+        (1 + t**2, 1 + t**2, 2 * t),
     ],
 )
 def test_primitive_factory_uses_supported_transcendental_exact_decisions(
@@ -244,38 +240,38 @@ def test_primitive_factory_rejects_invalid_proposals() -> None:
     ),
     [
         (
-            1/x,
+            1 / x,
             HyperexponentialDependencyKind.RATIONAL,
             1,
             x,
             None,
         ),
         (
-            -3/x,
+            -3 / x,
             HyperexponentialDependencyKind.RATIONAL,
             1,
             x**-3,
             None,
         ),
         (
-            1/(2*x),
+            1 / (2 * x),
             HyperexponentialDependencyKind.ALGEBRAIC,
             2,
             x,
             None,
         ),
         (
-            (2*x + 1)/(2*(x**2 + x + 1)),
+            (2 * x + 1) / (2 * (x**2 + x + 1)),
             HyperexponentialDependencyKind.ALGEBRAIC,
             2,
             x**2 + x + 1,
             None,
         ),
         (
-            1/(2*x) + 1/(3*(x - 1)),
+            1 / (2 * x) + 1 / (3 * (x - 1)),
             HyperexponentialDependencyKind.ALGEBRAIC,
             6,
-            x**3*(x - 1)**2,
+            x**3 * (x - 1) ** 2,
             None,
         ),
         (
@@ -286,28 +282,28 @@ def test_primitive_factory_rejects_invalid_proposals() -> None:
             x,
         ),
         (
-            2*x,
+            2 * x,
             HyperexponentialDependencyKind.TRANSCENDENTAL,
             None,
             None,
             x**2,
         ),
         (
-            -1/x**2,
+            -1 / x**2,
             HyperexponentialDependencyKind.TRANSCENDENTAL,
             None,
             None,
-            1/x,
+            1 / x,
         ),
         (
-            1/(x**2 + 1),
+            1 / (x**2 + 1),
             HyperexponentialDependencyKind.TRANSCENDENTAL,
             None,
             None,
             None,
         ),
         (
-            1 + 1/(2*x),
+            1 + 1 / (2 * x),
             HyperexponentialDependencyKind.TRANSCENDENTAL,
             None,
             None,
@@ -336,10 +332,13 @@ def test_hyperexponential_dependency_examples(
         assert result.relation_argument is None
     else:
         assert cancel(result.relation_argument - expected_argument) == 0
-        assert cancel(
-            expected_power*eta
-            - result.relation_argument.diff(x)/result.relation_argument
-        ) == 0
+        assert (
+            cancel(
+                expected_power * eta
+                - result.relation_argument.diff(x) / result.relation_argument
+            )
+            == 0
+        )
     if expected_exponent is None:
         assert result.exponential_exponent is None
     else:
@@ -350,10 +349,10 @@ def test_hyperexponential_dependency_examples(
 @pytest.mark.parametrize(
     ("eta", "expected_power"),
     [
-        (1/x, 1),
-        (1/(2*x), 2),
-        (1/(2*x) + 1/(3*(x - 1)), 6),
-        (-3/x, 1),
+        (1 / x, 1),
+        (1 / (2 * x), 2),
+        (1 / (2 * x) + 1 / (3 * (x - 1)), 6),
+        (-3 / x, 1),
     ],
 )
 def test_dependency_relation_is_constant_in_the_proposed_tower(
@@ -367,16 +366,14 @@ def test_dependency_relation_is_constant_in_the_proposed_tower(
     )
     tower = base.extend(extension)
     field = tower.field()
-    relation = field.from_sympy(
-        t**expected_power/analysis.relation_argument
-    )
+    relation = field.from_sympy(t**expected_power / analysis.relation_argument)
 
     assert tower.derivation()(relation) == field.zero
 
 
 def test_dependency_and_named_exponential_presentation_are_independent() -> None:
-    dependent_base, dependent_extension = proposed_hyperexponential(1/x)
-    exponential_base, exponential_extension = proposed_hyperexponential(2*x)
+    dependent_base, dependent_extension = proposed_hyperexponential(1 / x)
+    exponential_base, exponential_extension = proposed_hyperexponential(2 * x)
 
     dependent = analyze_hyperexponential_extension(
         dependent_extension,
@@ -421,19 +418,19 @@ def test_dependency_and_named_exponential_presentation_are_independent() -> None
             True,
         ),
         (
-            1/x,
+            1 / x,
             ConstantFieldStatus.UNKNOWN,
             ConstantFieldStatus.ENLARGED,
             False,
         ),
         (
-            1/x,
+            1 / x,
             ConstantFieldStatus.PRESERVED,
             ConstantFieldStatus.ENLARGED,
             True,
         ),
         (
-            1/x,
+            1 / x,
             ConstantFieldStatus.ENLARGED,
             ConstantFieldStatus.ENLARGED,
             False,
@@ -457,17 +454,14 @@ def test_dependency_analysis_checks_declared_constant_field_status(
     )
 
     assert result.inferred_constant_field_status is expected_inferred
-    assert (
-        result.conflicts_with_declared_constant_field_status
-        is expected_conflict
-    )
+    assert result.conflicts_with_declared_constant_field_status is expected_conflict
 
 
 def test_transcendental_obstructions_retain_their_certificates() -> None:
     cases = [
         (1, "has_polynomial_obstruction"),
-        (1/x**2, "has_repeated_pole_obstruction"),
-        (1/(x**2 + 1), "has_nonlogarithmic_residue_obstruction"),
+        (1 / x**2, "has_repeated_pole_obstruction"),
+        (1 / (x**2 + 1), "has_nonlogarithmic_residue_obstruction"),
     ]
 
     for eta, obstruction_property in cases:
@@ -493,14 +487,14 @@ def test_transcendental_obstructions_retain_their_certificates() -> None:
     ),
     [
         (
-            1/(x*t),
+            1 / (x * t),
             HyperexponentialDependencyKind.RATIONAL,
             1,
             t,
             None,
         ),
         (
-            1/(2*x*t),
+            1 / (2 * x * t),
             HyperexponentialDependencyKind.ALGEBRAIC,
             2,
             t,
@@ -525,12 +519,12 @@ def test_dependency_analysis_descends_through_a_primitive_level(
     rational = rational_base()
     primitive = rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     extension = MonomialExtension(
-        Poly(eta*z, z, domain=primitive.field()),
+        Poly(eta * z, z, domain=primitive.field()),
     )
 
     result = analyze_hyperexponential_extension(
@@ -545,7 +539,7 @@ def test_dependency_analysis_descends_through_a_primitive_level(
     if result.is_dependent:
         tower = primitive.extend(extension)
         relation = tower.field().from_sympy(
-            z**expected_power/result.relation_argument,
+            z**expected_power / result.relation_argument,
         )
         assert tower.derivation()(relation) == tower.field().zero
 
@@ -564,10 +558,10 @@ def test_generated_rational_dependencies_are_classified(
     assume(any((x_valuation, linear_valuation, quadratic_valuation)))
     argument = cancel(
         x**x_valuation
-        * (x - 1)**linear_valuation
-        * (x**2 + x + 1)**quadratic_valuation
+        * (x - 1) ** linear_valuation
+        * (x**2 + x + 1) ** quadratic_valuation
     )
-    eta = cancel(argument.diff(x)/argument)
+    eta = cancel(argument.diff(x) / argument)
     base, extension = proposed_hyperexponential(eta)
 
     result = analyze_hyperexponential_extension(
@@ -577,10 +571,10 @@ def test_generated_rational_dependencies_are_classified(
 
     assert result.kind is HyperexponentialDependencyKind.RATIONAL
     assert result.minimal_power == 1
-    assert cancel(result.relation_argument/argument).diff(x) == 0
-    assert cancel(
-        result.relation_argument.diff(x)/result.relation_argument - eta
-    ) == 0
+    assert cancel(result.relation_argument / argument).diff(x) == 0
+    assert (
+        cancel(result.relation_argument.diff(x) / result.relation_argument - eta) == 0
+    )
 
 
 @given(
@@ -600,7 +594,7 @@ def test_generated_radical_dependencies_find_the_minimal_power(
     second = Rational(second_numerator, second_denominator)
     expected_power = lcm(first.q, second.q)
     assume(expected_power > 1)
-    eta = first/x + second/(x - 1)
+    eta = first / x + second / (x - 1)
     base, extension = proposed_hyperexponential(eta)
 
     result = analyze_hyperexponential_extension(
@@ -610,15 +604,17 @@ def test_generated_radical_dependencies_find_the_minimal_power(
 
     assert result.kind is HyperexponentialDependencyKind.ALGEBRAIC
     assert result.minimal_power == expected_power
-    expected_argument = (
-        x**(expected_power*first)
-        * (x - 1)**(expected_power*second)
+    expected_argument = x ** (expected_power * first) * (x - 1) ** (
+        expected_power * second
     )
-    assert cancel(result.relation_argument/expected_argument - 1) == 0
-    assert cancel(
-        expected_power*eta
-        - result.relation_argument.diff(x)/result.relation_argument
-    ) == 0
+    assert cancel(result.relation_argument / expected_argument - 1) == 0
+    assert (
+        cancel(
+            expected_power * eta
+            - result.relation_argument.diff(x) / result.relation_argument
+        )
+        == 0
+    )
 
 
 @given(
@@ -637,8 +633,8 @@ def test_generated_rational_exponents_get_named_presentations(
     pole_power,
 ) -> None:
     exponent = (
-        polynomial_coefficient*x**polynomial_degree
-        + pole_coefficient/(x - pole_root)**pole_power
+        polynomial_coefficient * x**polynomial_degree
+        + pole_coefficient / (x - pole_root) ** pole_power
     )
     eta = cancel(exponent.diff(x))
     assume(eta != 0)
@@ -658,10 +654,10 @@ def test_generated_rational_exponents_get_named_presentations(
 def test_dependency_analysis_validates_extension_shape_and_parent() -> None:
     base = rational_base()
     primitive = MonomialExtension(
-        Poly(1/x, t, domain=base.field()),
+        Poly(1 / x, t, domain=base.field()),
     )
     hypertangent = MonomialExtension(
-        Poly((1 + t**2)/x, t, domain=base.field()),
+        Poly((1 + t**2) / x, t, domain=base.field()),
     )
 
     for extension in (primitive, hypertangent):
@@ -677,7 +673,7 @@ def test_dependency_analysis_validates_extension_shape_and_parent() -> None:
             base.derivation(),
         )
 
-    _, extension = proposed_hyperexponential(1/x, base=base)
+    _, extension = proposed_hyperexponential(1 / x, base=base)
     with pytest.raises(TypeError, match="requires a Derivation"):
         analyze_hyperexponential_extension(
             extension,
@@ -694,7 +690,7 @@ def test_dependency_analysis_validates_extension_shape_and_parent() -> None:
 
 def test_dependency_analysis_rejects_nonstandard_rational_bases() -> None:
     base = rational_base(generator_derivative=2)
-    _, extension = proposed_hyperexponential(1/x, base=base)
+    _, extension = proposed_hyperexponential(1 / x, base=base)
 
     with pytest.raises(NotImplementedError, match=r"QQ\(x\) with Dx = 1"):
         analyze_hyperexponential_extension(
@@ -707,31 +703,31 @@ def test_dependency_analysis_rejects_nonstandard_rational_bases() -> None:
     ("eta", "expected_kind", "expected_power", "expected_argument"),
     [
         (
-            1/(x**2 + 1),
+            1 / (x**2 + 1),
             HyperexponentialDependencyKind.RATIONAL,
             1,
-            (x - I)/(x + I),
+            (x - I) / (x + I),
         ),
         (
-            1/(2*(x**2 + 1)),
+            1 / (2 * (x**2 + 1)),
             HyperexponentialDependencyKind.ALGEBRAIC,
             2,
-            (x - I)/(x + I),
+            (x - I) / (x + I),
         ),
         (
-            1/x,
+            1 / x,
             HyperexponentialDependencyKind.TRANSCENDENTAL,
             None,
             None,
         ),
         (
-            1/x**2,
+            1 / x**2,
             HyperexponentialDependencyKind.TRANSCENDENTAL,
             None,
             None,
         ),
         (
-            x + 1/(x**2 + 1),
+            x + 1 / (x**2 + 1),
             HyperexponentialDependencyKind.TRANSCENDENTAL,
             None,
             None,
@@ -760,15 +756,18 @@ def test_hypertangent_dependency_uses_the_cayley_logarithmic_derivative(
         assert result.relation_argument is None
     else:
         assert cancel(result.relation_argument - expected_argument) == 0
-        assert cancel(
-            result.relation_argument.diff(x)/result.relation_argument
-            - result.minimal_power*2*I*eta
-        ) == 0
+        assert (
+            cancel(
+                result.relation_argument.diff(x) / result.relation_argument
+                - result.minimal_power * 2 * I * eta
+            )
+            == 0
+        )
 
 
 def test_hypertangent_dependency_detects_constant_field_conflict() -> None:
     base, extension = proposed_hypertangent(
-        1/(x**2 + 1),
+        1 / (x**2 + 1),
         constant_field_status=ConstantFieldStatus.PRESERVED,
     )
 
@@ -778,18 +777,15 @@ def test_hypertangent_dependency_detects_constant_field_conflict() -> None:
     )
 
     assert result.is_dependent
-    assert (
-        result.inferred_constant_field_status
-        is ConstantFieldStatus.ENLARGED
-    )
+    assert result.inferred_constant_field_status is ConstantFieldStatus.ENLARGED
     assert result.conflicts_with_declared_constant_field_status
 
 
 def test_hypertangent_dependency_validates_shape_parent_and_base() -> None:
     base = rational_base()
-    _, extension = proposed_hypertangent(1/x, base=base)
+    _, extension = proposed_hypertangent(1 / x, base=base)
     hyperexponential = MonomialExtension(
-        Poly(t/x, t, domain=base.field()),
+        Poly(t / x, t, domain=base.field()),
     )
 
     with pytest.raises(ValueError, match="requires Dt = eta"):
@@ -817,7 +813,7 @@ def test_hypertangent_dependency_validates_shape_parent_and_base() -> None:
 
     nonstandard_base = rational_base(generator_derivative=2)
     _, nonstandard_extension = proposed_hypertangent(
-        1/x,
+        1 / x,
         base=nonstandard_base,
     )
     with pytest.raises(NotImplementedError, match=r"QQ\(x\) with Dx = 1"):

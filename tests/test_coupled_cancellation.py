@@ -66,14 +66,14 @@ def bounded_polynomial_pair_has_solution(
     top_generator = extension.generator
     generator_derivative = extension.generator_derivative.as_expr()
     basis = [
-        x**lower_power*top_generator**top_power
+        x**lower_power * top_generator**top_power
         for top_power in range(top_degree + 1)
         for lower_power in range(lower_degree + 1)
     ]
-    unknowns = symbols(f"c0:{2*len(basis)}")
+    unknowns = symbols(f"c0:{2 * len(basis)}")
     split = len(basis)
     real_candidate = sum(
-        coefficient*monomial
+        coefficient * monomial
         for coefficient, monomial in zip(
             unknowns[:split],
             basis,
@@ -81,29 +81,29 @@ def bounded_polynomial_pair_has_solution(
         )
     )
     imaginary_candidate = sum(
-        coefficient*monomial
+        coefficient * monomial
         for coefficient, monomial in zip(
             unknowns[split:],
             basis,
             strict=True,
         )
     )
+
     def differentiate(expression):
-        return (
-            expression.diff(x)
-            + generator_derivative*expression.diff(top_generator)
+        return expression.diff(x) + generator_derivative * expression.diff(
+            top_generator
         )
 
     real_residual = (
         differentiate(real_candidate)
-        + diagonal*real_candidate
-        - rotation*imaginary_candidate
+        + diagonal * real_candidate
+        - rotation * imaginary_candidate
         - real_rhs
     )
     imaginary_residual = (
         differentiate(imaginary_candidate)
-        + rotation*real_candidate
-        + diagonal*imaginary_candidate
+        + rotation * real_candidate
+        + diagonal * imaginary_candidate
         - imaginary_rhs
     )
     equations = []
@@ -117,8 +117,7 @@ def bounded_polynomial_pair_has_solution(
         unknowns,
     )
     return (
-        coefficient_matrix.rank()
-        == coefficient_matrix.row_join(right_hand_side).rank()
+        coefficient_matrix.rank() == coefficient_matrix.row_join(right_hand_side).rank()
     )
 
 
@@ -128,9 +127,9 @@ def test_bronstein_example_8_4_1() -> None:
 
     result = solve_hypertangent_coupled_cancellation_rde(
         0,
-        4*x,
-        -t**2 + 2*t - 8*x**2 + 1,
-        2*(1 - 2*x),
+        4 * x,
+        -(t**2) + 2 * t - 8 * x**2 + 1,
+        2 * (1 - 2 * x),
         tower.derivation(),
         2,
     )
@@ -139,15 +138,15 @@ def test_bronstein_example_8_4_1() -> None:
     assert result.reconstructs
     assert result.mode is CoupledHypertangentPolynomialRDEMode.CANCELLATION
     assert result.real_solution == Poly(t - 1, t, domain=tower.field(0))
-    assert result.imaginary_solution == Poly(2*x, t, domain=tower.field(0))
+    assert result.imaginary_solution == Poly(2 * x, t, domain=tower.field(0))
     assert result.boundary_result is not None
     assert result.recursive_result is not None
     assert bounded_polynomial_pair_has_solution(
         tower,
-        -2*t,
-        4*x,
-        -t**2 + 2*t - 8*x**2 + 1,
-        2*(1 - 2*x),
+        -2 * t,
+        4 * x,
+        -(t**2) + 2 * t - 8 * x**2 + 1,
+        2 * (1 - 2 * x),
         lower_degree=2,
         top_degree=2,
     )
@@ -159,17 +158,17 @@ def test_hypertangent_no_cancellation_recovers_a_planted_pair() -> None:
     derivation = tower.derivation()
     diagonal = field.from_sympy(x)
     rotation = field.from_sympy(x + 1)
-    planted_real = field.from_sympy((x + 1)*t**3 + t)
-    planted_imaginary = field.from_sympy(x*t**2 - 2)
+    planted_real = field.from_sympy((x + 1) * t**3 + t)
+    planted_imaginary = field.from_sympy(x * t**2 - 2)
     real_rhs = (
         derivation(planted_real)
-        + diagonal*planted_real
-        - rotation*planted_imaginary
+        + diagonal * planted_real
+        - rotation * planted_imaginary
     )
     imaginary_rhs = (
         derivation(planted_imaginary)
-        + rotation*planted_real
-        + diagonal*planted_imaginary
+        + rotation * planted_real
+        + diagonal * planted_imaginary
     )
 
     result = solve_hypertangent_coupled_polynomial_rde(
@@ -182,17 +181,11 @@ def test_hypertangent_no_cancellation_recovers_a_planted_pair() -> None:
 
     assert result.has_solution
     assert result.reconstructs
-    assert (
-        result.mode
-        is CoupledHypertangentPolynomialRDEMode.NON_CANCELLATION
-    )
+    assert result.mode is CoupledHypertangentPolynomialRDEMode.NON_CANCELLATION
     assert result.real_solution is not None
     assert result.imaginary_solution is not None
     assert field.from_sympy(result.real_solution.as_expr()) == planted_real
-    assert (
-        field.from_sympy(result.imaginary_solution.as_expr())
-        == planted_imaginary
-    )
+    assert field.from_sympy(result.imaginary_solution.as_expr()) == planted_imaginary
     assert result.corrections
 
 
@@ -246,7 +239,7 @@ def test_tangent_cancellation_handles_gaussian_unit_normalization() -> None:
     assert result.reconstructs
     assert result.has_solution is bounded_polynomial_pair_has_solution(
         tower,
-        1 - 2*t,
+        1 - 2 * t,
         2,
         0,
         t**2,
@@ -275,7 +268,7 @@ def test_hypertangent_polynomial_solver_rejects_top_generator_poles() -> None:
         solve_hypertangent_coupled_polynomial_rde(
             0,
             1,
-            1/(t + 1),
+            1 / (t + 1),
             0,
             tower.derivation(),
         )
@@ -287,17 +280,17 @@ def test_hyperexponential_laurent_recurrence_recovers_mixed_modes() -> None:
     derivation = tower.derivation()
     diagonal = field.from_sympy(x)
     rotation = field.from_sympy(x + 1)
-    planted_real = field.from_sympy((x + 1)*e**2 + (x - 1)/e)
-    planted_imaginary = field.from_sympy(x*e**2 + 2/e)
+    planted_real = field.from_sympy((x + 1) * e**2 + (x - 1) / e)
+    planted_imaginary = field.from_sympy(x * e**2 + 2 / e)
     real_rhs = (
         derivation(planted_real)
-        + diagonal*planted_real
-        - rotation*planted_imaginary
+        + diagonal * planted_real
+        - rotation * planted_imaginary
     )
     imaginary_rhs = (
         derivation(planted_imaginary)
-        + rotation*planted_real
-        + diagonal*planted_imaginary
+        + rotation * planted_real
+        + diagonal * planted_imaginary
     )
 
     result = solve_hyperexponential_coupled_laurent_rde(
@@ -322,7 +315,7 @@ def test_hyperexponential_laurent_recurrence_retains_lower_obstruction() -> None
     result = solve_hyperexponential_coupled_laurent_rde(
         0,
         1,
-        1/(x + 1),
+        1 / (x + 1),
         0,
         tower.derivation(),
     )
@@ -351,11 +344,11 @@ def test_generic_dispatch_uses_direct_hyperexponential_recurrence() -> None:
     tower = hyperexponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    planted_real = field.from_sympy((x + 1)*e**2)
-    planted_imaginary = field.from_sympy((x - 1)/e)
+    planted_real = field.from_sympy((x + 1) * e**2)
+    planted_imaginary = field.from_sympy((x - 1) / e)
     rotation = field.from_sympy(x + 1)
-    real_rhs = derivation(planted_real) - rotation*planted_imaginary
-    imaginary_rhs = derivation(planted_imaginary) + rotation*planted_real
+    real_rhs = derivation(planted_real) - rotation * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + rotation * planted_real
 
     result = solve_coupled_risch_differential_equation(
         rotation,
@@ -377,11 +370,11 @@ def test_non_laurent_hyperexponential_case_uses_gaussian_base_decision() -> None
     tower = hyperexponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    rotation = field.from_sympy((e + 1)/(e - 1))
-    planted_real = field.from_sympy((x + e)/(e - 1)**2)
-    planted_imaginary = field.from_sympy((x*e + 1)/(e - 1)**2)
-    real_rhs = derivation(planted_real) - rotation*planted_imaginary
-    imaginary_rhs = derivation(planted_imaginary) + rotation*planted_real
+    rotation = field.from_sympy((e + 1) / (e - 1))
+    planted_real = field.from_sympy((x + e) / (e - 1) ** 2)
+    planted_imaginary = field.from_sympy((x * e + 1) / (e - 1) ** 2)
+    real_rhs = derivation(planted_real) - rotation * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + rotation * planted_real
 
     result = solve_coupled_risch_differential_equation(
         rotation,
@@ -402,8 +395,8 @@ def test_generic_dispatch_uses_direct_hypertangent_polynomial_solver() -> None:
     rotation = field.from_sympy(2)
     planted_real = field.from_sympy(t**2 + x)
     planted_imaginary = field.from_sympy(t**3 - 1)
-    real_rhs = derivation(planted_real) - rotation*planted_imaginary
-    imaginary_rhs = derivation(planted_imaginary) + rotation*planted_real
+    real_rhs = derivation(planted_real) - rotation * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + rotation * planted_real
 
     result = solve_coupled_risch_differential_equation(
         rotation,
@@ -437,11 +430,10 @@ def test_generated_hypertangent_decisions_match_global_matrix_oracle(
 ) -> None:
     tower = hypertangent_tower()
     real_rhs = sum(
-        coefficient*t**degree
-        for degree, coefficient in enumerate(real_coefficients)
+        coefficient * t**degree for degree, coefficient in enumerate(real_coefficients)
     )
     imaginary_rhs = sum(
-        coefficient*t**degree
+        coefficient * t**degree
         for degree, coefficient in enumerate(imaginary_coefficients)
     )
     assume(real_rhs != 0 or imaginary_rhs != 0)
@@ -486,11 +478,10 @@ def test_generated_hyperexponential_modes_match_global_matrix_oracle(
 ) -> None:
     tower = hyperexponential_tower()
     real_rhs = sum(
-        coefficient*e**degree
-        for degree, coefficient in enumerate(real_coefficients)
+        coefficient * e**degree for degree, coefficient in enumerate(real_coefficients)
     )
     imaginary_rhs = sum(
-        coefficient*e**degree
+        coefficient * e**degree
         for degree, coefficient in enumerate(imaginary_coefficients)
     )
     assume(real_rhs != 0 or imaginary_rhs != 0)
@@ -535,11 +526,10 @@ def test_generated_tangent_cancellation_matches_global_matrix_oracle(
 ) -> None:
     tower = hypertangent_tower()
     real_rhs = sum(
-        coefficient*t**degree
-        for degree, coefficient in enumerate(real_coefficients)
+        coefficient * t**degree for degree, coefficient in enumerate(real_coefficients)
     )
     imaginary_rhs = sum(
-        coefficient*t**degree
+        coefficient * t**degree
         for degree, coefficient in enumerate(imaginary_coefficients)
     )
     assume(real_rhs != 0 or imaginary_rhs != 0)
@@ -554,7 +544,7 @@ def test_generated_tangent_cancellation_matches_global_matrix_oracle(
     )
     oracle_has_solution = bounded_polynomial_pair_has_solution(
         tower,
-        1 - 2*t,
+        1 - 2 * t,
         2,
         real_rhs,
         imaginary_rhs,

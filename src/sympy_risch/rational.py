@@ -114,10 +114,7 @@ class RationalLogDerivativeResult:
     @property
     def has_repeated_pole_obstruction(self) -> bool:
         """Whether some finite pole has order greater than one."""
-        return any(
-            multiplicity > 1
-            for _, multiplicity in self.denominator_factors
-        )
+        return any(multiplicity > 1 for _, multiplicity in self.denominator_factors)
 
     @property
     def has_nonlogarithmic_residue_obstruction(self) -> bool:
@@ -128,8 +125,7 @@ class RationalLogDerivativeResult:
     def has_nonintegral_residue_obstruction(self) -> bool:
         """Whether some logarithmic residue is rational but not integral."""
         return any(
-            factor.has_logarithmic_residue
-            and not factor.has_integral_multiplicity
+            factor.has_logarithmic_residue and not factor.has_integral_multiplicity
             for factor in self.factors
         )
 
@@ -150,16 +146,12 @@ class RationalLogDerivativeResult:
         ):
             return None
         if not self.factors:
-            raise ValueError(
-                "rational logarithmic failure lacks a residue certificate"
-            )
+            raise ValueError("rational logarithmic failure lacks a residue certificate")
 
         power = 1
         for factor in self.factors:
             if factor.multiplicity is None:
-                raise ValueError(
-                    "rational logarithmic residue lacks its multiplicity"
-                )
+                raise ValueError("rational logarithmic residue lacks its multiplicity")
             power = lcm(
                 power,
                 int(QQ.denom(QQ.convert(factor.multiplicity))),
@@ -223,9 +215,7 @@ def _hermite_reduce_rational_over_domain(
     if not isinstance(x, Symbol):
         raise TypeError("the differentiation variable must be a Symbol")
     if not domain.is_Field or domain.characteristic() != 0:
-        raise ValueError(
-            "Hermite reduction requires a characteristic-zero field"
-        )
+        raise ValueError("Hermite reduction requires a characteristic-zero field")
     numerator, denominator = _as_reduced_fraction_over_domain(f, x, domain)
     polynomial_part, proper_numerator = numerator.div(denominator)
 
@@ -240,15 +230,15 @@ def _hermite_reduce_rational_over_domain(
 
     rational_degree = repeated_part.degree()
     remainder_degree = square_free_part.degree()
-    correction = (repeated_part.diff()*square_free_part).quo(repeated_part)
+    correction = (repeated_part.diff() * square_free_part).quo(repeated_part)
     rational_columns = []
     for degree in range(rational_degree):
         monomial = Poly(x**degree, x, domain=domain)
         rational_columns.append(
-            monomial.diff()*square_free_part - monomial*correction,
+            monomial.diff() * square_free_part - monomial * correction,
         )
     remainder_columns = [
-        Poly(x**degree, x, domain=domain)*repeated_part
+        Poly(x**degree, x, domain=domain) * repeated_part
         for degree in range(remainder_degree)
     ]
     columns = rational_columns + remainder_columns
@@ -277,10 +267,7 @@ def _hermite_reduce_rational_over_domain(
         raise ValueError(
             "Hermite reduction did not produce a unique solution",
         ) from exc
-    solution = [
-        row[0]/solution_denominator
-        for row in solution_numerators.to_list()
-    ]
+    solution = [row[0] / solution_denominator for row in solution_numerators.to_list()]
     rational_numerator = Poly.from_dict(
         {
             (degree,): coefficient
@@ -298,9 +285,9 @@ def _hermite_reduce_rational_over_domain(
         domain=domain,
     ).as_expr()
 
-    rational_part = cancel(rational_numerator/repeated_part.as_expr())
+    rational_part = cancel(rational_numerator / repeated_part.as_expr())
     reduced_remainder = cancel(
-        remainder_numerator/square_free_part.as_expr(),
+        remainder_numerator / square_free_part.as_expr(),
     )
     return exact_part + rational_part, reduced_remainder
 
@@ -351,27 +338,26 @@ def hermite_reduce_rational_recursive(
         # Bronstein, ISSAC'98 section 1.2: solve
         # A/(1-m) = B*U*V' + C*V with deg(B) < deg(V).
         scaled_numerator = numerator.mul_ground(QQ(1, 1 - multiplicity))
-        modular_coefficient = cofactor*factor.diff()
+        modular_coefficient = cofactor * factor.diff()
         correction_numerator = (
-            scaled_numerator*invert(modular_coefficient, factor)
+            scaled_numerator * invert(modular_coefficient, factor)
         ).rem(factor)
         quotient_numerator = (
-            scaled_numerator - correction_numerator*modular_coefficient
+            scaled_numerator - correction_numerator * modular_coefficient
         ).exquo(factor)
 
         exact_part += cancel(
-            correction_numerator.as_expr()
-            / factor.as_expr()**(multiplicity - 1),
+            correction_numerator.as_expr() / factor.as_expr() ** (multiplicity - 1),
         )
         numerator = (
             quotient_numerator.mul_ground(1 - multiplicity)
-            - cofactor*correction_numerator.diff()
+            - cofactor * correction_numerator.diff()
         )
-        denominator = cofactor*factor**(multiplicity - 1)
+        denominator = cofactor * factor ** (multiplicity - 1)
         coefficient, numerator, denominator = numerator.cancel(denominator)
         numerator = numerator.mul_ground(coefficient)
 
-    remainder = cancel(numerator.as_expr()/denominator.as_expr())
+    remainder = cancel(numerator.as_expr() / denominator.as_expr())
     return exact_part, remainder
 
 
@@ -448,9 +434,7 @@ def _solve_rational_logarithmic_derivative_over_domain(
     if not isinstance(x, Symbol):
         raise TypeError("the differentiation variable must be a Symbol")
     if not domain.is_Field or domain.characteristic() != 0:
-        raise ValueError(
-            "logarithmic derivatives require a characteristic-zero field"
-        )
+        raise ValueError("logarithmic derivatives require a characteristic-zero field")
 
     numerator, denominator = _as_reduced_fraction_over_domain(
         f,
@@ -481,9 +465,7 @@ def _solve_rational_logarithmic_derivative_over_domain(
     argument: Expr | None = S.One
     for factor, _ in denominator_factors:
         cofactor = denominator.exquo(factor)
-        partial_numerator = (
-            proper_numerator*invert(cofactor, factor)
-        ).rem(factor)
+        partial_numerator = (proper_numerator * invert(cofactor, factor)).rem(factor)
         quotient, remainder = partial_numerator.div(factor.diff())
         multiplicity = None
         if remainder.is_zero and quotient.degree() <= 0:
@@ -491,13 +473,8 @@ def _solve_rational_logarithmic_derivative_over_domain(
                 multiplicity = QQ.convert(quotient.nth(0))
             except CoercionFailed:
                 multiplicity = None
-            if (
-                multiplicity is not None
-                and QQ.denom(multiplicity) == 1
-            ):
-                argument *= factor.as_expr() ** int(
-                    QQ.numer(multiplicity)
-                )
+            if multiplicity is not None and QQ.denom(multiplicity) == 1:
+                argument *= factor.as_expr() ** int(QQ.numer(multiplicity))
 
         factor_certificates.append(
             RationalLogDerivativeFactor(
@@ -508,16 +485,13 @@ def _solve_rational_logarithmic_derivative_over_domain(
         )
 
     factors = tuple(factor_certificates)
-    has_solution = (
-        polynomial_part.is_zero
-        and all(factor.has_integral_multiplicity for factor in factors)
+    has_solution = polynomial_part.is_zero and all(
+        factor.has_integral_multiplicity for factor in factors
     )
     if not has_solution:
         argument = None
-    elif cancel(argument.diff(x)/argument - f) != 0:
-        raise ValueError(
-            "rational logarithmic-derivative reconstruction failed"
-        )
+    elif cancel(argument.diff(x) / argument - f) != 0:
+        raise ValueError("rational logarithmic-derivative reconstruction failed")
 
     return RationalLogDerivativeResult(
         argument,
@@ -557,7 +531,7 @@ def rothstein_trager_residue_polynomial(
 
     residue_polynomial = resultant(
         denominator,
-        numerator - Poly(residue, x)*denominator.diff(),
+        numerator - Poly(residue, x) * denominator.diff(),
         x,
     )
     return Poly(residue_polynomial, residue)
@@ -586,11 +560,13 @@ def integrate_rational(f: Expr, x: Symbol) -> Expr:
         x,
         residue,
     ):
-        logarithmic_terms.append(RootSum(
-            residue_factor,
-            Lambda(residue, residue*log(logand.as_expr())),
-            quadratic=True,
-        ))
+        logarithmic_terms.append(
+            RootSum(
+                residue_factor,
+                Lambda(residue, residue * log(logand.as_expr())),
+                quadratic=True,
+            )
+        )
 
     return exact_part + Add(*logarithmic_terms)
 
@@ -606,7 +582,7 @@ def _integrate_real_linear_or_quadratic(
 
     if degree == 1:
         coefficient = numerator.nth(0) / denominator.nth(1)
-        return coefficient*log(Abs(denominator_expr))
+        return coefficient * log(Abs(denominator_expr))
 
     if degree != 2:
         raise NotImplementedError(
@@ -620,28 +596,25 @@ def _integrate_real_linear_or_quadratic(
     m = numerator.nth(1)
     n = numerator.nth(0)
 
-    logarithm_coefficient = m / (2*a)
-    constant_remainder = n - logarithm_coefficient*b
-    result = logarithm_coefficient*log(Abs(denominator_expr))
+    logarithm_coefficient = m / (2 * a)
+    constant_remainder = n - logarithm_coefficient * b
+    result = logarithm_coefficient * log(Abs(denominator_expr))
 
     if constant_remainder == 0:
         return result
 
-    discriminant = b**2 - 4*a*c
+    discriminant = b**2 - 4 * a * c
 
     if discriminant < 0:
         scale = sqrt(-discriminant)
-        angle = atan((2*a*x + b) / scale)
-        return result + 2*constant_remainder*angle/scale
+        angle = atan((2 * a * x + b) / scale)
+        return result + 2 * constant_remainder * angle / scale
 
     if discriminant > 0:
         scale = sqrt(discriminant)
-        linear_part = 2*a*x + b
-        logarithms = (
-            log(Abs(linear_part - scale))
-            - log(Abs(linear_part + scale))
-        )
-        return result + constant_remainder*logarithms/scale
+        linear_part = 2 * a * x + b
+        logarithms = log(Abs(linear_part - scale)) - log(Abs(linear_part + scale))
+        return result + constant_remainder * logarithms / scale
 
     raise ValueError("a square-free quadratic cannot have zero discriminant")
 
@@ -672,11 +645,13 @@ def integrate_rational_real(f: Expr, x: Symbol) -> Expr:
 
         cofactor = denominator.exquo(factor)
         inverse = invert(cofactor, factor)
-        partial_numerator = (numerator*inverse).rem(factor)
-        real_terms.append(_integrate_real_linear_or_quadratic(
-            partial_numerator,
-            factor,
-            x,
-        ))
+        partial_numerator = (numerator * inverse).rem(factor)
+        real_terms.append(
+            _integrate_real_linear_or_quadratic(
+                partial_numerator,
+                factor,
+                x,
+            )
+        )
 
     return exact_part + Add(*real_terms)

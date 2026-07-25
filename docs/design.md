@@ -67,13 +67,22 @@ The lower-level library additionally implements:
 - a complete rational fallback that solves the heuristic's remaining constant
   and non-logarithmic residue constraints over `QQ`;
 - a complete parametric logarithmic-derivative decision over recursively
-  primitive towers, with local signature constraints and independent
-  one-level and nested global linear-system oracles;
-- validated finite algebraic extensions and implicit differentiation;
+  primitive towers plus the Chapter 9 mixed-tower relation-system fallback,
+  with independent global linear-system oracles;
+- validated finite algebraic extensions, implicit differentiation, exact
+  multiplication matrices, trace, norm, element polynomials, and trace
+  pairings;
+- exact constant-field rebasing through algebraic tower levels;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
   integral bases;
 - Trager's nested-resultant finite-residue polynomial for polynomial algebraic
-  models with certified square-free unbranched poles; and
+  models with certified square-free unbranched poles;
+- certified algebraic maximal orders and fractional ideals;
+- exact ramified and unramified finite places, all infinite places,
+  valuations, uniformizers, and local Laurent expansions;
+- differents, principal and canonical divisors, general differential
+  residues, and genus;
+- exact unramified plane-model place-wise residues; and
 - simple-radical recognition and integral-basis construction.
 
 The required exact ground-type backend is `python-flint`.
@@ -813,6 +822,23 @@ Dy = -D_K(m)(y) / (partial m/partial y)(y).
 
 For `m(y) = y**2 - x`, this gives `Dy = 1/(2*y)`.
 
+Multiplication by an element is represented as a native `DomainMatrix` over
+the parent field. Its trace, determinant, and characteristic polynomial give
+the field trace, norm, and characteristic polynomial. In characteristic zero,
+the monic square-free part of the latter is the element's minimal polynomial.
+The same kernel computes trace-pairing matrices and basis discriminants.
+These operations verify the differential descent identities
+
+```text
+Tr(Df) = D(Tr(f)),
+D(N(f))/N(f) = Tr(Df/f).
+```
+
+`rebase_derivation_constants` reconstructs a tower prefix over a larger exact
+constant field while preserving monomial proof metadata and algebraic
+defining polynomials. This is the coercion boundary needed before adjoining
+algebraic residue constants.
+
 The implemented algebraic Hermite reducer currently assumes a one-variable
 rational parent field and an integral basis. It can:
 
@@ -821,10 +847,42 @@ rational parent field and an integral basis. It can:
 - lazily refine an incomplete basis when one of Bronstein's three refinement
   certificates exposes a missing integral element.
 
-This is a reduction component, not yet a complete algebraic integrator.
-Missing pieces include algebraic residues and logarithmic reconstruction,
-places and divisors, the Risch equation on an algebraic curve, and recursive
-composition with transcendental levels.
+For the logarithmic part, the Trager resultant computes the aggregate finite
+residue polynomial. At an unramified base prime, the specialized plane model
+is factored over the exact base residue field to construct closed finite
+places. Each place retains its nested residue field, degree, ramification
+index one, and base-prime uniformizer; the local residue is evaluated exactly
+as `(G/D')(P)`. This is an internal Trager helper rather than a second public
+place abstraction.
+
+The general algebraic-curve substrate is separate from that plane-model
+shortcut. `AlgebraicFunctionField` computes a certified maximal `C[x]` order
+by trace-radical idealizers, supplies full fractional-ideal arithmetic, and
+decomposes arbitrary finite primes in the maximal order. It therefore handles
+ramified and singular fibers without treating the displayed plane model as a
+normal curve. A reciprocal maximal order enumerates all places at infinity.
+Every place provides an exact residue map, valuation-one uniformizer, element
+and ideal valuations, residue lifting, and certified local Laurent segments.
+`AlgebraicFunctionField.finite_places` and `infinite_places` are the canonical
+place constructors exposed to callers.
+
+The same layer implements differents, finite ideal/divisor conversion,
+principal and canonical divisors, general local differential residues, and
+genus from a canonical divisor. See the
+[algebraic infrastructure contract](algebraic-infrastructure.md) for the
+algorithms, invariants, and public API.
+
+This is not yet a complete algebraic integrator. The first missing gate is
+constant-field normalization: a finite algebraic function-field presentation
+can introduce algebraic constants, so curve decisions must either certify that
+the extension is geometric over the stated constants or explicitly rebase to
+the enlarged constant field. The logarithmic branch then needs branch-place
+residue descent, a residue basis over the minimal algebraic constant extension,
+and principal/torsion divisor-class solving for logarithmic reconstruction.
+In parallel, the zero-residue branch needs exactness decisions for second-kind
+differentials and the Risch equation on an algebraic curve. Recursive
+composition with transcendental levels comes after those field-level decisions
+and an exact backend representation for the mixed tower.
 
 The proposed real algebraic-over-tangent direction is kept in the
 [algebraic-hypertangent research note](algebraic-hypertangent.md).
@@ -874,16 +932,23 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest transcendental checkpoint implements Bronstein's direct coupled
-cancellation algorithms for hyperexponential Laurent modes and hypertangent
-polynomials. It includes the nonlinear no-cancellation branch, the
-`CoupledDECancelTan` evaluation-and-division recurrence, recursive lower-field
-certificates, the worked Chapter 8 example, and independent generated
-block-matrix comparisons. The next transcendental checkpoint is the paired
-rational frontend over a hypertangent level: weak normalization, normal and
-special denominator bounds, degree bounds, and SPDE terminating in the new
-polynomial solver. The current algebraic priority remains branch-place
-handling before the residue-field and divisor stages.
+The latest transcendental checkpoints close the declared explicit P/E/T
+contract: arbitrary finite orderings of primitive, hyperexponential, and
+hypertangent levels over `QQ(x)` with certified preserved constants. They
+include general rational scalar and coupled RDE frontends, direct Chapter 8
+cancellation recurrences, immutable Gaussian Cayley fallbacks, recursive
+lower-field certificates, worked examples, and independent generated
+matrix-oracle comparisons.
+
+The most recent normalization checkpoint adds the verified Möbius law
+`Dt = eta*(1 - t**2) -> Du = 2*eta*u`, so a formal hyperbolic tangent level
+can use the established hyperexponential integrator without mutating the
+source tower. The structure-theorem track now has conservative certificates
+for concrete special factors: they can prove `PRESENT`, never infer `ABSENT`.
+The next transcendental work is complete special-factor/fundamental-signature
+decisions and expression-to-tower construction. The current algebraic
+priority remains branch-place handling before the residue-field and divisor
+stages.
 
 ### Completed foundation
 
@@ -946,10 +1011,23 @@ for the precise contract and its deliberate boundaries.
 The remaining transcendental work is outside that normalized elementary
 P/E/T core:
 
-- [ ] Extend automatic dependence and constant-field checks to the remaining
-  generalized monomial families.
-- [ ] Add the general nonconstant-special-polynomial branch for nonlinear
-  monomials.
+- [ ] Make accepted effective constant fields, tower shapes, and required
+  decision procedures machine-checkable.
+- [x] Normalize the exact hyperbolic Möbius law
+  `Dt = eta*(1 - t**2)` to a hyperexponential coordinate with exact
+  forward/inverse field maps.
+- [x] Certify explicitly supplied and immediately visible special factors
+  conservatively; an empty search remains `UNKNOWN`.
+- [ ] Extend automatic dependence, no-new-constants, and special-polynomial
+  decisions to general polynomial monomials.
+- [ ] Add the general nonconstant-special-polynomial branch: special
+  denominator reduction, special RDE bounds/cancellation, and logarithmic
+  reconstruction.
+- [ ] Add parametric RDE and limited-integration procedures needed by that
+  general branch.
+- [ ] Build, order, and rewrite towers from SymPy expressions, beginning with
+  verified Möbius normalization of hyperbolic functions.
+- [ ] Complete exact real/branch-aware presentation after back-substitution.
 
 ### Algebraic integration
 
@@ -977,24 +1055,33 @@ places. At branch places the same computation contains rational branch-index
 scalings, so the model check is part of the certificate rather than an
 implicit genericity assumption.
 
+- [x] Compute exact multiplication matrices, trace, norm, characteristic and
+  element-minimal polynomials, trace pairings, and basis discriminants.
+- [x] Rebase derivations through algebraic levels over larger exact constant
+  fields.
 - [x] Compute and certify Trager's algebraic residue polynomial for
   Hermite-reduced differentials with simple, unbranched finite poles over a
   polynomial model monic in the algebraic generator.
-- [ ] Detect branch places at the poles and either prove that their residues
-  vanish, as in the supported simple-radical case, or change/extend the model
-  before applying the unbranched resultant formula.
+- [x] Factor unramified finite fibers into exact closed places and compute
+  each local residue in its nested residue field.
+- [x] Compute certified maximal orders with trace radicals, idealizers, and
+  discriminant-index certificates.
+- [x] Implement full-rank fractional-ideal sums, products, quotients,
+  inverses, intersections, powers, and finite divisor conversion.
+- [x] Represent ramified finite and all infinite places with exact residue
+  fields, valuations, valuation-one uniformizers, and local Laurent
+  expansions.
+- [x] Implement principal and canonical divisors, differents, general divisor
+  arithmetic, local differential residues, and genus.
+- [ ] Handle branch places at the poles by proving that their residues vanish
+  where applicable or by changing/extending the model before residue
+  extraction.
 - [ ] Compute a rational basis for the algebraic residues in their minimal
   constant extension.
 - [ ] Construct the divisor associated with each residue-basis coefficient
   and solve the required principal/torsion divisor problem.
-- [ ] Represent finite and infinite places, residue fields, ramification
-  indices, uniformizers, and exact valuations needed by the divisor and
-  infinity algorithms.
-- [ ] Implement general divisor operations and exactness testing for
-  differentials of the second kind.
+- [ ] Implement exactness testing for differentials of the second kind.
 - [ ] Solve the Risch differential equation on an algebraic curve.
-- [ ] Add general integral-basis computation where lazy refinement is
-  insufficient.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
 - [ ] Compose algebraic levels below, above, and between transcendental
   levels.
@@ -1027,7 +1114,7 @@ See the [testing contract](testing.md) for the full gate and commands.
 The following decisions are deferred until their first complete consumer:
 
 - the constant-field oracle interface used by automatic construction;
-- the representation of algebraic places and divisor classes;
+- the divisor-class and principal-divisor solving strategy;
 - the internal real angle and branch-correction representation;
 - whether future reducer dispatch uses a registry or explicit functions; and
 - the boundary between SymPy domain infrastructure and integration-specific

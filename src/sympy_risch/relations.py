@@ -84,11 +84,11 @@ class LogarithmicRelationSystemResult:
                 self.source_terms,
                 strict=True,
             ):
-                left += coefficient*term
+                left += coefficient * term
             argument = _coerce(field, relation.argument)
             if argument == field.zero:
                 return False
-            difference = left - self.derivation(argument)/argument
+            difference = left - self.derivation(argument) / argument
             if difference != field.zero and cancel(field.to_sympy(difference)) != 0:
                 return False
         return True
@@ -139,10 +139,7 @@ def _top_coordinates(
     must vanish exactly when that combination belongs to the parent field.
     The final tuple gives the resulting parent-field constant coordinate.
     """
-    fractions = tuple(
-        _fraction_polynomials(element, extension)
-        for element in elements
-    )
+    fractions = tuple(_fraction_polynomials(element, extension) for element in elements)
     polynomial_parts: list[Poly] = []
     proper_numerators: list[Poly] = []
     denominators: list[Poly] = []
@@ -173,7 +170,7 @@ def _top_coordinates(
 
     if common_denominator.degree() > 0:
         aligned_numerators = tuple(
-            proper*common_denominator.exquo(denominator)
+            proper * common_denominator.exquo(denominator)
             for proper, denominator in zip(
                 proper_numerators,
                 denominators,
@@ -189,8 +186,7 @@ def _top_coordinates(
             )
 
     constants = tuple(
-        parent.convert(polynomial.nth(0))
-        for polynomial in polynomial_parts
+        parent.convert(polynomial.nth(0)) for polynomial in polynomial_parts
     )
     return tuple(rows), constants
 
@@ -208,9 +204,7 @@ def _field_zero_constraints(
         if field == QQ_I:
             gaussian_columns = tuple(QQ_I.convert(column) for column in columns)
             real_row = tuple(QQ.convert(value.x) for value in gaussian_columns)
-            imaginary_row = tuple(
-                QQ.convert(value.y) for value in gaussian_columns
-            )
+            imaginary_row = tuple(QQ.convert(value.y) for value in gaussian_columns)
             rows = []
             if any(value != QQ.zero for value in real_row):
                 rows.append(real_row)
@@ -227,8 +221,7 @@ def _field_zero_constraints(
             "logarithmic relation systems do not support algebraic levels"
         )
     fractions = tuple(
-        _fraction_polynomials(_coerce(field, column), extension)
-        for column in columns
+        _fraction_polynomials(_coerce(field, column), extension) for column in columns
     )
     common_denominator = Poly(
         1,
@@ -238,7 +231,7 @@ def _field_zero_constraints(
     for _, denominator in fractions:
         common_denominator = common_denominator.lcm(denominator)
     cleared_numerators = tuple(
-        numerator*common_denominator.exquo(denominator)
+        numerator * common_denominator.exquo(denominator)
         for numerator, denominator in fractions
     )
     maximum_degree = max(
@@ -255,9 +248,7 @@ def _field_zero_constraints(
             extension.parent_field.convert(numerator.nth(degree))
             for numerator in cleared_numerators
         )
-        rows.extend(
-            _field_zero_constraints(coefficient_columns, derivation.lower())
-        )
+        rows.extend(_field_zero_constraints(coefficient_columns, derivation.lower()))
     return tuple(rows)
 
 
@@ -269,10 +260,7 @@ def _rational_nullspace(
     if column_count == 0:
         return ()
     matrix = DomainMatrix(
-        [
-            [QQ.convert(value) for value in row]
-            for row in rows
-        ],
+        [[QQ.convert(value) for value in row] for row in rows],
         (len(rows), column_count),
         QQ,
     )
@@ -290,10 +278,7 @@ def _integer_vector(
     rational_vector = tuple(QQ.convert(value) for value in vector)
     for value in rational_vector:
         scale = lcm(scale, int(QQ.denom(value)))
-    return tuple(
-        int(QQ.numer(QQ.convert(scale)*value))
-        for value in rational_vector
-    )
+    return tuple(int(QQ.numer(QQ.convert(scale) * value)) for value in rational_vector)
 
 
 class _RelationSystemCompiler:
@@ -342,7 +327,7 @@ class _RelationSystemCompiler:
             if _is_zero(coordinate, field):
                 continue
             for index, coefficient in term.coefficients:
-                columns[index] += QQ.convert(coefficient)*coordinate
+                columns[index] += QQ.convert(coefficient) * coordinate
         return tuple(columns)
 
     def add_field_zero_constraints(
@@ -356,7 +341,9 @@ class _RelationSystemCompiler:
         for row in _field_zero_constraints(columns, derivation):
             self.add_row(row)
 
-    def compile(self, terms: tuple[_LinearFieldTerm, ...], derivation: Derivation) -> None:
+    def compile(
+        self, terms: tuple[_LinearFieldTerm, ...], derivation: Derivation
+    ) -> None:
         """Recursively compile logarithmic-derivative structure constraints."""
         if derivation.level == -1:
             columns = self.aggregate(
@@ -389,9 +376,7 @@ class _RelationSystemCompiler:
                     "with Dx = 1 as their base"
                 )
         else:
-            extension.require_preserved_constants(
-                "logarithmic relation systems"
-            )
+            extension.require_preserved_constants("logarithmic relation systems")
         if extension.family not in {
             MonomialFamily.PRIMITIVE,
             MonomialFamily.HYPEREXPONENTIAL,
@@ -431,7 +416,7 @@ class _RelationSystemCompiler:
                 valuation = self.new_variable(factor_expression)
                 logarithmic_derivative = _coerce(
                     extension.field,
-                    derivative.as_expr()/factor_expression,
+                    derivative.as_expr() / factor_expression,
                 )
                 top_terms.append(
                     _LinearFieldTerm(
@@ -488,7 +473,7 @@ class _RelationSystemCompiler:
             for index, factor in self.witness_factors:
                 exponent = values[index]
                 if exponent:
-                    argument *= field.from_sympy(factor)**exponent
+                    argument *= field.from_sympy(factor) ** exponent
             relations.append(
                 LogarithmicRelationWitness(
                     values[: len(self.source_terms)],
@@ -504,9 +489,7 @@ class _RelationSystemCompiler:
             tuple(relations),
         )
         if not result.reconstructs:
-            raise ValueError(
-                "logarithmic relation-system witness did not reconstruct"
-            )
+            raise ValueError("logarithmic relation-system witness did not reconstruct")
         return result
 
 

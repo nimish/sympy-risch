@@ -50,7 +50,7 @@ def hyperexponential_extension(
     """Return a proposed ``Dtheta = eta*theta`` extension."""
     return MonomialExtension(
         Poly(
-            eta*theta,
+            eta * theta,
             theta,
             domain=lower_tower.field(),
         ),
@@ -65,7 +65,7 @@ def test_gaussian_rational_base_solves_a_parametric_witness() -> None:
     extension = hyperexponential_extension(lower, x)
 
     result = solve_parametric_logarithmic_derivative(
-        x/2 + 1/(x + 1),
+        x / 2 + 1 / (x + 1),
         extension,
         derivation,
     )
@@ -82,7 +82,7 @@ def test_gaussian_rational_base_rejects_a_nonrational_parameter() -> None:
     extension = hyperexponential_extension(lower, x)
 
     result = solve_parametric_logarithmic_derivative(
-        I*x,
+        I * x,
         extension,
         lower.derivation(),
     )
@@ -93,8 +93,8 @@ def test_gaussian_rational_base_rejects_a_nonrational_parameter() -> None:
 @pytest.mark.parametrize(
     ("f", "eta", "n", "m", "argument"),
     [
-        (I/(x - I), I/(x - I), 1, 1, 1),
-        ((1 + I)/(x - I), I/(x - I), 1, 1, x - I),
+        (I / (x - I), I / (x - I), 1, 1, 1),
+        ((1 + I) / (x - I), I / (x - I), 1, 1, x - I),
     ],
 )
 def test_gaussian_rational_fallback_constrains_residues_to_qq(
@@ -123,10 +123,10 @@ def test_gaussian_rational_fallback_constrains_residues_to_qq(
 def test_gaussian_rational_fallback_rejects_nonrational_residue_ratio() -> None:
     """The fallback never promotes a Gaussian ratio to ``m/n``."""
     lower = gaussian_rational_base()
-    extension = hyperexponential_extension(lower, 1/(x - I))
+    extension = hyperexponential_extension(lower, 1 / (x - I))
 
     result = solve_parametric_logarithmic_derivative(
-        I/(x - I),
+        I / (x - I),
         extension,
         lower.derivation(),
     )
@@ -157,18 +157,16 @@ def _independent_rational_solution_set(f, eta):
     eta_numerator, eta_denominator = fraction_polynomials(eta)
     common_denominator = f_denominator.lcm(eta_denominator)
     irreducible_factors = tuple(
-        factor
-        for factor, _multiplicity in common_denominator.factor_list()[1]
+        factor for factor, _multiplicity in common_denominator.factor_list()[1]
     )
 
     ratio = Dummy("ratio")
     residues = tuple(
-        Dummy(f"residue_{index}")
-        for index in range(len(irreducible_factors))
+        Dummy(f"residue_{index}") for index in range(len(irreducible_factors))
     )
     identity = (
-        common_denominator.exquo(f_denominator)*f_numerator
-        - ratio*common_denominator.exquo(eta_denominator)*eta_numerator
+        common_denominator.exquo(f_denominator) * f_numerator
+        - ratio * common_denominator.exquo(eta_denominator) * eta_numerator
     ).as_expr()
     for residue, factor in zip(
         residues,
@@ -189,14 +187,11 @@ def test_verified_rational_witness_uses_native_field_elements() -> None:
     lower = rational_base()
     derivation = lower.derivation()
     field = lower.field()
-    extension = hyperexponential_extension(lower, 1/(x + 1))
-    argument = field.from_sympy(x**2*(x - 1))
+    extension = hyperexponential_extension(lower, 1 / (x + 1))
+    argument = field.from_sympy(x**2 * (x - 1))
     n = 5
     m = -3
-    f = (
-        derivation(argument)/argument
-        + m*field.from_sympy(1/(x + 1))
-    )/n
+    f = (derivation(argument) / argument + m * field.from_sympy(1 / (x + 1))) / n
 
     result = ParametricLogarithmicDerivativeResult(
         extension,
@@ -214,23 +209,23 @@ def test_verified_rational_witness_uses_native_field_elements() -> None:
     assert not result.is_unsupported
     assert result.reconstructs
     assert result.f == f
-    assert result.eta == field.from_sympy(1/(x + 1))
+    assert result.eta == field.from_sympy(1 / (x + 1))
     assert result.argument == argument
 
 
 def test_negative_n_is_normalized_by_inverting_the_argument() -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     result = ParametricLogarithmicDerivativeResult(
         extension,
         derivation,
-        1/x,
+        1 / x,
         ParametricLogarithmicDerivativeOutcome.SOLUTION,
         n=-2,
         m=-1,
-        argument=1/x,
+        argument=1 / x,
     )
 
     assert result.n == 2
@@ -242,12 +237,12 @@ def test_negative_n_is_normalized_by_inverting_the_argument() -> None:
 def test_zero_theta_coefficient_is_a_valid_solution_case() -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/(x + 1))
+    extension = hyperexponential_extension(lower, 1 / (x + 1))
 
     result = ParametricLogarithmicDerivativeResult(
         extension,
         derivation,
-        1/x,
+        1 / x,
         ParametricLogarithmicDerivativeOutcome.SOLUTION,
         n=1,
         m=0,
@@ -262,18 +257,18 @@ def test_contract_works_over_a_primitive_lower_field() -> None:
     rational = rational_base()
     lower = rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     derivation = lower.derivation()
     field = lower.field()
-    eta = field.from_sympy(t + 1/(x + 1))
-    extension = hyperexponential_extension(lower, t + 1/(x + 1))
-    argument = field.from_sympy(x*t)
+    eta = field.from_sympy(t + 1 / (x + 1))
+    extension = hyperexponential_extension(lower, t + 1 / (x + 1))
+    argument = field.from_sympy(x * t)
     n = 3
     m = -2
-    f = (derivation(argument)/argument + m*eta)/n
+    f = (derivation(argument) / argument + m * eta) / n
 
     result = ParametricLogarithmicDerivativeResult(
         extension,
@@ -306,12 +301,10 @@ def test_generated_planted_witnesses_reconstruct_exactly(
     lower = rational_base()
     derivation = lower.derivation()
     field = lower.field()
-    extension = hyperexponential_extension(lower, 1/(x + 1))
-    argument = field.from_sympy(
-        x**x_power*(x - 1)**shifted_power
-    )
-    eta = field.from_sympy(1/(x + 1))
-    f = (derivation(argument)/argument + m*eta)/n
+    extension = hyperexponential_extension(lower, 1 / (x + 1))
+    argument = field.from_sympy(x**x_power * (x - 1) ** shifted_power)
+    eta = field.from_sympy(1 / (x + 1))
+    f = (derivation(argument) / argument + m * eta) / n
 
     result = ParametricLogarithmicDerivativeResult(
         extension,
@@ -338,7 +331,7 @@ def test_generated_planted_witnesses_reconstruct_exactly(
 def test_incorrect_witness_is_rejected_exactly() -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     assert not verify_parametric_logarithmic_derivative_witness(
         0,
@@ -370,7 +363,7 @@ def test_incorrect_witness_is_rejected_exactly() -> None:
 def test_degenerate_witness_is_not_a_solution(n, argument) -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     assert not verify_parametric_logarithmic_derivative_witness(
         0,
@@ -396,11 +389,11 @@ def test_degenerate_witness_is_not_a_solution(n, argument) -> None:
 def test_witness_parameters_must_be_exact_integers(bad_integer) -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     with pytest.raises(TypeError, match="n must be an integer"):
         verify_parametric_logarithmic_derivative_witness(
-            1/x,
+            1 / x,
             extension,
             derivation,
             bad_integer,
@@ -412,7 +405,7 @@ def test_witness_parameters_must_be_exact_integers(bad_integer) -> None:
 def test_logical_nonsolution_outcomes_are_distinct() -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     proved = ParametricLogarithmicDerivativeResult(
         extension,
@@ -448,7 +441,7 @@ def test_logical_nonsolution_outcomes_are_distinct() -> None:
 def test_claimed_nonsolution_requires_evidence() -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     with pytest.raises(ValueError, match="obstruction certificate"):
         ParametricLogarithmicDerivativeResult(
@@ -469,7 +462,7 @@ def test_claimed_nonsolution_requires_evidence() -> None:
 def test_nonsolution_cannot_smuggle_in_a_witness() -> None:
     lower = rational_base()
     derivation = lower.derivation()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     with pytest.raises(ValueError, match="cannot carry solution"):
         ParametricLogarithmicDerivativeResult(
@@ -521,9 +514,9 @@ def test_extension_must_be_hyperexponential_over_the_lower_field() -> None:
 
 def test_polynomial_comparison_finds_a_verified_witness() -> None:
     lower = rational_base()
-    eta = x**2 + 1/x
+    eta = x**2 + 1 / x
     extension = hyperexponential_extension(lower, eta)
-    f = (1/(x - 1) + 3*eta)/2
+    f = (1 / (x - 1) + 3 * eta) / 2
 
     result = solve_parametric_logarithmic_derivative_heuristic(
         f,
@@ -557,7 +550,7 @@ def test_polynomial_comparison_clears_rational_logarithmic_residues() -> None:
     # The high-degree comparison first yields m/n = 3/2.  Its residual is
     # 1/(2*x), so a second factor of two is needed before it is D(x)/x.
     result = solve_parametric_logarithmic_derivative_heuristic(
-        3*x**2/2 + 1/(4*x),
+        3 * x**2 / 2 + 1 / (4 * x),
         extension,
         lower.derivation(),
     )
@@ -574,7 +567,7 @@ def test_polynomial_comparison_allows_zero_theta_coefficient() -> None:
     extension = hyperexponential_extension(lower, x**2)
 
     result = solve_parametric_logarithmic_derivative_heuristic(
-        1/x,
+        1 / x,
         extension,
         lower.derivation(),
     )
@@ -605,7 +598,7 @@ def test_nonproportional_polynomial_parts_prove_no_solution() -> None:
 
 def test_polynomial_degree_without_matching_eta_degree_proves_no_solution() -> None:
     lower = rational_base()
-    extension = hyperexponential_extension(lower, 1/x)
+    extension = hyperexponential_extension(lower, 1 / x)
 
     result = solve_parametric_logarithmic_derivative_heuristic(
         x,
@@ -622,25 +615,23 @@ def test_unique_ratio_with_nonlogarithmic_residual_proves_no_solution() -> None:
     extension = hyperexponential_extension(lower, x)
 
     result = solve_parametric_logarithmic_derivative_heuristic(
-        x + 1/x**2,
+        x + 1 / x**2,
         extension,
         lower.derivation(),
     )
 
     assert result.proves_no_solution
     assert result.certificate.candidate_ratio == QQ.one
-    assert (
-        result.certificate.logarithmic_result.has_repeated_pole_obstruction
-    )
+    assert result.certificate.logarithmic_result.has_repeated_pole_obstruction
 
 
 def test_denominator_congruence_finds_a_verified_witness() -> None:
     lower = rational_base()
-    extension = hyperexponential_extension(lower, 1/x**2)
+    extension = hyperexponential_extension(lower, 1 / x**2)
 
     # Modulo z=x, x**2*f has residue 3/2 while x**2*eta has residue 1.
     result = solve_parametric_logarithmic_derivative_heuristic(
-        (5/x + 3/x**2)/2,
+        (5 / x + 3 / x**2) / 2,
         extension,
         lower.derivation(),
     )
@@ -659,11 +650,11 @@ def test_denominator_congruence_finds_a_verified_witness() -> None:
 
 def test_inconsistent_denominator_congruences_prove_no_solution() -> None:
     lower = rational_base()
-    denominator = (x**2 + 1)**2
-    extension = hyperexponential_extension(lower, 1/denominator)
+    denominator = (x**2 + 1) ** 2
+    extension = hyperexponential_extension(lower, 1 / denominator)
 
     result = solve_parametric_logarithmic_derivative_heuristic(
-        x/denominator,
+        x / denominator,
         extension,
         lower.derivation(),
     )
@@ -707,7 +698,7 @@ def test_nonrational_lower_field_is_reported_as_unsupported() -> None:
     rational = rational_base()
     lower = rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -740,13 +731,11 @@ def test_generated_polynomial_branch_witnesses_reconstruct(
     lower = rational_base()
     derivation = lower.derivation()
     field = lower.field()
-    eta_expression = x**2 + 1/(x + 2)
+    eta_expression = x**2 + 1 / (x + 2)
     eta = field.from_sympy(eta_expression)
     extension = hyperexponential_extension(lower, eta_expression)
-    argument = field.from_sympy(
-        x**x_power*(x - 1)**shifted_power
-    )
-    f = (derivation(argument)/argument + m*eta)/n
+    argument = field.from_sympy(x**x_power * (x - 1) ** shifted_power)
+    f = (derivation(argument) / argument + m * eta) / n
 
     result = solve_parametric_logarithmic_derivative_heuristic(
         f,
@@ -779,13 +768,11 @@ def test_generated_denominator_branch_witnesses_reconstruct(
     lower = rational_base()
     derivation = lower.derivation()
     field = lower.field()
-    eta_expression = 1/x**2
+    eta_expression = 1 / x**2
     eta = field.from_sympy(eta_expression)
     extension = hyperexponential_extension(lower, eta_expression)
-    argument = field.from_sympy(
-        x**x_power*(x - 1)**shifted_power
-    )
-    f = (derivation(argument)/argument + m*eta)/n
+    argument = field.from_sympy(x**x_power * (x - 1) ** shifted_power)
+    f = (derivation(argument) / argument + m * eta) / n
 
     result = solve_parametric_logarithmic_derivative_heuristic(
         f,
@@ -827,11 +814,11 @@ def test_complete_solver_promotes_bronstein_example_7_3_2_to_solution() -> None:
 
 def test_complete_solver_cancels_a_nonlogarithmic_residue() -> None:
     lower = rational_base()
-    nonlogarithmic_part = 1/(x**2 + 1)
+    nonlogarithmic_part = 1 / (x**2 + 1)
     extension = hyperexponential_extension(lower, nonlogarithmic_part)
 
     result = solve_parametric_logarithmic_derivative(
-        nonlogarithmic_part + 1/x,
+        nonlogarithmic_part + 1 / x,
         extension,
         lower.derivation(),
     )
@@ -853,8 +840,7 @@ def test_complete_solver_cancels_a_nonlogarithmic_residue() -> None:
 
     ratio = symbols("ratio")
     equations = [
-        left - ratio*right
-        for left, right in result.certificate.linear_constraints
+        left - ratio * right for left, right in result.certificate.linear_constraints
     ]
     assert (QQ.one,) in linsolve(equations, ratio)
 
@@ -862,11 +848,11 @@ def test_complete_solver_cancels_a_nonlogarithmic_residue() -> None:
 def test_fallback_projects_high_degree_residues_modulo_factor_derivative() -> None:
     lower = rational_base()
     factor = x**3 + x + 1
-    eta = (x + 1)/factor
+    eta = (x + 1) / factor
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        2*eta + (3*x**2 + 1)/factor,
+        2 * eta + (3 * x**2 + 1) / factor,
         extension,
         lower.derivation(),
     )
@@ -891,11 +877,11 @@ def test_independent_residue_factors_can_impose_conflicting_ratios() -> None:
     second = x**2 + 2
     extension = hyperexponential_extension(
         lower,
-        1/first + 2/second,
+        1 / first + 2 / second,
     )
 
     result = solve_parametric_logarithmic_derivative(
-        1/first + 1/second,
+        1 / first + 1 / second,
         extension,
         lower.derivation(),
     )
@@ -907,10 +893,10 @@ def test_independent_residue_factors_can_impose_conflicting_ratios() -> None:
 
 def test_complete_solver_chooses_m_zero_when_every_ratio_is_free() -> None:
     lower = rational_base()
-    extension = hyperexponential_extension(lower, 1/(x + 1))
+    extension = hyperexponential_extension(lower, 1 / (x + 1))
 
     result = solve_parametric_logarithmic_derivative(
-        x/(x**2 + 1),
+        x / (x**2 + 1),
         extension,
         lower.derivation(),
     )
@@ -928,7 +914,7 @@ def test_nonlogarithmic_residue_proves_no_solution_after_heuristic_failure() -> 
     extension = hyperexponential_extension(lower, 1)
 
     result = solve_parametric_logarithmic_derivative(
-        1/(x**2 + 1),
+        1 / (x**2 + 1),
         extension,
         lower.derivation(),
     )
@@ -943,8 +929,7 @@ def test_nonlogarithmic_residue_proves_no_solution_after_heuristic_failure() -> 
 
     ratio = symbols("ratio")
     equations = [
-        left - ratio*right
-        for left, right in result.certificate.linear_constraints
+        left - ratio * right for left, right in result.certificate.linear_constraints
     ]
     assert linsolve(equations, ratio) is EmptySet
 
@@ -953,11 +938,11 @@ def test_constant_and_residue_constraints_can_conflict() -> None:
     lower = rational_base()
     extension = hyperexponential_extension(
         lower,
-        1 + 2/(x**2 + 1),
+        1 + 2 / (x**2 + 1),
     )
 
     result = solve_parametric_logarithmic_derivative(
-        1 + 1/(x**2 + 1),
+        1 + 1 / (x**2 + 1),
         extension,
         lower.derivation(),
     )
@@ -968,19 +953,18 @@ def test_constant_and_residue_constraints_can_conflict() -> None:
 
     ratio = symbols("ratio")
     equations = [
-        left - ratio*right
-        for left, right in result.certificate.linear_constraints
+        left - ratio * right for left, right in result.certificate.linear_constraints
     ]
     assert linsolve(equations, ratio) is EmptySet
 
 
 def test_complete_solver_keeps_conclusive_fast_path_result() -> None:
     lower = rational_base()
-    eta = x**2 + 1/x
+    eta = x**2 + 1 / x
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        (1/(x - 1) + 3*eta)/2,
+        (1 / (x - 1) + 3 * eta) / 2,
         extension,
         lower.derivation(),
     )
@@ -998,7 +982,7 @@ def test_complete_solver_dispatches_to_primitive_lower_field() -> None:
     rational = rational_base()
     lower = rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -1032,13 +1016,11 @@ def test_generated_structure_fallback_residue_cancellations(
     lower = rational_base()
     derivation = lower.derivation()
     field = lower.field()
-    eta_expression = 1/(x**2 + 1)
+    eta_expression = 1 / (x**2 + 1)
     eta = field.from_sympy(eta_expression)
     extension = hyperexponential_extension(lower, eta_expression)
-    argument = field.from_sympy(
-        x**x_power*(x - 1)**shifted_power
-    )
-    f = (derivation(argument)/argument + m*eta)/n
+    argument = field.from_sympy(x**x_power * (x - 1) ** shifted_power)
+    f = (derivation(argument) / argument + m * eta) / n
 
     heuristic = solve_parametric_logarithmic_derivative_heuristic(
         f,
@@ -1078,10 +1060,8 @@ def test_generated_structure_fallback_constant_constraints(
     derivation = lower.derivation()
     field = lower.field()
     extension = hyperexponential_extension(lower, 1)
-    argument = field.from_sympy(
-        x**x_power*(x - 1)**shifted_power
-    )
-    f = (derivation(argument)/argument + m*field.one)/n
+    argument = field.from_sympy(x**x_power * (x - 1) ** shifted_power)
+    f = (derivation(argument) / argument + m * field.one) / n
 
     result = solve_parametric_logarithmic_derivative(
         f,
@@ -1116,16 +1096,8 @@ def test_complete_solver_is_total_on_generated_squarefree_rational_inputs(
     eta_constant,
 ) -> None:
     lower = rational_base()
-    f = (
-        f_quadratic/(x**2 + 1)
-        + f_linear/x
-        + f_constant
-    )
-    eta = (
-        eta_quadratic/(x**2 + 1)
-        + eta_linear/x
-        + eta_constant
-    )
+    f = f_quadratic / (x**2 + 1) + f_linear / x + f_constant
+    eta = eta_quadratic / (x**2 + 1) + eta_linear / x + eta_constant
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
@@ -1160,7 +1132,9 @@ def test_complete_solver_is_total_on_generated_squarefree_rational_inputs(
         st.integers(min_value=-2, max_value=2),
         min_size=8,
         max_size=8,
-    ).filter(any).map(tuple),
+    )
+    .filter(any)
+    .map(tuple),
 )
 def test_complete_solver_matches_independent_global_rational_oracle(
     f_coefficients,
@@ -1172,18 +1146,18 @@ def test_complete_solver_matches_independent_global_rational_oracle(
         x**2,
         x,
         1,
-        1/x,
-        1/x**3,
-        1/(x - 1)**2,
-        (x + 1)/(x**2 + 1),
-        1/(x**3 + x + 1),
+        1 / x,
+        1 / x**3,
+        1 / (x - 1) ** 2,
+        (x + 1) / (x**2 + 1),
+        1 / (x**3 + x + 1),
     )
     f = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(f_coefficients, basis, strict=True)
     )
     eta = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(eta_coefficients, basis, strict=True)
     )
     lower = rational_base()

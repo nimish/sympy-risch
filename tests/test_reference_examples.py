@@ -42,7 +42,7 @@ def logarithmic_tower() -> DifferentialTower:
     )
     return rational.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=rational.field()),
+            Poly(1 / x, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -55,9 +55,9 @@ def test_bronstein_primitive_residue_example_with_algebraic_constants() -> None:
     tower = logarithmic_tower()
     parent = tower.field(0)
     field = tower.field()
-    numerator = 2*t**2 - t - x**2
-    denominator = t**3 - x**2*t
-    integrand = field.from_sympy(numerator/denominator)
+    numerator = 2 * t**2 - t - x**2
+    denominator = t**3 - x**2 * t
+    integrand = field.from_sympy(numerator / denominator)
 
     result = reduce_primitive_monomial(
         integrand,
@@ -67,10 +67,8 @@ def test_bronstein_primitive_residue_example_with_algebraic_constants() -> None:
 
     assert result.has_finite_residue_obstruction
     assert result.is_non_elementary
-    assert result.logarithmic_derivative == field.from_sympy(
-        (1 - t)/(x**2 - t**2)
-    )
-    assert result.remainder == field.from_sympy(1/t)
+    assert result.logarithmic_derivative == field.from_sympy((1 - t) / (x**2 - t**2))
+    assert result.remainder == field.from_sympy(1 / t)
     factor = result.residue_reduction.certificate.factors[0]
     assert factor.constant_factor == Poly(
         z**2 - Rational(1, 4),
@@ -87,7 +85,7 @@ def test_bronstein_primitive_residue_example_with_rational_residues() -> None:
     tower = logarithmic_tower()
     parent = tower.field(0)
     field = tower.field()
-    integrand = field.from_sympy(-2/(x*(t**2 - 1)))
+    integrand = field.from_sympy(-2 / (x * (t**2 - 1)))
 
     result = reduce_primitive_monomial(
         integrand,
@@ -98,9 +96,8 @@ def test_bronstein_primitive_residue_example_with_rational_residues() -> None:
     assert result.reduced_to_lower_field
     assert result.logarithmic_derivative == integrand
     assert result.remainder == field.zero
-    assert (
-        result.residue_reduction.certificate.residue_polynomial.monic()
-        == Poly(z**2 - 1, z, domain=parent)
+    assert result.residue_reduction.certificate.residue_polynomial.monic() == Poly(
+        z**2 - 1, z, domain=parent
     )
 
 
@@ -113,7 +110,7 @@ def test_bronstein_primitive_example_separates_exact_and_lower_parts() -> None:
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
-    assert result.exact_part == field.from_sympy(x*t - x)
+    assert result.exact_part == field.from_sympy(x * t - x)
     assert result.remainder == field.zero
     assert result.reduced_to_lower_field
 
@@ -122,7 +119,7 @@ def test_bronstein_primitive_example_certifies_x_over_log_x() -> None:
     # SymPy integrate_primitive records this as a NonElementaryIntegral.
     tower = logarithmic_tower()
     field = tower.field()
-    integrand = field.from_sympy(x/t)
+    integrand = field.from_sympy(x / t)
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
@@ -141,20 +138,14 @@ def test_bronstein_primitive_example_combines_exact_and_nonelementary_parts() ->
     # and the remaining simple pole has the nonconstant residue x.
     tower = logarithmic_tower()
     field = tower.field()
-    numerator = (
-        x**2*t**3
-        + (3*x**2 + x)*t**2
-        + (3*x**2 + 2*x)*t
-        + x**2
-        + x
-    )
-    denominator = x**2*(t + 1)**4
-    integrand = field.from_sympy(numerator/denominator)
+    numerator = x**2 * t**3 + (3 * x**2 + x) * t**2 + (3 * x**2 + 2 * x) * t + x**2 + x
+    denominator = x**2 * (t + 1) ** 4
+    integrand = field.from_sympy(numerator / denominator)
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
-    assert result.exact_part == field.from_sympy(-1/(t + 1))
-    assert result.remainder == field.from_sympy(1/(t + 1))
+    assert result.exact_part == field.from_sympy(-1 / (t + 1))
+    assert result.remainder == field.from_sympy(1 / (t + 1))
     assert result.has_finite_residue_obstruction
     assert result.is_non_elementary
     assert (
@@ -171,12 +162,12 @@ def logarithmic_power_antiderivative(power_x: int, power_log: int):
     This formula applies for ``m != -1`` and uses ``t`` for ``log(x)``.
     """
     scale = power_x + 1
-    return x**scale*sum(
+    return x**scale * sum(
         Rational(
-            (-1)**index*factorial(power_log),
-            factorial(power_log - index)*scale**(index + 1),
+            (-1) ** index * factorial(power_log),
+            factorial(power_log - index) * scale ** (index + 1),
         )
-        * t**(power_log - index)
+        * t ** (power_log - index)
         for index in range(power_log + 1)
     )
 
@@ -199,10 +190,8 @@ def test_rubi_logarithmic_power_family(
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(x**power_x*t**power_log)
-    expected = field.from_sympy(
-        logarithmic_power_antiderivative(power_x, power_log)
-    )
+    integrand = field.from_sympy(x**power_x * t**power_log)
+    expected = field.from_sympy(logarithmic_power_antiderivative(power_x, power_log))
 
     result = reduce_primitive_monomial(integrand, derivation)
 
@@ -217,8 +206,8 @@ def test_rubi_logarithmic_power_over_x_family(power_log: int) -> None:
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(t**power_log/x)
-    expected = field.from_sympy(t**(power_log + 1)/(power_log + 1))
+    integrand = field.from_sympy(t**power_log / x)
+    expected = field.from_sympy(t ** (power_log + 1) / (power_log + 1))
 
     result = reduce_primitive_monomial(integrand, derivation)
 
@@ -238,13 +227,13 @@ def test_shifted_logarithmic_poles_are_nonelementary_reference_cases(
     # t=shift is nonconstant for every rational shift.
     tower = logarithmic_tower()
     field = tower.field()
-    integrand = field.from_sympy(1/(t - shift))
+    integrand = field.from_sympy(1 / (t - shift))
 
     result = reduce_primitive_monomial(integrand, tower.derivation())
 
     assert result.has_finite_residue_obstruction
     assert result.is_non_elementary
     assert result.remainder == integrand
-    assert cancel(
-        result.residue_reduction.remainder.as_expr() - integrand.as_expr()
-    ) == 0
+    assert (
+        cancel(result.residue_reduction.remainder.as_expr() - integrand.as_expr()) == 0
+    )

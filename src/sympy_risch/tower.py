@@ -16,10 +16,11 @@ from typing import Protocol, cast
 
 from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
-from sympy.polys.agca.extensions import FiniteExtension
+from sympy.polys.agca.extensions import ExtensionElement, FiniteExtension
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
-from sympy.polys.polyerrors import CoercionFailed
+from sympy.polys.matrices import DomainMatrix
+from sympy.polys.polyerrors import CoercionFailed, UnificationFailed
 from sympy.polys.polytools import Poly
 from sympy.simplify.radsimp import fraction
 
@@ -56,6 +57,13 @@ def _coerce(domain: Domain, element: object) -> FieldElement:
     SymPy expression is a reliable boundary fallback and still returns a
     native domain element.
     """
+    if isinstance(element, ExtensionElement) and element.ext != domain:
+        # FiniteExtension.convert currently accepts some foreign elements by
+        # reinterpreting their printed generator.  Different defining
+        # polynomials have no implicit field embedding here.
+        raise ValueError(
+            "cannot coerce an element from a different finite algebraic extension"
+        )
     try:
         return cast(FieldElement, domain.convert(element))
     except (CoercionFailed, ValueError):
@@ -76,6 +84,20 @@ def _domain_symbols(domain: Domain) -> set[Symbol]:
         current = getattr(current, "domain", None)
 
     return symbols
+
+
+def _require_exact_characteristic_zero_field(
+    domain: Domain,
+    *,
+    role: str,
+) -> None:
+    """Validate the common coefficient-field contract of tower objects."""
+    if not domain.is_Field:
+        raise ValueError(f"{role} must be a field")
+    if not domain.is_Exact:
+        raise ValueError(f"{role} must be exact")
+    if domain.characteristic() != 0:
+        raise ValueError("differential towers require characteristic zero")
 
 
 def _contains_finite_extension(domain: Domain) -> bool:
@@ -177,9 +199,7 @@ class MonomialExtension:
 
     generator_derivative: Poly
     constant_field_status: ConstantFieldStatus = ConstantFieldStatus.UNKNOWN
-    special_polynomial_status: SpecialPolynomialStatus = (
-        SpecialPolynomialStatus.UNKNOWN
-    )
+    special_polynomial_status: SpecialPolynomialStatus = SpecialPolynomialStatus.UNKNOWN
     _field: Domain = dataclass_field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -189,22 +209,22 @@ class MonomialExtension:
             raise TypeError("generator_derivative must be a SymPy Poly")
         if len(derivative.gens) != 1:
             raise ValueError("a monomial extension needs exactly one generator")
-        if not derivative.domain.is_Field:
-            raise ValueError("the parent domain must be a field")
-        if derivative.domain.characteristic() != 0:
-            raise ValueError("differential towers require characteristic zero")
+        _require_exact_characteristic_zero_field(
+            derivative.domain,
+            role="the parent domain",
+        )
         if derivative.is_zero:
             raise ValueError("a zero-derivative generator belongs in the constants")
         if not isinstance(self.constant_field_status, ConstantFieldStatus):
-            raise TypeError(
-                "constant_field_status must be a ConstantFieldStatus"
-            )
+            raise TypeError("constant_field_status must be a ConstantFieldStatus")
         if not isinstance(self.special_polynomial_status, SpecialPolynomialStatus):
             raise TypeError(
                 "special_polynomial_status must be a SpecialPolynomialStatus"
             )
         if self.generator in _domain_symbols(self.parent_field):
-            raise ValueError(f"generator {self.generator} already occurs in the parent field")
+            raise ValueError(
+                f"generator {self.generator} already occurs in the parent field"
+            )
 
         object.__setattr__(
             self,
@@ -265,8 +285,7 @@ class MonomialExtension:
             return MonomialFamily.HYPEREXPONENTIAL
         if (
             degree == 2
-            and self.parent_field.convert(derivative.nth(1))
-            == self.parent_field.zero
+            and self.parent_field.convert(derivative.nth(1)) == self.parent_field.zero
             and constant == self.parent_field.convert(derivative.nth(2))
         ):
             return MonomialFamily.HYPERTANGENT
@@ -304,7 +323,7 @@ class MonomialExtension:
             polynomial,
             coefficient_derivation,
         )
-        return coefficient_part + polynomial.diff()*self.generator_derivative
+        return coefficient_part + polynomial.diff() * self.generator_derivative
 
     def differentiate(
         self,
@@ -333,15 +352,14 @@ class MonomialExtension:
             coefficient_derivation,
         )
         result_numerator = (
-            numerator_derivative*denominator
-            - numerator*denominator_derivative
+            numerator_derivative * denominator - numerator * denominator_derivative
         )
         result_denominator = denominator**2
 
         return cast(
             FieldElement,
             self.field.from_sympy(
-                result_numerator.as_expr()/result_denominator.as_expr()
+                result_numerator.as_expr() / result_denominator.as_expr()
             ),
         )
 
@@ -369,10 +387,10 @@ class AlgebraicExtension:
             raise TypeError("minimal_polynomial must be a SymPy Poly")
         if len(modulus.gens) != 1:
             raise ValueError("an algebraic extension needs exactly one generator")
-        if not modulus.domain.is_Field:
-            raise ValueError("the parent domain must be a field")
-        if modulus.domain.characteristic() != 0:
-            raise ValueError("differential towers require characteristic zero")
+        _require_exact_characteristic_zero_field(
+            modulus.domain,
+            role="the parent domain",
+        )
         if _contains_finite_extension(modulus.domain):
             raise NotImplementedError(
                 "nested algebraic extensions are not yet representable by "
@@ -387,7 +405,9 @@ class AlgebraicExtension:
         if modulus.is_irreducible is not True:
             raise ValueError("the minimal polynomial must be irreducible")
         if self.generator in _domain_symbols(self.parent_field):
-            raise ValueError(f"generator {self.generator} already occurs in the parent field")
+            raise ValueError(
+                f"generator {self.generator} already occurs in the parent field"
+            )
 
         object.__setattr__(self, "_field", FiniteExtension(modulus))
 
@@ -427,6 +447,111 @@ class AlgebraicExtension:
             self.field.dtype(polynomial.rep.rem(self.field.mod), self.field),
         )
 
+    def _element(self, value: object) -> ExtensionElement:
+        """Coerce ``value`` to this finite extension."""
+        return cast(ExtensionElement, _coerce(self.field, value))
+
+    def multiplication_matrix(self, element: object) -> DomainMatrix:
+        r"""Return the parent-linear matrix of multiplication by ``element``.
+
+        Columns are the power-basis coordinates of ``element*y**j``.  Keeping
+        the matrix over the native parent domain lets trace, norm, and
+        characteristic-polynomial computations avoid expression matrices.
+        """
+        value = self._element(element)
+        rank = self.field.rank
+        columns = [
+            tuple((value * basis_element).rep.nth(row) for row in range(rank))
+            for basis_element in self.field.basis
+        ]
+        return DomainMatrix(
+            [[columns[column][row] for column in range(rank)] for row in range(rank)],
+            (rank, rank),
+            self.parent_field,
+        )
+
+    def trace(self, element: object) -> FieldElement:
+        r"""Return the field trace ``Tr_{L/K}(element)``."""
+        diagonal = self.multiplication_matrix(element).diagonal()
+        return cast(
+            FieldElement,
+            sum(diagonal, self.parent_field.zero),
+        )
+
+    def norm(self, element: object) -> FieldElement:
+        r"""Return the field norm ``N_{L/K}(element)``."""
+        return cast(
+            FieldElement,
+            self.multiplication_matrix(element).det(),
+        )
+
+    def characteristic_polynomial(
+        self,
+        element: object,
+        indeterminate: Symbol,
+    ) -> Poly:
+        r"""Return the characteristic polynomial of multiplication by ``element``."""
+        if not isinstance(indeterminate, Symbol):
+            raise TypeError("the characteristic indeterminate must be a Symbol")
+        if indeterminate == self.generator or indeterminate in _domain_symbols(
+            self.field
+        ):
+            raise ValueError(
+                "the characteristic indeterminate must be new over the extension"
+            )
+        return Poly.from_list(
+            self.multiplication_matrix(element).charpoly(),
+            indeterminate,
+            domain=self.parent_field,
+        )
+
+    def element_minimal_polynomial(
+        self,
+        element: object,
+        indeterminate: Symbol,
+    ) -> Poly:
+        r"""Return the minimal polynomial of ``element`` over the parent field.
+
+        In characteristic zero the extension is separable.  The
+        characteristic polynomial is therefore a positive power of the
+        element's minimal polynomial, so its monic square-free part is exact.
+        """
+        return self.characteristic_polynomial(element, indeterminate).sqf_part().monic()
+
+    def trace_pairing_matrix(
+        self,
+        basis: tuple[object, ...] | None = None,
+    ) -> DomainMatrix:
+        r"""Return ``(Tr(b_i*b_j))`` for a parent-field basis candidate."""
+        if basis is None:
+            basis = cast(tuple[object, ...], self.field.basis)
+        if len(basis) != self.field.rank:
+            raise ValueError(
+                f"a trace-pairing basis must contain {self.field.rank} elements"
+            )
+        elements = tuple(self._element(element) for element in basis)
+        return DomainMatrix(
+            [
+                [
+                    self.parent_field.convert(self.trace(left * right))
+                    for right in elements
+                ]
+                for left in elements
+            ],
+            (self.field.rank, self.field.rank),
+            self.parent_field,
+        )
+
+    def basis_discriminant(
+        self,
+        basis: tuple[object, ...] | None = None,
+    ) -> FieldElement:
+        r"""Return the determinant of the trace pairing on ``basis``."""
+        return cast(
+            FieldElement,
+            self.trace_pairing_matrix(basis).det(),
+        )
+
     def generator_derivative(
         self,
         coefficient_derivation: CoefficientDerivation,
@@ -437,9 +562,22 @@ class AlgebraicExtension:
             coefficient_derivation,
         )
         partial_generator = self.minimal_polynomial.diff()
-        return -self._from_polynomial(coefficient_part) / self._from_polynomial(
-            partial_generator,
+        # Although ``m_y`` is invertible because ``m`` is separable, SymPy's
+        # native ``FiniteExtension`` inverse can spuriously report a zero
+        # divisor when the constant field is a general AlgebraicField.  The
+        # extended Euclidean identity is the same field operation, computed
+        # over the parent rational-function field rather than through that
+        # backend path.
+        inverse, _, gcd = partial_generator.gcdex(self.minimal_polynomial)
+        if gcd.degree() != 0:
+            raise ValueError(
+                "the algebraic generator derivative requires a separable "
+                "minimal polynomial"
+            )
+        inverse = inverse.mul_ground(
+            self.parent_field.one / self.parent_field.convert(gcd.nth(0))
         )
+        return -self._from_polynomial(coefficient_part * inverse)
 
     def differentiate(
         self,
@@ -462,8 +600,7 @@ class AlgebraicExtension:
                 coefficient_derivation,
             )
         generator_part = (
-            self._from_polynomial(representative.diff())
-            * generator_derivative
+            self._from_polynomial(representative.diff()) * generator_derivative
         )
         return self._from_polynomial(coefficient_part) + generator_part
 
@@ -476,10 +613,10 @@ class DifferentialTower:
     levels: tuple[DifferentialExtension, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.constants.is_Field:
-            raise ValueError("the constant domain must be a field")
-        if self.constants.characteristic() != 0:
-            raise ValueError("differential towers require characteristic zero")
+        _require_exact_characteristic_zero_field(
+            self.constants,
+            role="the constant domain",
+        )
 
         levels = tuple(self.levels)
         object.__setattr__(self, "levels", levels)
@@ -532,43 +669,67 @@ class DifferentialTower:
         return Derivation(self, level)
 
 
-def _rebase_monomial_derivation(
+def rebase_derivation_constants(
     derivation: Derivation,
     constants: Domain,
 ) -> Derivation:
-    """Copy a monomial derivation over a larger exact constant field.
+    """Copy a derivation over a larger exact constant field.
 
-    Generator symbols, derivative laws, and proof metadata are preserved.
-    Algebraic levels require a separate constant-extension construction and
-    are intentionally rejected.
+    Generator symbols, derivative laws, algebraic defining polynomials, and
+    monomial proof metadata are preserved.  The returned derivation is bound
+    to a newly constructed immutable tower; source domain elements can be
+    embedded through their exact SymPy expressions.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("rebasing requires a Derivation")
-    if not constants.is_Field or constants.characteristic() != 0:
+    _require_exact_characteristic_zero_field(
+        constants,
+        role="the rebased constant domain",
+    )
+    try:
+        unified_constants = derivation.tower.constants.unify(constants)
+    except UnificationFailed as exc:
         raise ValueError(
-            "rebasing requires an exact characteristic-zero constant field"
-        )
+            "the new constants must contain the existing constant field"
+        ) from exc
+    if unified_constants != constants:
+        raise ValueError("the new constants must contain the existing constant field")
 
     tower = DifferentialTower(constants)
     for level_index in range(derivation.level + 1):
         source = derivation.tower.levels[level_index]
-        if not isinstance(source, MonomialExtension):
-            raise NotImplementedError(
-                "constant-field rebasing does not yet support algebraic levels"
+        if isinstance(source, MonomialExtension):
+            derivative = Poly(
+                source.generator_derivative.as_expr(),
+                source.generator,
+                domain=tower.field(),
             )
-        derivative = Poly(
-            source.generator_derivative.as_expr(),
-            source.generator,
-            domain=tower.field(),
-        )
-        tower = tower.extend(
-            MonomialExtension(
-                derivative,
-                source.constant_field_status,
-                source.special_polynomial_status,
+            tower = tower.extend(
+                MonomialExtension(
+                    derivative,
+                    source.constant_field_status,
+                    source.special_polynomial_status,
+                )
             )
-        )
+            continue
+        if isinstance(source, AlgebraicExtension):
+            minimal_polynomial = Poly(
+                source.minimal_polynomial.as_expr(),
+                source.generator,
+                domain=tower.field(),
+            )
+            tower = tower.extend(AlgebraicExtension(minimal_polynomial))
+            continue
+        raise TypeError("tower levels must be supported differential extensions")
     return tower.derivation()
+
+
+def _rebase_monomial_derivation(
+    derivation: Derivation,
+    constants: Domain,
+) -> Derivation:
+    """Preserve the original internal name for monomial-only callers."""
+    return rebase_derivation_constants(derivation, constants)
 
 
 @dataclass(frozen=True, slots=True)
@@ -673,6 +834,6 @@ class Derivation:
         if denominator.is_zero:
             raise ZeroDivisionError("fraction denominator is zero")
         element = extension.field.from_sympy(
-            numerator.as_expr()/denominator.as_expr()
+            numerator.as_expr() / denominator.as_expr()
         )
         return extension.differentiate(element, self.lower())

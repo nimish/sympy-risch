@@ -41,7 +41,7 @@ def nested_hypertangent_tower() -> DifferentialTower:
     first = hypertangent_tower()
     return first.extend(
         MonomialExtension(
-            Poly((t + 1)*(1 + u**2), u, domain=first.field()),
+            Poly((t + 1) * (1 + u**2), u, domain=first.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -50,12 +50,12 @@ def nested_hypertangent_tower() -> DifferentialTower:
 def test_terminal_hypertangent_parametric_logarithmic_derivative_is_real() -> None:
     tower = hypertangent_tower()
     outer = MonomialExtension(
-        Poly(x**2*theta, theta, domain=tower.field()),
+        Poly(x**2 * theta, theta, domain=tower.field()),
         ConstantFieldStatus.PRESERVED,
     )
 
     result = solve_parametric_logarithmic_derivative(
-        x**2 + 2*t,
+        x**2 + 2 * t,
         outer,
         tower.derivation(),
     )
@@ -75,7 +75,7 @@ def test_terminal_hypertangent_radical_logarithmic_derivative_is_real() -> None:
     tower = hypertangent_tower()
 
     result = solve_radical_logarithmic_derivative(
-        2*t,
+        2 * t,
         tower.derivation(),
     )
 
@@ -90,16 +90,18 @@ def test_terminal_hypertangent_radical_logarithmic_derivative_is_real() -> None:
     assert result.certificate.gaussian_result.reconstructs
 
 
-def test_nested_hypertangent_parametric_logarithmic_derivative_rewrites_every_level() -> None:
+def test_nested_hypertangent_parametric_logarithmic_derivative_rewrites_every_level() -> (
+    None
+):
     tower = nested_hypertangent_tower()
     field = tower.field()
     derivation = tower.derivation()
     outer = MonomialExtension(
-        Poly(x**2*theta, theta, domain=field),
+        Poly(x**2 * theta, theta, domain=field),
         ConstantFieldStatus.PRESERVED,
     )
     argument = field.from_sympy(1 + u**2)
-    integrand = field.from_sympy(x**2) + derivation(argument)/argument
+    integrand = field.from_sympy(x**2) + derivation(argument) / argument
 
     result = solve_parametric_logarithmic_derivative(
         integrand,
@@ -118,7 +120,9 @@ def test_nested_hypertangent_parametric_logarithmic_derivative_rewrites_every_le
     assert result.certificate.target_result.reconstructs
 
 
-def test_hypertangent_dependency_analysis_normalizes_a_hypertangent_lower_field() -> None:
+def test_hypertangent_dependency_analysis_normalizes_a_hypertangent_lower_field() -> (
+    None
+):
     tower = hypertangent_tower()
     proposal = MonomialExtension(
         Poly(1 + u**2, u, domain=tower.field()),

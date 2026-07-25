@@ -36,7 +36,7 @@ def logarithmic_tower(
     base = rational_tower()
     return base.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=base.field()),
+            Poly(1 / x, t, domain=base.field()),
             constant_field_status,
         )
     )
@@ -50,7 +50,7 @@ def stacked_logarithmic_tower(
     lower = logarithmic_tower(
         constant_field_status=lower_constant_field_status,
     )
-    eta = 1/(x*t) if top_eta is None else top_eta
+    eta = 1 / (x * t) if top_eta is None else top_eta
     return lower.extend(
         MonomialExtension(
             Poly(eta, u, domain=lower.field()),
@@ -63,7 +63,7 @@ def triply_logarithmic_tower() -> DifferentialTower:
     lower = stacked_logarithmic_tower()
     return lower.extend(
         MonomialExtension(
-            Poly(1/(x*t*u), v, domain=lower.field()),
+            Poly(1 / (x * t * u), v, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
@@ -72,16 +72,16 @@ def triply_logarithmic_tower() -> DifferentialTower:
 def test_recursive_polynomial_reduction_recognizes_the_eta_direction() -> None:
     tower = stacked_logarithmic_tower()
     parent = tower.field(1)
-    eta = parent.from_sympy(1/(x*t))
+    eta = parent.from_sympy(1 / (x * t))
     polynomial = Poly.from_dict(
-        {(4,): parent.convert(QQ(3, 2))*eta},
+        {(4,): parent.convert(QQ(3, 2)) * eta},
         u,
         domain=parent,
     )
 
     result = polynomial_reduce_primitive(polynomial, tower.derivation())
 
-    assert result.exact_part == Poly(u**5*QQ(3, 10), u, domain=parent)
+    assert result.exact_part == Poly(u**5 * QQ(3, 10), u, domain=parent)
     assert result.remainder.is_zero
     assert len(result.steps) == 1
     assert result.steps[0].eta_multiple == QQ(3, 2)
@@ -90,7 +90,7 @@ def test_recursive_polynomial_reduction_recognizes_the_eta_direction() -> None:
 
 
 def test_eta_with_an_exact_lower_part_is_normalized_before_comparison() -> None:
-    eta_expression = 1/(x*t) - 1/(x*(t - 2)**2)
+    eta_expression = 1 / (x * t) - 1 / (x * (t - 2) ** 2)
     tower = stacked_logarithmic_tower(top_eta=eta_expression)
     parent = tower.field(1)
     eta = parent.from_sympy(eta_expression)
@@ -98,7 +98,7 @@ def test_eta_with_an_exact_lower_part_is_normalized_before_comparison() -> None:
 
     result = polynomial_reduce_primitive(polynomial, tower.derivation())
 
-    assert result.exact_part == Poly(u**3/3, u, domain=parent)
+    assert result.exact_part == Poly(u**3 / 3, u, domain=parent)
     assert result.remainder.is_zero
     assert result.steps[0].exact_coefficient == parent.zero
     assert result.steps[0].eta_multiple == QQ.one
@@ -109,7 +109,7 @@ def test_recursive_reduction_uses_an_exact_part_from_the_lower_tower() -> None:
     tower = stacked_logarithmic_tower()
     parent = tower.field(1)
     derivation = tower.derivation()
-    lower_exact = parent.from_sympy((x + 1)/(t - 2)**2 + t**3)
+    lower_exact = parent.from_sympy((x + 1) / (t - 2) ** 2 + t**3)
     coefficient = derivation.lower()(lower_exact)
     polynomial = Poly.from_dict({(0,): coefficient}, u, domain=parent)
 
@@ -124,7 +124,7 @@ def test_nonproportional_lower_obstruction_is_retained() -> None:
     tower = stacked_logarithmic_tower()
     parent = tower.field(1)
     derivation = tower.derivation()
-    coefficient = parent.from_sympy(1/(t - 1))
+    coefficient = parent.from_sympy(1 / (t - 1))
     polynomial = Poly.from_dict({(2,): coefficient}, u, domain=parent)
 
     result = polynomial_reduce_primitive(polynomial, derivation)
@@ -144,9 +144,9 @@ def test_mixed_eta_and_independent_class_is_projected_canonically() -> None:
     tower = stacked_logarithmic_tower()
     parent = tower.field(1)
     derivation = tower.derivation()
-    eta = parent.from_sympy(1/(x*t))
-    independent = parent.from_sympy(1/(t - 1))
-    coefficient = 2*eta + independent
+    eta = parent.from_sympy(1 / (x * t))
+    independent = parent.from_sympy(1 / (t - 1))
+    coefficient = 2 * eta + independent
     polynomial = Poly.from_dict({(1,): coefficient}, u, domain=parent)
 
     result = polynomial_reduce_primitive(polynomial, derivation)
@@ -171,9 +171,7 @@ def test_recursive_exact_solver_recovers_a_planted_derivative() -> None:
     tower = stacked_logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(
-        (x + u)/(u - 2)**3 + u**5 + t*u**2
-    )
+    planted = field.from_sympy((x + u) / (u - 2) ** 3 + u**5 + t * u**2)
     integrand = derivation(planted)
 
     result = solve_exact_derivative(integrand, derivation)
@@ -187,7 +185,7 @@ def test_recursive_exact_solver_preserves_a_polynomial_obstruction() -> None:
     tower = stacked_logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(u/(t - 1))
+    integrand = field.from_sympy(u / (t - 1))
 
     result = solve_exact_derivative(integrand, derivation)
 
@@ -202,7 +200,7 @@ def test_recursive_exact_solver_preserves_a_polynomial_obstruction() -> None:
 
 
 def test_recursive_reduction_rejects_an_exact_top_generator_derivative() -> None:
-    tower = stacked_logarithmic_tower(top_eta=2*t/x)
+    tower = stacked_logarithmic_tower(top_eta=2 * t / x)
     parent = tower.field(1)
 
     with pytest.raises(
@@ -232,9 +230,9 @@ def test_elementary_dispatch_integrates_a_full_stacked_log_example() -> None:
     tower = stacked_logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    exact = field.from_sympy((x + u)/(u - 2)**2 + u**4)
-    top_logarithm = 2*derivation(field.from_sympy(u))/field.from_sympy(u)
-    lower = field.from_sympy(1/(x*t) + 1/(x + 1))
+    exact = field.from_sympy((x + u) / (u - 2) ** 2 + u**4)
+    top_logarithm = 2 * derivation(field.from_sympy(u)) / field.from_sympy(u)
+    lower = field.from_sympy(1 / (x * t) + 1 / (x + 1))
     integrand = derivation(exact) + top_logarithm + lower
 
     result = integrate_elementary(integrand, derivation)
@@ -259,15 +257,13 @@ def test_elementary_dispatch_integrates_a_full_stacked_log_example() -> None:
         substitutions,
         simultaneous=True,
     )
-    assert cancel(
-        together(diff(concrete_antiderivative, x) - concrete_integrand)
-    ) == 0
+    assert cancel(together(diff(concrete_antiderivative, x) - concrete_integrand)) == 0
 
 
 def test_logarithmic_derivative_of_log_log_x_is_constructive() -> None:
     tower = stacked_logarithmic_tower()
     field = tower.field()
-    integrand = field.from_sympy(1/(x*t*u))
+    integrand = field.from_sympy(1 / (x * t * u))
 
     result = integrate_elementary(integrand, tower.derivation())
 
@@ -280,8 +276,8 @@ def test_logarithmic_derivative_of_log_log_x_is_constructive() -> None:
 @pytest.mark.parametrize(
     ("integrand_expression", "expected_antiderivative"),
     [
-        (v/(x*t*u), v**2/2),
-        (1/(x*t*u*v), log(v)),
+        (v / (x * t * u), v**2 / 2),
+        (1 / (x * t * u * v), log(v)),
     ],
 )
 def test_primitive_recursion_continues_through_four_levels(
@@ -315,14 +311,10 @@ def test_generated_four_level_projections_use_the_iterated_coordinate(
     tower = triply_logarithmic_tower()
     parent = tower.field(2)
     derivation = tower.derivation()
-    eta = parent.from_sympy(1/(x*t*u))
-    independent = parent.from_sympy(independent_multiple/(u - 1))
+    eta = parent.from_sympy(1 / (x * t * u))
+    independent = parent.from_sympy(independent_multiple / (u - 1))
     polynomial = Poly.from_dict(
-        {
-            (power,): (
-                parent.convert(eta_multiple)*eta + independent
-            )
-        },
+        {(power,): (parent.convert(eta_multiple) * eta + independent)},
         v,
         domain=parent,
     )
@@ -342,7 +334,7 @@ def test_generated_four_level_projections_use_the_iterated_coordinate(
 def test_one_over_log_log_x_has_a_top_level_residue_obstruction() -> None:
     tower = stacked_logarithmic_tower()
     field = tower.field()
-    integrand = field.from_sympy(1/u)
+    integrand = field.from_sympy(1 / u)
 
     result = integrate_elementary(integrand, tower.derivation())
 
@@ -352,15 +344,13 @@ def test_one_over_log_log_x_has_a_top_level_residue_obstruction() -> None:
     assert result.obstruction.level == 2
     assert result.obstruction.generator == u
     assert result.obstruction.family is MonomialFamily.PRIMITIVE
-    assert result.obstruction.kinds == (
-        IntegrationObstructionKind.NONCONSTANT_RESIDUE,
-    )
+    assert result.obstruction.kinds == (IntegrationObstructionKind.NONCONSTANT_RESIDUE,)
 
 
 def test_lower_primitive_obstruction_propagates_through_the_top_level() -> None:
     tower = stacked_logarithmic_tower()
     field = tower.field()
-    integrand = field.from_sympy(1/t)
+    integrand = field.from_sympy(1 / t)
 
     result = integrate_elementary(integrand, tower.derivation())
 
@@ -376,7 +366,7 @@ def test_lower_primitive_obstruction_propagates_through_the_top_level() -> None:
 def test_top_polynomial_obstruction_stops_before_lower_recursion() -> None:
     tower = stacked_logarithmic_tower()
     field = tower.field()
-    integrand = field.from_sympy(u/(t - 1))
+    integrand = field.from_sympy(u / (t - 1))
 
     result = integrate_elementary(integrand, tower.derivation())
 
@@ -385,9 +375,7 @@ def test_top_polynomial_obstruction_stops_before_lower_recursion() -> None:
     assert result.lower_result is None
     assert result.obstruction is not None
     assert result.obstruction.level == 2
-    assert result.obstruction.kinds == (
-        IntegrationObstructionKind.REDUCED_POLYNOMIAL,
-    )
+    assert result.obstruction.kinds == (IntegrationObstructionKind.REDUCED_POLYNOMIAL,)
 
 
 @given(
@@ -401,9 +389,9 @@ def test_generated_eta_modes_are_exact_derivatives(
 ) -> None:
     tower = stacked_logarithmic_tower()
     parent = tower.field(1)
-    eta = parent.from_sympy(1/(x*t))
+    eta = parent.from_sympy(1 / (x * t))
     polynomial = Poly.from_dict(
-        {(power,): parent.convert(coefficient)*eta},
+        {(power,): parent.convert(coefficient) * eta},
         u,
         domain=parent,
     )
@@ -429,9 +417,9 @@ def test_generated_mixed_classes_remove_the_eta_coordinate(
     tower = stacked_logarithmic_tower()
     parent = tower.field(1)
     derivation = tower.derivation()
-    eta = parent.from_sympy(1/(x*t))
-    independent = parent.from_sympy(independent_multiple/(t - 1))
-    coefficient = parent.convert(eta_multiple)*eta + independent
+    eta = parent.from_sympy(1 / (x * t))
+    independent = parent.from_sympy(independent_multiple / (t - 1))
+    coefficient = parent.convert(eta_multiple) * eta + independent
     polynomial = Poly.from_dict(
         {(power,): coefficient},
         u,
@@ -475,10 +463,10 @@ def test_generated_derivatives_are_solved_across_all_three_levels(
     field = tower.field()
     derivation = tower.derivation()
     planted = field.from_sympy(
-        proper_coefficient/(u - proper_shift)**proper_power
-        + mixed_coefficient*t*u**mixed_power
-        + polynomial_coefficient*u**polynomial_power
-        + lower_coefficient/(t - 1)**2
+        proper_coefficient / (u - proper_shift) ** proper_power
+        + mixed_coefficient * t * u**mixed_power
+        + polynomial_coefficient * u**polynomial_power
+        + lower_coefficient / (t - 1) ** 2
     )
     integrand = derivation(planted)
 
@@ -507,17 +495,14 @@ def test_generated_stacked_log_compositions_reconstruct(
     tower = stacked_logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    exact = field.from_sympy(
-        exact_coefficient*(x + t)/(u - 2)**exact_power
-    )
+    exact = field.from_sympy(exact_coefficient * (x + t) / (u - 2) ** exact_power)
     top_factor = field.from_sympy(u - 1)
     lower = field.from_sympy(
-        lower_logarithmic_residue/(x*t)
-        + rational_residue/(x + 1)
+        lower_logarithmic_residue / (x * t) + rational_residue / (x + 1)
     )
     integrand = (
         derivation(exact)
-        + logarithmic_residue*derivation(top_factor)/top_factor
+        + logarithmic_residue * derivation(top_factor) / top_factor
         + lower
     )
 

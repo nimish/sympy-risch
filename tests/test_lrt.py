@@ -17,12 +17,12 @@ def test_lrt_quadratic_with_algebraic_residues() -> None:
 
     assert len(parts) == 1
     logand, residue_factor = parts[0]
-    assert logand.as_expr() == x + 3*z/2 + Rational(1, 2)
-    assert residue_factor == Poly(3*z**2 + 1, z)
+    assert logand.as_expr() == x + 3 * z / 2 + Rational(1, 2)
+    assert residue_factor == Poly(3 * z**2 + 1, z)
 
 
 def test_lrt_groups_poles_with_the_same_residue() -> None:
-    parts = lazard_rioboo_trager(2*x - 1, x**2 - x, x, z)
+    parts = lazard_rioboo_trager(2 * x - 1, x**2 - x, x, z)
 
     assert len(parts) == 1
     logand, residue_factor = parts[0]
@@ -31,11 +31,11 @@ def test_lrt_groups_poles_with_the_same_residue() -> None:
 
 
 def test_lrt_two_distinct_residues() -> None:
-    parts = lazard_rioboo_trager(-1, x*(x + 1), x, z)
+    parts = lazard_rioboo_trager(-1, x * (x + 1), x, z)
 
     assert len(parts) == 1
     logand, residue_factor = parts[0]
-    assert logand.as_expr() == x + z/2 + Rational(1, 2)
+    assert logand.as_expr() == x + z / 2 + Rational(1, 2)
     assert residue_factor.monic() == Poly(z**2 - 1, z, domain="QQ")
 
 
@@ -44,7 +44,7 @@ def test_lrt_two_distinct_residues() -> None:
     [
         (x, 1, "nonconstant denominator"),
         (x, x + 1, "proper rational function"),
-        (x, x*(x + 1), "coprime"),
+        (x, x * (x + 1), "coprime"),
         (1, x**2, "square-free"),
     ],
 )
@@ -66,24 +66,29 @@ def test_lrt_requires_a_residue_symbol_new_over_the_coefficients() -> None:
 
 @st.composite
 def rational_functions_with_rational_poles(draw):
-    roots = draw(st.lists(
-        st.integers(-5, 5),
-        min_size=1,
-        max_size=5,
-        unique=True,
-    ))
-    coefficients = draw(st.lists(
-        st.integers(-4, 4),
-        min_size=len(roots),
-        max_size=len(roots),
-    ))
+    roots = draw(
+        st.lists(
+            st.integers(-5, 5),
+            min_size=1,
+            max_size=5,
+            unique=True,
+        )
+    )
+    coefficients = draw(
+        st.lists(
+            st.integers(-4, 4),
+            min_size=len(roots),
+            max_size=len(roots),
+        )
+    )
     assume(any(coefficients))
 
     denominator = Poly(prod(x - root for root in roots), x, domain="QQ")
-    numerator = Poly(sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(coefficients)
-    ), x, domain="QQ")
+    numerator = Poly(
+        sum(coefficient * x**degree for degree, coefficient in enumerate(coefficients)),
+        x,
+        domain="QQ",
+    )
     assume(numerator.gcd(denominator).degree() == 0)
 
     return numerator, denominator, roots
@@ -93,31 +98,39 @@ def rational_functions_with_rational_poles(draw):
 def arbitrary_reduced_rational_parts(draw):
     denominator_degree = draw(st.integers(1, 5))
     denominator_leading = draw(st.sampled_from([-3, -2, -1, 1, 2, 3]))
-    denominator_coefficients = draw(st.lists(
-        st.integers(-3, 3),
-        min_size=denominator_degree,
-        max_size=denominator_degree,
-    ))
-    numerator_coefficients = draw(st.lists(
-        st.integers(-3, 3),
-        min_size=denominator_degree,
-        max_size=denominator_degree,
-    ))
+    denominator_coefficients = draw(
+        st.lists(
+            st.integers(-3, 3),
+            min_size=denominator_degree,
+            max_size=denominator_degree,
+        )
+    )
+    numerator_coefficients = draw(
+        st.lists(
+            st.integers(-3, 3),
+            min_size=denominator_degree,
+            max_size=denominator_degree,
+        )
+    )
     assume(any(numerator_coefficients))
 
     denominator = Poly(
-        denominator_leading*x**denominator_degree
+        denominator_leading * x**denominator_degree
         + sum(
-            coefficient*x**degree
+            coefficient * x**degree
             for degree, coefficient in enumerate(denominator_coefficients)
         ),
         x,
         domain="QQ",
     )
-    numerator = Poly(sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(numerator_coefficients)
-    ), x, domain="QQ")
+    numerator = Poly(
+        sum(
+            coefficient * x**degree
+            for degree, coefficient in enumerate(numerator_coefficients)
+        ),
+        x,
+        domain="QQ",
+    )
     assume(denominator.gcd(denominator.diff()).degree() == 0)
     assume(numerator.gcd(denominator).degree() == 0)
 
@@ -130,8 +143,7 @@ def test_lrt_specializations_group_poles_by_residue(example) -> None:
     numerator, denominator, roots = example
     parts = lazard_rioboo_trager(numerator, denominator, x, z)
     residues = {
-        root: numerator.eval(root) / denominator.diff().eval(root)
-        for root in roots
+        root: numerator.eval(root) / denominator.diff().eval(root) for root in roots
     }
 
     for residue in set(residues.values()):
@@ -147,11 +159,15 @@ def test_lrt_specializations_group_poles_by_residue(example) -> None:
             x,
             domain="QQ",
         ).monic()
-        expected_logand = Poly(prod(
-            x - root
-            for root, root_residue in residues.items()
-            if root_residue == residue
-        ), x, domain="QQ").monic()
+        expected_logand = Poly(
+            prod(
+                x - root
+                for root, root_residue in residues.items()
+                if root_residue == residue
+            ),
+            x,
+            domain="QQ",
+        ).monic()
 
         assert specialized_logand == expected_logand
 
@@ -162,14 +178,18 @@ def test_lrt_parts_reconstruct_residue_resultant(example) -> None:
     numerator, denominator = example
     parts = lazard_rioboo_trager(numerator, denominator, x, z)
     residue_resultant = rothstein_trager_residue_polynomial(
-        numerator.as_expr()/denominator.as_expr(),
+        numerator.as_expr() / denominator.as_expr(),
         x,
         z,
     )
-    reconstructed_resultant = Poly(prod(
-        residue_factor.as_expr()**logand.degree()
-        for logand, residue_factor in parts
-    ), z, domain="QQ")
+    reconstructed_resultant = Poly(
+        prod(
+            residue_factor.as_expr() ** logand.degree()
+            for logand, residue_factor in parts
+        ),
+        z,
+        domain="QQ",
+    )
 
     assert reconstructed_resultant.monic() == residue_resultant.monic()
 
@@ -180,9 +200,9 @@ def test_lrt_parts_reconstruct_residue_resultant(example) -> None:
 @pytest.mark.parametrize(
     "integrand",
     (
-        1/(x**3 + x + 1),
-        (x**2 + 1)/(x**4 + x + 1),
-        (x**2 + 1)/(x**5 + x + 1),
+        1 / (x**3 + x + 1),
+        (x**2 + 1) / (x**4 + x + 1),
+        (x**2 + 1) / (x**5 + x + 1),
     ),
 )
 def test_integrate_rational_with_higher_degree_algebraic_poles(integrand) -> None:
@@ -195,7 +215,7 @@ def test_integrate_rational_with_higher_degree_algebraic_poles(integrand) -> Non
 @settings(max_examples=50, deadline=None)
 def test_integrate_rational_property_differentiates_to_input(example) -> None:
     numerator, denominator, _ = example
-    integrand = numerator.as_expr()/denominator.as_expr()
+    integrand = numerator.as_expr() / denominator.as_expr()
     antiderivative = integrate_rational(integrand, x)
 
     assert cancel(antiderivative.diff(x) - integrand) == 0

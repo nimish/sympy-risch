@@ -184,10 +184,7 @@ class NonlinearMonomialReduction:
     @property
     def has_obstruction(self) -> bool:
         """Whether either common structure theorem proves non-elementarity."""
-        return (
-            self.has_finite_residue_obstruction
-            or self.has_infinity_obstruction
-        )
+        return self.has_finite_residue_obstruction or self.has_infinity_obstruction
 
     @property
     def needs_special_polynomial(self) -> bool:
@@ -299,10 +296,7 @@ class PrimitiveMonomialReduction:
     @property
     def is_non_elementary(self) -> bool:
         """Whether this level has supplied a Liouville obstruction."""
-        return (
-            self.has_finite_residue_obstruction
-            or self.has_polynomial_obstruction
-        )
+        return self.has_finite_residue_obstruction or self.has_polynomial_obstruction
 
     @property
     def reduced_to_lower_field(self) -> bool:
@@ -343,8 +337,7 @@ class PrimitiveExactDerivativeResult:
     def has_solution(self) -> bool:
         """Whether the input is a derivative of an element of ``K(t)``."""
         return not (
-            self.has_proper_fraction_obstruction
-            or self.has_polynomial_obstruction
+            self.has_proper_fraction_obstruction or self.has_polynomial_obstruction
         )
 
     @property
@@ -372,10 +365,7 @@ class PrimitiveLogarithmicDerivativeFactor:
     @property
     def has_repeated_pole_obstruction(self) -> bool:
         """Whether a nonzero principal part has order greater than one."""
-        return any(
-            not numerator.is_zero
-            for numerator in self.principal_numerators[1:]
-        )
+        return any(not numerator.is_zero for numerator in self.principal_numerators[1:])
 
     @property
     def has_logarithmic_residue(self) -> bool:
@@ -423,8 +413,8 @@ class RadicalLogarithmicDerivativeResult:
         field = self.derivation.field
         argument = _coerce(field, self.argument)
         return (
-            self.minimal_power*_coerce(field, self.integrand)
-            == self.derivation(argument)/argument
+            self.minimal_power * _coerce(field, self.integrand)
+            == self.derivation(argument) / argument
         )
 
 
@@ -447,10 +437,7 @@ class HyperexponentialLogarithmicDerivativeFactor:
     @property
     def has_repeated_pole_obstruction(self) -> bool:
         """Whether a nonzero pole of order above one remains."""
-        return any(
-            not numerator.is_zero
-            for numerator in self.principal_numerators[1:]
-        )
+        return any(not numerator.is_zero for numerator in self.principal_numerators[1:])
 
     @property
     def has_logarithmic_residue(self) -> bool:
@@ -487,10 +474,7 @@ class HyperexponentialLogarithmicDerivativeSignature:
     @property
     def has_positive_degree_polynomial_obstruction(self) -> bool:
         """Whether the polynomial part has a nonconstant ``t`` component."""
-        return (
-            not self.polynomial_part.is_zero
-            and self.polynomial_part.degree() > 0
-        )
+        return not self.polynomial_part.is_zero and self.polynomial_part.degree() > 0
 
     @property
     def has_special_pole_obstruction(self) -> bool:
@@ -500,18 +484,12 @@ class HyperexponentialLogarithmicDerivativeSignature:
     @property
     def has_repeated_pole_obstruction(self) -> bool:
         """Whether any normal factor has a forbidden repeated pole."""
-        return any(
-            factor.has_repeated_pole_obstruction
-            for factor in self.factors
-        )
+        return any(factor.has_repeated_pole_obstruction for factor in self.factors)
 
     @property
     def has_nonlogarithmic_residue_obstruction(self) -> bool:
         """Whether a normal simple residue is not a rational logarithm."""
-        return any(
-            not factor.has_logarithmic_residue
-            for factor in self.factors
-        )
+        return any(not factor.has_logarithmic_residue for factor in self.factors)
 
     @property
     def has_lower_field_obstruction(self) -> bool:
@@ -535,8 +513,7 @@ class HyperexponentialLogarithmicDerivativeSignature:
         expression = self.polynomial_part.as_expr()
         if not self.proper_numerator.is_zero:
             expression += (
-                self.proper_numerator.as_expr()
-                / self.proper_denominator.as_expr()
+                self.proper_numerator.as_expr() / self.proper_denominator.as_expr()
             )
         return _coerce(extension.field, expression) == _coerce(
             extension.field,
@@ -551,8 +528,8 @@ class HyperexponentialLogarithmicDerivativeSignature:
         field = self.derivation.field
         argument = _coerce(field, self.relation_argument)
         difference = (
-            self.minimal_power*_coerce(field, self.integrand)
-            - self.derivation(argument)/argument
+            self.minimal_power * _coerce(field, self.integrand)
+            - self.derivation(argument) / argument
         )
         return difference == field.zero or cancel(field.to_sympy(difference)) == 0
 
@@ -592,26 +569,17 @@ class PrimitiveLogarithmicDerivativeSignature:
     @property
     def has_positive_degree_polynomial_obstruction(self) -> bool:
         """Whether the polynomial part depends nontrivially on ``t``."""
-        return (
-            not self.polynomial_part.is_zero
-            and self.polynomial_part.degree() > 0
-        )
+        return not self.polynomial_part.is_zero and self.polynomial_part.degree() > 0
 
     @property
     def has_repeated_pole_obstruction(self) -> bool:
         """Whether some finite place has a pole of order greater than one."""
-        return any(
-            factor.has_repeated_pole_obstruction
-            for factor in self.factors
-        )
+        return any(factor.has_repeated_pole_obstruction for factor in self.factors)
 
     @property
     def has_nonlogarithmic_residue_obstruction(self) -> bool:
         """Whether some simple principal part is not rational times ``Dp``."""
-        return any(
-            not factor.has_logarithmic_residue
-            for factor in self.factors
-        )
+        return any(not factor.has_logarithmic_residue for factor in self.factors)
 
     @property
     def has_lower_field_obstruction(self) -> bool:
@@ -636,11 +604,10 @@ class PrimitiveLogarithmicDerivativeSignature:
                 start=1,
             ):
                 expression += (
-                    numerator.as_expr()/factor.factor.as_expr()**pole_order
+                    numerator.as_expr() / factor.factor.as_expr() ** pole_order
                 )
-        return (
-            _coerce(extension.field, expression)
-            == _coerce(extension.field, self.integrand)
+        return _coerce(extension.field, expression) == _coerce(
+            extension.field, self.integrand
         )
 
     @property
@@ -651,8 +618,8 @@ class PrimitiveLogarithmicDerivativeSignature:
         field = self.derivation.field
         argument = _coerce(field, self.relation_argument)
         return (
-            self.minimal_power*_coerce(field, self.integrand)
-            == self.derivation(argument)/argument
+            self.minimal_power * _coerce(field, self.integrand)
+            == self.derivation(argument) / argument
         )
 
 
@@ -751,10 +718,7 @@ class HyperexponentialMonomialReduction:
     @property
     def is_non_elementary(self) -> bool:
         """Whether this level supplies a Liouville obstruction."""
-        return (
-            self.has_finite_residue_obstruction
-            or self.has_laurent_obstruction
-        )
+        return self.has_finite_residue_obstruction or self.has_laurent_obstruction
 
     @property
     def reduced_to_lower_field(self) -> bool:
@@ -771,10 +735,7 @@ class HypertangentCayleyStep:
     imaginary_coefficient: FieldElement
     exact_real_coefficient: FieldElement | None
     exact_imaginary_coefficient: FieldElement | None
-    rde_result: (
-        CoupledRationalRDEResult
-        | CoupledRischDifferentialEquationResult
-    )
+    rde_result: CoupledRationalRDEResult | CoupledRischDifferentialEquationResult
 
     @property
     def has_solution(self) -> bool:
@@ -938,7 +899,7 @@ def polynomial_reduce_monomial(
         correction_degree = degree - delta + 1
         leading_coefficient = domain.convert(remainder.LC())
         leading_derivative_coefficient = (
-            domain.convert(correction_degree)*derivative_leading_coefficient
+            domain.convert(correction_degree) * derivative_leading_coefficient
         )
         correction_coefficient = domain.exquo(
             leading_coefficient,
@@ -969,12 +930,9 @@ def _standard_rational_base_variable(derivation: Derivation) -> Symbol:
     if (
         not isinstance(extension, MonomialExtension)
         or extension.parent_field != QQ
-        or extension.generator_derivative
-        != Poly(1, extension.generator, domain=QQ)
+        or extension.generator_derivative != Poly(1, extension.generator, domain=QQ)
     ):
-        raise NotImplementedError(
-            "this reduction currently requires QQ(x) with Dx = 1"
-        )
+        raise NotImplementedError("this reduction currently requires QQ(x) with Dx = 1")
     return extension.generator
 
 
@@ -990,7 +948,7 @@ def _qq_reduced_fraction(
     denominator = Poly(denominator_expression, variable, domain=QQ)
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(coefficient)
-    leading_inverse = QQ.one/denominator.LC()
+    leading_inverse = QQ.one / denominator.LC()
     return numerator.mul_ground(leading_inverse), denominator.monic()
 
 
@@ -1008,7 +966,7 @@ def _partial_numerator(
     if not denominator.rem(factor).is_zero:
         return factor.zero
     cofactor = denominator.exquo(factor)
-    return (numerator*invert(cofactor, factor)).rem(factor)
+    return (numerator * invert(cofactor, factor)).rem(factor)
 
 
 def _rational_obstruction_pivot(
@@ -1070,12 +1028,10 @@ def _rational_coefficient_reduction(
         )
 
     exact_coefficient = (
-        coefficient_exact_part
-        - parent.convert(eta_multiple)*eta_exact_part
+        coefficient_exact_part - parent.convert(eta_multiple) * eta_exact_part
     )
     obstruction = (
-        coefficient_obstruction
-        - parent.convert(eta_multiple)*eta_obstruction
+        coefficient_obstruction - parent.convert(eta_multiple) * eta_obstruction
     )
     return exact_coefficient, eta_multiple, obstruction
 
@@ -1122,16 +1078,10 @@ def _laurent_coefficient_at_infinity(
             min(order, denominator_degree) + 1,
         ):
             right_hand_side -= (
-                parent.convert(
-                    denominator.nth(
-                        denominator_degree - denominator_order
-                    )
-                )
+                parent.convert(denominator.nth(denominator_degree - denominator_order))
                 * quotient_coefficients[order - denominator_order]
             )
-        quotient_coefficients.append(
-            parent.exquo(right_hand_side, denominator_leading)
-        )
+        quotient_coefficients.append(parent.exquo(right_hand_side, denominator_leading))
     return quotient_coefficients[target_order]
 
 
@@ -1245,12 +1195,10 @@ def _recursive_coefficient_reduction(
     )
     eta_multiple = constants.exquo(coordinate, pivot.value)
     exact_coefficient = (
-        coefficient_exact_part
-        - parent.convert(eta_multiple)*eta_exact_part
+        coefficient_exact_part - parent.convert(eta_multiple) * eta_exact_part
     )
     obstruction = (
-        coefficient_obstruction
-        - parent.convert(eta_multiple)*eta_obstruction
+        coefficient_obstruction - parent.convert(eta_multiple) * eta_obstruction
     )
     if (
         _primitive_obstruction_coordinate(
@@ -1260,13 +1208,11 @@ def _recursive_coefficient_reduction(
         )
         != constants.zero
     ):
-        raise ValueError(
-            "primitive obstruction projection did not remove its pivot"
-        )
+        raise ValueError("primitive obstruction projection did not remove its pivot")
 
     if (
         lower_derivation(exact_coefficient)
-        + parent.convert(eta_multiple)*eta
+        + parent.convert(eta_multiple) * eta
         + obstruction
         != coefficient
     ):
@@ -1337,8 +1283,7 @@ def polynomial_reduce_primitive(
 
     if eta_result.has_solution:
         raise ValueError(
-            "constant-field status is preserved, but Dt is exact in the "
-            "lower field"
+            "constant-field status is preserved, but Dt is exact in the lower field"
         )
     eta_exact_part = _coerce(parent, eta_result.exact_part)
     eta_obstruction = _coerce(parent, eta_result.obstruction)
@@ -1361,9 +1306,7 @@ def polynomial_reduce_primitive(
         coefficient = parent.convert(working.nth(degree))
         if variable is not None:
             if not isinstance(pivot, _RationalObstructionPivot):
-                raise TypeError(
-                    "rational primitive reduction needs a rational pivot"
-                )
+                raise TypeError("rational primitive reduction needs a rational pivot")
             exact_coefficient, eta_multiple, obstruction = (
                 _rational_coefficient_reduction(
                     coefficient,
@@ -1376,9 +1319,7 @@ def polynomial_reduce_primitive(
             )
         else:
             if not isinstance(pivot, _PrimitiveObstructionPivot):
-                raise TypeError(
-                    "recursive primitive reduction needs a Laurent pivot"
-                )
+                raise TypeError("recursive primitive reduction needs a Laurent pivot")
             exact_coefficient, eta_multiple, obstruction = (
                 _recursive_coefficient_reduction(
                     coefficient,
@@ -1394,8 +1335,7 @@ def polynomial_reduce_primitive(
             {
                 (degree,): exact_coefficient,
                 (degree + 1,): parent.convert(
-                    eta_multiple
-                    / derivation.tower.constants.convert(degree + 1)
+                    eta_multiple / derivation.tower.constants.convert(degree + 1)
                 ),
             },
             extension.generator,
@@ -1406,11 +1346,7 @@ def polynomial_reduce_primitive(
             extension.generator,
             domain=parent,
         )
-        new_working = (
-            working
-            - derivation.polynomial(correction)
-            - obstruction_term
-        )
+        new_working = working - derivation.polynomial(correction) - obstruction_term
         if not new_working.is_zero and new_working.degree() >= degree:
             raise ValueError("primitive polynomial reduction did not lower the degree")
 
@@ -1461,7 +1397,7 @@ def _polynomial_and_proper_fraction(
 ) -> tuple[Poly, Poly, Poly]:
     """Return the polynomial part and a proper fraction over a monic denominator."""
     numerator, denominator = _reduced_polynomial_fraction(element, extension)
-    leading_inverse = denominator.domain.one/denominator.domain.convert(
+    leading_inverse = denominator.domain.one / denominator.domain.convert(
         denominator.LC(),
     )
     numerator = numerator.mul_ground(leading_inverse)
@@ -1501,7 +1437,7 @@ def _normal_fraction_part(
         return denominator.zero, denominator.one
 
     normal_numerator = (
-        proper_numerator*special_denominator.invert(normal_denominator)
+        proper_numerator * special_denominator.invert(normal_denominator)
     ).rem(normal_denominator)
     if normal_numerator.is_zero:
         return denominator.zero, denominator.one
@@ -1545,12 +1481,12 @@ def _differentiate_logand(
             coefficient_polynomial,
             derivation.lower(),
         )
-        expression += coefficient_derivative.as_expr()*extension.generator**power
+        expression += coefficient_derivative.as_expr() * extension.generator**power
         if power:
             expression += (
                 power
                 * coefficient_polynomial.as_expr()
-                * extension.generator**(power - 1)
+                * extension.generator ** (power - 1)
                 * extension.generator_derivative.as_expr()
             )
     return expression
@@ -1585,9 +1521,7 @@ def _logarithmic_part_derivative(
     ).rem(modulus)
     residue_polynomial = Poly(residue, residue, domain=field)
     trace_element = (
-        residue_polynomial
-        * logand_derivative
-        * logand_modulus.invert(modulus)
+        residue_polynomial * logand_derivative * logand_modulus.invert(modulus)
     ).rem(modulus)
 
     # The trace of multiplication by u in F[z]/(q) is the sum of u(alpha)
@@ -1596,7 +1530,7 @@ def _logarithmic_part_derivative(
     trace = field.zero
     for power in range(modulus.degree()):
         basis_element = Poly(residue**power, residue, domain=field)
-        product = (trace_element*basis_element).rem(modulus)
+        product = (trace_element * basis_element).rem(modulus)
         trace += _coerce(field, product.nth(power))
     return trace
 
@@ -1662,8 +1596,7 @@ def bronstein_residue_criterion(
 
     residue_expression = resultant(
         normal_denominator.as_expr(),
-        normal_numerator.as_expr()
-        - residue*denominator_derivative.as_expr(),
+        normal_numerator.as_expr() - residue * denominator_derivative.as_expr(),
         extension.generator,
     )
     residue_polynomial = Poly(
@@ -1815,15 +1748,13 @@ def reduce_monomial_reduced_function(
     generator_derivative = extension.generator_derivative
     delta = generator_derivative.degree()
     if delta < 2:
-        raise ValueError(
-            "reduced-function reduction requires degree(Dt) >= 2"
-        )
+        raise ValueError("reduced-function reduction requires degree(Dt) >= 2")
 
     field = extension.field
     parent = extension.parent_field
     element = _coerce(field, remainder)
-    polynomial, proper_numerator, proper_denominator = (
-        _polynomial_and_proper_fraction(element, extension)
+    polynomial, proper_numerator, proper_denominator = _polynomial_and_proper_fraction(
+        element, extension
     )
     if proper_denominator.degree() > 0:
         normal_denominator, _ = split_normal_special(
@@ -1918,13 +1849,8 @@ def reduce_monomial_reduced_function(
         reduced_remainder,
         extension,
     )
-    if (
-        not reduced_polynomial.is_zero
-        and reduced_polynomial.degree() >= delta - 1
-    ):
-        raise ValueError(
-            "special polynomial did not remove the residue at infinity"
-        )
+    if not reduced_polynomial.is_zero and reduced_polynomial.degree() >= delta - 1:
+        raise ValueError("special polynomial did not remove the residue at infinity")
 
     return result(
         logarithmic_coefficient=logarithmic_coefficient,
@@ -1988,9 +1914,8 @@ def reduce_nonlinear_monomial(
         polynomial_exact_part.as_expr(),
     )
     exact_part = hermite_exact_part + polynomial_exact_element
-    after_polynomial_reduction = (
-        residue_reduction.remainder
-        - derivation(polynomial_exact_element)
+    after_polynomial_reduction = residue_reduction.remainder - derivation(
+        polynomial_exact_element
     )
 
     reduced_function_reduction = None
@@ -2014,10 +1939,7 @@ def reduce_nonlinear_monomial(
         polynomial_remainder,
         reduced_function_reduction,
         exact_part,
-        (
-            residue_reduction.logarithmic_derivative
-            + infinity_logarithmic_derivative
-        ),
+        (residue_reduction.logarithmic_derivative + infinity_logarithmic_derivative),
         remainder,
     )
 
@@ -2077,10 +1999,7 @@ def reduce_primitive_monomial(
         polynomial_reduction.exact_part.as_expr(),
     )
     exact_part = hermite_exact_part + polynomial_exact_element
-    remainder = (
-        residue_reduction.remainder
-        - derivation(polynomial_exact_element)
-    )
+    remainder = residue_reduction.remainder - derivation(polynomial_exact_element)
     final_polynomial, proper_numerator, proper_denominator = (
         _polynomial_and_proper_fraction(remainder, extension)
     )
@@ -2100,16 +2019,12 @@ def reduce_primitive_monomial(
                     "have a nonconstant special denominator"
                 )
             if normal_denominator.degree() > 0:
-                raise ValueError(
-                    "residue reduction left an unexpected normal fraction"
-                )
+                raise ValueError("residue reduction left an unexpected normal fraction")
 
         if final_polynomial.is_zero:
             lower_remainder = extension.parent_field.zero
         elif final_polynomial.degree() == 0:
-            lower_remainder = extension.parent_field.convert(
-                final_polynomial.nth(0)
-            )
+            lower_remainder = extension.parent_field.convert(final_polynomial.nth(0))
 
     return PrimitiveMonomialReduction(
         hermite_exact_part,
@@ -2163,10 +2078,10 @@ def _factor_principal_numerators(
     r"""Return ``A_j`` in the local expansion ``sum(A_j/p**j)``."""
     factor_power = factor**multiplicity
     cofactor = denominator.exquo(factor_power)
-    local_numerator = (
-        proper_numerator*cofactor.invert(factor_power)
-    ).rem(factor_power)
-    principal_numerators = [factor.zero]*multiplicity
+    local_numerator = (proper_numerator * cofactor.invert(factor_power)).rem(
+        factor_power
+    )
+    principal_numerators = [factor.zero] * multiplicity
     working = local_numerator
     for pole_order in range(multiplicity, 0, -1):
         coefficient = working.rem(factor)
@@ -2190,9 +2105,7 @@ def primitive_logarithmic_derivative_signature(
     ratio, so the parametric structure fallback can compare signatures.
     """
     if not isinstance(derivation, Derivation):
-        raise TypeError(
-            "primitive logarithmic signatures require a Derivation"
-        )
+        raise TypeError("primitive logarithmic signatures require a Derivation")
     if derivation.level < 1:
         raise NotImplementedError(
             "primitive logarithmic signatures require a primitive level "
@@ -2200,20 +2113,16 @@ def primitive_logarithmic_derivative_signature(
         )
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
-        raise TypeError(
-            "primitive logarithmic signatures require a monomial level"
-        )
+        raise TypeError("primitive logarithmic signatures require a monomial level")
     if extension.family is not MonomialFamily.PRIMITIVE:
         raise ValueError(
             "primitive logarithmic signatures require Dt in the lower field"
         )
-    extension.require_preserved_constants(
-        "primitive logarithmic signatures"
-    )
+    extension.require_preserved_constants("primitive logarithmic signatures")
     field = extension.field
     element = _coerce(field, integrand)
-    polynomial_part, proper_numerator, denominator = (
-        _polynomial_and_proper_fraction(element, extension)
+    polynomial_part, proper_numerator, denominator = _polynomial_and_proper_fraction(
+        element, extension
     )
     lower_component = (
         extension.parent_field.zero
@@ -2257,16 +2166,10 @@ def primitive_logarithmic_derivative_signature(
         )
 
     factors = tuple(factor_signatures)
-    has_positive_degree = (
-        not polynomial_part.is_zero and polynomial_part.degree() > 0
-    )
-    has_repeated_pole = any(
-        factor.has_repeated_pole_obstruction
-        for factor in factors
-    )
+    has_positive_degree = not polynomial_part.is_zero and polynomial_part.degree() > 0
+    has_repeated_pole = any(factor.has_repeated_pole_obstruction for factor in factors)
     has_nonlogarithmic_residue = any(
-        not factor.has_logarithmic_residue
-        for factor in factors
+        not factor.has_logarithmic_residue for factor in factors
     )
 
     minimal_power = None
@@ -2281,15 +2184,11 @@ def primitive_logarithmic_derivative_signature(
         for factor in factors:
             minimal_power = lcm(
                 minimal_power,
-                int(
-                    QQ.denom(
-                        QQ.convert(factor.logarithmic_multiplicity)
-                    )
-                ),
+                int(QQ.denom(QQ.convert(factor.logarithmic_multiplicity))),
             )
 
         scaled_lower_result = solve_radical_logarithmic_derivative(
-            minimal_power*lower_component,
+            minimal_power * lower_component,
             derivation.lower(),
         )
         if (
@@ -2298,26 +2197,23 @@ def primitive_logarithmic_derivative_signature(
             or scaled_lower_result.argument is None
         ):
             raise ValueError(
-                "clearing lower logarithmic residues did not produce "
-                "an argument"
+                "clearing lower logarithmic residues did not produce an argument"
             )
         relation_argument = _coerce(
             field,
             scaled_lower_result.argument,
         )
         for factor in factors:
-            exponent = (
-                QQ.convert(minimal_power)
-                * QQ.convert(factor.logarithmic_multiplicity)
+            exponent = QQ.convert(minimal_power) * QQ.convert(
+                factor.logarithmic_multiplicity
             )
             if QQ.denom(exponent) != 1:
                 raise ValueError(
                     "clearing primitive logarithmic residues left a "
                     "nonintegral valuation"
                 )
-            relation_argument *= (
-                _coerce(field, factor.factor.as_expr())
-                ** int(QQ.numer(exponent))
+            relation_argument *= _coerce(field, factor.factor.as_expr()) ** int(
+                QQ.numer(exponent)
             )
 
     signature = PrimitiveLogarithmicDerivativeSignature(
@@ -2334,9 +2230,7 @@ def primitive_logarithmic_derivative_signature(
             "primitive logarithmic signature did not reconstruct its input"
         )
     if signature.has_solution and not signature.reconstructs_relation:
-        raise ValueError(
-            "primitive logarithmic signature witness did not reconstruct"
-        )
+        raise ValueError("primitive logarithmic signature witness did not reconstruct")
     return signature
 
 
@@ -2354,9 +2248,7 @@ def hyperexponential_logarithmic_derivative_signature(
     as an ordinary logarithmic factor.
     """
     if not isinstance(derivation, Derivation):
-        raise TypeError(
-            "hyperexponential logarithmic signatures require a Derivation"
-        )
+        raise TypeError("hyperexponential logarithmic signatures require a Derivation")
     if derivation.level < 1:
         raise NotImplementedError(
             "hyperexponential logarithmic signatures require a level above "
@@ -2365,16 +2257,11 @@ def hyperexponential_logarithmic_derivative_signature(
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError(
-            "hyperexponential logarithmic signatures require a monomial "
-            "level"
+            "hyperexponential logarithmic signatures require a monomial level"
         )
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
-        raise ValueError(
-            "hyperexponential logarithmic signatures require Dt = eta*t"
-        )
-    extension.require_preserved_constants(
-        "hyperexponential logarithmic signatures"
-    )
+        raise ValueError("hyperexponential logarithmic signatures require Dt = eta*t")
+    extension.require_preserved_constants("hyperexponential logarithmic signatures")
 
     field = extension.field
     parent = extension.parent_field
@@ -2409,9 +2296,7 @@ def hyperexponential_logarithmic_derivative_signature(
             factor_derivative = derivation.polynomial(factor)
             factor_remainder = factor_derivative.rem(factor)
             if factor_remainder.is_zero:
-                raise ValueError(
-                    "a normal hyperexponential factor has zero derivative"
-                )
+                raise ValueError("a normal hyperexponential factor has zero derivative")
             logarithmic_multiplicity = _qq_constant_polynomial_multiple(
                 principal_numerators[0],
                 factor_remainder,
@@ -2430,19 +2315,10 @@ def hyperexponential_logarithmic_derivative_signature(
 
     lower_result = None
     has_top_obstruction = (
-        (
-            not polynomial_part.is_zero
-            and polynomial_part.degree() > 0
-        )
+        (not polynomial_part.is_zero and polynomial_part.degree() > 0)
         or special_denominator.degree() > 0
-        or any(
-            factor.has_repeated_pole_obstruction
-            for factor in factor_signatures
-        )
-        or any(
-            not factor.has_logarithmic_residue
-            for factor in factor_signatures
-        )
+        or any(factor.has_repeated_pole_obstruction for factor in factor_signatures)
+        or any(not factor.has_logarithmic_residue for factor in factor_signatures)
     )
     minimal_power = None
     relation_argument = None
@@ -2459,31 +2335,24 @@ def hyperexponential_logarithmic_derivative_signature(
         for factor in factor_signatures:
             multiplicity = factor.logarithmic_multiplicity
             if multiplicity is None:
-                raise ValueError(
-                    "a logarithmic factor lacks its multiplicity"
-                )
+                raise ValueError("a logarithmic factor lacks its multiplicity")
             full_derivative = derivation.polynomial(factor.factor)
             normal_logarithmic_part += _coerce(
                 field,
                 multiplicity,
-            )*_coerce(
+            ) * _coerce(
                 field,
-                full_derivative.as_expr()/factor.factor.as_expr(),
+                full_derivative.as_expr() / factor.factor.as_expr(),
             )
         normal_residual = element - normal_logarithmic_part
-        residual_polynomial, residual_numerator, _ = (
-            _polynomial_and_proper_fraction(normal_residual, extension)
+        residual_polynomial, residual_numerator, _ = _polynomial_and_proper_fraction(
+            normal_residual, extension
         )
-        if (
-            not residual_numerator.is_zero
-            or (
-                not residual_polynomial.is_zero
-                and residual_polynomial.degree() > 0
-            )
+        if not residual_numerator.is_zero or (
+            not residual_polynomial.is_zero and residual_polynomial.degree() > 0
         ):
             raise ValueError(
-                "normal logarithmic factors did not leave a lower-field "
-                "residual"
+                "normal logarithmic factors did not leave a lower-field residual"
             )
         lower_component = (
             parent.zero
@@ -2495,10 +2364,7 @@ def hyperexponential_logarithmic_derivative_signature(
             extension,
             derivation.lower(),
         )
-        if not (
-            lower_result.has_solution
-            or lower_result.proves_no_solution
-        ):
+        if not (lower_result.has_solution or lower_result.proves_no_solution):
             detail = lower_result.detail
             raise NotImplementedError(
                 "hyperexponential radical logarithmic descent requires a "
@@ -2511,31 +2377,25 @@ def hyperexponential_logarithmic_derivative_signature(
                 or lower_result.m is None
                 or lower_result.argument is None
             ):
-                raise ValueError(
-                    "a solved lower parametric problem lacks a witness"
-                )
+                raise ValueError("a solved lower parametric problem lacks a witness")
             minimal_power = lower_result.n
             for factor in factor_signatures:
                 multiplicity = factor.logarithmic_multiplicity
                 if multiplicity is None:
-                    raise ValueError(
-                        "a logarithmic factor lacks its multiplicity"
-                    )
+                    raise ValueError("a logarithmic factor lacks its multiplicity")
                 minimal_power = lcm(
                     minimal_power,
                     int(QQ.denom(QQ.convert(multiplicity))),
                 )
-            lower_scale = minimal_power//lower_result.n
-            relation_argument = _coerce(field, lower_result.argument)**lower_scale
+            lower_scale = minimal_power // lower_result.n
+            relation_argument = _coerce(field, lower_result.argument) ** lower_scale
             generator = _coerce(field, extension.generator)
-            relation_argument *= generator**(lower_result.m*lower_scale)
+            relation_argument *= generator ** (lower_result.m * lower_scale)
             for factor in factor_signatures:
                 multiplicity = factor.logarithmic_multiplicity
                 if multiplicity is None:
-                    raise ValueError(
-                        "a logarithmic factor lacks its multiplicity"
-                    )
-                exponent = QQ.convert(minimal_power)*QQ.convert(multiplicity)
+                    raise ValueError("a logarithmic factor lacks its multiplicity")
+                exponent = QQ.convert(minimal_power) * QQ.convert(multiplicity)
                 if QQ.denom(exponent) != 1:
                     raise ValueError(
                         "clearing hyperexponential residues left a "
@@ -2562,13 +2422,11 @@ def hyperexponential_logarithmic_derivative_signature(
     )
     if not signature.reconstructs_decomposition:
         raise ValueError(
-            "hyperexponential logarithmic signature did not reconstruct "
-            "its input"
+            "hyperexponential logarithmic signature did not reconstruct its input"
         )
     if signature.has_solution and not signature.reconstructs_relation:
         raise ValueError(
-            "hyperexponential logarithmic signature witness did not "
-            "reconstruct"
+            "hyperexponential logarithmic signature witness did not reconstruct"
         )
     return signature
 
@@ -2602,8 +2460,8 @@ class HypertangentLogarithmicDerivativeSignature:
         field = self.derivation.field
         argument = _coerce(field, self.relation_argument)
         return (
-            self.minimal_power*_coerce(field, self.integrand)
-            == self.derivation(argument)/argument
+            self.minimal_power * _coerce(field, self.integrand)
+            == self.derivation(argument) / argument
         )
 
 
@@ -2613,9 +2471,7 @@ def hypertangent_logarithmic_derivative_signature(
 ) -> HypertangentLogarithmicDerivativeSignature:
     r"""Decide a real radical logarithmic derivative at a tangent level."""
     if not isinstance(derivation, Derivation):
-        raise TypeError(
-            "hypertangent logarithmic signatures require a Derivation"
-        )
+        raise TypeError("hypertangent logarithmic signatures require a Derivation")
     if derivation.level < 1:
         raise NotImplementedError(
             "hypertangent logarithmic signatures require a level above the "
@@ -2623,13 +2479,10 @@ def hypertangent_logarithmic_derivative_signature(
         )
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
-        raise TypeError(
-            "hypertangent logarithmic signatures require a monomial level"
-        )
+        raise TypeError("hypertangent logarithmic signatures require a monomial level")
     if extension.family is not MonomialFamily.HYPERTANGENT:
         raise ValueError(
-            "hypertangent logarithmic signatures require "
-            "Dt = eta*(1 + t**2)"
+            "hypertangent logarithmic signatures require Dt = eta*(1 + t**2)"
         )
     field = extension.field
     element = _coerce(field, integrand)
@@ -2645,21 +2498,14 @@ def hypertangent_logarithmic_derivative_signature(
     relation_argument = None
     if minimal_power is not None:
         if gaussian_result.argument is None:
-            raise ValueError(
-                "a solved Gaussian logarithmic result lacks an argument"
-            )
+            raise ValueError("a solved Gaussian logarithmic result lacks an argument")
         real_part, imaginary_part = normal_form.split_inverse(
             gaussian_result.argument,
         )
-        relation_argument = (
-            real_part
-            if real_part != field.zero
-            else imaginary_part
-        )
+        relation_argument = real_part if real_part != field.zero else imaginary_part
         if relation_argument == field.zero:
             raise ValueError(
-                "a nonzero Gaussian logarithmic witness has no real "
-                "coordinate"
+                "a nonzero Gaussian logarithmic witness has no real coordinate"
             )
 
     signature = HypertangentLogarithmicDerivativeSignature(
@@ -2689,28 +2535,20 @@ def solve_radical_logarithmic_derivative(
     factors and descends through its special generator exponent.
     """
     if not isinstance(derivation, Derivation):
-        raise TypeError(
-            "radical logarithmic derivatives require a Derivation"
-        )
+        raise TypeError("radical logarithmic derivatives require a Derivation")
 
     field = derivation.field
     element = _coerce(field, integrand)
     if derivation.level == 0:
         extension = derivation.tower.levels[0]
         if not isinstance(extension, MonomialExtension):
-            raise TypeError(
-                "the rational logarithmic base must be monomial"
-            )
+            raise TypeError("the rational logarithmic base must be monomial")
         if extension.parent_field == QQ:
             variable = _standard_rational_base_variable(derivation)
-        elif (
-            extension.parent_field == QQ_I
-            and extension.generator_derivative
-            == Poly(
-                1,
-                extension.generator,
-                domain=extension.parent_field,
-            )
+        elif extension.parent_field == QQ_I and extension.generator_derivative == Poly(
+            1,
+            extension.generator,
+            domain=extension.parent_field,
         ):
             variable = extension.generator
         else:
@@ -2718,27 +2556,22 @@ def solve_radical_logarithmic_derivative(
                 "radical logarithmic derivatives require C(x) with Dx = 1 "
                 "for C = QQ or QQ_I"
             )
-        rational_result = (
-            _solve_rational_logarithmic_derivative_over_domain(
-                field.to_sympy(element),
-                variable,
-                extension.parent_field,
-            )
+        rational_result = _solve_rational_logarithmic_derivative_over_domain(
+            field.to_sympy(element),
+            variable,
+            extension.parent_field,
         )
         minimal_power = rational_result.minimal_radical_power
         argument = None
         if minimal_power is not None:
-            scaled_result = (
-                _solve_rational_logarithmic_derivative_over_domain(
-                    cancel(minimal_power*field.to_sympy(element)),
-                    variable,
-                    extension.parent_field,
-                )
+            scaled_result = _solve_rational_logarithmic_derivative_over_domain(
+                cancel(minimal_power * field.to_sympy(element)),
+                variable,
+                extension.parent_field,
             )
             if not scaled_result.has_solution:
                 raise ValueError(
-                    "clearing rational logarithmic residues did not "
-                    "produce an argument"
+                    "clearing rational logarithmic residues did not produce an argument"
                 )
             argument = field.from_sympy(scaled_result.argument)
         result = RadicalLogarithmicDerivativeResult(
@@ -2752,8 +2585,7 @@ def solve_radical_logarithmic_derivative(
         extension = derivation.tower.levels[derivation.level]
         if not isinstance(extension, MonomialExtension):
             raise NotImplementedError(
-                "radical logarithmic derivatives do not support algebraic "
-                "tower levels"
+                "radical logarithmic derivatives do not support algebraic tower levels"
             )
         if extension.family is MonomialFamily.PRIMITIVE:
             signature = primitive_logarithmic_derivative_signature(
@@ -2784,9 +2616,7 @@ def solve_radical_logarithmic_derivative(
         )
 
     if result.has_solution and not result.reconstructs:
-        raise ValueError(
-            "radical logarithmic derivative witness did not reconstruct"
-        )
+        raise ValueError("radical logarithmic derivative witness did not reconstruct")
     return result
 
 
@@ -2841,9 +2671,7 @@ def solve_primitive_exact_derivative(
         _polynomial_and_proper_fraction(obstruction, extension)
     )
     if final_polynomial != polynomial_reduction.remainder:
-        raise ValueError(
-            "primitive exact solving produced an inconsistent obstruction"
-        )
+        raise ValueError("primitive exact solving produced an inconsistent obstruction")
 
     if not proper_numerator.is_zero:
         normal_denominator, special_denominator = split_normal_special(
@@ -2875,22 +2703,16 @@ def _validate_hyperexponential_reduction(
 ) -> tuple[MonomialExtension, Derivation, FieldElement]:
     """Validate a supported transcendental hyperexponential extension."""
     if derivation.level < 1:
-        raise TypeError(
-            "hyperexponential reduction requires a nonconstant lower field"
-        )
+        raise TypeError("hyperexponential reduction requires a nonconstant lower field")
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("hyperexponential reduction requires a monomial level")
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
-        raise ValueError(
-            "hyperexponential reduction requires Dt = eta*t"
-        )
+        raise ValueError("hyperexponential reduction requires Dt = eta*t")
     extension.require_preserved_constants("hyperexponential reduction")
 
     lower_derivation = derivation.lower()
-    eta = extension.parent_field.convert(
-        extension.generator_derivative.nth(1)
-    )
+    eta = extension.parent_field.convert(extension.generator_derivative.nth(1))
     dependency = analyze_hyperexponential_extension(
         extension,
         lower_derivation,
@@ -2927,11 +2749,11 @@ def _reduce_hyperexponential_laurent_validated(
         )
     (denominator_power,), denominator_coefficient = denominator_terms[0]
     denominator_coefficient = parent.convert(denominator_coefficient)
-    coefficient_scale = parent.one/denominator_coefficient
+    coefficient_scale = parent.one / denominator_coefficient
 
     coefficients = {
         numerator_power - denominator_power: (
-            parent.convert(coefficient)*coefficient_scale
+            parent.convert(coefficient) * coefficient_scale
         )
         for (numerator_power,), coefficient in numerator.terms()
     }
@@ -2945,7 +2767,7 @@ def _reduce_hyperexponential_laurent_validated(
         coefficient_expression = parent.to_sympy(coefficient)
         term = _coerce(
             field,
-            coefficient_expression*generator**power,
+            coefficient_expression * generator**power,
         )
         if power == 0:
             lower_remainder = coefficient
@@ -2953,7 +2775,7 @@ def _reduce_hyperexponential_laurent_validated(
             continue
 
         rde_result = solve_risch_differential_equation(
-            parent.convert(power)*eta,
+            parent.convert(power) * eta,
             coefficient,
             lower_derivation,
         )
@@ -2962,7 +2784,7 @@ def _reduce_hyperexponential_laurent_validated(
             exact_coefficient = rde_result.solution
             exact_part += _coerce(
                 field,
-                parent.to_sympy(exact_coefficient)*generator**power,
+                parent.to_sympy(exact_coefficient) * generator**power,
             )
         else:
             remainder += term
@@ -2976,9 +2798,7 @@ def _reduce_hyperexponential_laurent_validated(
         )
 
     if derivation(exact_part) + remainder != element:
-        raise ValueError(
-            "hyperexponential Laurent reduction reconstruction failed"
-        )
+        raise ValueError("hyperexponential Laurent reduction reconstruction failed")
     return HyperexponentialLaurentReduction(
         exact_part,
         remainder,
@@ -3005,9 +2825,7 @@ def reduce_hyperexponential_laurent(
     has a solution in the supported lower field. The zero mode is returned for
     recursive lower-field integration.
     """
-    extension, lower_derivation, eta = _validate_hyperexponential_reduction(
-        derivation
-    )
+    extension, lower_derivation, eta = _validate_hyperexponential_reduction(derivation)
     element = _coerce(extension.field, integrand)
     return _reduce_hyperexponential_laurent_validated(
         element,
@@ -3030,9 +2848,7 @@ def reduce_hyperexponential_monomial(
     extracted as logarithmic derivatives, and remaining special Laurent modes
     are reduced through lower-field Risch differential equations.
     """
-    extension, lower_derivation, eta = _validate_hyperexponential_reduction(
-        derivation
-    )
+    extension, lower_derivation, eta = _validate_hyperexponential_reduction(derivation)
     field = extension.field
     element = _coerce(field, integrand)
     hermite_exact_part, hermite_remainder = hermite_reduce_monomial(
@@ -3063,14 +2879,10 @@ def reduce_hyperexponential_monomial(
             lower_remainder = laurent_reduction.lower_remainder
 
     if (
-        derivation(exact_part)
-        + residue_reduction.logarithmic_derivative
-        + remainder
+        derivation(exact_part) + residue_reduction.logarithmic_derivative + remainder
         != element
     ):
-        raise ValueError(
-            "hyperexponential monomial reduction reconstruction failed"
-        )
+        raise ValueError("hyperexponential monomial reduction reconstruction failed")
     return HyperexponentialMonomialReduction(
         hermite_exact_part,
         residue_reduction,
@@ -3087,40 +2899,30 @@ def _validate_hypertangent_reduction(
 ) -> tuple[MonomialExtension, FieldElement]:
     """Validate ``Dt = eta*(1+t**2)`` over a supported lower tower."""
     if derivation.level < 1:
-        raise TypeError(
-            "hypertangent reduction requires a nonconstant lower field"
-        )
+        raise TypeError("hypertangent reduction requires a nonconstant lower field")
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("hypertangent reduction requires a monomial level")
     if extension.family is not MonomialFamily.HYPERTANGENT:
-        raise ValueError(
-            "hypertangent reduction requires Dt = eta*(1 + t**2)"
-        )
+        raise ValueError("hypertangent reduction requires Dt = eta*(1 + t**2)")
     extension.require_preserved_constants("hypertangent reduction")
 
     lower_derivation = derivation.lower()
-    _standard_rational_base_variable(
-        Derivation(derivation.tower, 0)
-    )
+    _standard_rational_base_variable(Derivation(derivation.tower, 0))
     for level in range(1, lower_derivation.level + 1):
         lower_extension = derivation.tower.levels[level]
-        if (
-            not isinstance(lower_extension, MonomialExtension)
-            or lower_extension.family
-            not in {
-                MonomialFamily.PRIMITIVE,
-                MonomialFamily.HYPEREXPONENTIAL,
-                MonomialFamily.HYPERTANGENT,
-            }
-        ):
+        if not isinstance(
+            lower_extension, MonomialExtension
+        ) or lower_extension.family not in {
+            MonomialFamily.PRIMITIVE,
+            MonomialFamily.HYPEREXPONENTIAL,
+            MonomialFamily.HYPERTANGENT,
+        }:
             raise NotImplementedError(
                 "hypertangent reduction currently supports primitive, "
                 "hyperexponential, and hypertangent levels above QQ(x)"
             )
-        lower_extension.require_preserved_constants(
-            "hypertangent reduction"
-        )
+        lower_extension.require_preserved_constants("hypertangent reduction")
     dependency = analyze_hypertangent_extension(
         extension,
         lower_derivation,
@@ -3130,9 +2932,7 @@ def _validate_hypertangent_reduction(
             "hypertangent reduction requires a transcendental generator; "
             "the Cayley generator is algebraically dependent"
         )
-    eta = extension.parent_field.convert(
-        extension.generator_derivative.nth(2)
-    )
+    eta = extension.parent_field.convert(extension.generator_derivative.nth(2))
     if eta == extension.parent_field.zero:
         raise ValueError("the hypertangent coefficient eta must be nonzero")
     return extension, eta
@@ -3168,13 +2968,11 @@ def _hypertangent_cayley_coefficients(
             "lower field over QQ"
         )
     gaussian_field = QQ_I.frac_field(*parent_symbols)
-    inverse_cayley = I*(1 - cayley_generator)/(1 + cayley_generator)
+    inverse_cayley = I * (1 - cayley_generator) / (1 + cayley_generator)
     transformed = cancel(
         extension.field.to_sympy(element).subs(generator, inverse_cayley)
     )
-    numerator_expression, denominator_expression = (
-        transformed.as_numer_denom()
-    )
+    numerator_expression, denominator_expression = transformed.as_numer_denom()
     numerator = Poly(
         numerator_expression,
         cayley_generator,
@@ -3195,13 +2993,12 @@ def _hypertangent_cayley_coefficients(
         )
 
     (denominator_power,), denominator_coefficient = denominator_terms[0]
-    coefficient_scale = (
-        gaussian_field.one
-        / gaussian_field.convert(denominator_coefficient)
+    coefficient_scale = gaussian_field.one / gaussian_field.convert(
+        denominator_coefficient
     )
     coefficients = {
         numerator_power - denominator_power: (
-            gaussian_field.convert(term_coefficient)*coefficient_scale
+            gaussian_field.convert(term_coefficient) * coefficient_scale
         )
         for (numerator_power,), term_coefficient in numerator.terms()
     }
@@ -3236,14 +3033,11 @@ def _reduce_hypertangent_special_validated(
             )
             != zero
         ):
-            raise ValueError(
-                "Cayley coefficients do not form real conjugate pairs"
-            )
+            raise ValueError("Cayley coefficients do not form real conjugate pairs")
 
     lower_coefficient = coefficients.get(0, zero)
     if (
-        lower_coefficient
-        - _gaussian_conjugate(lower_coefficient, gaussian_field)
+        lower_coefficient - _gaussian_conjugate(lower_coefficient, gaussian_field)
         != zero
     ):
         raise ValueError("the Cayley power-zero coefficient is not real")
@@ -3252,9 +3046,7 @@ def _reduce_hypertangent_special_validated(
         gaussian_field.to_sympy(lower_coefficient),
     )
 
-    cayley_expression = (
-        (1 + I*generator)/(1 - I*generator)
-    )
+    cayley_expression = (1 + I * generator) / (1 - I * generator)
     exact_part = field.zero
     steps: list[HypertangentCayleyStep] = []
     for power in sorted(candidate for candidate in powers if candidate > 0):
@@ -3280,21 +3072,21 @@ def _reduce_hypertangent_special_validated(
                     gaussian_field.to_sympy(coefficient)
                     - gaussian_field.to_sympy(conjugate_coefficient)
                 )
-                / (2*I)
+                / (2 * I)
             ),
         )
         lower_derivation = derivation.lower()
         if lower_derivation.level == 0:
             variable = _standard_rational_base_variable(lower_derivation)
             rde_result = solve_coupled_rational_rde(
-                2*power*parent.to_sympy(eta),
+                2 * power * parent.to_sympy(eta),
                 parent.to_sympy(real_coefficient),
                 parent.to_sympy(imaginary_coefficient),
                 variable,
             )
         else:
             rde_result = solve_coupled_risch_differential_equation(
-                parent.convert(2*power)*eta,
+                parent.convert(2 * power) * eta,
                 real_coefficient,
                 imaginary_coefficient,
                 lower_derivation,
@@ -3311,14 +3103,11 @@ def _reduce_hypertangent_special_validated(
                 rde_result.imaginary_solution,
             )
             real_expression = parent.to_sympy(exact_real_coefficient)
-            imaginary_expression = parent.to_sympy(
-                exact_imaginary_coefficient
-            )
+            imaginary_expression = parent.to_sympy(exact_imaginary_coefficient)
             paired_exact_expression = cancel(
-                (real_expression + I*imaginary_expression)
-                * cayley_expression**power
-                + (real_expression - I*imaginary_expression)
-                * cayley_expression**(-power)
+                (real_expression + I * imaginary_expression) * cayley_expression**power
+                + (real_expression - I * imaginary_expression)
+                * cayley_expression ** (-power)
             )
             exact_part += _coerce(field, paired_exact_expression)
 
@@ -3335,16 +3124,11 @@ def _reduce_hypertangent_special_validated(
 
     remainder = element - derivation(exact_part)
     if derivation(exact_part) + remainder != element:
-        raise ValueError(
-            "hypertangent special reduction reconstruction failed"
-        )
-    if (
-        not any(not step.has_solution for step in steps)
-        and remainder != _coerce(field, lower_remainder)
+        raise ValueError("hypertangent special reduction reconstruction failed")
+    if not any(not step.has_solution for step in steps) and remainder != _coerce(
+        field, lower_remainder
     ):
-        raise ValueError(
-            "solved hypertangent modes did not reduce to the lower field"
-        )
+        raise ValueError("solved hypertangent modes did not reduce to the lower field")
     return HypertangentSpecialReduction(
         exact_part,
         remainder,
@@ -3425,14 +3209,10 @@ def reduce_hypertangent_monomial(
             lower_remainder = special_reduction.lower_remainder
 
     if (
-        derivation(exact_part)
-        + common_reduction.logarithmic_derivative
-        + remainder
+        derivation(exact_part) + common_reduction.logarithmic_derivative + remainder
         != element
     ):
-        raise ValueError(
-            "hypertangent monomial reduction reconstruction failed"
-        )
+        raise ValueError("hypertangent monomial reduction reconstruction failed")
     return HypertangentMonomialReduction(
         common_reduction,
         special_reduction,
@@ -3498,8 +3278,8 @@ def reduce_nonlinear_no_special(
             NonlinearNoSpecialStatus.INFINITY_RESIDUE_OBSTRUCTION,
         )
 
-    polynomial, proper_numerator, proper_denominator = (
-        _polynomial_and_proper_fraction(common.remainder, extension)
+    polynomial, proper_numerator, proper_denominator = _polynomial_and_proper_fraction(
+        common.remainder, extension
     )
     if not proper_numerator.is_zero:
         _, special_denominator = split_normal_special(
@@ -3511,9 +3291,7 @@ def reduce_nonlinear_no_special(
                 "special-polynomial status is absent, but the reduced "
                 "remainder has a nonconstant special denominator"
             )
-        raise ValueError(
-            "common reduction left an unexpected normal proper fraction"
-        )
+        raise ValueError("common reduction left an unexpected normal proper fraction")
 
     if polynomial.is_zero or polynomial.degree() == 0:
         lower_remainder = (
@@ -3539,7 +3317,7 @@ def _normal_denominator_excess(
 ) -> int:
     normal, _ = split_normal_special(denominator, derivation)
     return sum(
-        (multiplicity - 1)*factor.degree()
+        (multiplicity - 1) * factor.degree()
         for factor, multiplicity in normal.sqf_list()[1]
     )
 
@@ -3584,15 +3362,15 @@ def hermite_reduce_monomial(
         )
         cofactor = denominator.exquo(factor**multiplicity)
         factor_derivative = derivation.polynomial(factor)
-        modular_coefficient = (cofactor*factor_derivative).mul_ground(
+        modular_coefficient = (cofactor * factor_derivative).mul_ground(
             multiplicity - 1,
         )
-        correction_numerator = (
-            -numerator*modular_coefficient.invert(factor)
-        ).rem(factor)
-        correction_denominator = factor**(multiplicity - 1)
+        correction_numerator = (-numerator * modular_coefficient.invert(factor)).rem(
+            factor
+        )
+        correction_denominator = factor ** (multiplicity - 1)
         correction = field.from_sympy(
-            correction_numerator.as_expr()/correction_denominator.as_expr(),
+            correction_numerator.as_expr() / correction_denominator.as_expr(),
         )
 
         previous_excess = _normal_denominator_excess(denominator, derivation)

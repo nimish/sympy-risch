@@ -18,6 +18,7 @@ from sympy.polys.domains import QQ
 
 from sympy_risch import (
     AlgebraicExtension,
+    AlgebraicFunctionField,
     ConstantFieldStatus,
     DifferentialTower,
     IntegralBasis,
@@ -55,12 +56,12 @@ Inputs must be elements of the current exact field:
 
 ```python
 field = base.field()
-integrand = field.from_sympy(-1/(x - 1)**2 + 3/x)
+integrand = field.from_sympy(-1 / (x - 1) ** 2 + 3 / x)
 result = integrate_elementary(integrand, base.derivation())
 
 assert result.is_elementary
 assert result.reconstructs
-assert result.antiderivative == 1/(x - 1) + 3*log(x)
+assert result.antiderivative == 1 / (x - 1) + 3 * log(x)
 ```
 
 The rational reducer has separated the exact rational derivative from the
@@ -73,7 +74,7 @@ For `t = log(x)`, use `Dt = 1/x`:
 
 ```python
 log_x_analysis = certify_primitive_extension(
-    Poly(1/x, t, domain=base.field()),
+    Poly(1 / x, t, domain=base.field()),
     base.derivation(),
 )
 log_x = base.extend(log_x_analysis.extension)
@@ -85,14 +86,14 @@ a valid primitive extension. Add `u = log(t)` in the same way:
 
 ```python
 log_log_x_analysis = certify_primitive_extension(
-    Poly(1/(x*t), u, domain=log_x.field()),
+    Poly(1 / (x * t), u, domain=log_x.field()),
     log_x.derivation(),
 )
 log_log_x = log_x.extend(log_log_x_analysis.extension)
 
 field = log_log_x.field()
 result = integrate_elementary(
-    field.from_sympy(1/(x*t*u)),
+    field.from_sympy(1 / (x * t * u)),
     log_log_x.derivation(),
 )
 
@@ -140,19 +141,17 @@ recorded no-new-constants assumptions:
 
 ```python
 result = integrate_elementary(
-    field.from_sympy(1/u),
+    field.from_sympy(1 / u),
     log_log_x.derivation(),
 )
 
 assert not result.is_elementary
 assert result.antiderivative is None
 assert result.reconstructs
-assert result.unintegrated_remainder == field.from_sympy(1/u)
+assert result.unintegrated_remainder == field.from_sympy(1 / u)
 assert result.obstruction is not None
 assert result.obstruction.level == 2
-assert result.obstruction.kinds == (
-    IntegrationObstructionKind.NONCONSTANT_RESIDUE,
-)
+assert result.obstruction.kinds == (IntegrationObstructionKind.NONCONSTANT_RESIDUE,)
 ```
 
 This is different from an unsupported input. A structured obstruction records
@@ -173,11 +172,11 @@ exp_x = base.extend(
     )
 )
 result = integrate_elementary(
-    exp_x.field().from_sympy((x + 1)*t),
+    exp_x.field().from_sympy((x + 1) * t),
     exp_x.derivation(),
 )
 
-assert result.antiderivative == x*t
+assert result.antiderivative == x * t
 assert result.reconstructs
 ```
 
@@ -192,7 +191,7 @@ tan_x = base.extend(
     )
 )
 result = integrate_elementary(
-    tan_x.field().from_sympy(2*t),
+    tan_x.field().from_sympy(2 * t),
     tan_x.derivation(),
 )
 
@@ -200,25 +199,53 @@ assert result.antiderivative == log(t**2 + 1)
 assert result.reconstructs
 ```
 
+The hyperbolic law `Dt = 1 - t**2` represents `t = tanh(x)` (or `coth(x)` on
+another presentation). It is neither primitive nor hypertangent, but its
+Möbius coordinate
+
+```text
+u = (1 + t)/(1 - t)
+```
+
+has `Du = 2*u`. The dispatcher performs that exact, immutable normalization
+internally and maps its certificate back to the original `t` coordinate:
+
+```python
+tanh_x = base.extend(
+    MonomialExtension(
+        Poly(1 - t**2, t, domain=base.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+result = integrate_elementary(tanh_x.field().one, tanh_x.derivation())
+
+assert result.is_elementary
+assert result.reconstructs
+assert result.antiderivative == x
+```
+
+This covers precisely that Möbius-normalizable law. It is not yet a general
+decision procedure for arbitrary polynomial or Riccati monomials.
+
 Exactness is stricter than elementary integrability. The same dispatcher
 recovers derivatives in both families while retaining logarithmic residues or
 unsolved special modes as exactness obstructions:
 
 ```python
-planted = exp_x.field().from_sympy(x*t)
+planted = exp_x.field().from_sympy(x * t)
 exact = solve_exact_derivative(
     exp_x.derivation()(planted),
     exp_x.derivation(),
 )
 logarithmic = solve_exact_derivative(
-    tan_x.field().from_sympy(2*t),
+    tan_x.field().from_sympy(2 * t),
     tan_x.derivation(),
 )
 
 assert exact.has_solution
 assert exp_x.derivation()(exact.exact_part) == exp_x.derivation()(planted)
 assert not logarithmic.has_solution
-assert logarithmic.obstruction == tan_x.field().from_sympy(2*t)
+assert logarithmic.obstruction == tan_x.field().from_sympy(2 * t)
 ```
 
 Hypertangent and hyperexponential levels may also sit over recursively
@@ -238,7 +265,7 @@ This represents `u = tan(log(log(x)))` up to a constant phase:
 tan_log_log = log_x.extend(
     MonomialExtension(
         Poly(
-            (1 + u**2)/(x*t),
+            (1 + u**2) / (x * t),
             u,
             domain=log_x.field(),
         ),
@@ -247,7 +274,7 @@ tan_log_log = log_x.extend(
 )
 field = tan_log_log.field()
 D = tan_log_log.derivation()
-planted = field.from_sympy(x*u)
+planted = field.from_sympy(x * u)
 result = integrate_elementary(D(planted), D)
 
 assert result.is_elementary
@@ -268,23 +295,23 @@ For example, start from the earlier `log_x` tower and adjoin
 ```python
 exp_log_squared = log_x.extend(
     MonomialExtension(
-        Poly(2*t*u/x, u, domain=log_x.field()),
+        Poly(2 * t * u / x, u, domain=log_x.field()),
         ConstantFieldStatus.PRESERVED,
     )
 )
 field = exp_log_squared.field()
 result = integrate_elementary(
-    field.from_sympy((1 + 2*t)*u),
+    field.from_sympy((1 + 2 * t) * u),
     exp_log_squared.derivation(),
 )
 
 assert result.is_elementary
 assert result.reconstructs
-assert result.antiderivative == x*u
+assert result.antiderivative == x * u
 assert result.antiderivative.subs(
-    {t: log(x), u: exp(log(x)**2)},
+    {t: log(x), u: exp(log(x) ** 2)},
     simultaneous=True,
-) == x*exp(log(x)**2)
+) == x * exp(log(x) ** 2)
 ```
 
 The lower-field RDE solved here is
@@ -338,7 +365,7 @@ result = solve_risch_differential_equation(
     D,
 )
 assert result.has_solution
-assert result.solution == field.from_sympy(1/t)
+assert result.solution == field.from_sympy(1 / t)
 assert result.reconstructs
 assert result.certificate.minimum_power_bound == -1
 assert result.certificate.exceptional_power == -1
@@ -359,9 +386,9 @@ hyperexponential frontend. For example, the normal factor `t + 1` and the
 special factor `t` may occur together:
 
 ```python
-coefficient = field.from_sympy(t + 1/t)
-planted = field.from_sympy((x + 1)/(t**2*(t + 1)**2))
-right_hand_side = D(planted) + coefficient*planted
+coefficient = field.from_sympy(t + 1 / t)
+planted = field.from_sympy((x + 1) / (t**2 * (t + 1) ** 2))
+right_hand_side = D(planted) + coefficient * planted
 
 result = solve_risch_differential_equation(
     coefficient,
@@ -370,7 +397,7 @@ result = solve_risch_differential_equation(
 )
 assert result.solution == planted
 assert result.certificate.normal_denominator_bound == Poly(
-    (t + 1)**2,
+    (t + 1) ** 2,
     t,
     domain=base.field(),
 )
@@ -395,17 +422,17 @@ the following elementary integral:
 ```python
 pole_exp_over_log = log_x.extend(
     MonomialExtension(
-        Poly(u/(t - 1), u, domain=log_x.field()),
+        Poly(u / (t - 1), u, domain=log_x.field()),
         ConstantFieldStatus.PRESERVED,
     )
 )
 field = pole_exp_over_log.field()
 result = integrate_elementary(
-    field.from_sympy((1 + x/(t - 1))*u),
+    field.from_sympy((1 + x / (t - 1)) * u),
     pole_exp_over_log.derivation(),
 )
 assert result.is_elementary
-assert result.antiderivative == x*u
+assert result.antiderivative == x * u
 assert result.reconstructs
 ```
 
@@ -421,13 +448,13 @@ exp_x_over_log = log_x.extend(
 )
 field = exp_x_over_log.field()
 result = integrate_elementary(
-    field.from_sympy((t + 1/x)*u),
+    field.from_sympy((t + 1 / x) * u),
     exp_x_over_log.derivation(),
 )
 
 assert result.is_elementary
 assert result.reconstructs
-assert result.antiderivative == t*u
+assert result.antiderivative == t * u
 ```
 
 ## Solve direct coupled cancellation systems
@@ -452,16 +479,16 @@ exp_x = base.extend(
 )
 field = exp_x.field()
 D = exp_x.derivation()
-p = field.from_sympy((x + 1)*u**2 + (x - 1)/u)
-q = field.from_sympy(x*u**2 + 2/u)
+p = field.from_sympy((x + 1) * u**2 + (x - 1) / u)
+q = field.from_sympy(x * u**2 + 2 / u)
 a = field.from_sympy(x)
 rotation = field.from_sympy(x + 1)
 
 coupled = solve_hyperexponential_coupled_laurent_rde(
     a,
     rotation,
-    D(p) + a*p - rotation*q,
-    D(q) + rotation*p + a*q,
+    D(p) + a * p - rotation * q,
+    D(q) + rotation * p + a * q,
     D,
 )
 assert coupled.real_solution == p
@@ -482,9 +509,9 @@ tan_x = base.extend(
 )
 coupled = solve_hypertangent_coupled_cancellation_rde(
     0,
-    4*x,
-    -u**2 + 2*u - 8*x**2 + 1,
-    2*(1 - 2*x),
+    4 * x,
+    -(u**2) + 2 * u - 8 * x**2 + 1,
+    2 * (1 - 2 * x),
     tan_x.derivation(),
     2,
 )
@@ -495,7 +522,7 @@ assert coupled.real_solution == Poly(
     domain=base.field(),
 )
 assert coupled.imaginary_solution == Poly(
-    2*x,
+    2 * x,
     u,
     domain=base.field(),
 )
@@ -523,13 +550,11 @@ algorithm as its fast path:
 
 ```python
 theta = symbols("theta")
-eta = x**2 + 1/x
-theta_extension = MonomialExtension(
-    Poly(eta*theta, theta, domain=base.field())
-)
+eta = x**2 + 1 / x
+theta_extension = MonomialExtension(Poly(eta * theta, theta, domain=base.field()))
 
 decision = solve_parametric_logarithmic_derivative(
-    (1/(x - 1) + 3*eta)/2,
+    (1 / (x - 1) + 3 * eta) / 2,
     theta_extension,
     base.derivation(),
 )
@@ -549,9 +574,7 @@ constant part and every non-logarithmic residue coordinate. For Bronstein's
 Example 7.3.2, `D(theta)/theta = 1` and `f = 11`:
 
 ```python
-constant_theta = MonomialExtension(
-    Poly(theta, theta, domain=base.field())
-)
+constant_theta = MonomialExtension(Poly(theta, theta, domain=base.field()))
 fast_result = solve_parametric_logarithmic_derivative_heuristic(
     11,
     constant_theta,
@@ -584,13 +607,13 @@ is a logarithmic derivative:
 
 ```python
 signature = primitive_logarithmic_derivative_signature(
-    log_x.field().from_sympy(1/(2*x) + 1/(3*x*t)),
+    log_x.field().from_sympy(1 / (2 * x) + 1 / (3 * x * t)),
     log_x.derivation(),
 )
 
 assert signature.has_solution
 assert signature.minimal_power == 6
-assert signature.relation_argument == log_x.field().from_sympy(x**3*t**2)
+assert signature.relation_argument == log_x.field().from_sympy(x**3 * t**2)
 assert signature.reconstructs_decomposition
 assert signature.reconstructs_relation
 ```
@@ -613,19 +636,17 @@ combines residue denominators from every level:
 ```python
 log_log_x = log_x.extend(
     MonomialExtension(
-        Poly(1/(x*t), u, domain=log_x.field()),
+        Poly(1 / (x * t), u, domain=log_x.field()),
         ConstantFieldStatus.PRESERVED,
     )
 )
 radical = solve_radical_logarithmic_derivative(
-    1/(2*x) + 1/(3*x*t) + 1/(5*x*t*u),
+    1 / (2 * x) + 1 / (3 * x * t) + 1 / (5 * x * t * u),
     log_log_x.derivation(),
 )
 
 assert radical.minimal_power == 30
-assert radical.argument == log_log_x.field().from_sympy(
-    x**15*t**10*u**6
-)
+assert radical.argument == log_log_x.field().from_sympy(x**15 * t**10 * u**6)
 assert radical.reconstructs
 ```
 
@@ -635,12 +656,12 @@ in `eta` is not itself logarithmic, but it cancels at the uniquely determined
 ratio:
 
 ```python
-primitive_eta = 1/t + 1/t**2
+primitive_eta = 1 / t + 1 / t**2
 primitive_theta = MonomialExtension(
-    Poly(primitive_eta*theta, theta, domain=log_x.field())
+    Poly(primitive_eta * theta, theta, domain=log_x.field())
 )
 decision = solve_parametric_logarithmic_derivative(
-    2*primitive_eta + 1/(x*t),
+    2 * primitive_eta + 1 / (x * t),
     primitive_theta,
     log_x.derivation(),
 )
@@ -665,14 +686,12 @@ poles are unbranched, Trager's nested resultant computes all finite residues
 without first splitting the algebraic curve into individual places:
 
 ```python
-sqrt_x_extension = AlgebraicExtension(
-    Poly(y**2 - x, y, domain=base.field())
-)
+sqrt_x_extension = AlgebraicExtension(Poly(y**2 - x, y, domain=base.field()))
 sqrt_x = base.extend(sqrt_x_extension)
 basis = IntegralBasis.power_basis(sqrt_x_extension)
 
 residues = trager_algebraic_residue_polynomial(
-    y/(x - 1),
+    y / (x - 1),
     sqrt_x.derivation(),
     basis,
     z,
@@ -694,6 +713,32 @@ square-free integral-basis denominator, and denominator coprime to the model
 discriminant. It explicitly rejects branch poles and does not yet construct
 the algebraic constant extension, residue divisors, logarithmic terms, or the
 contribution at infinity.
+
+## Build the algebraic function-field model
+
+The general curve infrastructure normalizes the field before constructing
+places. It therefore supports ramified fibers and infinity independently of
+the plane-model restrictions in the Trager shortcut:
+
+```python
+curve = AlgebraicFunctionField(sqrt_x_extension)
+branch_place = curve.finite_places(Poly(x, x, domain=QQ))[0]
+infinity = curve.infinite_places()[0]
+
+assert branch_place.ramification_index == 2
+assert branch_place.valuation(sqrt_x_extension.field.generator) == 1
+assert infinity.valuation(sqrt_x_extension.field.from_sympy(x)) == -2
+assert curve.principal_divisor(sqrt_x_extension.field.from_sympy(x)).degree == 0
+assert curve.genus == 0
+```
+
+The model also exposes the certified maximal order, fractional ideals, local
+reduction and Laurent expansion, differents, differential residues, and
+finite ideal/divisor conversion. See the
+[algebraic infrastructure contract](algebraic-infrastructure.md). These are
+low-level prerequisites for future algebraic Risch algorithms; they do not
+perform logarithmic reconstruction, principal-divisor solving, or an
+algebraic RDE.
 
 ## Mathematical assumptions
 
@@ -736,6 +781,7 @@ boundary, not a mathematical claim about the integral.
 | Radical and parametric logarithmic derivatives in the supported P/E/T tower contract | Complete decision with explicit unsupported outcomes outside that contract |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
+| Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Monomial above a function-field algebraic level, or nested algebraic level | Explicitly rejected by the current SymPy domain backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end in the explicit certified P/E/T contract |
@@ -757,8 +803,11 @@ principal groups are:
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
 | Primitive logarithmic analysis | `solve_radical_logarithmic_derivative`, `primitive_logarithmic_derivative_signature` |
 | Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative`; `solve_parametric_logarithmic_derivative_heuristic` exposes the Section 7.3 fast path |
+| Hyperbolic normal form | `build_hyperbolic_mobius_normal_form` for the exact law `Dt = eta*(1 - t**2)` |
+| Concrete special-factor evidence | `certify_special_polynomial`, `analyze_special_polynomials` (positive evidence only; not an absence decision) |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
+| Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |
 
 These functions return structured immutable results rather than only a printed
 antiderivative. Their dataclass fields are the executable reduction

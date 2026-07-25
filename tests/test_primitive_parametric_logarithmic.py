@@ -20,7 +20,7 @@ x, t, u, theta = symbols("x t u theta")
 
 def logarithmic_tower(
     *,
-    eta=1/x,
+    eta=1 / x,
     constant_field_status=ConstantFieldStatus.PRESERVED,
 ) -> DifferentialTower:
     """Return ``QQ(x)(t)``, with ``Dx = 1`` and ``Dt = eta``."""
@@ -48,7 +48,7 @@ def nested_logarithmic_tower(
     )
     return tower.extend(
         MonomialExtension(
-            Poly(1/(x*t), u, domain=tower.field()),
+            Poly(1 / (x * t), u, domain=tower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -60,7 +60,7 @@ def hyperexponential_extension(
 ) -> MonomialExtension:
     """Return the proposed extension ``Dtheta = eta*theta``."""
     return MonomialExtension(
-        Poly(eta*theta, theta, domain=lower.field()),
+        Poly(eta * theta, theta, domain=lower.field()),
     )
 
 
@@ -80,7 +80,7 @@ def _fraction_polynomials(expression, extension):
     )
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(coefficient)
-    leading_inverse = denominator.domain.one/denominator.domain.convert(
+    leading_inverse = denominator.domain.one / denominator.domain.convert(
         denominator.LC()
     )
     return (
@@ -137,26 +137,22 @@ def _independent_parametric_solution_set(f, eta, derivation):
 
     ratio = Dummy("ratio")
     top_residues = tuple(
-        Dummy(f"top_residue_{index}")
-        for index in range(len(top_factors))
+        Dummy(f"top_residue_{index}") for index in range(len(top_factors))
     )
     lower_residues = tuple(
-        Dummy(f"lower_residue_{index}")
-        for index in range(len(lower_factors))
+        Dummy(f"lower_residue_{index}") for index in range(len(lower_factors))
     )
-    candidate = ratio*eta_expression
+    candidate = ratio * eta_expression
     for residue, factor in zip(top_residues, top_factors, strict=True):
         candidate += (
-            residue
-            * derivation.polynomial(factor).as_expr()
-            / factor.as_expr()
+            residue * derivation.polynomial(factor).as_expr() / factor.as_expr()
         )
     for residue, factor in zip(
         lower_residues,
         lower_factors,
         strict=True,
     ):
-        candidate += residue*factor.diff().as_expr()/factor.as_expr()
+        candidate += residue * factor.diff().as_expr() / factor.as_expr()
 
     identity_numerator = cancel(
         f_expression - candidate,
@@ -176,17 +172,16 @@ def _independent_nested_parametric_solution_set(f, eta, derivation):
     factor_expressions = (x, x**2 + 1, t, u, u**2 + t)
     ratio = Dummy("nested_ratio")
     residues = tuple(
-        Dummy(f"nested_residue_{index}")
-        for index in range(len(factor_expressions))
+        Dummy(f"nested_residue_{index}") for index in range(len(factor_expressions))
     )
-    candidate = ratio*eta_expression
+    candidate = ratio * eta_expression
     for residue, factor_expression in zip(
         residues,
         factor_expressions,
         strict=True,
     ):
         factor = field.from_sympy(factor_expression)
-        candidate += residue*(derivation(factor)/factor).as_expr()
+        candidate += residue * (derivation(factor) / factor).as_expr()
     identity_numerator = cancel(
         f_expression - candidate,
     ).as_numer_denom()[0]
@@ -198,10 +193,10 @@ def test_polynomial_coordinate_determines_ratio_and_witness() -> None:
     lower = logarithmic_tower()
     field = lower.field()
     derivation = lower.derivation()
-    eta = t + 1/(x + 1)
+    eta = t + 1 / (x + 1)
     extension = hyperexponential_extension(lower, eta)
-    argument = field.from_sympy(x*t)
-    f = (derivation(argument)/argument - 2*field.from_sympy(eta))/3
+    argument = field.from_sympy(x * t)
+    f = (derivation(argument) / argument - 2 * field.from_sympy(eta)) / 3
 
     result = solve_parametric_logarithmic_derivative(
         f,
@@ -224,11 +219,11 @@ def test_polynomial_coordinate_determines_ratio_and_witness() -> None:
 
 def test_repeated_poles_can_cancel_before_logarithmic_reconstruction() -> None:
     lower = logarithmic_tower()
-    eta = 1/t + 1/t**2
+    eta = 1 / t + 1 / t**2
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        2*eta + 1/(x*t),
+        2 * eta + 1 / (x * t),
         extension,
         lower.derivation(),
     )
@@ -251,12 +246,12 @@ def test_nonlogarithmic_simple_residues_can_cancel() -> None:
     field = lower.field()
     derivation = lower.derivation()
     factor = field.from_sympy(t**2 + x)
-    logarithmic_derivative = derivation(factor)/factor
-    eta = 1/(t**2 + x)
+    logarithmic_derivative = derivation(factor) / factor
+    eta = 1 / (t**2 + x)
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        2*field.from_sympy(eta) + logarithmic_derivative/3,
+        2 * field.from_sympy(eta) + logarithmic_derivative / 3,
         extension,
         derivation,
     )
@@ -270,11 +265,11 @@ def test_nonlogarithmic_simple_residues_can_cancel() -> None:
 
 def test_top_constraints_can_leave_ratio_to_complete_lower_solver() -> None:
     lower = logarithmic_tower()
-    eta = 1/(x**2 + 1) + 1/(x*t)
+    eta = 1 / (x**2 + 1) + 1 / (x * t)
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        2/(x**2 + 1) + 1/(3*x*t),
+        2 / (x**2 + 1) + 1 / (3 * x * t),
         extension,
         lower.derivation(),
     )
@@ -284,21 +279,18 @@ def test_top_constraints_can_leave_ratio_to_complete_lower_solver() -> None:
     assert result.argument == lower.field().from_sympy(t**-5)
     assert result.certificate.candidate_ratio == 2
     assert result.certificate.lower_parametric_result.has_solution
-    assert (
-        result.certificate.lower_parametric_result.certificate
-        is not None
-    )
+    assert result.certificate.lower_parametric_result.certificate is not None
 
 
 def test_conflicting_polynomial_and_repeated_pole_ratios_prove_no_solution() -> None:
     lower = logarithmic_tower()
     extension = hyperexponential_extension(
         lower,
-        t + 2/t**2,
+        t + 2 / t**2,
     )
 
     result = solve_parametric_logarithmic_derivative(
-        t + 1/t**2,
+        t + 1 / t**2,
         extension,
         lower.derivation(),
     )
@@ -314,11 +306,11 @@ def test_conflicting_polynomial_and_repeated_pole_ratios_prove_no_solution() -> 
 
 def test_top_ratio_can_fail_complete_lower_logarithmic_test() -> None:
     lower = logarithmic_tower()
-    eta = t + 1/(x**2 + 1)
+    eta = t + 1 / (x**2 + 1)
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        2*t + 1/(x**2 + 1),
+        2 * t + 1 / (x**2 + 1),
         extension,
         lower.derivation(),
     )
@@ -331,18 +323,18 @@ def test_top_ratio_can_fail_complete_lower_logarithmic_test() -> None:
 
 def test_free_ratio_uses_zero_when_f_is_already_radical_logarithmic() -> None:
     lower = logarithmic_tower()
-    eta = 1/x + 1/(x*t)
+    eta = 1 / x + 1 / (x * t)
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        1/(2*x) + 1/(3*x*t),
+        1 / (2 * x) + 1 / (3 * x * t),
         extension,
         lower.derivation(),
     )
 
     assert result.has_solution
     assert (result.n, result.m) == (6, 0)
-    assert result.argument == lower.field().from_sympy(x**3*t**2)
+    assert result.argument == lower.field().from_sympy(x**3 * t**2)
     assert result.reconstructs
 
 
@@ -391,10 +383,10 @@ def test_nested_top_coordinate_determines_ratio() -> None:
     lower = nested_logarithmic_tower()
     field = lower.field()
     derivation = lower.derivation()
-    eta = u + 1/u**2
+    eta = u + 1 / u**2
     extension = hyperexponential_extension(lower, eta)
     argument = field.from_sympy(u)
-    f = 2*field.from_sympy(eta) + derivation(argument)/(3*argument)
+    f = 2 * field.from_sympy(eta) + derivation(argument) / (3 * argument)
 
     result = solve_parametric_logarithmic_derivative(
         f,
@@ -411,9 +403,9 @@ def test_nested_top_coordinate_determines_ratio() -> None:
 
 def test_nested_free_ratio_descends_to_rational_base() -> None:
     lower = nested_logarithmic_tower()
-    eta = 1/(x**2 + 1) + 1/(x*t) + 1/(x*t*u)
+    eta = 1 / (x**2 + 1) + 1 / (x * t) + 1 / (x * t * u)
     extension = hyperexponential_extension(lower, eta)
-    f = 2/(x**2 + 1) + 1/(3*x*t) + 1/(5*x*t*u)
+    f = 2 / (x**2 + 1) + 1 / (3 * x * t) + 1 / (5 * x * t * u)
 
     result = solve_parametric_logarithmic_derivative(
         f,
@@ -423,7 +415,7 @@ def test_nested_free_ratio_descends_to_rational_base() -> None:
 
     assert result.has_solution
     assert (result.n, result.m) == (15, 30)
-    assert result.argument == lower.field().from_sympy(t**-25*u**-27)
+    assert result.argument == lower.field().from_sympy(t**-25 * u**-27)
     assert result.reconstructs
     assert result.certificate.candidate_ratio == 2
     level_one = result.certificate.lower_parametric_result
@@ -433,11 +425,11 @@ def test_nested_free_ratio_descends_to_rational_base() -> None:
 
 def test_nested_top_ratio_can_expose_lower_obstruction() -> None:
     lower = nested_logarithmic_tower()
-    eta = u + 1/(x**2 + 1)
+    eta = u + 1 / (x**2 + 1)
     extension = hyperexponential_extension(lower, eta)
 
     result = solve_parametric_logarithmic_derivative(
-        2*u + 1/(x**2 + 1),
+        2 * u + 1 / (x**2 + 1),
         extension,
         lower.derivation(),
     )
@@ -484,18 +476,12 @@ def test_generated_nested_primitive_parametric_witnesses(
     lower = nested_logarithmic_tower()
     field = lower.field()
     derivation = lower.derivation()
-    eta = u + 1/u**2 + 1/(u**2 + t)
+    eta = u + 1 / u**2 + 1 / (u**2 + t)
     extension = hyperexponential_extension(lower, eta)
     argument = field.from_sympy(
-        x**x_power
-        * t**t_power
-        * u**u_power
-        * (u**2 + t)**mixed_power
+        x**x_power * t**t_power * u**u_power * (u**2 + t) ** mixed_power
     )
-    f = (
-        derivation(argument)/argument
-        + m*field.from_sympy(eta)
-    )/n
+    f = (derivation(argument) / argument + m * field.from_sympy(eta)) / n
 
     result = solve_parametric_logarithmic_derivative(
         f,
@@ -519,7 +505,9 @@ def test_generated_nested_primitive_parametric_witnesses(
         st.integers(min_value=-2, max_value=2),
         min_size=9,
         max_size=9,
-    ).filter(any).map(tuple),
+    )
+    .filter(any)
+    .map(tuple),
 )
 def test_nested_solver_matches_independent_global_parametric_oracle(
     f_coefficients,
@@ -530,22 +518,22 @@ def test_nested_solver_matches_independent_global_parametric_oracle(
     derivation = lower.derivation()
     mixed = field.from_sympy(u**2 + t)
     basis = (
-        1/x,
-        2*x/(x**2 + 1),
-        1/(x*t),
-        1/(x*t*u),
-        (derivation(mixed)/mixed).as_expr(),
+        1 / x,
+        2 * x / (x**2 + 1),
+        1 / (x * t),
+        1 / (x * t * u),
+        (derivation(mixed) / mixed).as_expr(),
         u,
-        1/u**2,
-        1/u,
-        1/(u**2 + t),
+        1 / u**2,
+        1 / u,
+        1 / (u**2 + t),
     )
     f = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(f_coefficients, basis, strict=True)
     )
     eta = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(eta_coefficients, basis, strict=True)
     )
     assume(cancel(eta) != 0)
@@ -589,15 +577,10 @@ def test_generated_planted_primitive_parametric_witnesses(
     lower = logarithmic_tower()
     field = lower.field()
     derivation = lower.derivation()
-    eta = t + 1/t**2 + 1/(t**2 + x)
+    eta = t + 1 / t**2 + 1 / (t**2 + x)
     extension = hyperexponential_extension(lower, eta)
-    argument = field.from_sympy(
-        x**x_power*t**t_power*(t**2 + x)**quadratic_power
-    )
-    f = (
-        derivation(argument)/argument
-        + m*field.from_sympy(eta)
-    )/n
+    argument = field.from_sympy(x**x_power * t**t_power * (t**2 + x) ** quadratic_power)
+    f = (derivation(argument) / argument + m * field.from_sympy(eta)) / n
 
     result = solve_parametric_logarithmic_derivative(
         f,
@@ -626,7 +609,9 @@ def test_generated_planted_primitive_parametric_witnesses(
         st.integers(min_value=-2, max_value=2),
         min_size=13,
         max_size=13,
-    ).filter(any).map(tuple),
+    )
+    .filter(any)
+    .map(tuple),
 )
 def test_complete_solver_matches_independent_global_primitive_oracle(
     oracle_shard,
@@ -637,9 +622,7 @@ def test_complete_solver_matches_independent_global_primitive_oracle(
     # vector gives each shard a distinct coefficient-to-basis assignment while
     # preserving the original total of 80 Hypothesis examples. Pytest-xdist
     # can then schedule the eight shards independently.
-    f_coefficients = (
-        f_coefficients[oracle_shard:] + f_coefficients[:oracle_shard]
-    )
+    f_coefficients = f_coefficients[oracle_shard:] + f_coefficients[:oracle_shard]
     eta_coefficients = (
         eta_coefficients[-oracle_shard:] + eta_coefficients[:-oracle_shard]
         if oracle_shard
@@ -649,34 +632,30 @@ def test_complete_solver_matches_independent_global_primitive_oracle(
     field = lower.field()
     derivation = lower.derivation()
     quadratic = field.from_sympy(t**2 + x)
-    quadratic_logarithmic_derivative = (
-        derivation(quadratic)/quadratic
-    ).as_expr()
+    quadratic_logarithmic_derivative = (derivation(quadratic) / quadratic).as_expr()
     cubic = field.from_sympy(t**3 + t + x)
-    cubic_logarithmic_derivative = (
-        derivation(cubic)/cubic
-    ).as_expr()
+    cubic_logarithmic_derivative = (derivation(cubic) / cubic).as_expr()
     basis = (
-        1/x,
-        1/x**2,
-        1/(x**2 + 1),
+        1 / x,
+        1 / x**2,
+        1 / (x**2 + 1),
         t,
         t**2,
-        1/(x*t),
-        1/t,
+        1 / (x * t),
+        1 / t,
         quadratic_logarithmic_derivative,
-        1/(t**2 + x),
+        1 / (t**2 + x),
         cubic_logarithmic_derivative,
-        1/(t**3 + t + x),
-        1/t**2,
-        1/(t - x)**2,
+        1 / (t**3 + t + x),
+        1 / t**2,
+        1 / (t - x) ** 2,
     )
     f = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(f_coefficients, basis, strict=True)
     )
     eta = sum(
-        coefficient*term
+        coefficient * term
         for coefficient, term in zip(eta_coefficients, basis, strict=True)
     )
     assume(cancel(eta) != 0)

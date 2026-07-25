@@ -39,13 +39,9 @@ class TranscendentalExactDerivativeCertificate:
     maximal without discarding the finite-residue obstruction.
     """
 
-    reduction: (
-        HyperexponentialMonomialReduction | HypertangentMonomialReduction
-    )
+    reduction: HyperexponentialMonomialReduction | HypertangentMonomialReduction
     residual_reduction: (
-        HyperexponentialMonomialReduction
-        | HypertangentMonomialReduction
-        | None
+        HyperexponentialMonomialReduction | HypertangentMonomialReduction | None
     )
     lower_result: ExactDerivativeResult | None
 
@@ -55,6 +51,7 @@ class HypertangentGaussianExactDerivativeCertificate:
     """Exactness decision obtained from the Gaussian scalar RDE fallback."""
 
     rde_result: RischDifferentialEquationResult
+
 
 ExactDerivativeCertificate = (
     RationalExactDerivativeResult
@@ -100,9 +97,7 @@ def _standard_rational_constant_field(
 
 
 def _transcendental_lower_remainder(
-    reduction: (
-        HyperexponentialMonomialReduction | HypertangentMonomialReduction
-    ),
+    reduction: (HyperexponentialMonomialReduction | HypertangentMonomialReduction),
 ) -> FieldElement | None:
     """Return the separated lower-field mode, even beside a top obstruction."""
     if isinstance(reduction, HyperexponentialMonomialReduction):
@@ -115,15 +110,9 @@ def _transcendental_lower_remainder(
 
 
 def _continue_past_finite_residue(
-    reduction: (
-        HyperexponentialMonomialReduction | HypertangentMonomialReduction
-    ),
+    reduction: (HyperexponentialMonomialReduction | HypertangentMonomialReduction),
     derivation: Derivation,
-) -> (
-    HyperexponentialMonomialReduction
-    | HypertangentMonomialReduction
-    | None
-):
+) -> HyperexponentialMonomialReduction | HypertangentMonomialReduction | None:
     r"""Reduce the part disjoint from a proved nonconstant normal residue."""
     if isinstance(reduction, HyperexponentialMonomialReduction):
         has_finite_obstruction = reduction.has_finite_residue_obstruction
@@ -136,9 +125,7 @@ def _continue_past_finite_residue(
 
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
-        raise TypeError(
-            "transcendental exact reduction requires a monomial level"
-        )
+        raise TypeError("transcendental exact reduction requires a monomial level")
     normal_numerator, normal_denominator = _normal_fraction_part(
         reduction.remainder,
         extension,
@@ -146,7 +133,7 @@ def _continue_past_finite_residue(
     )
     normal_obstruction = _coerce(
         extension.field,
-        normal_numerator.as_expr()/normal_denominator.as_expr(),
+        normal_numerator.as_expr() / normal_denominator.as_expr(),
     )
     residual = reduction.remainder - normal_obstruction
     if residual == extension.field.zero:
@@ -167,18 +154,14 @@ def _continue_past_finite_residue(
             derivation,
         )
         if residual_reduction.common_reduction.has_finite_residue_obstruction:
-            raise ValueError(
-                "normal-fraction separation left a hypertangent residue"
-            )
+            raise ValueError("normal-fraction separation left a hypertangent residue")
     return residual_reduction
 
 
 def _finish_transcendental_exact_derivative(
     element: FieldElement,
     derivation: Derivation,
-    reduction: (
-        HyperexponentialMonomialReduction | HypertangentMonomialReduction
-    ),
+    reduction: (HyperexponentialMonomialReduction | HypertangentMonomialReduction),
 ) -> ExactDerivativeResult:
     r"""Combine one family reduction with exact solving in its lower field."""
     field = derivation.field
@@ -209,9 +192,7 @@ def _finish_transcendental_exact_derivative(
         )
 
     if derivation(exact_part) + obstruction != element:
-        raise ValueError(
-            "transcendental exact-derivative reconstruction failed"
-        )
+        raise ValueError("transcendental exact-derivative reconstruction failed")
     return ExactDerivativeResult(
         exact_part,
         obstruction,

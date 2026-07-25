@@ -35,7 +35,7 @@ def logarithmic_tower(
     )
     return base.extend(
         MonomialExtension(
-            Poly(1/x, t, domain=base.field()),
+            Poly(1 / x, t, domain=base.field()),
             constant_field_status,
         )
     )
@@ -64,8 +64,8 @@ def test_primitive_rde_solves_exp_log_squared_coefficient_equation() -> None:
     derivation = tower.derivation()
 
     result = solve_risch_differential_equation(
-        field.from_sympy(2*t/x),
-        field.from_sympy(1 + 2*t),
+        field.from_sympy(2 * t / x),
+        field.from_sympy(1 + 2 * t),
         derivation,
     )
 
@@ -87,9 +87,9 @@ def test_primitive_normal_denominator_recovers_a_planted_rational_solution() -> 
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(2*t/x)
-    planted = field.from_sympy((x + 1)/(t - 1)**2)
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(2 * t / x)
+    planted = field.from_sympy((x + 1) / (t - 1) ** 2)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -100,11 +100,11 @@ def test_primitive_normal_denominator_recovers_a_planted_rational_solution() -> 
     assert result.has_solution
     assert result.solution == planted
     assert result.denominator_bound == Poly(
-        (t - 1)**2,
+        (t - 1) ** 2,
         t,
         domain=tower.field(0),
     )
-    assert derivation(result.solution) + coefficient*result.solution == (
+    assert derivation(result.solution) + coefficient * result.solution == (
         right_hand_side
     )
 
@@ -115,7 +115,7 @@ def test_simple_normal_pole_is_a_denominator_obstruction() -> None:
 
     result = solve_primitive_risch_differential_equation(
         field.from_sympy(t),
-        field.from_sympy(1/(t - 1)),
+        field.from_sympy(1 / (t - 1)),
         tower.derivation(),
     )
 
@@ -136,7 +136,7 @@ def test_repeated_pole_can_reach_an_spde_degree_obstruction() -> None:
 
     result = solve_primitive_risch_differential_equation(
         field.from_sympy(t),
-        field.from_sympy(1/(t - 1)**2),
+        field.from_sympy(1 / (t - 1) ** 2),
         tower.derivation(),
     )
 
@@ -180,7 +180,7 @@ def test_polynomial_recurrence_retains_the_uncancellable_residual() -> None:
     )
     assert (
         tower.derivation().polynomial(polynomial.partial_solution)
-        + polynomial.coefficient*polynomial.partial_solution
+        + polynomial.coefficient * polynomial.partial_solution
         + polynomial.residual
         == polynomial.right_hand_side
     )
@@ -206,17 +206,17 @@ def test_top_generator_logarithmic_pole_is_weakly_normalized() -> None:
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    coefficient = derivation(factor)/factor
+    coefficient = derivation(factor) / factor
 
     result = solve_risch_differential_equation(
         coefficient,
-        field.one/factor,
+        field.one / factor,
         derivation,
     )
 
     assert result.has_solution
     assert result.reconstructs
-    assert result.solution == field.from_sympy(x/(t + x))
+    assert result.solution == field.from_sympy(x / (t + x))
     certificate = result.certificate
     assert certificate.normalization_factor == Poly(
         t + x,
@@ -234,10 +234,10 @@ def test_weak_normalization_removes_all_positive_integer_residues() -> None:
     derivation = tower.derivation()
     first = field.from_sympy(t + x)
     second = field.from_sympy(t - 1)
-    normalizer = first**2*second**3
-    coefficient = derivation(normalizer)/normalizer
-    planted = field.from_sympy(x)/normalizer
-    right_hand_side = derivation(planted) + coefficient*planted
+    normalizer = first**2 * second**3
+    coefficient = derivation(normalizer) / normalizer
+    planted = field.from_sympy(x) / normalizer
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -248,7 +248,7 @@ def test_weak_normalization_removes_all_positive_integer_residues() -> None:
     assert result.has_solution
     assert result.solution == planted
     assert result.normalization_factor == Poly(
-        (t + x)**2*(t - 1)**3,
+        (t + x) ** 2 * (t - 1) ** 3,
         t,
         domain=tower.field(0),
     )
@@ -264,7 +264,7 @@ def test_weak_normalization_leaves_nonpositive_integer_residues(
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    coefficient = field.convert(residue)*derivation(factor)/factor
+    coefficient = field.convert(residue) * derivation(factor) / factor
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -287,7 +287,7 @@ def test_weak_normalization_preserves_a_higher_principal_part() -> None:
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    coefficient = derivation(factor)/factor + field.one/factor**2
+    coefficient = derivation(factor) / factor + field.one / factor**2
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -302,7 +302,7 @@ def test_weak_normalization_preserves_a_higher_principal_part() -> None:
         t,
         domain=tower.field(0),
     )
-    assert result.normalized_coefficient == field.one/factor**2
+    assert result.normalized_coefficient == field.one / factor**2
 
 
 def test_weak_normalization_handles_a_higher_degree_irreducible_factor() -> None:
@@ -311,9 +311,9 @@ def test_weak_normalization_handles_a_higher_degree_irreducible_factor() -> None
     derivation = tower.derivation()
     factor = field.from_sympy(t**2 + x)
     normalizer = factor**3
-    coefficient = derivation(normalizer)/normalizer
-    planted = field.from_sympy(x)/normalizer
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = derivation(normalizer) / normalizer
+    planted = field.from_sympy(x) / normalizer
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -324,7 +324,7 @@ def test_weak_normalization_handles_a_higher_degree_irreducible_factor() -> None
     assert result.has_solution
     assert result.solution == planted
     assert result.normalization_factor == Poly(
-        (t**2 + x)**3,
+        (t**2 + x) ** 3,
         t,
         domain=tower.field(0),
     )
@@ -336,9 +336,9 @@ def test_rational_primitive_coefficient_reaches_denominator_and_spde() -> None:
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    coefficient = derivation(factor)/(2*factor)
-    planted = field.from_sympy((x + 1)/(t - 1)**2)
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = derivation(factor) / (2 * factor)
+    planted = field.from_sympy((x + 1) / (t - 1) ** 2)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -354,7 +354,7 @@ def test_rational_primitive_coefficient_reaches_denominator_and_spde() -> None:
         domain=tower.field(0),
     )
     assert result.denominator_bound == Poly(
-        (t - 1)**2,
+        (t - 1) ** 2,
         t,
         domain=tower.field(0),
     )
@@ -365,7 +365,7 @@ def test_rational_primitive_coefficient_can_prove_nonsolution() -> None:
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(1/(t - 1))
+    coefficient = field.from_sympy(1 / (t - 1))
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -397,8 +397,8 @@ def test_lower_field_coefficient_uses_primitive_cancellation_recurrence() -> Non
     field = tower.field()
     derivation = tower.derivation()
     coefficient = field.from_sympy(1)
-    planted = field.from_sympy((x + 1)*t**3 + (x - 2)*t + 4)
-    right_hand_side = derivation(planted) + coefficient*planted
+    planted = field.from_sympy((x + 1) * t**3 + (x - 2) * t + 4)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -412,18 +412,16 @@ def test_lower_field_coefficient_uses_primitive_cancellation_recurrence() -> Non
     assert result.polynomial_result.has_solution
     assert result.polynomial_result.lower_field_results
     assert result.polynomial_result.logarithmic_derivative_result is not None
-    assert not (
-        result.polynomial_result.logarithmic_derivative_result.has_solution
-    )
+    assert not (result.polynomial_result.logarithmic_derivative_result.has_solution)
 
 
 def test_lower_field_logarithmic_coefficient_becomes_exact_derivative() -> None:
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(1/x)
-    planted = field.from_sympy(t**5 + x*t)
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(1 / x)
+    planted = field.from_sympy(t**5 + x * t)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -435,10 +433,7 @@ def test_lower_field_logarithmic_coefficient_becomes_exact_derivative() -> None:
     assert result.solution == planted
     assert result.logarithmic_derivative_result.has_solution
     assert result.logarithmic_derivative_result.minimal_power == 1
-    assert (
-        result.logarithmic_derivative_result.argument
-        == tower.field(0).from_sympy(x)
-    )
+    assert result.logarithmic_derivative_result.argument == tower.field(0).from_sympy(x)
     assert result.exact_derivative_result.has_solution
 
 
@@ -448,7 +443,7 @@ def test_zero_coefficient_dispatches_to_exact_derivative_solver() -> None:
 
     result = solve_primitive_risch_differential_equation(
         field.zero,
-        field.from_sympy(1/x),
+        field.from_sympy(1 / x),
         tower.derivation(),
     )
 
@@ -460,8 +455,8 @@ def test_zero_coefficient_dispatches_to_exact_derivative_solver() -> None:
 @pytest.mark.parametrize(
     ("coefficient", "right_hand_side"),
     [
-        (0, 1/t),
-        (1/x, 1/t),
+        (0, 1 / t),
+        (1 / x, 1 / t),
     ],
 )
 def test_exact_cancellation_obstruction_is_certified(
@@ -487,9 +482,9 @@ def test_nonintegral_radical_coefficient_does_not_trigger_exact_transform() -> N
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(1/(2*x))
-    planted = field.from_sympy((x + 1)*t**2)
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(1 / (2 * x))
+    planted = field.from_sympy((x + 1) * t**2)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -510,8 +505,8 @@ def test_lower_field_coefficient_with_rational_solution_denominator() -> None:
     field = tower.field()
     derivation = tower.derivation()
     coefficient = field.from_sympy(1)
-    planted = field.from_sympy((x + 1)/(t - 1)**2)
-    right_hand_side = derivation(planted) + coefficient*planted
+    planted = field.from_sympy((x + 1) / (t - 1) ** 2)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_primitive_risch_differential_equation(
         coefficient,
@@ -522,7 +517,7 @@ def test_lower_field_coefficient_with_rational_solution_denominator() -> None:
     assert result.has_solution
     assert result.solution == planted
     assert result.denominator_bound == Poly(
-        (t - 1)**2,
+        (t - 1) ** 2,
         t,
         domain=tower.field(0),
     )
@@ -546,7 +541,7 @@ def test_lower_coefficient_failure_retains_recursive_obstruction() -> None:
     assert not polynomial.lower_field_results[-1].has_solution
     assert (
         tower.derivation().polynomial(polynomial.partial_solution)
-        + polynomial.coefficient*polynomial.partial_solution
+        + polynomial.coefficient * polynomial.partial_solution
         + polynomial.residual
         == polynomial.right_hand_side
     )
@@ -556,15 +551,15 @@ def test_cancellation_recurrence_descends_through_nested_primitive_tower() -> No
     lower = logarithmic_tower()
     tower = lower.extend(
         MonomialExtension(
-            Poly(1/(x*t), u, domain=lower.field()),
+            Poly(1 / (x * t), u, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     field = tower.field()
     derivation = tower.derivation()
     coefficient = field.from_sympy(t)
-    planted = field.from_sympy((x + 1)*u**2 + x*u + 1)
-    right_hand_side = derivation(planted) + coefficient*planted
+    planted = field.from_sympy((x + 1) * u**2 + x * u + 1)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_risch_differential_equation(
         coefficient,
@@ -591,24 +586,24 @@ def test_weak_normalization_descends_through_nested_primitive_tower() -> None:
     lower = logarithmic_tower()
     tower = lower.extend(
         MonomialExtension(
-            Poly(1/(x*t), u, domain=lower.field()),
+            Poly(1 / (x * t), u, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(u + t)
-    coefficient = derivation(factor)/factor
+    coefficient = derivation(factor) / factor
 
     result = solve_risch_differential_equation(
         coefficient,
-        field.one/factor,
+        field.one / factor,
         derivation,
     )
 
     assert result.has_solution
     assert result.reconstructs
-    assert result.solution == field.from_sympy(x/(u + t))
+    assert result.solution == field.from_sympy(x / (u + t))
     assert result.certificate.normalization_factor == Poly(
         u + t,
         u,
@@ -620,8 +615,8 @@ def test_weak_normalization_descends_through_nested_primitive_tower() -> None:
 @pytest.mark.parametrize(
     ("coefficient", "right_hand_side"),
     [
-        (-3/(x*t), 1 - 3/t),
-        (-1/x - 3/(x*t), -3/t),
+        (-3 / (x * t), 1 - 3 / t),
+        (-1 / x - 3 / (x * t), -3 / t),
     ],
 )
 def test_primitive_degree_bound_includes_limited_integration_cancellation(
@@ -659,11 +654,11 @@ def test_bounded_matrix_oracle_agrees_on_success_and_failure() -> None:
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(2*t/x)
+    coefficient = field.from_sympy(2 * t / x)
 
     successful = solve_bounded_primitive_rde_matrix(
         coefficient,
-        field.from_sympy(1 + 2*t),
+        field.from_sympy(1 + 2 * t),
         derivation,
         1,
         1,
@@ -691,9 +686,9 @@ def test_bounded_matrix_oracle_accepts_a_top_denominator() -> None:
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    coefficient = derivation(factor)/factor + field.from_sympy(t/x)
-    planted = field.from_sympy((x + 1)/(t + x))
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = derivation(factor) / factor + field.from_sympy(t / x)
+    planted = field.from_sympy((x + 1) / (t + x))
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_bounded_primitive_rde_matrix(
         coefficient,
@@ -754,11 +749,9 @@ def test_high_degree_primitive_recurrence_reconstructs_exactly() -> None:
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(t**5/x + x*t + 1)
-    planted = field.from_sympy(
-        (x + 1)*t**8 + (x - 2)*t**5 + t**2/x
-    )
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(t**5 / x + x * t + 1)
+    planted = field.from_sympy((x + 1) * t**8 + (x - 2) * t**5 + t**2 / x)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_risch_differential_equation(
         coefficient,
@@ -798,15 +791,17 @@ def test_generated_planted_rational_solutions_are_recovered(
     field = tower.field()
     derivation = tower.derivation()
     coefficient = field.from_sympy(
-        coefficient_leading*t**coefficient_degree/x
-        + coefficient_constant
+        coefficient_leading * t**coefficient_degree / x + coefficient_constant
     )
-    planted_expression = sum(
-        (linear*x + constant)*t**degree
-        for degree, (linear, constant) in enumerate(solution_data)
-    )/(x + 1)**denominator_power
+    planted_expression = (
+        sum(
+            (linear * x + constant) * t**degree
+            for degree, (linear, constant) in enumerate(solution_data)
+        )
+        / (x + 1) ** denominator_power
+    )
     planted = field.from_sympy(planted_expression)
-    right_hand_side = derivation(planted) + coefficient*planted
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_risch_differential_equation(
         coefficient,
@@ -840,16 +835,10 @@ def test_generated_uncancellable_low_degree_residuals_are_certified(
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(
-        coefficient_leading*t**coefficient_degree/x
-    )
-    planted = field.from_sympy(solution_coefficient*t**solution_degree)
-    residual = field.from_sympy(
-        residual_coefficient*t**residual_degree/(x + 1)
-    )
-    right_hand_side = (
-        derivation(planted) + coefficient*planted + residual
-    )
+    coefficient = field.from_sympy(coefficient_leading * t**coefficient_degree / x)
+    planted = field.from_sympy(solution_coefficient * t**solution_degree)
+    residual = field.from_sympy(residual_coefficient * t**residual_degree / (x + 1))
+    right_hand_side = derivation(planted) + coefficient * planted + residual
 
     result = solve_risch_differential_equation(
         coefficient,
@@ -886,16 +875,12 @@ def test_recurrence_agrees_with_independent_bounded_matrix_oracle(
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(
-        coefficient_leading*t/x + coefficient_constant
-    )
-    denominator = (x + 1)**denominator_power
+    coefficient = field.from_sympy(coefficient_leading * t / x + coefficient_constant)
+    denominator = (x + 1) ** denominator_power
     planted = field.from_sympy(
-        (solution_linear*x + solution_constant)
-        * t**top_degree
-        / denominator
+        (solution_linear * x + solution_constant) * t**top_degree / denominator
     )
-    right_hand_side = derivation(planted) + coefficient*planted
+    right_hand_side = derivation(planted) + coefficient * planted
 
     recurrence = solve_risch_differential_equation(
         coefficient,
@@ -939,17 +924,16 @@ def test_generated_lower_coefficient_cancellation_matches_matrix_oracle(
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    denominator = (x + 1)**denominator_power
+    denominator = (x + 1) ** denominator_power
     planted = field.from_sympy(
         sum(
-            (linear*x + constant)*t**degree
+            (linear * x + constant) * t**degree
             for degree, (linear, constant) in enumerate(solution_data)
-        )/denominator
+        )
+        / denominator
     )
     coefficient_element = field.from_sympy(coefficient)
-    right_hand_side = (
-        derivation(planted) + coefficient_element*planted
-    )
+    right_hand_side = derivation(planted) + coefficient_element * planted
 
     recurrence = solve_primitive_risch_differential_equation(
         coefficient_element,
@@ -988,19 +972,12 @@ def test_generated_weak_normalization_matches_matrix_oracle(
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    normalizer_expression = (
-        (t + x)**first_power*(t - 1)**second_power
-    )
+    normalizer_expression = (t + x) ** first_power * (t - 1) ** second_power
     normalizer = field.from_sympy(normalizer_expression)
-    normalized_coefficient = field.from_sympy(t/x)
-    coefficient = (
-        derivation(normalizer)/normalizer + normalized_coefficient
-    )
-    planted = (
-        field.from_sympy(solution_linear*x + solution_constant)
-        / normalizer
-    )
-    right_hand_side = derivation(planted) + coefficient*planted
+    normalized_coefficient = field.from_sympy(t / x)
+    coefficient = derivation(normalizer) / normalizer + normalized_coefficient
+    planted = field.from_sympy(solution_linear * x + solution_constant) / normalizer
+    right_hand_side = derivation(planted) + coefficient * planted
 
     recurrence = solve_primitive_risch_differential_equation(
         coefficient,
@@ -1048,15 +1025,14 @@ def test_generated_weakly_normal_coefficients_match_matrix_oracle(
     field = tower.field()
     derivation = tower.derivation()
     factor = field.from_sympy(t + x)
-    coefficient = (
-        field.convert(residue)*derivation(factor)/factor
-        + field.from_sympy(coefficient_leading*t/x)
-    )
-    top_denominator = (t + x)**denominator_power
+    coefficient = field.convert(residue) * derivation(
+        factor
+    ) / factor + field.from_sympy(coefficient_leading * t / x)
+    top_denominator = (t + x) ** denominator_power
     planted = field.from_sympy(
-        (solution_linear*x + solution_constant)/top_denominator
+        (solution_linear * x + solution_constant) / top_denominator
     )
-    right_hand_side = derivation(planted) + coefficient*planted
+    right_hand_side = derivation(planted) + coefficient * planted
 
     recurrence = solve_primitive_risch_differential_equation(
         coefficient,
@@ -1102,7 +1078,7 @@ def test_lower_coefficient_decision_matches_global_matrix_oracle(
     derivation = tower.derivation()
     right_hand_side = field.from_sympy(
         sum(
-            rhs_coefficients[3*top_degree + lower_degree]
+            rhs_coefficients[3 * top_degree + lower_degree]
             * x**lower_degree
             * t**top_degree
             for top_degree in range(3)

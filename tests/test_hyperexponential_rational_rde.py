@@ -42,9 +42,9 @@ def test_dispatch_accepts_a_normal_coefficient_and_denominator() -> None:
     tower = exponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(t + 1/(t + 1))
-    planted = field.from_sympy((x + 1)/(t + 1)**2)
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(t + 1 / (t + 1))
+    planted = field.from_sympy((x + 1) / (t + 1) ** 2)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_risch_differential_equation(
         coefficient,
@@ -60,7 +60,7 @@ def test_dispatch_accepts_a_normal_coefficient_and_denominator() -> None:
         HyperexponentialRischDifferentialEquationResult,
     )
     assert result.certificate.normal_denominator_bound == Poly(
-        (t + 1)**2,
+        (t + 1) ** 2,
         t,
         domain=tower.levels[-1].parent_field,
     )
@@ -70,11 +70,9 @@ def test_weak_normalization_removes_all_positive_integer_residues() -> None:
     tower = exponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(
-        2*t/(t + 1) + 3*t/(t + 2)
-    )
-    planted = field.from_sympy(x/((t + 1)**2*(t + 2)**3))
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(2 * t / (t + 1) + 3 * t / (t + 2))
+    planted = field.from_sympy(x / ((t + 1) ** 2 * (t + 2) ** 3))
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_hyperexponential_risch_differential_equation(
         coefficient,
@@ -85,7 +83,7 @@ def test_weak_normalization_removes_all_positive_integer_residues() -> None:
     assert result.has_solution
     assert result.solution == planted
     assert result.normalization_factor == Poly(
-        (t + 1)**2*(t + 2)**3,
+        (t + 1) ** 2 * (t + 2) ** 3,
         t,
         domain=tower.levels[-1].parent_field,
     )
@@ -96,9 +94,9 @@ def test_weak_normalization_does_not_treat_a_repeated_pole_as_a_residue() -> Non
     tower = exponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(2*t/(t + 1)**2)
+    coefficient = field.from_sympy(2 * t / (t + 1) ** 2)
     planted = field.from_sympy(x)
-    right_hand_side = derivation(planted) + coefficient*planted
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_hyperexponential_risch_differential_equation(
         coefficient,
@@ -122,9 +120,9 @@ def test_weak_normalization_keeps_nonpositive_and_nonintegral_residues(
     tower = exponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(residue*t/(t + 1))
+    coefficient = field.from_sympy(residue * t / (t + 1))
     planted = field.from_sympy(x)
-    right_hand_side = derivation(planted) + coefficient*planted
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_hyperexponential_risch_differential_equation(
         coefficient,
@@ -147,7 +145,7 @@ def test_normal_denominator_obstruction_retains_failed_division() -> None:
 
     result = solve_risch_differential_equation(
         field.one,
-        field.from_sympy(1/(t + 1)),
+        field.from_sympy(1 / (t + 1)),
         tower.derivation(),
     )
 
@@ -171,9 +169,9 @@ def test_special_denominator_reduction_handles_zero_and_normal_poles() -> None:
     tower = exponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(t + 1/t)
-    planted = field.from_sympy((x + 1)/(t**2*(t + 1)**2))
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(t + 1 / t)
+    planted = field.from_sympy((x + 1) / (t**2 * (t + 1) ** 2))
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_hyperexponential_risch_differential_equation(
         coefficient,
@@ -184,7 +182,7 @@ def test_special_denominator_reduction_handles_zero_and_normal_poles() -> None:
     assert result.has_solution
     assert result.solution == planted
     assert result.normal_denominator_bound == Poly(
-        (t + 1)**2,
+        (t + 1) ** 2,
         t,
         domain=tower.levels[-1].parent_field,
     )
@@ -197,15 +195,13 @@ def test_spde_divisibility_obstruction_is_certified() -> None:
     field = tower.field()
 
     result = solve_hyperexponential_risch_differential_equation(
-        field.from_sympy(1/(t + 1)),
+        field.from_sympy(1 / (t + 1)),
         field.one,
         tower.derivation(),
     )
 
     assert not result.has_solution
-    assert result.obstruction is (
-        HyperexponentialRDEObstruction.SPDE_DIVISIBILITY
-    )
+    assert result.obstruction is (HyperexponentialRDEObstruction.SPDE_DIVISIBILITY)
     assert result.has_spde_obstruction
     assert result.obstruction_polynomial is not None
     assert result.obstruction_remainder is not None
@@ -217,7 +213,7 @@ def test_spde_degree_obstruction_is_certified() -> None:
     field = tower.field()
 
     result = solve_hyperexponential_risch_differential_equation(
-        field.from_sympy(1/(t + 1)**2),
+        field.from_sympy(1 / (t + 1) ** 2),
         field.one,
         tower.derivation(),
     )
@@ -233,7 +229,7 @@ def test_degree_bound_retains_an_exceptional_infinity_cancellation() -> None:
     field = tower.field()
 
     result = solve_hyperexponential_risch_differential_equation(
-        field.from_sympy(1/t - 1),
+        field.from_sympy(1 / t - 1),
         field.one,
         tower.derivation(),
     )
@@ -255,21 +251,21 @@ def test_full_frontend_recurses_over_a_primitive_lower_field() -> None:
     )
     primitive = rational.extend(
         MonomialExtension(
-            Poly(1/x, s, domain=rational.field()),
+            Poly(1 / x, s, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
     tower = primitive.extend(
         MonomialExtension(
-            Poly(s*t, t, domain=primitive.field()),
+            Poly(s * t, t, domain=primitive.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(t + 1/(t + 1))
-    planted = field.from_sympy((s + x)/(t*(t + s)**2))
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(t + 1 / (t + 1))
+    planted = field.from_sympy((s + x) / (t * (t + s) ** 2))
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_hyperexponential_risch_differential_equation(
         coefficient,
@@ -280,7 +276,7 @@ def test_full_frontend_recurses_over_a_primitive_lower_field() -> None:
     assert result.has_solution
     assert result.solution == planted
     assert result.normal_denominator_bound == Poly(
-        (t + s)**2,
+        (t + s) ** 2,
         t,
         domain=primitive.field(),
     )
@@ -296,22 +292,22 @@ def test_weak_normalizer_works_over_a_primitive_lower_field() -> None:
     )
     primitive = rational.extend(
         MonomialExtension(
-            Poly(1/x, s, domain=rational.field()),
+            Poly(1 / x, s, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
     tower = primitive.extend(
         MonomialExtension(
-            Poly(s*t, t, domain=primitive.field()),
+            Poly(s * t, t, domain=primitive.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
     field = tower.field()
     derivation = tower.derivation()
-    normalizer = field.from_sympy((t + s)**2)
-    coefficient = derivation(normalizer)/normalizer
-    planted = field.from_sympy(x/(t + s)**2)
-    right_hand_side = derivation(planted) + coefficient*planted
+    normalizer = field.from_sympy((t + s) ** 2)
+    coefficient = derivation(normalizer) / normalizer
+    planted = field.from_sympy(x / (t + s) ** 2)
+    right_hand_side = derivation(planted) + coefficient * planted
 
     result = solve_hyperexponential_risch_differential_equation(
         coefficient,
@@ -322,7 +318,7 @@ def test_weak_normalizer_works_over_a_primitive_lower_field() -> None:
     assert result.has_solution
     assert result.solution == planted
     assert result.normalization_factor == Poly(
-        (t + s)**2,
+        (t + s) ** 2,
         t,
         domain=primitive.field(),
     )
@@ -333,11 +329,9 @@ def test_matrix_oracle_accepts_an_independent_top_denominator() -> None:
     tower = exponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    coefficient = field.from_sympy(t + 1/(t + 1))
-    planted = field.from_sympy(
-        ((x + 1) + (x - 1)*t + x*t**2)/(t*(t + 1)**3)
-    )
-    right_hand_side = derivation(planted) + coefficient*planted
+    coefficient = field.from_sympy(t + 1 / (t + 1))
+    planted = field.from_sympy(((x + 1) + (x - 1) * t + x * t**2) / (t * (t + 1) ** 3))
+    right_hand_side = derivation(planted) + coefficient * planted
 
     production = solve_hyperexponential_risch_differential_equation(
         coefficient,
@@ -352,7 +346,7 @@ def test_matrix_oracle_accepts_an_independent_top_denominator() -> None:
         1,
         -1,
         1,
-        (t + 1)**3,
+        (t + 1) ** 3,
     )
 
     assert production.has_solution
@@ -360,7 +354,7 @@ def test_matrix_oracle_accepts_an_independent_top_denominator() -> None:
     assert oracle.has_solution
     assert oracle.solution == planted
     assert oracle.top_denominator == Poly(
-        (t + 1)**3,
+        (t + 1) ** 3,
         t,
         domain=tower.levels[-1].parent_field,
     )
@@ -385,9 +379,9 @@ def test_matrix_oracle_rejects_a_zero_top_denominator() -> None:
 @pytest.mark.parametrize(
     ("coefficient_expression", "rhs_expression", "top_denominator"),
     [
-        (1, 1/(t + 1), (t + 1)**3),
-        (1/(t + 1), 1, (t + 1)**3),
-        (1/(t + 1)**2, 1, (t + 1)**4),
+        (1, 1 / (t + 1), (t + 1) ** 3),
+        (1 / (t + 1), 1, (t + 1) ** 3),
+        (1 / (t + 1) ** 2, 1, (t + 1) ** 4),
     ],
 )
 def test_certified_obstructions_agree_with_broad_matrix_searches(
@@ -458,16 +452,14 @@ def test_generated_rational_solutions_match_the_matrix_oracle(
     field = tower.field()
     derivation = tower.derivation()
     numerator = sum(
-        (constant + linear*x)*t**power
+        (constant + linear * x) * t**power
         for power, (constant, linear) in enumerate(numerator_coefficients)
     )
     assume(numerator != 0)
-    top_denominator = (t + normal_offset)**multiplicity
-    planted = field.from_sympy(
-        numerator/(t**special_power*top_denominator)
-    )
-    coefficient = field.from_sympy(t + 1/(t + normal_offset))
-    right_hand_side = derivation(planted) + coefficient*planted
+    top_denominator = (t + normal_offset) ** multiplicity
+    planted = field.from_sympy(numerator / (t**special_power * top_denominator))
+    coefficient = field.from_sympy(t + 1 / (t + normal_offset))
+    right_hand_side = derivation(planted) + coefficient * planted
 
     production = solve_hyperexponential_risch_differential_equation(
         coefficient,

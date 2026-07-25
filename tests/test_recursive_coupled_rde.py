@@ -30,7 +30,7 @@ def primitive_tower() -> DifferentialTower:
     )
     return rational.extend(
         MonomialExtension(
-            Poly(1/x, s, domain=rational.field()),
+            Poly(1 / x, s, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
@@ -40,16 +40,14 @@ def test_generic_solver_agrees_with_the_specialized_rational_solver() -> None:
     tower = primitive_tower()
     rational_derivation = tower.derivation(0)
     field = rational_derivation.field
-    lambda_coefficient = field.from_sympy((x + 1)/(x**2 + 1))
-    planted_real = field.from_sympy((x + 2)/(x + 1)**2)
-    planted_imaginary = field.from_sympy((x - 1)/(x + 1)**2)
+    lambda_coefficient = field.from_sympy((x + 1) / (x**2 + 1))
+    planted_real = field.from_sympy((x + 2) / (x + 1) ** 2)
+    planted_imaginary = field.from_sympy((x - 1) / (x + 1) ** 2)
     real_rhs = (
-        rational_derivation(planted_real)
-        - lambda_coefficient*planted_imaginary
+        rational_derivation(planted_real) - lambda_coefficient * planted_imaginary
     )
     imaginary_rhs = (
-        rational_derivation(planted_imaginary)
-        + lambda_coefficient*planted_real
+        rational_derivation(planted_imaginary) + lambda_coefficient * planted_real
     )
 
     generic = solve_coupled_risch_differential_equation(
@@ -67,9 +65,7 @@ def test_generic_solver_agrees_with_the_specialized_rational_solver() -> None:
 
     assert generic.has_solution
     assert generic.reconstructs
-    assert generic.real_solution == field.from_sympy(
-        specialized.real_solution
-    )
+    assert generic.real_solution == field.from_sympy(specialized.real_solution)
     assert generic.imaginary_solution == field.from_sympy(
         specialized.imaginary_solution
     )
@@ -79,17 +75,11 @@ def test_recursive_solver_handles_rational_primitive_coefficients() -> None:
     tower = primitive_tower()
     field = tower.field()
     derivation = tower.derivation()
-    lambda_coefficient = field.from_sympy(2*s)
-    planted_real = field.from_sympy((x + s)/(s + 1)**2)
-    planted_imaginary = field.from_sympy((x*s + 1)/(s + 1)**2)
-    real_rhs = (
-        derivation(planted_real)
-        - lambda_coefficient*planted_imaginary
-    )
-    imaginary_rhs = (
-        derivation(planted_imaginary)
-        + lambda_coefficient*planted_real
-    )
+    lambda_coefficient = field.from_sympy(2 * s)
+    planted_real = field.from_sympy((x + s) / (s + 1) ** 2)
+    planted_imaginary = field.from_sympy((x * s + 1) / (s + 1) ** 2)
+    real_rhs = derivation(planted_real) - lambda_coefficient * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + lambda_coefficient * planted_real
 
     result = solve_coupled_risch_differential_equation(
         lambda_coefficient,
@@ -111,23 +101,17 @@ def test_recursive_solver_handles_two_primitive_levels() -> None:
     lower = primitive_tower()
     tower = lower.extend(
         MonomialExtension(
-            Poly(1/(x*s), u, domain=lower.field()),
+            Poly(1 / (x * s), u, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
     field = tower.field()
     derivation = tower.derivation()
-    lambda_coefficient = field.from_sympy(2*(s + u))
-    planted_real = field.from_sympy((x + s*u)/(u + 1)**2)
-    planted_imaginary = field.from_sympy((s + u)/(u + 1)**2)
-    real_rhs = (
-        derivation(planted_real)
-        - lambda_coefficient*planted_imaginary
-    )
-    imaginary_rhs = (
-        derivation(planted_imaginary)
-        + lambda_coefficient*planted_real
-    )
+    lambda_coefficient = field.from_sympy(2 * (s + u))
+    planted_real = field.from_sympy((x + s * u) / (u + 1) ** 2)
+    planted_imaginary = field.from_sympy((s + u) / (u + 1) ** 2)
+    real_rhs = derivation(planted_real) - lambda_coefficient * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + lambda_coefficient * planted_real
 
     result = solve_coupled_risch_differential_equation(
         lambda_coefficient,
@@ -147,8 +131,8 @@ def test_recursive_denominator_obstruction_is_retained() -> None:
     field = tower.field()
 
     result = solve_coupled_risch_differential_equation(
-        field.from_sympy(2*s),
-        field.from_sympy(1/(s + 1)),
+        field.from_sympy(2 * s),
+        field.from_sympy(1 / (s + 1)),
         field.zero,
         tower.derivation(),
     )
@@ -163,17 +147,11 @@ def test_direct_real_matrix_oracle_recovers_the_same_pair() -> None:
     tower = primitive_tower()
     field = tower.field()
     derivation = tower.derivation()
-    lambda_coefficient = field.from_sympy(2*s)
-    planted_real = field.from_sympy((x + s)/(s + 1)**2)
-    planted_imaginary = field.from_sympy((x*s + 1)/(s + 1)**2)
-    real_rhs = (
-        derivation(planted_real)
-        - lambda_coefficient*planted_imaginary
-    )
-    imaginary_rhs = (
-        derivation(planted_imaginary)
-        + lambda_coefficient*planted_real
-    )
+    lambda_coefficient = field.from_sympy(2 * s)
+    planted_real = field.from_sympy((x + s) / (s + 1) ** 2)
+    planted_imaginary = field.from_sympy((x * s + 1) / (s + 1) ** 2)
+    real_rhs = derivation(planted_real) - lambda_coefficient * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + lambda_coefficient * planted_real
 
     production = solve_coupled_risch_differential_equation(
         lambda_coefficient,
@@ -189,7 +167,7 @@ def test_direct_real_matrix_oracle_recovers_the_same_pair() -> None:
         1,
         1,
         1,
-        (s + 1)**2,
+        (s + 1) ** 2,
     )
 
     assert production.has_solution
@@ -197,9 +175,7 @@ def test_direct_real_matrix_oracle_recovers_the_same_pair() -> None:
     assert oracle.has_solution
     assert oracle.real_solution == production.real_solution == planted_real
     assert (
-        oracle.imaginary_solution
-        == production.imaginary_solution
-        == planted_imaginary
+        oracle.imaginary_solution == production.imaginary_solution == planted_imaginary
     )
     assert oracle.coefficient_rank == oracle.augmented_rank
 
@@ -207,8 +183,8 @@ def test_direct_real_matrix_oracle_recovers_the_same_pair() -> None:
 def test_direct_real_matrix_oracle_confirms_a_denominator_failure() -> None:
     tower = primitive_tower()
     field = tower.field()
-    lambda_coefficient = field.from_sympy(2*s)
-    real_rhs = field.from_sympy(1/(s + 1))
+    lambda_coefficient = field.from_sympy(2 * s)
+    real_rhs = field.from_sympy(1 / (s + 1))
 
     production = solve_coupled_risch_differential_equation(
         lambda_coefficient,
@@ -224,7 +200,7 @@ def test_direct_real_matrix_oracle_confirms_a_denominator_failure() -> None:
         x**2 + 1,
         3,
         4,
-        (s + 1)**3,
+        (s + 1) ** 3,
     )
 
     assert not production.has_solution
@@ -264,23 +240,17 @@ def test_recursive_solver_handles_a_hyperexponential_level() -> None:
     primitive = primitive_tower()
     hyperexponential = primitive.extend(
         MonomialExtension(
-            Poly(s*u, u, domain=primitive.field()),
+            Poly(s * u, u, domain=primitive.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
     field = hyperexponential.field()
     derivation = hyperexponential.derivation()
-    planted_real = field.from_sympy((x + s)*u**2)
-    planted_imaginary = field.from_sympy((x*s + 1)/u)
-    lambda_coefficient = field.from_sympy(2*s)
-    real_rhs = (
-        derivation(planted_real)
-        - lambda_coefficient*planted_imaginary
-    )
-    imaginary_rhs = (
-        derivation(planted_imaginary)
-        + lambda_coefficient*planted_real
-    )
+    planted_real = field.from_sympy((x + s) * u**2)
+    planted_imaginary = field.from_sympy((x * s + 1) / u)
+    lambda_coefficient = field.from_sympy(2 * s)
+    real_rhs = derivation(planted_real) - lambda_coefficient * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + lambda_coefficient * planted_real
 
     result = solve_coupled_risch_differential_equation(
         lambda_coefficient,
@@ -325,28 +295,20 @@ def test_generated_recursive_solutions_match_the_real_matrix_oracle(
     field = tower.field()
     derivation = tower.derivation()
     real_numerator = sum(
-        (constant + linear*x)*s**degree
+        (constant + linear * x) * s**degree
         for degree, (constant, linear) in enumerate(real_coefficients)
     )
     imaginary_numerator = sum(
-        (constant + linear*x)*s**degree
+        (constant + linear * x) * s**degree
         for degree, (constant, linear) in enumerate(imaginary_coefficients)
     )
     assume(real_numerator != 0 or imaginary_numerator != 0)
-    top_denominator = (s + 1)**denominator_power
-    planted_real = field.from_sympy(real_numerator/top_denominator)
-    planted_imaginary = field.from_sympy(
-        imaginary_numerator/top_denominator
-    )
-    lambda_coefficient = field.from_sympy(2*s)
-    real_rhs = (
-        derivation(planted_real)
-        - lambda_coefficient*planted_imaginary
-    )
-    imaginary_rhs = (
-        derivation(planted_imaginary)
-        + lambda_coefficient*planted_real
-    )
+    top_denominator = (s + 1) ** denominator_power
+    planted_real = field.from_sympy(real_numerator / top_denominator)
+    planted_imaginary = field.from_sympy(imaginary_numerator / top_denominator)
+    lambda_coefficient = field.from_sympy(2 * s)
+    real_rhs = derivation(planted_real) - lambda_coefficient * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + lambda_coefficient * planted_real
 
     production = solve_coupled_risch_differential_equation(
         lambda_coefficient,
@@ -394,15 +356,14 @@ def test_generated_arbitrary_polynomial_pairs_match_the_oracle(
     tower = primitive_tower()
     field = tower.field()
     real_rhs_expression = sum(
-        coefficient*s**degree
-        for degree, coefficient in enumerate(real_coefficients)
+        coefficient * s**degree for degree, coefficient in enumerate(real_coefficients)
     )
     imaginary_rhs_expression = sum(
-        coefficient*s**degree
+        coefficient * s**degree
         for degree, coefficient in enumerate(imaginary_coefficients)
     )
     assume(real_rhs_expression != 0 or imaginary_rhs_expression != 0)
-    lambda_coefficient = field.from_sympy(2*s)
+    lambda_coefficient = field.from_sympy(2 * s)
     real_rhs = field.from_sympy(real_rhs_expression)
     imaginary_rhs = field.from_sympy(imaginary_rhs_expression)
 

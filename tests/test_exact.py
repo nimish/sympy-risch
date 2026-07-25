@@ -27,7 +27,7 @@ x, t, u, y = symbols("x t u y")
 
 def logarithmic_tower(
     *,
-    eta=1/x,
+    eta=1 / x,
     constant_field_status=ConstantFieldStatus.PRESERVED,
 ) -> DifferentialTower:
     """Return ``QQ(x)(t)``, with ``Dx = 1`` and ``Dt = eta``."""
@@ -55,7 +55,7 @@ def hyperexponential_tower(eta=1) -> DifferentialTower:
     )
     return rational.extend(
         MonomialExtension(
-            Poly(eta*t, t, domain=rational.field()),
+            Poly(eta * t, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -71,7 +71,7 @@ def hypertangent_tower(eta=1) -> DifferentialTower:
     )
     return rational.extend(
         MonomialExtension(
-            Poly(eta*(1 + t**2), t, domain=rational.field()),
+            Poly(eta * (1 + t**2), t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -81,9 +81,9 @@ def hypertangent_tower(eta=1) -> DifferentialTower:
     "antiderivative_expression",
     [
         0,
-        x*t - x,
-        x*(t**2 - 2*t + 2),
-        (x + 1)/(t - 2)**3 + t**5 + (x**2 + 1)/(x - 1),
+        x * t - x,
+        x * (t**2 - 2 * t + 2),
+        (x + 1) / (t - 2) ** 3 + t**5 + (x**2 + 1) / (x - 1),
     ],
 )
 def test_primitive_exact_solver_recovers_planted_derivatives(
@@ -109,7 +109,7 @@ def test_logarithmic_derivative_is_elementary_but_not_exact_in_the_field() -> No
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(1/(x*t))
+    integrand = field.from_sympy(1 / (x * t))
 
     exact_result = solve_primitive_exact_derivative(integrand, derivation)
     elementary_result = reduce_primitive_monomial(integrand, derivation)
@@ -130,8 +130,8 @@ def test_logarithmic_derivative_is_elementary_but_not_exact_in_the_field() -> No
 @pytest.mark.parametrize(
     "integrand_expression",
     [
-        1/t,
-        1/(x*(t - 1)),
+        1 / t,
+        1 / (x * (t - 1)),
     ],
 )
 def test_simple_poles_are_primitive_exact_derivative_obstructions(
@@ -154,9 +154,9 @@ def test_simple_poles_are_primitive_exact_derivative_obstructions(
 @pytest.mark.parametrize(
     "integrand_expression",
     [
-        1/(x - 1),
-        t/(x - 1),
-        t**4/(x - 2),
+        1 / (x - 1),
+        t / (x - 1),
+        t**4 / (x - 2),
     ],
 )
 def test_reduced_polynomials_are_primitive_exact_derivative_obstructions(
@@ -180,10 +180,8 @@ def test_primitive_exact_solver_combines_both_obstruction_classes() -> None:
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact = field.from_sympy((x + 1)/(t - 2)**3 + x*t**3)
-    planted_obstruction = field.from_sympy(
-        3/(x*(t - 1)) + 2*t**2/(x - 1)
-    )
+    planted_exact = field.from_sympy((x + 1) / (t - 2) ** 3 + x * t**3)
+    planted_obstruction = field.from_sympy(3 / (x * (t - 1)) + 2 * t**2 / (x - 1))
     integrand = derivation(planted_exact) + planted_obstruction
 
     result = solve_primitive_exact_derivative(integrand, derivation)
@@ -225,9 +223,9 @@ def test_generated_primitive_rational_derivatives_reduce_to_zero(
     field = tower.field()
     derivation = tower.derivation()
     planted = field.from_sympy(
-        rational_numerator/(t - rational_shift)**rational_power
-        + polynomial_coefficient*t**polynomial_degree
-        + lower_numerator/(x - lower_root)
+        rational_numerator / (t - rational_shift) ** rational_power
+        + polynomial_coefficient * t**polynomial_degree
+        + lower_numerator / (x - lower_root)
     )
     integrand = derivation(planted)
 
@@ -256,12 +254,8 @@ def test_generated_logarithmic_derivatives_remain_canonical_obstructions(
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact = field.from_sympy(
-        exact_numerator/(t - exact_shift)**exact_power
-    )
-    planted_obstruction = field.from_sympy(
-        residue/(x*(t - obstruction_shift))
-    )
+    planted_exact = field.from_sympy(exact_numerator / (t - exact_shift) ** exact_power)
+    planted_obstruction = field.from_sympy(residue / (x * (t - obstruction_shift)))
     integrand = derivation(planted_exact) + planted_obstruction
 
     result = solve_primitive_exact_derivative(integrand, derivation)
@@ -295,11 +289,9 @@ def test_generated_polynomial_obstructions_are_canonical(
     tower = logarithmic_tower()
     field = tower.field()
     derivation = tower.derivation()
-    planted_exact = field.from_sympy(
-        exact_numerator/(x - exact_root)**exact_power
-    )
+    planted_exact = field.from_sympy(exact_numerator / (x - exact_root) ** exact_power)
     planted_obstruction = field.from_sympy(
-        obstruction_coefficient*t**obstruction_degree/(x - obstruction_root)
+        obstruction_coefficient * t**obstruction_degree / (x - obstruction_root)
     )
     integrand = derivation(planted_exact) + planted_obstruction
 
@@ -331,7 +323,7 @@ def test_primitive_exact_solver_validates_its_structure_theorem_hypotheses() -> 
             unknown.derivation(),
         )
 
-    for exact_eta in (1, 1/x**2):
+    for exact_eta in (1, 1 / x**2):
         invalid = logarithmic_tower(eta=exact_eta)
         with pytest.raises(ValueError, match="Dt is exact in the lower field"):
             solve_primitive_exact_derivative(
@@ -345,19 +337,19 @@ def test_generic_dispatches_to_the_rational_solver_with_native_outputs() -> None
     derivation = tower.derivation(0)
     field = tower.field(0)
 
-    exact = solve_exact_derivative(field.from_sympy(-1/x**2), derivation)
-    obstructed = solve_exact_derivative(field.from_sympy(1/x), derivation)
+    exact = solve_exact_derivative(field.from_sympy(-1 / x**2), derivation)
+    obstructed = solve_exact_derivative(field.from_sympy(1 / x), derivation)
 
     assert exact.has_solution
-    assert exact.antiderivative == field.from_sympy(1/x)
+    assert exact.antiderivative == field.from_sympy(1 / x)
     assert exact.obstruction == field.zero
     assert isinstance(exact.certificate, RationalExactDerivativeResult)
-    assert derivation(exact.exact_part) == field.from_sympy(-1/x**2)
+    assert derivation(exact.exact_part) == field.from_sympy(-1 / x**2)
 
     assert not obstructed.has_solution
     assert obstructed.antiderivative is None
     assert obstructed.exact_part == field.zero
-    assert obstructed.obstruction == field.from_sympy(1/x)
+    assert obstructed.obstruction == field.from_sympy(1 / x)
 
 
 def test_generic_dispatch_supports_the_gaussian_rational_base() -> None:
@@ -369,7 +361,7 @@ def test_generic_dispatch_supports_the_gaussian_rational_base() -> None:
     )
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(I*x**2/2 - 1/(x + I))
+    planted = field.from_sympy(I * x**2 / 2 - 1 / (x + I))
 
     result = solve_exact_derivative(derivation(planted), derivation)
 
@@ -387,7 +379,7 @@ def test_gaussian_rational_exact_dispatch_keeps_simple_poles_as_obstructions() -
         ),
     )
     field = tower.field()
-    integrand = field.from_sympy(1/(x + I))
+    integrand = field.from_sympy(1 / (x + I))
 
     result = solve_exact_derivative(integrand, tower.derivation())
 
@@ -399,12 +391,12 @@ def test_generic_dispatches_to_the_primitive_solver() -> None:
     tower = logarithmic_tower()
     derivation = tower.derivation()
     field = tower.field()
-    planted = field.from_sympy((x + 1)/(t - 2)**2 + t**3)
+    planted = field.from_sympy((x + 1) / (t - 2) ** 2 + t**3)
     integrand = derivation(planted)
 
     exact = solve_exact_derivative(integrand, derivation)
     obstructed = solve_exact_derivative(
-        field.from_sympy(1/(x*t)),
+        field.from_sympy(1 / (x * t)),
         derivation,
     )
 
@@ -412,17 +404,17 @@ def test_generic_dispatches_to_the_primitive_solver() -> None:
     assert isinstance(exact.certificate, PrimitiveExactDerivativeResult)
     assert derivation(exact.exact_part) == integrand
     assert not obstructed.has_solution
-    assert obstructed.obstruction == field.from_sympy(1/(x*t))
+    assert obstructed.obstruction == field.from_sympy(1 / (x * t))
 
 
 @pytest.mark.parametrize(
     "antiderivative_expression",
     [
         t,
-        x*t,
-        1/t,
-        1/(t - 1)**2,
-        (x + 1)*t**2 + 1/x,
+        x * t,
+        1 / t,
+        1 / (t - 1) ** 2,
+        (x + 1) * t**2 + 1 / x,
     ],
 )
 def test_generic_dispatch_recovers_hyperexponential_derivatives(
@@ -452,10 +444,10 @@ def test_generic_dispatch_recovers_hyperexponential_derivatives(
 @pytest.mark.parametrize(
     "obstruction_expression",
     [
-        t/x,
-        t/(t - 1),
-        1/(x*(t - 1)),
-        1/x,
+        t / x,
+        t / (t - 1),
+        1 / (x * (t - 1)),
+        1 / x,
     ],
 )
 def test_generic_dispatch_preserves_hyperexponential_obstructions(
@@ -464,7 +456,7 @@ def test_generic_dispatch_preserves_hyperexponential_obstructions(
     tower = hyperexponential_tower()
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy((x + 1)*t**2 + 1/(t - 2)**2)
+    planted = field.from_sympy((x + 1) * t**2 + 1 / (t - 2) ** 2)
     obstruction = field.from_sympy(obstruction_expression)
     integrand = derivation(planted) + obstruction
 
@@ -497,7 +489,7 @@ def test_hyperexponential_exact_dispatch_descends_a_primitive_lower_tower() -> N
     )
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy((x*t + 1)*u + t**2)
+    planted = field.from_sympy((x * t + 1) * u + t**2)
     integrand = derivation(planted)
 
     result = solve_exact_derivative(integrand, derivation)
@@ -516,10 +508,10 @@ def test_hyperexponential_exact_dispatch_descends_a_primitive_lower_tower() -> N
     "antiderivative_expression",
     [
         t,
-        x*t,
-        1/(t - 1)**2,
-        t/(1 + t**2),
-        (x + 1)*t/(1 + t**2) + 1/x,
+        x * t,
+        1 / (t - 1) ** 2,
+        t / (1 + t**2),
+        (x + 1) * t / (1 + t**2) + 1 / x,
     ],
 )
 def test_generic_dispatch_recovers_hypertangent_derivatives(
@@ -549,10 +541,10 @@ def test_generic_dispatch_recovers_hypertangent_derivatives(
 @pytest.mark.parametrize(
     "obstruction_expression",
     [
-        2*t,
-        2*(1 - t**2)/(x*(1 + t**2)),
-        1/(x*t),
-        1/x,
+        2 * t,
+        2 * (1 - t**2) / (x * (1 + t**2)),
+        1 / (x * t),
+        1 / x,
     ],
 )
 def test_generic_dispatch_preserves_hypertangent_obstructions(
@@ -561,7 +553,7 @@ def test_generic_dispatch_preserves_hypertangent_obstructions(
     tower = hypertangent_tower()
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy((x + 1)/(t - 2)**2)
+    planted = field.from_sympy((x + 1) / (t - 2) ** 2)
     obstruction = field.from_sympy(obstruction_expression)
     integrand = derivation(planted) + obstruction
 
@@ -588,22 +580,17 @@ def test_transcendental_dispatch_separates_layered_obstructions() -> None:
     cases = (
         (
             hyperexponential_tower(),
-            1/(x*(t - 1)) + t/(t - 2) + t/x + 1/x,
+            1 / (x * (t - 1)) + t / (t - 2) + t / x + 1 / x,
         ),
         (
             hypertangent_tower(),
-            1/(x*t)
-            + 2*t
-            + 2*(1 - t**2)/(x*(1 + t**2))
-            + 1/x,
+            1 / (x * t) + 2 * t + 2 * (1 - t**2) / (x * (1 + t**2)) + 1 / x,
         ),
     )
     for tower, obstruction_expression in cases:
         field = tower.field()
         derivation = tower.derivation()
-        planted = field.from_sympy(
-            (x + 1)*t**2 + 1/(t - 3)**2
-        )
+        planted = field.from_sympy((x + 1) * t**2 + 1 / (t - 3) ** 2)
         obstruction = field.from_sympy(obstruction_expression)
         integrand = derivation(planted) + obstruction
 
@@ -642,8 +629,7 @@ def test_generated_transcendental_derivatives_dispatch_exactly(
         field = tower.field()
         derivation = tower.derivation()
         planted = field.from_sympy(
-            coefficient*x**x_degree*t**t_power
-            + 1/(t - pole_shift)**pole_power
+            coefficient * x**x_degree * t**t_power + 1 / (t - pole_shift) ** pole_power
         )
         integrand = derivation(planted)
 
@@ -738,7 +724,7 @@ def test_generic_dispatch_rejects_invalid_transcendental_metadata() -> None:
 
     dependent_exponential = rational.extend(
         MonomialExtension(
-            Poly(t/x, t, domain=rational.field()),
+            Poly(t / x, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
@@ -751,7 +737,7 @@ def test_generic_dispatch_rejects_invalid_transcendental_metadata() -> None:
     dependent_tangent = rational.extend(
         MonomialExtension(
             Poly(
-                (1 + t**2)/(x**2 + 1),
+                (1 + t**2) / (x**2 + 1),
                 t,
                 domain=rational.field(),
             ),

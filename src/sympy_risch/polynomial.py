@@ -7,6 +7,8 @@ from sympy.core.symbol import Symbol
 from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
+from ._typing import FieldElement
+
 
 def integrate_polynomial(f: Expr | Poly, x: Symbol) -> Expr:
     r"""Integrate a polynomial in ``QQ[x]`` coefficient by coefficient.
@@ -26,7 +28,7 @@ def integrate_polynomial(f: Expr | Poly, x: Symbol) -> Expr:
     """
     polynomial = Poly(f, x, domain=QQ)
 
-    integrated_terms: dict[tuple[int], object] = {}
+    integrated_terms: dict[tuple[int], FieldElement] = {}
 
     for (degree,), coefficient in polynomial.terms():
         new_degree = degree + 1

@@ -17,7 +17,7 @@ from sympy_risch import (
     simple_radical_integral_basis,
 )
 
-x, y = symbols("x y")
+x, y, z = symbols("x y z")
 distinct_linear_shifts = st.tuples(
     st.integers(min_value=-3, max_value=3),
     st.integers(min_value=-3, max_value=3),
@@ -27,12 +27,14 @@ distinct_linear_shifts = st.tuples(
 @st.composite
 def hidden_radical_parameters(draw):
     factor_count = draw(st.integers(min_value=1, max_value=2))
-    shifts = draw(st.lists(
-        st.integers(min_value=-3, max_value=3),
-        min_size=factor_count + 1,
-        max_size=factor_count + 1,
-        unique=True,
-    ))
+    shifts = draw(
+        st.lists(
+            st.integers(min_value=-3, max_value=3),
+            min_size=factor_count + 1,
+            max_size=factor_count + 1,
+            unique=True,
+        )
+    )
     return shifts[:-1], shifts[-1]
 
 
@@ -50,22 +52,22 @@ def algebraic_tower(modulus, constants=QQ):
 def test_algebraic_extension_differentiates_a_square_root() -> None:
     tower, extension, _ = algebraic_tower(y**2 - x)
     field = extension.field
-    parent_element = extension.parent_field.from_sympy(1/x)
+    parent_element = extension.parent_field.from_sympy(1 / x)
 
-    assert tower.derivation()(field.generator) == field.from_sympy(y/(2*x))
-    assert tower.derivation()(parent_element) == field.from_sympy(-1/x**2)
+    assert tower.derivation()(field.generator) == field.from_sympy(y / (2 * x))
+    assert tower.derivation()(parent_element) == field.from_sympy(-1 / x**2)
 
 
 def test_algebraic_extension_differentiates_a_mixed_cubic_basis() -> None:
     tower, extension, _ = algebraic_tower(y**3 - y - x)
     field = extension.field
-    delta = 27*x**2 - 4
+    delta = 27 * x**2 - 4
 
     assert tower.derivation()(field.generator) == field.from_sympy(
-        (4 + 9*x*y - 6*y**2)/delta,
+        (4 + 9 * x * y - 6 * y**2) / delta,
     )
     assert tower.derivation()(field.generator**2) == field.from_sympy(
-        (-12*x - 4*y + 18*x*y**2)/delta,
+        (-12 * x - 4 * y + 18 * x * y**2) / delta,
     )
 
 
@@ -83,18 +85,13 @@ def test_generated_algebraic_derivatives_match_implicit_differentiation(
     tower, extension, _ = algebraic_tower(y**3 - y - x)
     field = extension.field
     a, b, c, d, e = coefficients
-    expression = (
-        a + b*x + c*y + d*x*y + e*y**2
-    )/(x + 2)
+    expression = (a + b * x + c * y + d * x * y + e * y**2) / (x + 2)
     generator_derivative = invert(
-        3*y**2 - 1,
+        3 * y**2 - 1,
         y**3 - y - x,
         y,
     )
-    expected = (
-        diff(expression, x)
-        + diff(expression, y)*generator_derivative
-    )
+    expected = diff(expression, x) + diff(expression, y) * generator_derivative
 
     result = tower.derivation()(field.from_sympy(expression))
 
@@ -109,18 +106,90 @@ def test_algebraic_extension_validates_the_minimal_polynomial() -> None:
     with pytest.raises(ValueError, match="degree at least two"):
         AlgebraicExtension(Poly(y - x, y, domain=parent))
     with pytest.raises(ValueError, match="monic"):
-        AlgebraicExtension(Poly(2*y**2 - x, y, domain=parent))
+        AlgebraicExtension(Poly(2 * y**2 - x, y, domain=parent))
     with pytest.raises(ValueError, match="square-free"):
         AlgebraicExtension(Poly(y**2, y, domain=parent))
     with pytest.raises(ValueError, match="irreducible"):
         AlgebraicExtension(Poly(y**2 - 1, y, domain=parent))
 
 
+def test_algebraic_extension_computes_field_linear_invariants() -> None:
+    _, extension, _ = algebraic_tower(y**2 - x)
+    parent = extension.parent_field
+    field = extension.field
+    element = field.from_sympy(1 + y)
+
+    multiplication = extension.multiplication_matrix(element)
+
+    assert multiplication.domain == parent
+    assert multiplication.to_list() == [
+        [parent.one, parent.from_sympy(x)],
+        [parent.one, parent.one],
+    ]
+    assert extension.trace(element) == parent.from_sympy(2)
+    assert extension.norm(element) == parent.from_sympy(1 - x)
+    assert extension.characteristic_polynomial(element, z) == Poly(
+        z**2 - 2 * z + 1 - x,
+        z,
+        domain=parent,
+    )
+    assert extension.element_minimal_polynomial(element, z) == Poly(
+        z**2 - 2 * z + 1 - x,
+        z,
+        domain=parent,
+    )
+    assert extension.element_minimal_polynomial(
+        parent.from_sympy(x),
+        z,
+    ) == Poly(z - x, z, domain=parent)
+
+
+def test_algebraic_trace_pairing_computes_basis_discriminant() -> None:
+    _, extension, _ = algebraic_tower(y**2 - x)
+    parent = extension.parent_field
+
+    pairing = extension.trace_pairing_matrix()
+
+    assert pairing.to_list() == [
+        [parent.from_sympy(2), parent.zero],
+        [parent.zero, parent.from_sympy(2 * x)],
+    ]
+    assert extension.basis_discriminant() == parent.from_sympy(4 * x)
+
+
+def test_algebraic_trace_and_norm_commute_with_the_derivation() -> None:
+    tower, extension, _ = algebraic_tower(y**2 - x)
+    field = extension.field
+    derivation = tower.derivation()
+    lower_derivation = derivation.lower()
+    element = field.from_sympy((1 + y) / (x + 1))
+    element_derivative = derivation(element)
+    trace = extension.trace(element)
+    norm = extension.norm(element)
+
+    assert lower_derivation(trace) == extension.trace(element_derivative)
+    assert lower_derivation(norm) / norm == extension.trace(
+        element_derivative / element
+    )
+
+
+def test_algebraic_linear_invariants_validate_auxiliary_inputs() -> None:
+    _, extension, _ = algebraic_tower(y**2 - x)
+
+    with pytest.raises(TypeError, match="must be a Symbol"):
+        extension.characteristic_polynomial(y, 1)  # type: ignore[arg-type]
+    for reused_symbol in (x, y):
+        with pytest.raises(ValueError, match="must be new"):
+            extension.characteristic_polynomial(y, reused_symbol)
+    with pytest.raises(ValueError, match="must contain 2 elements"):
+        extension.trace_pairing_matrix((1,))
+
+
 def test_integral_basis_round_trip() -> None:
     _, extension, basis = algebraic_tower(y**3 - y - x)
     parent = extension.parent_field
     coordinates = (
-        parent.from_sympy(1/x),
+        parent.from_sympy(1 / x),
         parent.from_sympy(x + 1),
         parent.from_sympy(2),
     )
@@ -133,41 +202,41 @@ def test_integral_basis_round_trip() -> None:
     assert representation.numerators == (
         Poly(1, x, domain=QQ),
         Poly(x**2 + x, x, domain=QQ),
-        Poly(2*x, x, domain=QQ),
+        Poly(2 * x, x, domain=QQ),
     )
 
 
 def test_simple_radical_recognition_normalizes_hidden_square_factors() -> None:
-    _, extension, _ = algebraic_tower(y**2 - x**2*(x + 1))
+    _, extension, _ = algebraic_tower(y**2 - x**2 * (x + 1))
     field = extension.field
 
     radical = recognize_simple_radical(extension)
 
     assert radical is not None
     assert radical.degree == 2
-    assert radical.radicand == extension.parent_field.from_sympy(x**2*(x + 1))
+    assert radical.radicand == extension.parent_field.from_sympy(x**2 * (x + 1))
     assert radical.extracted_factor == Poly(x, x, domain=QQ)
     assert radical.normalized_radicand == Poly(x + 1, x, domain=QQ)
-    assert radical.normalized_generator == field.from_sympy(y/x)
+    assert radical.normalized_generator == field.from_sympy(y / x)
     assert radical.normalized_generator**2 == field.from_sympy(x + 1)
 
 
 def test_simple_radical_basis_handles_a_rational_radicand() -> None:
-    _, extension, _ = algebraic_tower(y**3 - x/(x + 1))
+    _, extension, _ = algebraic_tower(y**3 - x / (x + 1))
     field = extension.field
-    z = field.from_sympy(y*(x + 1))
+    z = field.from_sympy(y * (x + 1))
 
     radical = recognize_simple_radical(extension)
     basis = simple_radical_integral_basis(extension)
 
     assert radical is not None
     assert radical.extracted_factor == Poly(1, x, domain=QQ)
-    assert radical.normalized_radicand == Poly(x*(x + 1)**2, x, domain=QQ)
+    assert radical.normalized_radicand == Poly(x * (x + 1) ** 2, x, domain=QQ)
     assert radical.normalized_generator == z
     assert basis.elements == (
         field.one,
         z,
-        field.from_sympy(y**2*(x + 1)),
+        field.from_sympy(y**2 * (x + 1)),
     )
 
 
@@ -180,11 +249,11 @@ def test_simple_radical_recognition_rejects_a_mixed_minimal_polynomial() -> None
 
 
 def test_algebraic_hermite_uses_the_simple_radical_integral_basis() -> None:
-    tower, extension, _ = algebraic_tower(y**2 - x**2*(x + 1))
+    tower, extension, _ = algebraic_tower(y**2 - x**2 * (x + 1))
     field = extension.field
     derivation = tower.derivation()
     basis = simple_radical_integral_basis(extension)
-    planted_exact = field.from_sympy(y/x**2)
+    planted_exact = field.from_sympy(y / x**2)
     integrand = derivation(planted_exact)
 
     exact, remainder = hermite_reduce_algebraic(integrand, derivation, basis)
@@ -198,9 +267,9 @@ def test_lazy_hermite_exposes_a_hidden_quadratic_integral_element() -> None:
     # y is integral, but (1, y) is incomplete because z = y/x is also
     # integral: z**2 = x + 1.  In that basis y/x**2 = z/x has only a simple
     # pole, so refinement alone completes the reduction.
-    tower, extension, power_basis = algebraic_tower(y**2 - x**2*(x + 1))
+    tower, extension, power_basis = algebraic_tower(y**2 - x**2 * (x + 1))
     field = extension.field
-    integrand = field.from_sympy(y/x**2)
+    integrand = field.from_sympy(y / x**2)
 
     exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
         integrand,
@@ -210,7 +279,7 @@ def test_lazy_hermite_exposes_a_hidden_quadratic_integral_element() -> None:
 
     assert exact == field.zero
     assert remainder == integrand
-    assert refined_basis.fraction(field.from_sympy(y/x)).denominator.degree() == 0
+    assert refined_basis.fraction(field.from_sympy(y / x)).denominator.degree() == 0
     assert refined_basis.fraction(remainder).denominator == Poly(x, x, domain=QQ)
 
 
@@ -219,11 +288,11 @@ def test_lazy_hermite_refines_a_singular_system() -> None:
     # For V=x and m=2, Bronstein's S_y column is therefore
     # x**2*D(y/x) = 0.  The resulting kernel relation exposes the missing
     # integral element y/x through Theorem 1 of the lazy Hermite reduction.
-    tower, extension, power_basis = algebraic_tower(y**2 - 2*x**2)
+    tower, extension, power_basis = algebraic_tower(y**2 - 2 * x**2)
     field = extension.field
     derivation = tower.derivation()
-    hidden_constant = field.from_sympy(y/x)
-    integrand = field.from_sympy(y/x**2)
+    hidden_constant = field.from_sympy(y / x)
+    integrand = field.from_sympy(y / x**2)
 
     with pytest.raises(ValueError, match="does not support Hermite reduction"):
         hermite_reduce_algebraic(integrand, derivation, power_basis)
@@ -258,11 +327,11 @@ def test_lazy_hermite_refines_a_nonsquarefree_basis_derivative() -> None:
         extension,
         (
             field.one,
-            field.from_sympy(x*y),
-            field.from_sympy(y + x**2*y**2),
+            field.from_sympy(x * y),
+            field.from_sympy(y + x**2 * y**2),
         ),
     )
-    integrand = field.from_sympy((y + x**2*y**2)/x**2)
+    integrand = field.from_sympy((y + x**2 * y**2) / x**2)
 
     derivative_fraction = basis.fraction(derivation(basis.elements[2]))
     assert derivative_fraction.denominator == Poly(x**2, x, domain=QQ)
@@ -289,10 +358,10 @@ def test_lazy_hermite_reduces_after_quadratic_basis_refinement() -> None:
     #
     # The first term is returned as exact and the remainder has squarefree
     # denominator x*(x + 1) in the refined basis.
-    tower, extension, power_basis = algebraic_tower(y**2 - x**2*(x + 1))
+    tower, extension, power_basis = algebraic_tower(y**2 - x**2 * (x + 1))
     field = extension.field
     derivation = tower.derivation()
-    integrand = field.from_sympy(y/x**3)
+    integrand = field.from_sympy(y / x**3)
 
     exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
         integrand,
@@ -300,10 +369,10 @@ def test_lazy_hermite_reduces_after_quadratic_basis_refinement() -> None:
         power_basis,
     )
 
-    assert exact == field.from_sympy(-y/x**2)
-    assert remainder == field.from_sympy(y/(2*x**2*(x + 1)))
+    assert exact == field.from_sympy(-y / x**2)
+    assert remainder == field.from_sympy(y / (2 * x**2 * (x + 1)))
     assert refined_basis.fraction(remainder).denominator == Poly(
-        x*(x + 1),
+        x * (x + 1),
         x,
         domain=QQ,
     )
@@ -316,11 +385,11 @@ def test_lazy_algebraic_hermite_refines_bronsteins_example() -> None:
     # enlarges (1, y, y**2, y**3) to the module generated by
     # (1, y, y**2, y**3/x), where the integrand's denominator is squarefree.
     tower, extension, power_basis = algebraic_tower(
-        y**4 + (x**2 + x)*y - x**2,
+        y**4 + (x**2 + x) * y - x**2,
     )
     field = extension.field
     derivation = tower.derivation()
-    integrand = field.from_sympy(y**3/x**2)
+    integrand = field.from_sympy(y**3 / x**2)
 
     with pytest.raises(ValueError, match="not an integral basis"):
         hermite_reduce_algebraic(integrand, derivation, power_basis)
@@ -337,7 +406,7 @@ def test_lazy_algebraic_hermite_refines_bronsteins_example() -> None:
             field.one,
             field.generator,
             field.generator**2,
-            field.from_sympy(y**3/x),
+            field.from_sympy(y**3 / x),
         ),
     )
     assert all(
@@ -364,7 +433,7 @@ def test_generated_simple_radicals_remove_exact_power_factors(degree, shifts) ->
     power_factor = x + power_shift
     reduced_radicand = x + radicand_shift
     _, extension, _ = algebraic_tower(
-        y**degree - power_factor**degree*reduced_radicand,
+        y**degree - power_factor**degree * reduced_radicand,
     )
     field = extension.field
 
@@ -374,10 +443,9 @@ def test_generated_simple_radicals_remove_exact_power_factors(degree, shifts) ->
     assert radical is not None
     assert radical.extracted_factor == Poly(power_factor, x, domain=QQ)
     assert radical.normalized_radicand == Poly(reduced_radicand, x, domain=QQ)
-    assert radical.normalized_generator == field.from_sympy(y/power_factor)
+    assert radical.normalized_generator == field.from_sympy(y / power_factor)
     assert basis.elements == tuple(
-        field.from_sympy((y/power_factor)**power)
-        for power in range(degree)
+        field.from_sympy((y / power_factor) ** power) for power in range(degree)
     )
 
 
@@ -396,14 +464,14 @@ def test_generated_lazy_reductions_rediscover_hidden_radicals(
     power_factor = prod(x + shift for shift in factor_shifts)
     reduced_radicand = x + radicand_shift
     tower, extension, power_basis = algebraic_tower(
-        y**degree - power_factor**degree*reduced_radicand,
+        y**degree - power_factor**degree * reduced_radicand,
     )
     field = extension.field
     derivation = tower.derivation()
-    hidden_generator = field.from_sympy(y/power_factor)
+    hidden_generator = field.from_sympy(y / power_factor)
 
     # y/p**2 = z/p only appears to have a double pole before refinement.
-    simple_pole = field.from_sympy(y/power_factor**2)
+    simple_pole = field.from_sympy(y / power_factor**2)
     exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
         simple_pole,
         derivation,
@@ -422,7 +490,7 @@ def test_generated_lazy_reductions_rediscover_hidden_radicals(
     # Since z' = z/(degree*h),
     # z*p'/p**2 = D(-z/p) + z/(degree*h*p).
     repeated_pole = field.from_sympy(
-        y*power_factor.diff(x)/power_factor**3,
+        y * power_factor.diff(x) / power_factor**3,
     )
     exact, remainder, refined_basis = lazy_hermite_reduce_algebraic(
         repeated_pole,
@@ -430,12 +498,12 @@ def test_generated_lazy_reductions_rediscover_hidden_radicals(
         power_basis,
     )
 
-    assert exact == field.from_sympy(-y/power_factor**2)
+    assert exact == field.from_sympy(-y / power_factor**2)
     assert remainder == field.from_sympy(
-        y/(degree*reduced_radicand*power_factor**2),
+        y / (degree * reduced_radicand * power_factor**2),
     )
     assert refined_basis.fraction(remainder).denominator == Poly(
-        power_factor*reduced_radicand,
+        power_factor * reduced_radicand,
         x,
         domain=QQ,
     )
@@ -461,15 +529,15 @@ def test_generated_lazy_reductions_handle_mixed_algebraic_relations(
     relation_term = x + relation_shift
     tower, extension, power_basis = algebraic_tower(
         y**degree
-        - power_factor**(degree - 1)*y
-        - relation_term*power_factor**degree,
+        - power_factor ** (degree - 1) * y
+        - relation_term * power_factor**degree,
     )
     field = extension.field
     derivation = tower.derivation()
     hidden_integral_element = field.from_sympy(
-        y**(degree - 1)/power_factor**(degree - 1),
+        y ** (degree - 1) / power_factor ** (degree - 1),
     )
-    integrand = field.from_sympy(y**(degree - 1)/power_factor**degree)
+    integrand = field.from_sympy(y ** (degree - 1) / power_factor**degree)
 
     assert recognize_simple_radical(extension) is None
     with pytest.raises(ValueError, match="not an integral basis"):
@@ -498,12 +566,12 @@ def test_lazy_hermite_handles_a_degree_eight_extension() -> None:
     degree = 8
     power_factor = x + 1
     tower, extension, power_basis = algebraic_tower(
-        y**degree - power_factor**degree*(x + 2),
+        y**degree - power_factor**degree * (x + 2),
     )
     field = extension.field
     derivation = tower.derivation()
-    hidden_generator = field.from_sympy(y/power_factor)
-    integrand = field.from_sympy(y/power_factor**2)
+    hidden_generator = field.from_sympy(y / power_factor)
+    integrand = field.from_sympy(y / power_factor**2)
 
     with pytest.raises(ValueError, match="not an integral basis"):
         hermite_reduce_algebraic(integrand, derivation, power_basis)
@@ -535,15 +603,15 @@ def test_lazy_hermite_handles_a_dense_nonradical_relation() -> None:
     power_factor = x + 2
     modulus = (
         y**3
-        + x*(x**2 + 1)*power_factor*y**2
-        + x*(x**3 + x + 1)*power_factor**2*y
-        + x*(x + 1)*power_factor**3
+        + x * (x**2 + 1) * power_factor * y**2
+        + x * (x**3 + x + 1) * power_factor**2 * y
+        + x * (x + 1) * power_factor**3
     )
     tower, extension, power_basis = algebraic_tower(modulus)
     field = extension.field
     derivation = tower.derivation()
-    hidden_integral_element = field.from_sympy(y**2/power_factor**2)
-    integrand = field.from_sympy(y**2/power_factor**3)
+    hidden_integral_element = field.from_sympy(y**2 / power_factor**2)
+    integrand = field.from_sympy(y**2 / power_factor**3)
 
     assert recognize_simple_radical(extension) is None
     with pytest.raises(ValueError, match="not an integral basis"):
@@ -571,11 +639,11 @@ def test_algebraic_hermite_over_an_algebraic_constant_field() -> None:
     tower, extension, basis = algebraic_tower(y**2 - x, constants)
     field = extension.field
     derivation = tower.derivation()
-    integrand = field.from_sympy((sqrt(2) + y)/x**2)
+    integrand = field.from_sympy((sqrt(2) + y) / x**2)
 
     exact, remainder = hermite_reduce_algebraic(integrand, derivation, basis)
 
-    assert exact == field.from_sympy(-sqrt(2)/x - 2*y/x)
+    assert exact == field.from_sympy(-sqrt(2) / x - 2 * y / x)
     assert remainder == field.zero
     assert derivation(exact) - integrand == field.zero
 
@@ -583,7 +651,7 @@ def test_algebraic_hermite_over_an_algebraic_constant_field() -> None:
 def test_algebraic_hermite_reduces_a_quadratic_example() -> None:
     tower, extension, basis = algebraic_tower(y**2 - x)
     field = extension.field
-    integrand = field.from_sympy(y/x**2)
+    integrand = field.from_sympy(y / x**2)
 
     exact, remainder = hermite_reduce_algebraic(
         integrand,
@@ -591,21 +659,50 @@ def test_algebraic_hermite_reduces_a_quadratic_example() -> None:
         basis,
     )
 
-    assert exact == field.from_sympy(-2*y/x)
+    assert exact == field.from_sympy(-2 * y / x)
     assert remainder == field.zero
     assert tower.derivation()(exact) + remainder == integrand
+
+
+def test_algebraic_hermite_rejects_a_nonstandard_rational_derivation() -> None:
+    # The current Hermite equations are for the standard algebraic function
+    # field derivation Dx = 1.  With Dx = x, the factor x is special, so a
+    # valid power basis must not be misreported as nonintegral.
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(x, x, domain=QQ)),
+    )
+    extension = AlgebraicExtension(
+        Poly(y**2 - x, y, domain=rational.field()),
+    )
+    tower = rational.extend(extension)
+    field = extension.field
+    derivation = tower.derivation()
+    basis = IntegralBasis.power_basis(extension)
+    integrand = derivation(field.from_sympy(y / x**2))
+
+    for reducer in (
+        hermite_reduce_algebraic,
+        lazy_hermite_reduce_algebraic,
+    ):
+        with pytest.raises(
+            NotImplementedError,
+            match="standard rational derivation Dx = 1",
+        ):
+            reducer(integrand, derivation, basis)
 
 
 def test_algebraic_hermite_reduces_the_cubic_walkthrough() -> None:
     tower, extension, basis = algebraic_tower(y**3 - y - x)
     field = extension.field
-    delta = 27*x**2 - 4
+    delta = 27 * x**2 - 4
     numerator = (
-        27*x**3 - 39*x**2 + 4
-        + (4 - 4*x - 18*x**2)*y
-        + (4 - 6*x - 9*x**2)*y**2
+        27 * x**3
+        - 39 * x**2
+        + 4
+        + (4 - 4 * x - 18 * x**2) * y
+        + (4 - 6 * x - 9 * x**2) * y**2
     )
-    integrand = field.from_sympy(numerator/(x**2*delta))
+    integrand = field.from_sympy(numerator / (x**2 * delta))
 
     exact, remainder = hermite_reduce_algebraic(
         integrand,
@@ -613,8 +710,8 @@ def test_algebraic_hermite_reduces_the_cubic_walkthrough() -> None:
         basis,
     )
 
-    assert exact == field.from_sympy((1 + y + y**2)/x)
-    assert remainder == field.from_sympy(1/x)
+    assert exact == field.from_sympy((1 + y + y**2) / x)
+    assert remainder == field.from_sympy(1 / x)
     assert tower.derivation()(exact) + remainder == integrand
     assert basis.fraction(remainder).is_square_free
 
@@ -626,13 +723,15 @@ def test_algebraic_hermite_accepts_a_nonpower_integral_basis() -> None:
         extension,
         (field.one, field.generator, field.generator + field.generator**2),
     )
-    delta = 27*x**2 - 4
+    delta = 27 * x**2 - 4
     numerator = (
-        27*x**3 - 39*x**2 + 4
-        + (4 - 4*x - 18*x**2)*y
-        + (4 - 6*x - 9*x**2)*y**2
+        27 * x**3
+        - 39 * x**2
+        + 4
+        + (4 - 4 * x - 18 * x**2) * y
+        + (4 - 6 * x - 9 * x**2) * y**2
     )
-    integrand = field.from_sympy(numerator/(x**2*delta))
+    integrand = field.from_sympy(numerator / (x**2 * delta))
 
     exact, remainder = hermite_reduce_algebraic(
         integrand,
@@ -640,8 +739,8 @@ def test_algebraic_hermite_accepts_a_nonpower_integral_basis() -> None:
         basis,
     )
 
-    assert exact == field.from_sympy((1 + y + y**2)/x)
-    assert remainder == field.from_sympy(1/x)
+    assert exact == field.from_sympy((1 + y + y**2) / x)
+    assert remainder == field.from_sympy(1 / x)
 
 
 def test_algebraic_hermite_reduces_multiple_repeated_factors() -> None:
@@ -649,9 +748,9 @@ def test_algebraic_hermite_reduces_multiple_repeated_factors() -> None:
     field = extension.field
     derivation = tower.derivation()
     planted_exact = field.from_sympy(
-        (1 + y)/(x + 1)**2 + (2 - y)/(x + 2)**3,
+        (1 + y) / (x + 1) ** 2 + (2 - y) / (x + 2) ** 3,
     )
-    planted_remainder = field.from_sympy(1/(x + 3))
+    planted_remainder = field.from_sympy(1 / (x + 3))
     integrand = derivation(planted_exact) + planted_remainder
 
     exact, remainder = hermite_reduce_algebraic(integrand, derivation, basis)
@@ -670,8 +769,8 @@ def test_generated_algebraic_reductions_reconstruct_the_integrand(a, b, power) -
     tower, extension, basis = algebraic_tower(y**2 - x)
     field = extension.field
     derivation = tower.derivation()
-    planted_exact = field.from_sympy((a + b*y)/(x + 1)**(power - 1))
-    planted_remainder = field.from_sympy(1/(x + 2))
+    planted_exact = field.from_sympy((a + b * y) / (x + 1) ** (power - 1))
+    planted_remainder = field.from_sympy(1 / (x + 2))
     integrand = derivation(planted_exact) + planted_remainder
 
     exact, remainder = hermite_reduce_algebraic(integrand, derivation, basis)

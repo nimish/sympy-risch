@@ -13,24 +13,23 @@ checkout:
 uv sync --no-editable
 ```
 
+If the environment previously installed the project in editable mode, add
+`--reinstall-package sympy-risch` when switching to a non-editable install.
+
 Run the static quality gates:
 
 ```console
 uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
 uv run --no-sync ty check
 ```
 
-Ruff checks both production and test code. Production functions require
-annotations; test functions are exempt from annotation-style rules because
-pytest and Hypothesis supply many values dynamically. Ty checks `src` and
-therefore verifies the public implementation and all recursive solver paths
-without treating the untyped test harness as part of the library API.
-
-Run the ordinary suite without the generated rational stress test:
-
-```console
-uv run --no-sync pytest -q -n auto --dist worksteal -m "not slow"
-```
+Ruff checks both production and test code, and its formatter checks Python and
+fenced Python examples in Markdown. Production functions require annotations;
+test functions are exempt from annotation-style rules because pytest and
+Hypothesis supply many values dynamically. Ty checks `src` and therefore
+verifies the public implementation and all recursive solver paths without
+treating the untyped test harness as part of the library API.
 
 Run every test before a checkpoint commit:
 
@@ -60,7 +59,13 @@ top-denominator ansatz, so it does not reuse the production normalizer or
 normal-denominator theorem.
 `tests/test_hypertangent.py` exercises the direct tangent reducer, and
 `tests/test_algebraic.py` exercises algebraic Hermite reduction and integral
-bases. `tests/test_parametric_logarithmic.py` checks Bronstein's equation
+bases. `tests/test_algebraic_geometry.py` exercises certified maximal orders,
+fractional ideals, ramified and infinite places, exact valuations and local
+expansions, differents, divisors, and differential residues. Its adversarial
+families include singular plane models with hidden normalization, deep
+quadratic/cubic/quartic index factors, closed points with algebraic residue
+fields, and generated finite/infinite valuation identities.
+`tests/test_parametric_logarithmic.py` checks Bronstein's equation
 (7.37), the Section 7.3 rational fast path, and exact witnesses over rational
 and primitive lower fields. It exercises both coefficient-comparison
 branches, generated planted solutions, necessary-condition failures, and
@@ -127,6 +132,9 @@ and a high-degree explicit local oracle. Generated quadratic models vary the
 pole, branch locus, and numerator. Adversarial tests reject repeated poles,
 branch poles, nonpolynomial models and numerators, reused symbols, mismatched
 fields, and nonstandard rational derivations.
+`tests/test_documentation.py` executes the README quick-start block through
+the public package import, so documented construction and result assertions
+cannot silently drift from the API.
 
 ## Required layers
 
@@ -168,8 +176,9 @@ For each reduction or decision procedure, cover the applicable layers below.
   is not evidence for a symbolic identity.
 - A planted derivative alone is not an independent oracle. Pair it with a
   normal-form assertion or an independently derived formula.
-- Keep generated cases bounded enough for the ordinary suite. Put only truly
-  expensive stress families behind the `slow` marker.
+- Keep generated cases bounded enough for the complete suite. Split or
+  optimize a stress family that cannot meet that bar rather than excluding it
+  from the standard checkpoint gate.
 - When a regression exposes a false certificate, retain both the smallest
   counterexample and a generated family containing it.
 - Tests for partial algorithms must distinguish “proved impossible,”
@@ -182,11 +191,13 @@ Before each incremental commit:
 ```console
 uv run --no-sync pytest -q tests/test_relevant_module.py
 uv run --no-sync ruff check .
+uv run --no-sync ruff format --check .
 uv run --no-sync ty check
 uv run --no-sync pytest -q -n auto --dist worksteal
 git diff --check
 ```
 
 Replace `tests/test_relevant_module.py` with the focused test file or node ID
-for the change. Documentation examples must also be executed in an installed
-interpreter; prose that merely resembles code is not considered verified.
+for the change. Documentation examples must also be executed through the
+public package import; prose that merely resembles code is not considered
+verified.

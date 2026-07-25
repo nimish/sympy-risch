@@ -110,17 +110,15 @@ class HypertangentGaussianNormalForm:
         target_value = _coerce(self.target_field, value)
         expression = self.inverse_expression(target_value)
         conjugate = expression.xreplace({I: -I})
-        real_expression = cancel((expression + conjugate)/2)
-        imaginary_expression = cancel((expression - conjugate)/(2*I))
+        real_expression = cancel((expression + conjugate) / 2)
+        imaginary_expression = cancel((expression - conjugate) / (2 * I))
         real_part = _coerce(self.source_field, real_expression)
         imaginary_part = _coerce(self.source_field, imaginary_expression)
         reconstructed = self.forward(real_part) + self.target_field.from_sympy(
             I
-        )*self.forward(imaginary_part)
+        ) * self.forward(imaginary_part)
         if not _zero_in_field(reconstructed - target_value, self.target_field):
-            raise ValueError(
-                "Gaussian normal-form coordinates failed to reconstruct"
-            )
+            raise ValueError("Gaussian normal-form coordinates failed to reconstruct")
         return real_part, imaginary_part
 
     def verifies_derivation(self) -> bool:
@@ -131,12 +129,8 @@ class HypertangentGaussianNormalForm:
             if not isinstance(extension, MonomialExtension):
                 return False
             generator = _coerce(self.source_field, extension.generator)
-            source_derivative = self.forward(
-                self.source_derivation(generator)
-            )
-            target_derivative = self.target_derivation(
-                self.forward(generator)
-            )
+            source_derivative = self.forward(self.source_derivation(generator))
+            target_derivative = self.target_derivation(self.forward(generator))
             if not _zero_in_field(
                 target_derivative - source_derivative,
                 self.target_field,
@@ -151,8 +145,7 @@ def _validate_source_tower(derivation: Derivation) -> None:
         raise TypeError("Gaussian normal form requires a Derivation")
     if derivation.level < 1:
         raise ValueError(
-            "Gaussian normal form requires a hypertangent extension above "
-            "QQ(x)"
+            "Gaussian normal form requires a hypertangent extension above QQ(x)"
         )
     if derivation.tower.constants != QQ:
         raise NotImplementedError(
@@ -187,16 +180,13 @@ def _validate_source_tower(derivation: Derivation) -> None:
             )
         if (
             level > 0
-            and extension.constant_field_status
-            is not ConstantFieldStatus.PRESERVED
+            and extension.constant_field_status is not ConstantFieldStatus.PRESERVED
         ):
             raise ValueError(
                 "Gaussian normal form requires Const(K(t)) = Const(K) at "
                 "every monomial level"
             )
-        has_hypertangent |= (
-            extension.family is MonomialFamily.HYPERTANGENT
-        )
+        has_hypertangent |= extension.family is MonomialFamily.HYPERTANGENT
     if not has_hypertangent:
         raise ValueError(
             "Gaussian normal form requires at least one hypertangent level"
@@ -229,7 +219,7 @@ def build_hypertangent_gaussian_normal_form(
                 source_extension.generator_derivative.nth(2)
             )
             target_derivative = (
-                2*I*_substitute_once(eta, forward_substitutions)*generator
+                2 * I * _substitute_once(eta, forward_substitutions) * generator
             )
             target_special_status = SpecialPolynomialStatus.PRESENT
         else:
@@ -248,10 +238,10 @@ def build_hypertangent_gaussian_normal_form(
 
         if source_extension.family is MonomialFamily.HYPERTANGENT:
             forward_substitutions[generator] = cancel(
-                -I*(generator - 1)/(generator + 1)
+                -I * (generator - 1) / (generator + 1)
             )
             inverse_substitutions[generator] = cancel(
-                (1 + I*generator)/(1 - I*generator)
+                (1 + I * generator) / (1 - I * generator)
             )
 
     normal_form = HypertangentGaussianNormalForm(
@@ -261,7 +251,5 @@ def build_hypertangent_gaussian_normal_form(
         tuple(inverse_substitutions.items()),
     )
     if not normal_form.verifies_derivation():
-        raise ValueError(
-            "Cayley Gaussian normal form does not intertwine derivations"
-        )
+        raise ValueError("Cayley Gaussian normal form does not intertwine derivations")
     return normal_form

@@ -31,7 +31,7 @@ def primitive_lower_tower() -> DifferentialTower:
     )
     return rational.extend(
         MonomialExtension(
-            Poly(1/x, s, domain=rational.field()),
+            Poly(1 / x, s, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
@@ -46,7 +46,7 @@ def tangent_over_primitive(
     return lower.extend(
         MonomialExtension(
             Poly(
-                eta*(1 + t**2),
+                eta * (1 + t**2),
                 t,
                 domain=lower.field(),
             ),
@@ -56,10 +56,10 @@ def tangent_over_primitive(
 
 
 def cayley_pair(real_coefficient, imaginary_coefficient, power=1):
-    cayley = (1 + I*t)/(1 - I*t)
+    cayley = (1 + I * t) / (1 - I * t)
     return cancel(
-        (real_coefficient + I*imaginary_coefficient)*cayley**power
-        + (real_coefficient - I*imaginary_coefficient)*cayley**(-power)
+        (real_coefficient + I * imaginary_coefficient) * cayley**power
+        + (real_coefficient - I * imaginary_coefficient) * cayley ** (-power)
     )
 
 
@@ -77,7 +77,7 @@ def test_dependency_analysis_descends_through_a_primitive_level() -> None:
 
 
 def test_dependency_analysis_detects_a_nested_cayley_relation() -> None:
-    eta = 1/(x*(s**2 + 1))
+    eta = 1 / (x * (s**2 + 1))
     tower = tangent_over_primitive(eta=eta)
 
     result = analyze_hypertangent_extension(
@@ -87,18 +87,14 @@ def test_dependency_analysis_detects_a_nested_cayley_relation() -> None:
 
     assert result.kind is HyperexponentialDependencyKind.RATIONAL
     assert result.minimal_power == 1
-    assert cancel(
-        result.relation_argument - (s - I)/(s + I)
-    ) == 0
+    assert cancel(result.relation_argument - (s - I) / (s + I)) == 0
 
 
 def test_special_reduction_uses_the_recursive_coupled_solver() -> None:
     tower = tangent_over_primitive()
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(
-        cayley_pair(x + s, x*s + 1)
-    )
+    planted = field.from_sympy(cayley_pair(x + s, x * s + 1))
     integrand = derivation(planted)
 
     result = reduce_hypertangent_special(integrand, derivation)
@@ -119,7 +115,7 @@ def test_special_reduction_uses_the_recursive_coupled_solver() -> None:
 def test_special_reduction_retains_a_recursive_rde_obstruction() -> None:
     tower = tangent_over_primitive()
     field = tower.field()
-    integrand = field.from_sympy(cayley_pair(1/(s + 1), 0))
+    integrand = field.from_sympy(cayley_pair(1 / (s + 1), 0))
 
     result = reduce_hypertangent_special(
         integrand,
@@ -133,10 +129,7 @@ def test_special_reduction_retains_a_recursive_rde_obstruction() -> None:
         step.rde_result,
         CoupledRischDifferentialEquationResult,
     )
-    assert (
-        step.rde_result.obstruction
-        is CoupledRDEObstruction.DENOMINATOR
-    )
+    assert step.rde_result.obstruction is CoupledRDEObstruction.DENOMINATOR
     assert result.remainder == integrand
 
 
@@ -145,8 +138,7 @@ def test_full_monomial_reduction_handles_nested_tangent_modes() -> None:
     field = tower.field()
     derivation = tower.derivation()
     planted = field.from_sympy(
-        cayley_pair(x + s, x*s + 1)
-        + cayley_pair(s, x, power=2)
+        cayley_pair(x + s, x * s + 1) + cayley_pair(s, x, power=2)
     )
 
     result = reduce_hypertangent_monomial(
@@ -166,7 +158,7 @@ def test_elementary_dispatch_integrates_nested_tangent_and_lower_parts() -> None
     tower = tangent_over_primitive()
     field = tower.field()
     derivation = tower.derivation()
-    tangent_part = field.from_sympy(cayley_pair(x + s, x*s + 1))
+    tangent_part = field.from_sympy(cayley_pair(x + s, x * s + 1))
     expected = tangent_part + field.from_sympy(s)
     integrand = derivation(expected)
 
@@ -180,7 +172,7 @@ def test_elementary_dispatch_integrates_nested_tangent_and_lower_parts() -> None
 
 
 def test_nested_hypertangent_reduction_rejects_a_dependent_generator() -> None:
-    tower = tangent_over_primitive(eta=1/(x*(s**2 + 1)))
+    tower = tangent_over_primitive(eta=1 / (x * (s**2 + 1)))
 
     with pytest.raises(ValueError, match="algebraically dependent"):
         reduce_hypertangent_special(1, tower.derivation())
@@ -199,14 +191,14 @@ def test_nested_hypertangent_handles_two_primitive_lower_levels() -> None:
     primitive = primitive_lower_tower()
     lower = primitive.extend(
         MonomialExtension(
-            Poly(1/(x*s), u, domain=primitive.field()),
+            Poly(1 / (x * s), u, domain=primitive.field()),
             ConstantFieldStatus.PRESERVED,
         )
     )
     tower = lower.extend(
         MonomialExtension(
             Poly(
-                (s + u)*(1 + t**2),
+                (s + u) * (1 + t**2),
                 t,
                 domain=lower.field(),
             ),
@@ -215,7 +207,7 @@ def test_nested_hypertangent_handles_two_primitive_lower_levels() -> None:
     )
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(cayley_pair(x + s*u, s + u))
+    planted = field.from_sympy(cayley_pair(x + s * u, s + u))
 
     result = reduce_hypertangent_monomial(
         derivation(planted),
@@ -256,11 +248,11 @@ def test_generated_nested_cayley_modes_reduce_exactly(
     field = tower.field()
     derivation = tower.derivation()
     real_coefficient = sum(
-        (constant + linear*x)*s**degree
+        (constant + linear * x) * s**degree
         for degree, (constant, linear) in enumerate(real_coefficients)
     )
     imaginary_coefficient = sum(
-        (constant + linear*x)*s**degree
+        (constant + linear * x) * s**degree
         for degree, (constant, linear) in enumerate(imaginary_coefficients)
     )
     assume(real_coefficient != 0 or imaginary_coefficient != 0)

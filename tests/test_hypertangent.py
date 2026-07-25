@@ -32,7 +32,7 @@ def hypertangent_tower(
     )
     return base.extend(
         MonomialExtension(
-            Poly(eta*(1 + t**2), t, domain=base.field()),
+            Poly(eta * (1 + t**2), t, domain=base.field()),
             constant_field_status,
         ),
     )
@@ -41,21 +41,19 @@ def hypertangent_tower(
 def test_special_reduction_of_inverse_special_polynomial_stays_real() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()
-    integrand = field.from_sympy(1/(1 + t**2))
+    integrand = field.from_sympy(1 / (1 + t**2))
 
     result = reduce_hypertangent_special(
         integrand,
         tower.derivation(),
     )
 
-    assert result.exact_part == field.from_sympy(t/(2*(1 + t**2)))
-    assert result.remainder == field.from_sympy(1/2)
+    assert result.exact_part == field.from_sympy(t / (2 * (1 + t**2)))
+    assert result.remainder == field.from_sympy(1 / 2)
     assert result.lower_remainder == tower.field(0).convert(QQ(1, 2))
     assert len(result.steps) == 1
     assert result.steps[0].power == 1
-    assert result.steps[0].real_coefficient == tower.field(0).convert(
-        QQ(1, 4)
-    )
+    assert result.steps[0].real_coefficient == tower.field(0).convert(QQ(1, 4))
     assert result.steps[0].imaginary_coefficient == tower.field(0).zero
     assert result.steps[0].has_solution
     assert not result.has_obstruction
@@ -67,14 +65,12 @@ def test_special_reduction_pairs_a_purely_imaginary_cayley_mode() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(t/(1 + t**2))
+    integrand = field.from_sympy(t / (1 + t**2))
 
     result = reduce_hypertangent_special(integrand, derivation)
 
     assert derivation(result.exact_part) + result.remainder == integrand
-    assert result.exact_part == field.from_sympy(
-        (t**2 - 1)/(4*(1 + t**2))
-    )
+    assert result.exact_part == field.from_sympy((t**2 - 1) / (4 * (1 + t**2)))
     assert result.remainder == field.zero
     step = result.steps[0]
     assert step.real_coefficient == tower.field(0).zero
@@ -87,7 +83,7 @@ def test_higher_cayley_mode_is_reduced() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy((1 + t**4)/(1 + t**2)**2)
+    integrand = field.from_sympy((1 + t**4) / (1 + t**2) ** 2)
 
     result = reduce_hypertangent_special(integrand, derivation)
 
@@ -101,7 +97,7 @@ def test_higher_cayley_mode_is_reduced() -> None:
 def test_pure_lower_field_input_has_no_cayley_steps() -> None:
     tower = hypertangent_tower(x**3 + 1)
     field = tower.field()
-    lower = tower.field(0).from_sympy((x + 1)/(x**2 + 1))
+    lower = tower.field(0).from_sympy((x + 1) / (x**2 + 1))
 
     result = reduce_hypertangent_special(
         field.convert(lower),
@@ -118,9 +114,7 @@ def test_pure_lower_field_input_has_no_cayley_steps() -> None:
 def test_special_mode_denominator_obstruction_is_retained() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()
-    integrand = field.from_sympy(
-        2*(1 - t**2)/(x*(1 + t**2))
-    )
+    integrand = field.from_sympy(2 * (1 - t**2) / (x * (1 + t**2)))
 
     result = reduce_hypertangent_special(
         integrand,
@@ -135,7 +129,7 @@ def test_special_mode_denominator_obstruction_is_retained() -> None:
     assert len(result.obstructed_steps) == 1
     step = result.obstructed_steps[0]
     assert step.power == 1
-    assert step.real_coefficient == tower.field(0).from_sympy(1/x)
+    assert step.real_coefficient == tower.field(0).from_sympy(1 / x)
     assert step.imaginary_coefficient == tower.field(0).zero
     assert step.rde_result.obstruction is CoupledRDEObstruction.DENOMINATOR
 
@@ -144,11 +138,11 @@ def test_special_mode_denominator_obstruction_is_retained() -> None:
     ("integrand", "expected_obstruction"),
     [
         (
-            2*(1 - t**2)/(1 + t**2),
+            2 * (1 - t**2) / (1 + t**2),
             CoupledRDEObstruction.DEGREE,
         ),
         (
-            -4*x**2*t/(1 + t**2),
+            -4 * x**2 * t / (1 + t**2),
             CoupledRDEObstruction.NONZERO_REMAINDER,
         ),
     ],
@@ -157,7 +151,7 @@ def test_special_reduction_exposes_other_coupled_obstructions(
     integrand,
     expected_obstruction,
 ) -> None:
-    tower = hypertangent_tower(x/2)
+    tower = hypertangent_tower(x / 2)
     field = tower.field()
     element = field.from_sympy(integrand)
 
@@ -169,20 +163,15 @@ def test_special_reduction_exposes_other_coupled_obstructions(
     assert result.exact_part == field.zero
     assert result.remainder == element
     assert result.has_obstruction
-    assert result.obstructed_steps[0].rde_result.obstruction is (
-        expected_obstruction
-    )
+    assert result.obstructed_steps[0].rde_result.obstruction is (expected_obstruction)
 
 
 def test_each_special_step_agrees_with_block_matrix_oracle() -> None:
     tower = hypertangent_tower(x + 1)
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(
-        (x*t + 2)/(1 + t**2)
-        + (x**2 - t)/(1 + t**2)**2
-    )
-    integrand = derivation(planted) + field.from_sympy(1/(x + 2))
+    planted = field.from_sympy((x * t + 2) / (1 + t**2) + (x**2 - t) / (1 + t**2) ** 2)
+    integrand = derivation(planted) + field.from_sympy(1 / (x + 2))
 
     result = reduce_hypertangent_special(integrand, derivation)
 
@@ -200,12 +189,8 @@ def test_each_special_step_agrees_with_block_matrix_oracle() -> None:
             max(0, rde.degree_bound),
         )
         assert matrix.has_solution == step.has_solution
-        assert cancel(
-            matrix.real_solution - rde.real_solution
-        ) == 0
-        assert cancel(
-            matrix.imaginary_solution - rde.imaginary_solution
-        ) == 0
+        assert cancel(matrix.real_solution - rde.real_solution) == 0
+        assert cancel(matrix.imaginary_solution - rde.imaginary_solution) == 0
 
 
 coefficient_lists = st.lists(
@@ -231,26 +216,23 @@ def test_generated_special_exact_derivatives_reduce_to_the_lower_field(
     lower_numerator,
 ) -> None:
     eta = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(eta_coefficients)
+        coefficient * x**degree for degree, coefficient in enumerate(eta_coefficients)
     )
     assume(eta != 0)
     tower = hypertangent_tower(eta)
     field = tower.field()
     derivation = tower.derivation()
     real_numerator = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(real_coefficients)
+        coefficient * x**degree for degree, coefficient in enumerate(real_coefficients)
     )
     tangent_numerator = sum(
-        coefficient*x**degree
+        coefficient * x**degree
         for degree, coefficient in enumerate(tangent_coefficients)
     )
     planted = field.from_sympy(
-        (real_numerator + tangent_numerator*t)
-        / (1 + t**2)**special_power
+        (real_numerator + tangent_numerator * t) / (1 + t**2) ** special_power
     )
-    lower = tower.field(0).from_sympy(lower_numerator/(x**2 + 1))
+    lower = tower.field(0).from_sympy(lower_numerator / (x**2 + 1))
     integrand = derivation(planted) + field.convert(lower)
 
     result = reduce_hypertangent_special(integrand, derivation)
@@ -262,13 +244,11 @@ def test_generated_special_exact_derivatives_reduce_to_the_lower_field(
 
 
 def test_high_degree_eta_and_high_cayley_power_reconstruct_exactly() -> None:
-    tower = hypertangent_tower(x**6 - 3*x**2 + 1)
+    tower = hypertangent_tower(x**6 - 3 * x**2 + 1)
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(
-        (x**5 + (x**3 - 2)*t)/(1 + t**2)**4
-    )
-    lower = tower.field(0).from_sympy(1/(x**4 + 1))
+    planted = field.from_sympy((x**5 + (x**3 - 2) * t) / (1 + t**2) ** 4)
+    lower = tower.field(0).from_sympy(1 / (x**4 + 1))
     integrand = derivation(planted) + field.convert(lower)
 
     result = reduce_hypertangent_special(integrand, derivation)
@@ -284,28 +264,21 @@ def test_full_reduction_composes_normal_log_special_exact_and_lower_part() -> No
     tower = hypertangent_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    planted_special = field.from_sympy(t/(1 + t**2))
-    integrand = (
-        derivation(planted_special)
-        + field.from_sympy(t/(t - 1) + 1/(x + 1))
+    planted_special = field.from_sympy(t / (1 + t**2))
+    integrand = derivation(planted_special) + field.from_sympy(
+        t / (t - 1) + 1 / (x + 1)
     )
 
     result = reduce_hypertangent_monomial(integrand, derivation)
 
     assert (
-        derivation(result.exact_part)
-        + result.logarithmic_derivative
-        + result.remainder
+        derivation(result.exact_part) + result.logarithmic_derivative + result.remainder
         == integrand
     )
     assert result.exact_part == planted_special
-    assert result.logarithmic_derivative == field.from_sympy(
-        (t + 1)/(2*(t - 1))
-    )
-    assert result.remainder == field.from_sympy((x + 3)/(2*(x + 1)))
-    assert result.lower_remainder == tower.field(0).from_sympy(
-        (x + 3)/(2*(x + 1))
-    )
+    assert result.logarithmic_derivative == field.from_sympy((t + 1) / (2 * (t - 1)))
+    assert result.remainder == field.from_sympy((x + 3) / (2 * (x + 1)))
+    assert result.lower_remainder == tower.field(0).from_sympy((x + 3) / (2 * (x + 1)))
     assert result.special_reduction is not None
     assert not result.is_non_elementary
     assert result.reduced_to_lower_field
@@ -316,14 +289,12 @@ def test_full_reduction_extracts_the_special_logarithm_at_infinity() -> None:
     field = tower.field()
 
     result = reduce_hypertangent_monomial(
-        field.from_sympy(2*(x + 1)*t),
+        field.from_sympy(2 * (x + 1) * t),
         tower.derivation(),
     )
 
     assert result.exact_part == field.zero
-    assert result.logarithmic_derivative == field.from_sympy(
-        2*(x + 1)*t
-    )
+    assert result.logarithmic_derivative == field.from_sympy(2 * (x + 1) * t)
     assert result.remainder == field.zero
     assert result.lower_remainder == tower.field(0).zero
     assert result.reduced_to_lower_field
@@ -333,7 +304,7 @@ def test_full_reduction_handles_a_repeated_normal_pole() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(1/(t - 1)**2)
+    planted = field.from_sympy(1 / (t - 1) ** 2)
     integrand = derivation(planted)
 
     result = reduce_hypertangent_monomial(integrand, derivation)
@@ -348,7 +319,7 @@ def test_full_reduction_handles_a_repeated_normal_pole() -> None:
 def test_full_reduction_preserves_a_normal_residue_obstruction() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()
-    integrand = field.from_sympy(1/(x*t))
+    integrand = field.from_sympy(1 / (x * t))
 
     result = reduce_hypertangent_monomial(
         integrand,
@@ -367,9 +338,7 @@ def test_full_reduction_preserves_a_normal_residue_obstruction() -> None:
 def test_full_reduction_preserves_a_coupled_rde_obstruction() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()
-    integrand = field.from_sympy(
-        2*(1 - t**2)/(x*(1 + t**2))
-    )
+    integrand = field.from_sympy(2 * (1 - t**2) / (x * (1 + t**2)))
 
     result = reduce_hypertangent_monomial(
         integrand,
@@ -390,7 +359,7 @@ def test_special_reduction_rejects_an_unreduced_normal_denominator() -> None:
 
     with pytest.raises(ValueError, match="requires a Laurent polynomial"):
         reduce_hypertangent_special(
-            1/(t - 1),
+            1 / (t - 1),
             tower.derivation(),
         )
 
@@ -424,7 +393,7 @@ def test_hypertangent_reduction_requires_preserved_constants() -> None:
 
 
 def test_hypertangent_reduction_rejects_a_dependent_cayley_generator() -> None:
-    tower = hypertangent_tower(1/(x**2 + 1))
+    tower = hypertangent_tower(1 / (x**2 + 1))
 
     with pytest.raises(
         ValueError,
@@ -434,34 +403,30 @@ def test_hypertangent_reduction_rejects_a_dependent_cayley_generator() -> None:
 
 
 def test_tan_log_x_level_extracts_the_special_logarithm() -> None:
-    tower = hypertangent_tower(1/x)
+    tower = hypertangent_tower(1 / x)
     field = tower.field()
 
     result = reduce_hypertangent_monomial(
-        field.from_sympy(t/x),
+        field.from_sympy(t / x),
         tower.derivation(),
     )
 
     assert result.exact_part == field.zero
-    assert result.logarithmic_derivative == field.from_sympy(t/x)
+    assert result.logarithmic_derivative == field.from_sympy(t / x)
     assert result.remainder == field.zero
     assert result.lower_remainder == tower.field(0).zero
     assert result.reduced_to_lower_field
 
 
 def test_tan_log_x_special_pair_is_an_exact_derivative() -> None:
-    tower = hypertangent_tower(1/x)
+    tower = hypertangent_tower(1 / x)
     field = tower.field()
     derivation = tower.derivation()
-    integrand = field.from_sympy(
-        2*(1 - t**2)/(x*(1 + t**2))
-    )
+    integrand = field.from_sympy(2 * (1 - t**2) / (x * (1 + t**2)))
 
     result = reduce_hypertangent_special(integrand, derivation)
 
-    assert result.exact_part == field.from_sympy(
-        2*t/(1 + t**2)
-    )
+    assert result.exact_part == field.from_sympy(2 * t / (1 + t**2))
     assert result.remainder == field.zero
     assert result.lower_remainder == tower.field(0).zero
     assert result.steps[0].rde_result.gaussian_normalization_factor is not None
@@ -469,11 +434,9 @@ def test_tan_log_x_special_pair_is_an_exact_derivative() -> None:
 
 
 def test_rational_eta_special_mode_retains_a_degree_obstruction() -> None:
-    tower = hypertangent_tower(1/(2*x**2))
+    tower = hypertangent_tower(1 / (2 * x**2))
     field = tower.field()
-    integrand = field.from_sympy(
-        2*(1 - t**2)/(1 + t**2)
-    )
+    integrand = field.from_sympy(2 * (1 - t**2) / (1 + t**2))
 
     result = reduce_hypertangent_special(
         integrand,
@@ -502,27 +465,23 @@ def test_generated_rational_eta_exact_derivatives_reconstruct(
     special_power,
 ) -> None:
     eta_numerator = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(
-            eta_numerator_coefficients
-        )
+        coefficient * x**degree
+        for degree, coefficient in enumerate(eta_numerator_coefficients)
     )
     assume(eta_numerator != 0)
-    eta = eta_numerator + 1/(x**2 + 1)**2
+    eta = eta_numerator + 1 / (x**2 + 1) ** 2
     tower = hypertangent_tower(eta)
     field = tower.field()
     derivation = tower.derivation()
     real_numerator = sum(
-        coefficient*x**degree
-        for degree, coefficient in enumerate(real_coefficients)
+        coefficient * x**degree for degree, coefficient in enumerate(real_coefficients)
     )
     tangent_numerator = sum(
-        coefficient*x**degree
+        coefficient * x**degree
         for degree, coefficient in enumerate(tangent_coefficients)
     )
     planted = field.from_sympy(
-        (real_numerator + tangent_numerator*t)
-        / (1 + t**2)**special_power
+        (real_numerator + tangent_numerator * t) / (1 + t**2) ** special_power
     )
     integrand = derivation(planted)
 

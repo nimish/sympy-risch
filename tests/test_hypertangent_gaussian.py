@@ -18,16 +18,20 @@ x, t, u = symbols("x t u")
 
 
 def hypertangent_tower() -> DifferentialTower:
-    return DifferentialTower(QQ).extend(
-        MonomialExtension(
-            Poly(1, x, domain=QQ),
-            ConstantFieldStatus.PRESERVED,
-        ),
-    ).extend(
-        MonomialExtension(
-            Poly(1 + t**2, t, domain=QQ.frac_field(x)),
-            ConstantFieldStatus.PRESERVED,
-        ),
+    return (
+        DifferentialTower(QQ)
+        .extend(
+            MonomialExtension(
+                Poly(1, x, domain=QQ),
+                ConstantFieldStatus.PRESERVED,
+            ),
+        )
+        .extend(
+            MonomialExtension(
+                Poly(1 + t**2, t, domain=QQ.frac_field(x)),
+                ConstantFieldStatus.PRESERVED,
+            ),
+        )
     )
 
 
@@ -35,7 +39,7 @@ def nested_hypertangent_tower() -> DifferentialTower:
     first = hypertangent_tower()
     return first.extend(
         MonomialExtension(
-            Poly((t + 1)*(1 + u**2), u, domain=first.field()),
+            Poly((t + 1) * (1 + u**2), u, domain=first.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -53,7 +57,7 @@ def test_cayley_normal_form_turns_a_hypertangent_level_hyperexponential() -> Non
     assert normal_form.target_derivation.tower.constants == QQ_I
     assert target_extension.family is MonomialFamily.HYPEREXPONENTIAL
     assert target_extension.generator_derivative == Poly(
-        2*I*t,
+        2 * I * t,
         t,
         domain=QQ_I.frac_field(x),
     )
@@ -68,14 +72,13 @@ def test_cayley_normal_form_intertwines_rational_field_elements() -> None:
 
     for expression in (
         t,
-        (t**2 + x)/(t + 1),
-        (x*t + 1)/(t**2 + 1),
+        (t**2 + x) / (t + 1),
+        (x * t + 1) / (t**2 + 1),
     ):
         source_value = field.from_sympy(expression)
-        target_difference = (
-            normal_form.target_derivation(normal_form.forward(source_value))
-            - normal_form.forward(derivation(source_value))
-        )
+        target_difference = normal_form.target_derivation(
+            normal_form.forward(source_value)
+        ) - normal_form.forward(derivation(source_value))
         assert cancel(normal_form.target_field.to_sympy(target_difference)) == 0
 
 
@@ -83,13 +86,12 @@ def test_cayley_normal_form_recovers_exact_real_coordinates() -> None:
     tower = hypertangent_tower()
     field = tower.field()
     normal_form = build_hypertangent_gaussian_normal_form(tower.derivation())
-    real_part = field.from_sympy((t**2 + x)/(t + 1))
-    imaginary_part = field.from_sympy((x*t - 1)/(t**2 + 1))
-    target_value = (
-        normal_form.forward(real_part)
-        + normal_form.target_field.from_sympy(I)*normal_form.forward(
-            imaginary_part,
-        )
+    real_part = field.from_sympy((t**2 + x) / (t + 1))
+    imaginary_part = field.from_sympy((x * t - 1) / (t**2 + 1))
+    target_value = normal_form.forward(real_part) + normal_form.target_field.from_sympy(
+        I
+    ) * normal_form.forward(
+        imaginary_part,
     )
 
     recovered_real, recovered_imaginary = normal_form.split_inverse(
@@ -110,7 +112,7 @@ def test_cayley_normal_form_rewrites_later_hypertangent_coefficients() -> None:
     target_extension = normal_form.target_derivation.tower.levels[-1]
     assert isinstance(target_extension, MonomialExtension)
     assert target_extension.family is MonomialFamily.HYPEREXPONENTIAL
-    expected = cancel(2*I*(-I*(t - 1)/(t + 1) + 1)*u)
+    expected = cancel(2 * I * (-I * (t - 1) / (t + 1) + 1) * u)
     assert target_extension.generator_derivative == Poly(
         expected,
         u,
@@ -120,15 +122,19 @@ def test_cayley_normal_form_rewrites_later_hypertangent_coefficients() -> None:
 
 
 def test_cayley_normal_form_requires_certified_constants() -> None:
-    tower = DifferentialTower(QQ).extend(
-        MonomialExtension(
-            Poly(1, x, domain=QQ),
-            ConstantFieldStatus.PRESERVED,
-        ),
-    ).extend(
-        MonomialExtension(
-            Poly(1 + t**2, t, domain=QQ.frac_field(x)),
-        ),
+    tower = (
+        DifferentialTower(QQ)
+        .extend(
+            MonomialExtension(
+                Poly(1, x, domain=QQ),
+                ConstantFieldStatus.PRESERVED,
+            ),
+        )
+        .extend(
+            MonomialExtension(
+                Poly(1 + t**2, t, domain=QQ.frac_field(x)),
+            ),
+        )
     )
 
     with pytest.raises(ValueError, match=r"Const\(K\(t\)\)"):
@@ -139,11 +145,11 @@ def test_coupled_rational_hypertangent_frontend_uses_cayley_normal_form() -> Non
     tower = hypertangent_tower()
     derivation = tower.derivation()
     field = tower.field()
-    rotation = field.from_sympy(x + 1/(t + 2))
-    planted_real = field.from_sympy((t**2 + x)/(t + 1))
-    planted_imaginary = field.from_sympy((t**3 - 1)/(t**2 + 1))
-    real_rhs = derivation(planted_real) - rotation*planted_imaginary
-    imaginary_rhs = derivation(planted_imaginary) + rotation*planted_real
+    rotation = field.from_sympy(x + 1 / (t + 2))
+    planted_real = field.from_sympy((t**2 + x) / (t + 1))
+    planted_imaginary = field.from_sympy((t**3 - 1) / (t**2 + 1))
+    real_rhs = derivation(planted_real) - rotation * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + rotation * planted_real
 
     result = solve_coupled_risch_differential_equation(
         rotation,
@@ -165,7 +171,7 @@ def test_coupled_rational_hypertangent_frontend_propagates_obstruction() -> None
     derivation = tower.derivation()
     field = tower.field()
     normal_form = build_hypertangent_gaussian_normal_form(derivation)
-    target_rhs = normal_form.target_field.from_sympy(1/(t - 1))
+    target_rhs = normal_form.target_field.from_sympy(1 / (t - 1))
     real_rhs, imaginary_rhs = normal_form.split_inverse(target_rhs)
 
     result = solve_coupled_risch_differential_equation(
