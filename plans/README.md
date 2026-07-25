@@ -14,6 +14,9 @@ plan with exact file scope, tests, and a separate commit.
 | Plan | Title | Priority | Effort | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
 | 001 | Make the Risch implementation complete over its declared input class | P1 | XL | - | IN PROGRESS |
+| 002 | Make the current P/E/T contract executable | P1 | M | 001 | TODO |
+| 003 | Extract certified fundamental signatures | P1 | L | 002 | TODO |
+| 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | TODO |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -51,12 +54,20 @@ complete transcendental cases       |
              completeness and upstream gates
 ```
 
-The Section 7.3 fast path and complete fallbacks over `QQ(x)` and one
-primitive level and Trager's finite-residue polynomial at certified
-unbranched algebraic poles are implemented. The selected next executable
-checkpoint is algebraic branch-place handling in Milestone 5. Recursive
-primitive Chapter 9 signatures remain the leading parallel transcendental
-checkpoint.
+The normalized P/E/T contract is complete over `QQ(x)`, and the algebraic
+track now has maximal orders, places, local expansions, and divisor arithmetic.
+The next checkpoint is not another reducer: it is an executable admission and
+coverage matrix (Plan 002). Plans 003 and 004 then run in parallel: one freezes
+the current structure-theorem logic as explicit fundamental signatures, while
+the other resolves the constant-field and all-place residue boundary required
+for pure algebraic integration.
+
+- Plan 003 must land before a complete special-polynomial/Darboux decision or
+  any claim of general effective constants.
+- Plan 004 must settle its constant-field contract before a residue can be
+  called a Liouville constant, and before principal/torsion divisor work.
+- The global algebraic logarithmic and second-kind branches depend on Plan 004;
+  mixed algebraic/transcendental towers depend on both tracks.
 
 ## Findings considered and rejected
 
@@ -69,3 +80,6 @@ checkpoint.
 - Rewriting the project around a private element hierarchy was rejected. The
   established design deliberately uses native SymPy domains and immutable tower
   metadata.
+- Treating the current all-place algebraic substrate as a complete algebraic
+  integrator was rejected: it lacks constant-field normalization, global
+  logarithmic reconstruction, and second-kind exactness.

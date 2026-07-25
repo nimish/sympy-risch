@@ -20,8 +20,7 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
-- **Last implementation reconciliation**: the latest commit touching this
-  roadmap
+- **Last implementation reconciliation**: commit `97fccfc`, 2026-07-25
 
 ## Why this matters
 
@@ -139,9 +138,11 @@ The current implementation already has a strong exact-arithmetic kernel:
 - `src/sympy_risch/algebraic.py` validates algebraic extensions and implements
   algebraic Hermite reduction over `QQ(x)` with explicit, simple-radical, or
   lazily refined integral bases, plus Trager's finite-residue polynomial for
-  supported unbranched poles. It does not yet compute general branch places,
-  residue fields, logarithmic reconstruction, or exactness on an algebraic
-  curve.
+  supported unbranched poles. `src/sympy_risch/algebraic_geometry.py` now adds
+  certified maximal orders, ramified and infinite places, residue fields,
+  local expansions, divisors, and differential residues. Constant-field
+  normalization, all-place integration residue collection, logarithmic
+  reconstruction, and second-kind exactness remain open.
 
 The implementation checkpoints since this roadmap was created are:
 
@@ -165,7 +166,7 @@ bc763f1  Reconcile recursive primitive checkpoint
 At the last reconciliation, the full parallel test suite is:
 
 ```text
-1274 passed in 46.74s
+1274 passed in 45.83s
 ```
 
 using:
@@ -195,8 +196,8 @@ The existing design conventions to preserve are:
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation and Gaussian fallbacks are complete over `QQ(x)`; general effective constants, fundamental signatures, and non-generator special factors remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete; general polynomial special branches and expression-to-tower construction are not. |
-| 5. Algebraic-function-field kernel | Partial: finite extensions, integral-basis Hermite reduction, and certified finite-residue resultants at unbranched poles exist; branch, residue-field, and divisor machinery remain. |
-| 6. Pure algebraic integration | Not started beyond its Hermite-reduction prerequisite. |
+| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, and divisor arithmetic now exist; constant normalization, a complete integration residue collector, and global-space/principal-divisor decisions remain. |
+| 6. Pure algebraic integration | Partial prerequisites exist; no end-to-end elementary integration decision yet. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
 | 8. Automatic expression towers | Not started. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
@@ -510,14 +511,15 @@ Risch**, before automatic expression discovery.
 This milestone supplies the geometry currently absent from
 `src/sympy_risch/algebraic.py`.
 
-Status: started. Finite extensions, implicit differentiation, integral-basis
-coordinates, simple-radical bases, lazy refinement, algebraic Hermite
-reduction over `QQ(x)`, and Trager's nested-resultant finite-residue polynomial
-are implemented. The residue algorithm requires a polynomial model monic in
-the algebraic generator and square-free finite poles coprime to its
-discriminant. It preserves the model, numerator, denominator, discriminant,
-branch certificate, and both resultants for exact inspection. Branch-place
-handling is the immediate next checkpoint.
+Status: the local geometry substrate is implemented. Finite extensions,
+implicit differentiation, integral-basis coordinates, simple-radical bases,
+lazy refinement, algebraic Hermite reduction over `QQ(x)`, and Trager's
+nested-resultant finite-residue polynomial are implemented. Certified maximal
+orders, ramified/infinite places, exact residue fields, uniformizers,
+valuations, local expansions, differents, and divisor arithmetic now exist in
+`algebraic_geometry.py`. The immediate gate is therefore not more place
+primitives: it is constant-field normalization followed by a complete
+all-place residue collector that consumes the canonical geometry API.
 
 ### 5.1 Integral closure and bases
 
@@ -748,69 +750,64 @@ package may then become a development harness or be retired.
 
 ## Immediate execution order
 
-The dependency checkpoints completed since the roadmap was written are:
+The following order reflects the current committed state. A checkpoint may run
+in parallel only where the dependency graph says so; every item remains a
+separate commit after focused and full-suite verification.
 
-1. [x] Define the parametric logarithmic-derivative result and exact
-   verification contract.
-2. [x] Implement Bronstein §7.3 over the existing rational base.
-3. [x] Add the complete rational structure fallback.
-4. [x] Make the Example 7.3.2 regression constructive and add generated
-   rational-dependency families across the fallback branch.
-5. [x] Compute the initial radical logarithmic signatures over one primitive
-   level.
-6. [x] Consume those signatures in the initial one-level primitive parametric
-   fallback, with generated and independent-oracle tests.
-7. [x] Generalize radical logarithmic decisions through recursive primitive
-   towers.
-8. [x] Generalize the complete parametric fallback through recursive primitive
-   towers.
-9. [x] Consume the recursive decisions in primitive RDE cancellation,
-   degree bounds, and hyperexponential dependency validation.
+### Shared contract gate
 
-The algebraic track continues in parallel:
+1. [ ] **Plan 002**: make the current `QQ(x)` P/E/T admission boundary and
+   coverage cells executable. This precedes every new public claim and should
+   also put the documented type/test gates in CI.
 
-10. [x] Compute Trager's nested-resultant residue polynomial for a square-free
-   Hermite remainder with certified simple, unbranched finite poles.
-11. [x] Cross-check its roots against explicit local residues on generated
-   simple-radical and nonradical examples, and reject uncertified branch
-   cases.
-12. [ ] Handle branch places by proving their residues vanish in supported
-   simple-radical models or by changing the algebraic model.
-13. [ ] Construct the minimal algebraic constant extension and a rational basis
-   for the residues.
-14. [ ] Build the divisor attached to each residue-basis coefficient and solve
-    its principal/torsion problem.
-15. [x] Add finite/infinite place operations, valuations, and local
-    expansions.
-16. [ ] Decide exactness of the remaining differential of the second kind.
+### Parallel first mathematical gates
 
-The active transcendental execution order is:
+2. [ ] **Plan 003**: extract the current P/E/T relation logic into immutable
+   complex and real fundamental signatures. Keep the existing compiler and
+   Gaussian normal form as behavioral oracles.
+3. [ ] **Plan 004**: decide or explicitly reject algebraic constant-field
+   enlargement, then bridge Hermite remainders to canonical all-place
+   residue data. Do not extend the unramified plane-model shortcut by guess.
+4. [ ] Design a minimal native-SymPy representation for algebraic-over-
+   monomial, monomial-over-algebraic, and nested algebraic tower prefixes.
+   This is a narrow feasibility spike, not a broad element-hierarchy rewrite.
 
-1. [x] Add a verified Möbius normal form for the hyperbolic law
-   `Dt = eta*(1 - t**2)`, with exact field maps and derivation conjugacy to
-   `Du = 2*eta*u`. This is a bounded normalization checkpoint, not a claim to
-   solve arbitrary Riccati equations.
-2. [x] Add conservative special-factor certificates for visible or
-   caller-supplied candidates. They certify `PRESENT` only; an empty search is
-   explicitly `UNKNOWN`, never an absence theorem.
-3. [ ] Build an expression-to-tower normalization layer that uses such exact
-   normal forms for `exp`, `log`, trigonometric, and hyperbolic syntax while
-   preserving a reversible source presentation.
-4. [ ] Extract the current P/E/T relation logic into explicit complex and real
-   fundamental signatures, then extend it to effective constant fields and
-   non-generator special polynomials.
-5. [ ] Solve the complete special-polynomial/Darboux problem as a distinct
-   structure-theorem milestone. In particular, testing a linear candidate
-   `t-a` requires deciding the Riccati equation `D(a) = Dt|_(t=a)`; it is not
-   a factorization-only extension of the current RDE solver.
-6. [ ] Use those decisions to implement general special-polynomial reduction,
-   then the associated scalar/parametric RDE, limited-integration, and coupled
-   branches.
-7. [ ] Add a generated coverage matrix asserting that every declared explicit
-   transcendental cell terminates constructively or with a theorem-backed
-   obstruction.
+### Transcendental completion path
 
-Each item is a separate commit after focused and full-suite verification.
+5. [ ] Extend fundamental signatures to the declared effective constant fields
+   and use them for automatic no-new-constants/dependency certification.
+6. [ ] Solve the complete special-polynomial/Darboux decision for each
+   explicitly admitted general-monomial family. In particular, a linear factor
+   `t-a` requires the Riccati equation `D(a) = Dt|_(t=a)`; failed search is
+   never an `ABSENT` proof.
+7. [ ] Consume certified special factors in special-denominator Hermite/RDE
+   reduction, public parametric RDE, limited integration, coupled systems, and
+   logarithmic reconstruction. This completes explicit transcendental Risch
+   beyond the normalized P/E/T core.
+
+### Algebraic completion path
+
+8. [ ] Build the shared Riemann--Roch/effective-global-space service on top of
+   normalized constants and all-place residues.
+9. [ ] Use it for residue-basis descent and principal/torsion divisor solving
+   (algebraic logarithmic reconstruction) and, in parallel, exactness of
+   second-kind differentials. Test genus-zero and positive-genus cases.
+10. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
+    the exactness result as its `a=0` slice.
+11. [ ] Compose the completed algebraic and transcendental solvers over the
+    proven mixed-tower representation. This is the exit gate for a complete
+    *explicit* Risch tower.
+
+### User-facing and upstream path
+
+12. [ ] Build a narrow reversible P/E/T expression compiler after the shared
+    contract and signature work; expand it to algebraic/mixed expressions only
+    after the corresponding mathematical cells are total.
+13. [ ] Add back-substitution, complex-local versus assumption-scoped-real
+    presentation, branch metadata, and a small stable SymPy-facing facade.
+14. [ ] Expand the coverage matrix to every declared mixed-tower and expression
+    cell, then upstream independently mature domain, reduction, RDE, and
+    frontend components.
 
 ## Commands required for every checkpoint
 
@@ -833,7 +830,6 @@ interpreter.
 - Keep one mathematical checkpoint per commit.
 - Match the existing imperative commit style, for example:
   `Reduce hyperexponentials over primitive fields`.
-- Do not stage or modify the pre-existing `docs/tutoring-notes.md` change.
 - Do not push or open a pull request unless explicitly requested.
 
 ## Done criteria
