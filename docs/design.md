@@ -593,9 +593,12 @@ An independent bounded matrix oracle handles one hyperexponential level over
 call the production lower-field recurrence. Generated planted and
 nonsolution examples compare the two implementations.
 
-The remaining rational hyperexponential RDE requires weak normalization and
-normal-denominator reduction for a coefficient that itself depends on `t`.
-That is the next scalar-RDE checkpoint.
+The next scalar checkpoint extends this terminal Laurent problem from
+`a in K` to `a in K[t, t**-1]`. Its valuation bounds and leading/trailing
+recurrences must exist before the rational frontend: weak normalization,
+normal-denominator reduction, and SPDE ultimately reduce a general rational
+coefficient to precisely that Laurent core. Once the core is complete, those
+normal-factor stages complete the rational hyperexponential RDE.
 
 ### Hypertangent levels
 
@@ -719,10 +722,11 @@ separate commit.
 The latest transcendental checkpoint extends scalar RDE dispatch through the
 complete lower-coefficient/Laurent hyperexponential branch, including
 recursive hyperexponential levels and an independent matrix oracle. The next
-scalar checkpoint adds weak normalization and normal-denominator reduction
-for top-dependent hyperexponential coefficients. The current algebraic
-priority remains branch-place handling before the residue-field and divisor
-stages.
+scalar checkpoint adds certified support bounds and leading/trailing
+recurrences for Laurent coefficients that depend on the top generator. Weak
+normalization and normal-denominator reduction follow that terminal solver.
+The current algebraic priority remains branch-place handling before the
+residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -763,8 +767,10 @@ stages.
 
 ### Next transcendental steps
 
-- [ ] Add weak normalization and normal-denominator reduction for general
-  rational hyperexponential RDE coefficients.
+- [ ] Extend hyperexponential RDEs to Laurent coefficients using valuation
+  bounds and certified leading/trailing recurrences.
+- [ ] Add weak normalization, normal-denominator reduction, and SPDE for
+  general rational hyperexponential RDE coefficients.
 - [ ] Generalize coupled RDE solving over further supported lower tower
   families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.
