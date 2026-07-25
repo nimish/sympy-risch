@@ -4,10 +4,12 @@ from .algebraic import (
     AlgebraicFraction,
     IntegralBasis,
     SimpleRadicalData,
+    TragerAlgebraicResidueResult,
     hermite_reduce_algebraic,
     lazy_hermite_reduce_algebraic,
     recognize_simple_radical,
     simple_radical_integral_basis,
+    trager_algebraic_residue_polynomial,
 )
 from .dependency import (
     HyperexponentialDependency,
@@ -183,6 +185,7 @@ __all__ = [
     "RationalRDEObstruction",
     "RationalRischDifferentialEquationResult",
     "RischDifferentialEquationResult",
+    "TragerAlgebraicResidueResult",
     "bronstein_residue_criterion",
     "analyze_hyperexponential_extension",
     "analyze_hypertangent_extension",
@@ -237,4 +240,5 @@ __all__ = [
     "split_normal_special",
     "recognize_simple_radical",
     "simple_radical_integral_basis",
+    "trager_algebraic_residue_polynomial",
 ]

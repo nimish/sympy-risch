@@ -20,7 +20,8 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
-- **Last implementation reconciliation**: commit `6e8e693`, 2026-07-24
+- **Last implementation reconciliation**: the latest commit touching this
+  roadmap
 
 ## Why this matters
 
@@ -147,7 +148,7 @@ f47439e  Add independent parametric logarithmic oracle
 At the last reconciliation, the full test suite is:
 
 ```text
-885 passed in 139.03s
+903 passed in 148.00s
 ```
 
 using:
@@ -177,7 +178,7 @@ The existing design conventions to preserve are:
 | 2. Dependency and structure decisions | Partial: parametric logarithmic derivatives are total over `QQ(x)` and one primitive level; recursive Chapter 9 structure decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: polynomial/rational RDEs, a primitive positive-degree branch, and the rational hypertangent coupled system exist. |
 | 4. Transcendental integration | Partial: several complete explicit tower shapes exist, but arbitrary family orderings and special branches do not. |
-| 5. Algebraic-function-field kernel | Partial: finite extensions, implicit differentiation, integral-basis representations, and algebraic Hermite reduction exist; local/global curve geometry is absent. |
+| 5. Algebraic-function-field kernel | Partial: finite extensions, integral-basis Hermite reduction, and certified finite-residue resultants at unbranched poles exist; branch, residue-field, and divisor machinery remain. |
 | 6. Pure algebraic integration | Not started beyond its Hermite-reduction prerequisite. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
 | 8. Automatic expression towers | Not started. |
@@ -468,12 +469,13 @@ This milestone supplies the geometry currently absent from
 `src/sympy_risch/algebraic.py`.
 
 Status: started. Finite extensions, implicit differentiation, integral-basis
-coordinates, simple-radical bases, lazy refinement, and algebraic Hermite
-reduction over `QQ(x)` are implemented. The immediate checkpoint is Trager's
-nested-resultant residue polynomial for the square-free Hermite remainder.
-Its roots generate the minimal algebraic constant extension containing the
-residues. Branch places must be detected explicitly: the unbranched formula
-may be used only when the model certifies its hypotheses.
+coordinates, simple-radical bases, lazy refinement, algebraic Hermite
+reduction over `QQ(x)`, and Trager's nested-resultant finite-residue polynomial
+are implemented. The residue algorithm requires a polynomial model monic in
+the algebraic generator and square-free finite poles coprime to its
+discriminant. It preserves the model, numerator, denominator, discriminant,
+branch certificate, and both resultants for exact inspection. Branch-place
+handling is the immediate next checkpoint.
 
 ### 5.1 Integral closure and bases
 
@@ -718,16 +720,18 @@ The dependency checkpoints completed since the roadmap was written are:
 
 The selected next track is algebraic:
 
-7. [ ] Compute Trager's nested-resultant residue polynomial for a square-free
+7. [x] Compute Trager's nested-resultant residue polynomial for a square-free
    Hermite remainder with certified simple, unbranched finite poles.
-8. [ ] Cross-check its roots against explicit local residues on generated
+8. [x] Cross-check its roots against explicit local residues on generated
    simple-radical and nonradical examples, and reject uncertified branch
    cases.
-9. [ ] Construct the minimal algebraic constant extension and a rational basis
+9. [ ] Handle branch places by proving their residues vanish in supported
+   simple-radical models or by changing the algebraic model.
+10. [ ] Construct the minimal algebraic constant extension and a rational basis
    for the residues.
-10. [ ] Build the divisor attached to each residue-basis coefficient and solve
+11. [ ] Build the divisor attached to each residue-basis coefficient and solve
     its principal/torsion problem.
-11. [ ] Add finite/infinite place operations and exactness of the remaining
+12. [ ] Add finite/infinite place operations and exactness of the remaining
     differential of the second kind.
 
 The parallel transcendental backlog remains:

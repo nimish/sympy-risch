@@ -17,8 +17,10 @@ from sympy import Poly, exp, log, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicExtension,
     ConstantFieldStatus,
     DifferentialTower,
+    IntegralBasis,
     IntegrationObstructionKind,
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
@@ -26,9 +28,10 @@ from sympy_risch import (
     primitive_logarithmic_derivative_signature,
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
+    trager_algebraic_residue_polynomial,
 )
 
-x, t, u = symbols("x t u")
+x, t, u, y, z = symbols("x t u y z")
 
 base = DifferentialTower(QQ).extend(
     MonomialExtension(
@@ -352,6 +355,44 @@ This decision is complete for one primitive level carrying a
 `PRESERVED` constant-field certificate. Deeper primitive lower towers remain
 unsupported.
 
+## Compute finite residues of an algebraic differential
+
+Algebraic Hermite reduction leaves a differential with a square-free common
+denominator in an integral basis. For a monic polynomial model whose finite
+poles are unbranched, Trager's nested resultant computes all finite residues
+without first splitting the algebraic curve into individual places:
+
+```python
+sqrt_x_extension = AlgebraicExtension(
+    Poly(y**2 - x, y, domain=base.field())
+)
+sqrt_x = base.extend(sqrt_x_extension)
+basis = IntegralBasis.power_basis(sqrt_x_extension)
+
+residues = trager_algebraic_residue_polynomial(
+    y/(x - 1),
+    sqrt_x.derivation(),
+    basis,
+    z,
+)
+
+assert residues.residue_polynomial == Poly(z**2 - 1, z, domain=QQ)
+assert residues.reconstructs_input
+```
+
+At `x = 1`, the two places have `y = 1` and `y = -1`, so the residues are
+`1` and `-1`. The result retains the defining polynomial, rationalized
+numerator and denominator, discriminant, branch-locus gcd, inner resultant,
+raw outer resultant, and final monic residue polynomial as an immutable
+certificate.
+
+This is currently a finite-residue component, not a complete algebraic
+integrator. It requires `Dx = 1`, a polynomial model monic in `y`, a
+square-free integral-basis denominator, and denominator coprime to the model
+discriminant. It explicitly rejects branch poles and does not yet construct
+the algebraic constant extension, residue divisors, logarithmic terms, or the
+contribution at infinity.
+
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
@@ -381,6 +422,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Parametric logarithmic derivative | Complete decision over `QQ(x)` and one primitive level |
 | Primitive radical logarithmic signature | Low-level API over one primitive level above `QQ(x)` |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
+| Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Other nested hyperexponential shapes or nested hypertangent levels | Not implemented |
 | Automatic tower discovery and back-substitution | Not implemented |
@@ -402,6 +444,7 @@ principal groups are:
 | Primitive logarithmic analysis | `primitive_logarithmic_derivative_signature` |
 | Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative`; `solve_parametric_logarithmic_derivative_heuristic` exposes the Section 7.3 fast path |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
+| Algebraic finite residues | `trager_algebraic_residue_polynomial` |
 
 These functions return structured immutable results rather than only a printed
 antiderivative. Their dataclass fields are the executable reduction

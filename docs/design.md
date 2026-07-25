@@ -67,7 +67,9 @@ The lower-level library additionally implements:
   global linear-system oracle;
 - validated finite algebraic extensions and implicit differentiation;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
-  integral bases; and
+  integral bases;
+- Trager's nested-resultant finite-residue polynomial for polynomial algebraic
+  models with certified square-free unbranched poles; and
 - simple-radical recognition and integral-basis construction.
 
 The required exact ground-type backend is `python-flint`.
@@ -516,11 +518,11 @@ Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
 The latest completed checkpoint is the total parametric
-logarithmic-derivative decision over one primitive level above `QQ(x)`. The
-current implementation priority is Trager's algebraic residue polynomial for
-the square-free remainder produced by algebraic Hermite reduction. Remaining
-transcendental generalizations continue as a parallel track; they do not block
-beginning the algebraic-function-field kernel.
+logarithmic-derivative decision over one primitive level above `QQ(x)`,
+followed by Trager's finite-residue polynomial for supported algebraic
+models. The current algebraic priority is branch-place handling before the
+residue-field and divisor stages. Remaining transcendental generalizations
+continue as a parallel track.
 
 ### Completed foundation
 
@@ -592,8 +594,9 @@ places. At branch places the same computation contains rational branch-index
 scalings, so the model check is part of the certificate rather than an
 implicit genericity assumption.
 
-- [ ] Compute and certify Trager's algebraic residue polynomial for
-  Hermite-reduced differentials with simple finite poles.
+- [x] Compute and certify Trager's algebraic residue polynomial for
+  Hermite-reduced differentials with simple, unbranched finite poles over a
+  polynomial model monic in the algebraic generator.
 - [ ] Detect branch places at the poles and either prove that their residues
   vanish, as in the supported simple-radical case, or change/extend the model
   before applying the unbranched resultant formula.

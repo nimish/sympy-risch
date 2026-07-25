@@ -50,6 +50,12 @@ factors.
 structure-theorem recurrence with a separate global parametric ansatz. It
 includes cancellations that occur only after selecting `m/n`, conflicting
 top and lower constraints, and generated quadratic and cubic factors.
+`tests/test_algebraic_residues.py` checks Trager's nested resultant against
+directly specialized residues, the rational Rothstein--Trager degeneration,
+and a high-degree explicit local oracle. Generated quadratic models vary the
+pole, branch locus, and numerator. Adversarial tests reject repeated poles,
+branch poles, nonpolynomial models and numerators, reused symbols, mismatched
+fields, and nonstandard rational derivations.
 
 ## Required layers
 

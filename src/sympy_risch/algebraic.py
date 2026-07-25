@@ -12,7 +12,7 @@ from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.matrices.normalforms import smith_normal_decomp
 from sympy.polys.polyclasses import DMP
-from sympy.polys.polytools import Poly, invert
+from sympy.polys.polytools import Poly, invert, resultant
 
 from .tower import AlgebraicExtension, Derivation
 
@@ -100,6 +100,69 @@ class AlgebraicFraction:
     def is_square_free(self) -> bool:
         """Whether the common denominator is square-free."""
         return self.denominator.gcd(self.denominator.diff()).degree() == 0
+
+
+@dataclass(frozen=True, slots=True)
+class TragerAlgebraicResidueResult:
+    r"""Certified finite-residue polynomial for an algebraic differential.
+
+    For a monic polynomial model ``F(x, y) = 0`` and
+
+    ``integrand*dx = G(x, y)/D(x)*dx``,
+
+    where ``D`` is square-free and no root of ``D`` lies below a branch
+    place, Trager's construction computes
+
+    ``R(Z) = Res_x(Res_y(Z*D'(x) - G(x, y), F(x, y)), D(x))``.
+
+    The roots of the monic ``residue_polynomial`` are exactly the finite
+    residues, counted with their conjugate-place multiplicities.
+    ``square_free_residue_polynomial`` removes those multiplicities without
+    changing the splitting field required for the logarithmic coefficients.
+    """
+
+    extension: AlgebraicExtension
+    derivation: Derivation
+    integrand: Any
+    basis: IntegralBasis
+    residue_symbol: Symbol
+    defining_polynomial: Poly
+    numerator: Poly
+    denominator: Poly
+    discriminant: Poly
+    branch_gcd: Poly
+    inner_resultant: Poly | None
+    raw_residue_polynomial: Poly
+    residue_polynomial: Poly
+
+    @property
+    def has_finite_poles(self) -> bool:
+        """Whether the integral-basis denominator has a finite zero."""
+        return self.denominator.degree() > 0
+
+    @property
+    def square_free_residue_polynomial(self) -> Poly:
+        """Return the monic polynomial with the distinct finite residues."""
+        if self.residue_polynomial.degree() <= 0:
+            return self.residue_polynomial
+        return self.residue_polynomial.sqf_part().monic()
+
+    @property
+    def normalizes_resultant(self) -> bool:
+        """Whether the public polynomial is the monic outer resultant."""
+        return (
+            not self.raw_residue_polynomial.is_zero
+            and self.raw_residue_polynomial.monic()
+            == self.residue_polynomial
+        )
+
+    @property
+    def reconstructs_input(self) -> bool:
+        """Whether ``G/D`` is exactly the supplied algebraic element."""
+        field = self.extension.field
+        return field.from_sympy(
+            self.numerator.as_expr()/self.denominator.as_expr()
+        ) == _extension_element(self.extension, self.integrand)
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +267,283 @@ class IntegralBasis:
             for coefficient in coordinates
         )
         return AlgebraicFraction(numerators, denominator)
+
+
+def _polynomial_plane_model(
+    extension: AlgebraicExtension,
+    parent: FractionField,
+    constants: Domain,
+    variable: Symbol,
+) -> Poly:
+    r"""Return the monic model ``F(y, x)`` over ``constants``."""
+    expression = 0
+    try:
+        for (degree,), coefficient in extension.minimal_polynomial.terms():
+            coefficient_polynomial = _parent_element_polynomial(
+                coefficient,
+                parent,
+                constants,
+                variable,
+            )
+            expression += (
+                coefficient_polynomial.as_expr()
+                * extension.generator**degree
+            )
+    except ValueError as exc:
+        raise NotImplementedError(
+            "Trager residues currently require a defining polynomial "
+            "in C[x, y]"
+        ) from exc
+
+    coefficient_ring = constants.poly_ring(variable)
+    model_in_generator = Poly(
+        expression,
+        extension.generator,
+        domain=coefficient_ring,
+    )
+    if (
+        coefficient_ring.convert(model_in_generator.LC())
+        != coefficient_ring.one
+    ):
+        raise NotImplementedError(
+            "Trager residues currently require a model monic in the "
+            "algebraic generator over C[x]"
+        )
+    return Poly(
+        expression,
+        extension.generator,
+        variable,
+        domain=constants,
+    )
+
+
+def _polynomial_power_numerator(
+    element: Any,
+    fraction: AlgebraicFraction,
+    basis: IntegralBasis,
+    parent: FractionField,
+    constants: Domain,
+    variable: Symbol,
+) -> Poly:
+    r"""Return ``G(y, x)`` when ``element = G/D`` in the power basis."""
+    extension = basis.extension
+    numerator_element = basis.element(
+        tuple(
+            _polynomial_parent_element(numerator, parent)
+            for numerator in fraction.numerators
+        )
+    )
+    expression = 0
+    try:
+        for degree in range(extension.field.rank):
+            coefficient = numerator_element.rep.nth(degree)
+            coefficient_polynomial = _parent_element_polynomial(
+                coefficient,
+                parent,
+                constants,
+                variable,
+            )
+            expression += (
+                coefficient_polynomial.as_expr()
+                * extension.generator**degree
+            )
+    except ValueError as exc:
+        raise NotImplementedError(
+            "Trager residues currently require the integral numerator "
+            "to be polynomial in the selected plane model"
+        ) from exc
+
+    numerator = Poly(
+        expression,
+        extension.generator,
+        variable,
+        domain=constants,
+    )
+    if (
+        extension.field.from_sympy(
+            numerator.as_expr()/fraction.denominator.as_expr()
+        )
+        != element
+    ):
+        raise ValueError(
+            "the polynomial plane numerator does not reconstruct the input"
+        )
+    return numerator
+
+
+def trager_algebraic_residue_polynomial(
+    integrand: Any,
+    derivation: Derivation,
+    basis: IntegralBasis,
+    residue: Symbol,
+) -> TragerAlgebraicResidueResult:
+    r"""Compute Trager's finite-residue polynomial over an unbranched model.
+
+    The current implementation is the first algebraic logarithmic-part
+    checkpoint. It requires one algebraic level over ``C(x)``, a supplied
+    integral basis, a square-free common denominator, and a monic polynomial
+    plane model whose discriminant is coprime to that denominator. The last
+    condition certifies that every finite pole is unbranched.
+
+    The nested resultant is equation (7) in Trager, *Integration of
+    Algebraic Functions*, Chapter 5, section 5.2. The explicit branch-locus
+    rejection preserves the hypothesis discussed in section 5.4 instead of
+    silently applying the unbranched formula to a ramified pole.
+
+    Branch places, poles at infinity, construction of the algebraic constant
+    extension, and the associated principal-divisor problem are deliberately
+    separate later algorithms.
+    """
+    if not isinstance(derivation, Derivation):
+        raise TypeError("Trager residues require a Derivation")
+    if not isinstance(basis, IntegralBasis):
+        raise TypeError("Trager residues require an IntegralBasis")
+    if not isinstance(residue, Symbol):
+        raise TypeError("the residue indeterminate must be a Symbol")
+
+    extension = basis.extension
+    if derivation.field != extension.field:
+        raise ValueError(
+            "the derivation and integral basis must describe the same "
+            "algebraic field"
+        )
+
+    parent, constants, variable = _base_polynomial_ring(extension)
+    lower_derivation = derivation.lower()
+    if (
+        lower_derivation.field != parent
+        or lower_derivation(parent.from_sympy(variable)) != parent.one
+    ):
+        raise NotImplementedError(
+            "Trager residues currently require the standard rational "
+            "derivation Dx = 1"
+        )
+    constant_symbols = set(getattr(constants, "symbols", ()))
+    if residue in {
+        variable,
+        extension.generator,
+    } | constant_symbols:
+        raise ValueError(
+            "the residue indeterminate must be new over the plane model"
+        )
+
+    element = _extension_element(extension, integrand)
+    fraction = basis.fraction(element)
+    denominator = fraction.denominator
+    if not fraction.is_square_free:
+        raise ValueError(
+            "Trager residues require a Hermite-reduced square-free "
+            "denominator"
+        )
+
+    defining_polynomial = _polynomial_plane_model(
+        extension,
+        parent,
+        constants,
+        variable,
+    )
+    if residue in defining_polynomial.as_expr().free_symbols:
+        raise ValueError(
+            "the residue indeterminate must be new over the plane model"
+        )
+    numerator = _polynomial_power_numerator(
+        element,
+        fraction,
+        basis,
+        parent,
+        constants,
+        variable,
+    )
+
+    model_in_generator = Poly(
+        defining_polynomial.as_expr(),
+        extension.generator,
+        domain=constants.poly_ring(variable),
+    )
+    discriminant = Poly(
+        model_in_generator.discriminant(),
+        variable,
+        domain=constants,
+    )
+    branch_gcd = denominator.gcd(discriminant)
+    if branch_gcd.degree() > 0:
+        raise NotImplementedError(
+            "Trager's unbranched residue formula does not apply because "
+            f"the denominator meets the branch locus {branch_gcd.as_expr()}"
+        )
+
+    if denominator.degree() == 0:
+        residue_polynomial = Poly(1, residue, domain=constants)
+        result = TragerAlgebraicResidueResult(
+            extension,
+            derivation,
+            element,
+            basis,
+            residue,
+            defining_polynomial,
+            numerator,
+            denominator,
+            discriminant,
+            branch_gcd,
+            None,
+            residue_polynomial,
+            residue_polynomial,
+        )
+        if not result.reconstructs_input:
+            raise ValueError(
+                "Trager residue data did not reconstruct its input"
+            )
+        return result
+
+    denominator_derivative = denominator.diff()
+    inner_expression = resultant(
+        (
+            residue*denominator_derivative.as_expr()
+            - numerator.as_expr()
+        ),
+        defining_polynomial.as_expr(),
+        extension.generator,
+    )
+    inner_resultant = Poly(
+        inner_expression,
+        variable,
+        residue,
+        domain=constants,
+    )
+    outer_expression = resultant(
+        inner_expression,
+        denominator.as_expr(),
+        variable,
+    )
+    raw_residue_polynomial = Poly(
+        outer_expression,
+        residue,
+        domain=constants,
+    )
+    if raw_residue_polynomial.is_zero:
+        raise ValueError(
+            "Trager's nested resultant unexpectedly vanished"
+        )
+    residue_polynomial = raw_residue_polynomial.monic()
+
+    result = TragerAlgebraicResidueResult(
+        extension,
+        derivation,
+        element,
+        basis,
+        residue,
+        defining_polynomial,
+        numerator,
+        denominator,
+        discriminant,
+        branch_gcd,
+        inner_resultant,
+        raw_residue_polynomial,
+        residue_polynomial,
+    )
+    if not result.reconstructs_input:
+        raise ValueError("Trager residue data did not reconstruct its input")
+    return result
 
 
 @dataclass(frozen=True, slots=True)
