@@ -653,16 +653,13 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest architecture checkpoint gives the production kernel complete
-function annotations, structural types for native SymPy field elements, and
-reproducible Ruff and ty gates. The latest mathematical checkpoint adds weak
-normalization and the full primitive degree bound for rational RDE
-coefficients, allowing hyperexponential reduction over recursively primitive
-lower towers. Trager's finite-residue polynomial is also implemented for
-supported algebraic models. The next architecture step is to turn primitive
-constant preservation from caller-supplied metadata into a checked,
-bottom-up certificate. The current algebraic priority remains branch-place
-handling before the residue-field and divisor stages.
+The latest architecture checkpoint adds bottom-up certification of primitive
+constant preservation. It uses the lower exact-derivative decision to
+distinguish preserved constants, a dependent generator with a witnessed new
+constant, and unsupported scope. The next transcendental checkpoint extends
+exact-derivative dispatch to hyperexponential and hypertangent levels. The
+current algebraic priority remains branch-place handling before the
+residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -694,15 +691,14 @@ handling before the residue-field and divisor stages.
 - [x] Recursively stacked primitive integration.
 - [x] Hyperexponential integration over the supported primitive-lower-field
   branch.
+- [x] Checked primitive-extension construction with exact dependency
+  witnesses and conservative unknown outcomes.
 
 ### Next transcendental steps
 
-- [ ] Add a checked primitive-extension analyzer/factory. For `Dt = eta`, run
-  the lower exact-derivative decision and return a certified
-  preserved/dependent/unknown outcome; cache the result as immutable extension
-  metadata and never mark unsupported parent families as preserved.
-- [ ] Generalize exact-derivative and RDE solving over further supported lower
-  tower families.
+- [ ] Extend exact-derivative dispatch to hyperexponential and hypertangent
+  levels.
+- [ ] Generalize RDE solving over further supported lower tower families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.
 - [ ] Extend automatic dependence and constant-field checks to the remaining
   monomial families.

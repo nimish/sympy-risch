@@ -24,6 +24,7 @@ from sympy_risch import (
     IntegrationObstructionKind,
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
+    certify_primitive_extension,
     integrate_elementary,
     primitive_logarithmic_derivative_signature,
     solve_parametric_logarithmic_derivative,
@@ -34,16 +35,17 @@ from sympy_risch import (
 
 x, t, u, y, z = symbols("x t u y z")
 
-base = DifferentialTower(QQ).extend(
-    MonomialExtension(
-        Poly(1, x, domain=QQ),
-        ConstantFieldStatus.PRESERVED,
-    )
+constants = DifferentialTower(QQ)
+base_analysis = certify_primitive_extension(
+    Poly(1, x, domain=QQ),
+    constants.derivation(),
 )
+base = constants.extend(base_analysis.extension)
 ```
 
 `DifferentialTower` and its extensions are immutable. Calling `extend` returns
-a new tower and leaves `base` unchanged.
+a new tower and leaves `constants` unchanged. Here the factory proves that
+`1` is not a derivative in `QQ`, so adjoining `x` preserves the constants.
 
 Inputs must be elements of the current exact field:
 
@@ -66,24 +68,23 @@ A primitive level `K(t)` has `Dt = eta` for some `eta` in the lower field.
 For `t = log(x)`, use `Dt = 1/x`:
 
 ```python
-log_x = base.extend(
-    MonomialExtension(
-        Poly(1/x, t, domain=base.field()),
-        ConstantFieldStatus.PRESERVED,
-    )
+log_x_analysis = certify_primitive_extension(
+    Poly(1/x, t, domain=base.field()),
+    base.derivation(),
 )
+log_x = base.extend(log_x_analysis.extension)
 ```
 
 The generator is formal. Its mathematical meaning comes from its derivative
-law and the construction assumption. Add `u = log(t)` in the same way:
+law. The factory proves that `1/x` has no rational antiderivative, so this is
+a valid primitive extension. Add `u = log(t)` in the same way:
 
 ```python
-log_log_x = log_x.extend(
-    MonomialExtension(
-        Poly(1/(x*t), u, domain=log_x.field()),
-        ConstantFieldStatus.PRESERVED,
-    )
+log_log_x_analysis = certify_primitive_extension(
+    Poly(1/(x*t), u, domain=log_x.field()),
+    log_x.derivation(),
 )
+log_log_x = log_x.extend(log_log_x_analysis.extension)
 
 field = log_log_x.field()
 result = integrate_elementary(
@@ -485,13 +486,15 @@ contribution at infinity.
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
-not enlarge the constant field. Until the automatic tower builder can prove
-this, manual examples record the hypothesis with
-`ConstantFieldStatus.PRESERVED`.
+not enlarge the constant field. For primitive levels, use
+`certify_primitive_extension`: it proves `PRESERVED` when `Dt` is not exact in
+the lower field, returns `ENLARGED` with the witness `v` when `Dt = D(v)`, and
+leaves unsupported or uncertified lower towers `UNKNOWN`.
 
-This flag is not an inferred fact. Use it only when the construction justifies
-the no-new-constants assumption. Algorithms that need the hypothesis reject
-`UNKNOWN` and `ENLARGED` rather than issuing an unsound certificate.
+Other monomial families still use explicitly supplied
+`ConstantFieldStatus.PRESERVED` metadata after their family-specific
+dependency analysis. Algorithms that need the hypothesis reject `UNKNOWN`
+and `ENLARGED` rather than issuing an unsound certificate.
 
 General nonlinear monomial reduction has a similar explicit
 `SpecialPolynomialStatus.ABSENT` precondition. It means the caller has

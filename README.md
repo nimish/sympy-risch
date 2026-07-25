@@ -49,21 +49,20 @@ from sympy import Poly, log, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
-    ConstantFieldStatus,
     DifferentialTower,
-    MonomialExtension,
+    certify_primitive_extension,
     integrate_elementary,
 )
 
 x = symbols("x")
 
-# QQ < QQ(x), with Dx = 1.
-tower = DifferentialTower(QQ).extend(
-    MonomialExtension(
-        Poly(1, x, domain=QQ),
-        ConstantFieldStatus.PRESERVED,
-    )
+# Certify QQ < QQ(x), with Dx = 1, before adjoining x.
+constants = DifferentialTower(QQ)
+base_analysis = certify_primitive_extension(
+    Poly(1, x, domain=QQ),
+    constants.derivation(),
 )
+tower = constants.extend(base_analysis.extension)
 field = tower.field()
 integrand = field.from_sympy(-1/(x - 1)**2 + 3/x)
 

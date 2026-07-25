@@ -2,7 +2,7 @@ r"""Dependency analysis for proposed differential-field extensions."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from math import lcm
 from operator import index as integer_index
@@ -62,6 +62,54 @@ class ParametricLogarithmicDerivativeHeuristicBranch(Enum):
 
     POLYNOMIAL_PART = "polynomial_part"
     DENOMINATOR_CONGRUENCE = "denominator_congruence"
+
+
+@dataclass(frozen=True, slots=True)
+class PrimitiveExtensionAnalysis:
+    r"""Checked constant-field certificate for a primitive proposal.
+
+    For ``K(t)`` with ``Dt = eta`` in ``K``, constants are preserved exactly
+    when ``eta`` is not a derivative in ``K``.  When ``eta = D(v)``,
+    ``t - v`` is a new constant and the proposed generator is dependent.
+
+    ``extension`` is a fresh immutable extension whose
+    :class:`ConstantFieldStatus` records the proved outcome.  ``UNKNOWN`` is
+    used only when a prerequisite lower level is uncertified or the lower
+    exact-derivative decision is not implemented.
+    """
+
+    extension: MonomialExtension
+    exact_result: ExactDerivativeResult | None
+    detail: str | None = None
+
+    @property
+    def status(self) -> ConstantFieldStatus:
+        """Return the certified constant-field status."""
+        return self.extension.constant_field_status
+
+    @property
+    def is_dependent(self) -> bool:
+        """Whether ``Dt`` is exact and therefore ``t`` introduces a constant."""
+        return self.status is ConstantFieldStatus.ENLARGED
+
+    @property
+    def dependency_witness(self) -> FieldElement | None:
+        """Return ``v`` when ``Dt = D(v)``, otherwise ``None``."""
+        if not self.is_dependent or self.exact_result is None:
+            return None
+        return self.exact_result.antiderivative
+
+    @property
+    def constant_relation(self) -> FieldElement | None:
+        """Return the certified new constant ``t - v`` in the proposed field."""
+        witness = self.dependency_witness
+        if witness is None:
+            return None
+        return _coerce(
+            self.extension.field,
+            self.extension.generator
+            - self.extension.parent_field.to_sympy(witness),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1656,6 +1704,86 @@ def analyze_hypertangent_extension(
         kind,
         minimal_power,
         relation_argument,
+    )
+
+
+def certify_primitive_extension(
+    generator_derivative: Poly,
+    lower_derivation: Derivation,
+) -> PrimitiveExtensionAnalysis:
+    r"""Construct ``K(t)``, certifying whether it preserves constants.
+
+    The proposed derivative must have degree zero in ``t`` and its coefficient
+    domain must equal the field of ``lower_derivation``.  The lower
+    exact-derivative decision then gives the complete primitive criterion:
+
+    - ``Dt = D(v)`` gives the new constant ``t - v`` and status ``ENLARGED``;
+    - a proved non-exact ``Dt`` gives status ``PRESERVED``;
+    - an uncertified or unsupported lower tower gives status ``UNKNOWN``.
+
+    Invalid derivative laws and mismatched parent fields are input errors, not
+    unknown mathematical outcomes, and are therefore rejected.
+    """
+    if not isinstance(lower_derivation, Derivation):
+        raise TypeError(
+            "primitive extension certification requires a Derivation"
+        )
+    extension = MonomialExtension(generator_derivative)
+    if extension.family is not MonomialFamily.PRIMITIVE:
+        raise ValueError(
+            "primitive extension certification requires Dt in the lower field"
+        )
+    if extension.parent_field != lower_derivation.field:
+        raise ValueError(
+            "extension parent field does not match the lower derivation"
+        )
+
+    lower_levels = lower_derivation.tower.levels[
+        : lower_derivation.level + 1
+    ]
+    uncertified_level = next(
+        (
+            level
+            for level in lower_levels
+            if isinstance(level, MonomialExtension)
+            and level.constant_field_status
+            is not ConstantFieldStatus.PRESERVED
+        ),
+        None,
+    )
+    if uncertified_level is not None:
+        return PrimitiveExtensionAnalysis(
+            extension,
+            None,
+            "the lower tower contains a monomial level without certified "
+            "constant preservation",
+        )
+
+    eta = _coerce(
+        extension.parent_field,
+        extension.generator_derivative.nth(0),
+    )
+    # Local import avoids the module cycle: primitive exact reduction uses
+    # dependency decisions from this module.
+    from .exact import solve_exact_derivative
+
+    try:
+        exact_result = solve_exact_derivative(eta, lower_derivation)
+    except NotImplementedError as exc:
+        return PrimitiveExtensionAnalysis(extension, None, str(exc))
+
+    status = (
+        ConstantFieldStatus.ENLARGED
+        if exact_result.has_solution
+        else ConstantFieldStatus.PRESERVED
+    )
+    certified_extension = replace(
+        extension,
+        constant_field_status=status,
+    )
+    return PrimitiveExtensionAnalysis(
+        certified_extension,
+        exact_result,
     )
 
 

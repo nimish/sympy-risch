@@ -9,15 +9,18 @@ from sympy import I, Poly, Rational, cancel, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicExtension,
     ConstantFieldStatus,
     DifferentialTower,
     HyperexponentialDependencyKind,
     MonomialExtension,
+    PrimitiveExtensionAnalysis,
     analyze_hyperexponential_extension,
     analyze_hypertangent_extension,
+    certify_primitive_extension,
 )
 
-x, t, z = symbols("x t z")
+x, t, y, z = symbols("x t y z")
 
 
 def rational_base(
@@ -61,6 +64,139 @@ def proposed_hypertangent(
         constant_field_status,
     )
     return base, extension
+
+
+def test_primitive_factory_certifies_the_rational_base() -> None:
+    analysis = certify_primitive_extension(
+        Poly(1, x, domain=QQ),
+        DifferentialTower(QQ).derivation(),
+    )
+
+    assert isinstance(analysis, PrimitiveExtensionAnalysis)
+    assert analysis.status is ConstantFieldStatus.PRESERVED
+    assert not analysis.is_dependent
+    assert analysis.dependency_witness is None
+    assert analysis.constant_relation is None
+    assert analysis.detail is None
+    assert analysis.exact_result is not None
+    assert not analysis.exact_result.has_solution
+
+
+def test_primitive_factory_certifies_recursive_independence() -> None:
+    base_analysis = certify_primitive_extension(
+        Poly(1, x, domain=QQ),
+        DifferentialTower(QQ).derivation(),
+    )
+    base = DifferentialTower(QQ).extend(base_analysis.extension)
+    logarithm_analysis = certify_primitive_extension(
+        Poly(1/x, t, domain=base.field()),
+        base.derivation(),
+    )
+
+    assert logarithm_analysis.status is ConstantFieldStatus.PRESERVED
+    assert not logarithm_analysis.is_dependent
+    assert logarithm_analysis.exact_result is not None
+    assert logarithm_analysis.exact_result.obstruction == base.field().from_sympy(
+        1/x
+    )
+
+
+def test_primitive_factory_finds_dependencies_between_generators() -> None:
+    base_analysis = certify_primitive_extension(
+        Poly(1, x, domain=QQ),
+        DifferentialTower(QQ).derivation(),
+    )
+    base = DifferentialTower(QQ).extend(base_analysis.extension)
+    logarithm_analysis = certify_primitive_extension(
+        Poly(1/x, t, domain=base.field()),
+        base.derivation(),
+    )
+    logarithmic_tower = base.extend(logarithm_analysis.extension)
+
+    dependent = certify_primitive_extension(
+        Poly(2/x, z, domain=logarithmic_tower.field()),
+        logarithmic_tower.derivation(),
+    )
+
+    assert dependent.status is ConstantFieldStatus.ENLARGED
+    assert dependent.is_dependent
+    assert dependent.exact_result is not None
+    assert dependent.dependency_witness == logarithmic_tower.field().from_sympy(
+        2*t
+    )
+    assert dependent.constant_relation is not None
+    proposed_tower = logarithmic_tower.extend(dependent.extension)
+    assert (
+        proposed_tower.derivation()(dependent.constant_relation)
+        == proposed_tower.field().zero
+    )
+
+
+def test_primitive_factory_finds_a_direct_lower_field_antiderivative() -> None:
+    base = rational_base()
+    dependent = certify_primitive_extension(
+        Poly(1, t, domain=base.field()),
+        base.derivation(),
+    )
+
+    assert dependent.status is ConstantFieldStatus.ENLARGED
+    assert dependent.dependency_witness == base.field().from_sympy(x)
+    assert dependent.constant_relation is not None
+
+
+def test_primitive_factory_keeps_unsupported_parents_unknown() -> None:
+    base = rational_base()
+    algebraic = base.extend(
+        AlgebraicExtension(
+            Poly(y**2 - x, y, domain=base.field()),
+        )
+    )
+
+    analysis = certify_primitive_extension(
+        Poly(y, z, domain=algebraic.field()),
+        algebraic.derivation(),
+    )
+
+    assert analysis.status is ConstantFieldStatus.UNKNOWN
+    assert analysis.exact_result is None
+    assert analysis.detail is not None
+    assert "algebraic levels" in analysis.detail
+
+
+def test_primitive_factory_requires_a_certified_lower_tower() -> None:
+    uncertified_base = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(1, x, domain=QQ))
+    )
+
+    analysis = certify_primitive_extension(
+        Poly(1/x, t, domain=uncertified_base.field()),
+        uncertified_base.derivation(),
+    )
+
+    assert analysis.status is ConstantFieldStatus.UNKNOWN
+    assert analysis.exact_result is None
+    assert analysis.detail is not None
+    assert "without certified constant preservation" in analysis.detail
+
+
+def test_primitive_factory_rejects_invalid_proposals() -> None:
+    base = rational_base()
+
+    with pytest.raises(ValueError, match="requires Dt in the lower field"):
+        certify_primitive_extension(
+            Poly(t, t, domain=base.field()),
+            base.derivation(),
+        )
+    with pytest.raises(ValueError, match="parent field does not match"):
+        certify_primitive_extension(
+            Poly(1, t, domain=QQ),
+            base.derivation(),
+        )
+    with pytest.raises(TypeError, match="requires a Derivation"):
+        certify_primitive_extension(
+            Poly(1, x, domain=QQ),
+            object(),  # type: ignore[arg-type]
+        )
 
 
 @pytest.mark.parametrize(
