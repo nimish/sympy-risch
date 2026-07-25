@@ -7,11 +7,15 @@ from .admission import (
     assess_elementary_admission,
 )
 from .algebraic import (
+    AlgebraicConstantEmbedding,
+    AlgebraicConstantFieldAnalysis,
+    AlgebraicConstantFieldStatus,
     AlgebraicFraction,
     AlgebraicPlaceResidue,
     IntegralBasis,
     SimpleRadicalData,
     TragerAlgebraicResidueResult,
+    analyze_algebraic_constant_field,
     hermite_reduce_algebraic,
     lazy_hermite_reduce_algebraic,
     recognize_simple_radical,
@@ -202,6 +206,9 @@ from .tower import (
 __version__ = "0.1.0"
 
 __all__ = [
+    "AlgebraicConstantEmbedding",
+    "AlgebraicConstantFieldAnalysis",
+    "AlgebraicConstantFieldStatus",
     "AlgebraicDifferential",
     "AlgebraicDivisor",
     "AlgebraicExtension",
@@ -308,6 +315,7 @@ __all__ = [
     "TowerAdmissionReason",
     "TragerAlgebraicResidueResult",
     "TranscendentalExactDerivativeCertificate",
+    "analyze_algebraic_constant_field",
     "analyze_hyperexponential_extension",
     "analyze_hypertangent_extension",
     "analyze_special_polynomials",

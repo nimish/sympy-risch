@@ -3,14 +3,18 @@ from math import prod
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, diff, invert, sqrt, symbols
+from sympy import I, Poly, diff, invert, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicConstantEmbedding,
+    AlgebraicConstantFieldAnalysis,
+    AlgebraicConstantFieldStatus,
     AlgebraicExtension,
     DifferentialTower,
     IntegralBasis,
     MonomialExtension,
+    analyze_algebraic_constant_field,
     hermite_reduce_algebraic,
     lazy_hermite_reduce_algebraic,
     recognize_simple_radical,
@@ -246,6 +250,172 @@ def test_simple_radical_recognition_rejects_a_mixed_minimal_polynomial() -> None
     assert recognize_simple_radical(extension) is None
     with pytest.raises(ValueError, match="not a simple radical"):
         simple_radical_integral_basis(extension)
+
+
+def test_algebraic_constant_analysis_proves_a_geometric_radical() -> None:
+    tower, extension, _ = algebraic_tower(y**2 - x)
+
+    analysis = analyze_algebraic_constant_field(extension, tower.derivation())
+
+    assert analysis.status is AlgebraicConstantFieldStatus.PRESERVED
+    assert analysis.preserved
+    assert not analysis.rebasing_required
+    assert analysis.exponent_gcd == 1
+    assert analysis.constant_witness is None
+    assert analysis.proposed_constant_domain is None
+
+
+def test_algebraic_constant_analysis_uses_the_normalized_radical() -> None:
+    tower, extension, _ = algebraic_tower(y**2 - x**2 * (x + 1))
+
+    analysis = analyze_algebraic_constant_field(extension, tower.derivation())
+
+    assert analysis.status is AlgebraicConstantFieldStatus.PRESERVED
+    assert analysis.radical is not None
+    assert analysis.radical.normalized_radicand == Poly(x + 1, x, domain=QQ)
+    assert analysis.exponent_gcd == 1
+
+
+def test_algebraic_constant_analysis_certifies_a_hidden_constant() -> None:
+    tower, extension, _ = algebraic_tower(y**4 - 2 * x**2)
+    field = extension.field
+    derivation = tower.derivation()
+
+    analysis = analyze_algebraic_constant_field(extension, derivation)
+
+    assert analysis.status is AlgebraicConstantFieldStatus.REBASING_REQUIRED
+    assert analysis.rebasing_required
+    assert analysis.exponent_gcd == 2
+    assert analysis.constant_witness == field.from_sympy(y**2 / x)
+    assert derivation(analysis.constant_witness) == field.zero
+    assert analysis.constant_minimal_polynomial is not None
+    assert analysis.constant_minimal_polynomial.degree() == 2
+    assert analysis.constant_minimal_polynomial.nth(0) == -2
+    assert analysis.constant_minimal_polynomial.is_irreducible is True
+    assert analysis.proposed_constant_domain is not None
+    assert analysis.embedding is not None
+    assert (
+        analysis.embedding.embed(analysis.proposed_constant_domain.unit)
+        == analysis.constant_witness
+    )
+
+
+def test_algebraic_constant_analysis_embeds_a_pure_constant_extension() -> None:
+    tower, extension, _ = algebraic_tower(y**2 - 2)
+    field = extension.field
+    derivation = tower.derivation()
+
+    analysis = analyze_algebraic_constant_field(extension, derivation)
+
+    assert analysis.status is AlgebraicConstantFieldStatus.REBASING_REQUIRED
+    assert analysis.constant_witness == field.generator
+    assert derivation(analysis.constant_witness) == field.zero
+    assert analysis.embedding is not None
+    assert analysis.proposed_constant_domain is not None
+    embedded_sum = analysis.embedding.embed(
+        analysis.proposed_constant_domain.one + analysis.proposed_constant_domain.unit,
+    )
+    assert embedded_sum == field.one + field.generator
+
+
+def test_algebraic_constant_analysis_detects_a_nonradical_constant_relation() -> None:
+    tower, extension, _ = algebraic_tower(y**3 - y - 1)
+    field = extension.field
+    derivation = tower.derivation()
+
+    analysis = analyze_algebraic_constant_field(extension, derivation)
+
+    assert analysis.status is AlgebraicConstantFieldStatus.REBASING_REQUIRED
+    assert analysis.radical is None
+    assert analysis.constant_witness == field.generator
+    assert derivation(analysis.constant_witness) == field.zero
+    assert analysis.constant_minimal_polynomial == Poly(y**3 - y - 1, y, domain=QQ)
+    assert analysis.embedding is not None
+    assert analysis.proposed_constant_domain is not None
+    assert (
+        analysis.embedding.embed(analysis.proposed_constant_domain.unit)
+        == field.generator
+    )
+
+
+def test_algebraic_constant_analysis_does_not_guess_for_a_dense_curve() -> None:
+    tower, extension, _ = algebraic_tower(y**3 - y - x)
+
+    analysis = analyze_algebraic_constant_field(extension, tower.derivation())
+
+    assert analysis.status is AlgebraicConstantFieldStatus.UNSUPPORTED
+    assert analysis.unsupported
+    assert analysis.constant_witness is None
+    assert analysis.proposed_constant_domain is None
+
+
+def test_algebraic_constant_analysis_allows_an_algebraic_number_base() -> None:
+    algebraic_constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, _ = algebraic_tower(y**2 - x, algebraic_constants)
+
+    analysis = analyze_algebraic_constant_field(extension, tower.derivation())
+
+    assert analysis.status is AlgebraicConstantFieldStatus.PRESERVED
+    assert analysis.preserved
+
+
+def test_algebraic_constant_analysis_names_an_algebraic_backend_boundary() -> None:
+    algebraic_constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, _ = algebraic_tower(
+        y**4 - sqrt(2) * x**2,
+        algebraic_constants,
+    )
+
+    analysis = analyze_algebraic_constant_field(extension, tower.derivation())
+
+    assert analysis.status is AlgebraicConstantFieldStatus.UNSUPPORTED
+    assert "cannot construct" in analysis.detail
+
+
+def test_algebraic_constant_analysis_handles_a_primitive_field_rebase_boundary() -> (
+    None
+):
+    algebraic_constants = QQ.algebraic_field(I)
+    tower, extension, _ = algebraic_tower(
+        y**4 - 2 * x**2,
+        algebraic_constants,
+    )
+
+    analysis = analyze_algebraic_constant_field(extension, tower.derivation())
+
+    assert analysis.status is AlgebraicConstantFieldStatus.UNSUPPORTED
+    assert "cannot realize" in analysis.detail
+
+
+def test_algebraic_constant_embedding_rejects_an_invalid_image() -> None:
+    _tower, extension, _ = algebraic_tower(y**2 - x)
+    constant_polynomial = Poly(z**2 - 2, z, domain=QQ)
+    constant_domain = QQ.alg_field_from_poly(constant_polynomial)
+
+    with pytest.raises(ValueError, match="does not satisfy"):
+        AlgebraicConstantEmbedding(
+            extension,
+            constant_domain,
+            constant_polynomial,
+            extension.field.generator,
+        )
+
+
+def test_algebraic_constant_analysis_rejects_a_forged_preservation_claim() -> None:
+    tower, extension, _ = algebraic_tower(y**4 - 2 * x**2)
+    radical = recognize_simple_radical(extension)
+
+    assert radical is not None
+    with pytest.raises(ValueError, match="geometric radical proof"):
+        AlgebraicConstantFieldAnalysis(
+            extension,
+            tower.derivation(),
+            AlgebraicConstantFieldStatus.PRESERVED,
+            radical,
+            1,
+            None,
+            "forged preservation claim",
+        )
 
 
 def test_algebraic_hermite_uses_the_simple_radical_integral_basis() -> None:

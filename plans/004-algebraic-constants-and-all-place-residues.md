@@ -19,6 +19,10 @@
 - **Depends on**: `plans/002-executable-admission-matrix.md`
 - **Category**: direction / correctness / tests
 - **Planned at**: commit `97fccfc`, 2026-07-25
+- **Progress**: Step 1 is implemented: the narrow analyzer certifies or
+  explicitly rejects algebraic constants before a future residue collector
+  consumes the result. Exact function-field rebasing and all-place collection
+  remain in this plan.
 
 ## Why this matters
 

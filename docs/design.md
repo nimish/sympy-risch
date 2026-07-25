@@ -895,14 +895,22 @@ genus from a canonical divisor. See the
 [algebraic infrastructure contract](algebraic-infrastructure.md) for the
 algorithms, invariants, and public API.
 
-This is not yet a complete algebraic integrator. The first missing gate is
-constant-field normalization: a finite algebraic function-field presentation
-can introduce algebraic constants, so curve decisions must either certify that
-the extension is geometric over the stated constants or explicitly rebase to
-the enlarged constant field. The logarithmic branch then needs branch-place
-residue descent, a residue basis over the minimal algebraic constant extension,
-and principal/torsion divisor-class solving for logarithmic reconstruction.
-In parallel, the zero-residue branch needs exactness decisions for second-kind
+This is not yet a complete algebraic integrator. A narrow, executable
+constant-field gate now recognizes defining relations already over `C` and
+normalized simple radicals directly over `C(x)`, `Dx = 1`: the binomial
+exponent-gcd criterion either proves that the field is geometric over its
+displayed constants or exhibits an exact embedded algebraic constant and
+requires rebasing. Every other presentation remains explicitly unsupported; a
+failed recognition never counts as preservation.
+The current embedding deliberately stops before constructing a new
+function-field presentation, since the old minimal polynomial can factor over
+the enlarged constants.
+
+The next missing algebraic gate is all-place residue collection after Hermite
+reduction. The logarithmic branch then needs branch-place residue descent, a
+residue basis over the minimal algebraic constant extension, and
+principal/torsion divisor-class solving for logarithmic reconstruction. In
+parallel, the zero-residue branch needs exactness decisions for second-kind
 differentials and the Risch equation on an algebraic curve. Recursive
 composition with transcendental levels comes after those field-level decisions
 and an exact backend representation for the mixed tower.

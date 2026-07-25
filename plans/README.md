@@ -16,7 +16,7 @@ plan with exact file scope, tests, and a separate commit.
 | 001 | Make the Risch implementation complete over its declared input class | P1 | XL | - | IN PROGRESS |
 | 002 | Make the current P/E/T contract executable | P1 | M | 001 | DONE |
 | 003 | Extract certified fundamental signatures | P1 | L | 002 | DONE |
-| 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | TODO |
+| 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | IN PROGRESS |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.

@@ -20,8 +20,8 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
-- **Last implementation reconciliation**: Plan 003 signature checkpoint
-  completed, 2026-07-25
+- **Last implementation reconciliation**: Plan 004 algebraic constant-field
+  checkpoint underway, 2026-07-25
 
 ## Why this matters
 

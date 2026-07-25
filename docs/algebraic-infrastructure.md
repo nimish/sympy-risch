@@ -55,6 +55,53 @@ such as `QQ(x)(sqrt(2))`. The reported genus assumes that `C` is the exact
 constant field of `L`; the genus invariant rejects inconsistent negative
 results rather than silently treating a larger constant field as exact.
 
+## Constant-field boundary
+
+Before an algebraic Risch decision uses a curve invariant, it must establish
+that the displayed `C` is actually `Const(L)`. The public
+`analyze_algebraic_constant_field(extension, derivation)` API is the first
+theorem-backed gate for that question. It is intentionally narrow: the active
+tower must be one algebraic extension directly over the standard rational
+differential field `C(x)`, with `Dx = 1`. A relation whose coefficients all
+lie in `C` is handled directly; otherwise the extension must be a recognized
+simple radical.
+
+After the existing radical normalization, the supported input has the form
+
+```text
+L = C(x)(z),    z**n = c * product(f_i(x)**e_i),
+```
+
+where the `f_i` are distinct nonconstant factors. Let
+`d = gcd(n, e_1, ..., e_r)`. The analyzer has only these three outcomes:
+
+- `PRESERVED` when `d = 1`. The binomial is then irreducible after extending
+  `C` algebraically, so the function field is geometrically integral and
+  `C` is algebraically closed in `L`.
+- `REBASING_REQUIRED` when the relation is already constant, or when `d > 1`
+  and the new constant can be represented by SymPy exactly. In the radical
+  case the witness
+
+  ```text
+  w = z**(n/d) / product(f_i(x)**(e_i/d))
+  ```
+
+  satisfies `Dw = 0` and `w**d = c`. The result carries an exact
+  `AlgebraicConstantEmbedding` of the proposed algebraic constant field into
+  `L`; its `embed` method maps that field's primitive generator to `w`.
+- `UNSUPPORTED` for every other presentation or unavailable exact field
+  operation. It is never interpreted as preservation.
+
+The embedding is deliberately not a call to `rebase_derivation_constants`.
+Once the new constants contain `w`, the old algebraic minimal polynomial can
+factor or its degree can drop. A correct rebase must construct a new
+function-field presentation and explicit two-way maps; that is a later
+constant-normalization checkpoint. The current certificate is enough to
+let an algebraic integration entry point reject or rebase the presentation
+before it invokes the place and divisor layer. Low-level
+`AlgebraicFunctionField` construction remains intentionally neutral and does
+not inspect this analysis itself.
+
 ## Public API
 
 | Structure | Purpose |
@@ -68,6 +115,8 @@ results rather than silently treating a larger constant field as exact.
 | `AlgebraicDivisor` | Immutable formal sum of closed places |
 | `AlgebraicDifferential` | Differential represented as `h dx` |
 | `AlgebraicFunctionField` | Cached global owner for orders and places |
+| `AlgebraicConstantFieldAnalysis` | Narrow, witnessed constant-field decision |
+| `AlgebraicConstantEmbedding` | Exact proposed constant subfield map into `L` |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from
