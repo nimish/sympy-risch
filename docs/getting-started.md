@@ -274,9 +274,9 @@ normal-denominator reduction. Positive-integer logarithmic residues are
 removed by an exact change of unknown; other residues remain in the normalized
 equation and are handled by the denominator, degree-bound, and SPDE stages.
 
-At a hyperexponential level `K(t)` with `Dt = eta*t`, the RDE dispatcher also
-handles a lower-field coefficient `a in K` and a Laurent right-hand side.
-Each power is solved independently:
+At a hyperexponential level `K(t)` with `Dt = eta*t`, the RDE dispatcher
+completely handles Laurent coefficients and right-hand sides. A lower-field
+coefficient preserves each power, which is solved independently:
 
 ```text
 D(y_j) + (a + j*eta)*y_j = b_j.
@@ -293,22 +293,29 @@ exp_x = base.extend(
 )
 field = exp_x.field()
 D = exp_x.derivation()
-planted = field.from_sympy((x + 1)/t**2 + x*t)
-coefficient = field.from_sympy(3)
-rhs = D(planted) + coefficient*planted
-
-result = solve_risch_differential_equation(coefficient, rhs, D)
+result = solve_risch_differential_equation(
+    field.from_sympy(t + 1),
+    field.one,
+    D,
+)
 assert result.has_solution
-assert result.solution == planted
+assert result.solution == field.from_sympy(1/t)
 assert result.reconstructs
+assert result.certificate.minimum_power_bound == -1
+assert result.certificate.exceptional_power == -1
 ```
 
-The structured certificate contains one recursive lower-field RDE result per
-Laurent power. A failed mode remains in `residual`, while all independently
-solved modes remain in `partial_solution`. Coefficients depending on `t` and
-right-hand sides with normal factors such as `t + 1` are deliberately
-unsupported until the next weak-normalization and denominator-reduction
-checkpoint.
+Here the boundary relation `-1 = -eta` permits the exceptional power `-1`.
+For a coefficient with a positive highest power, the solver applies forced
+corrections downward; for one with a negative lowest power, it works upward.
+The certificate retains the bounds, direction, every correction, and the
+before/after residuals. In the diagonal lower-field case it instead contains
+one recursive lower-field RDE result per Laurent power.
+
+A failed recurrence leaves its solved corrections in `partial_solution` and
+the exact obstruction in `residual`. Normal top-generator denominators such
+as `1/(t + 1)` remain unsupported until the next weak-normalization,
+normal-denominator, and SPDE checkpoint.
 
 For example, let `t = log(x)` and adjoin a formal hyperexponential `u` with
 
@@ -568,7 +575,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Recursively stacked primitive levels | End-to-end for the implemented reduction |
 | One hyperexponential level over `QQ(x)` | End-to-end |
 | Hyperexponential over a recursive primitive tower, with rational logarithmic derivative | End-to-end |
-| Scalar RDE over hyperexponential levels, lower-field coefficient and Laurent right-hand side | Complete decision over recursively supported lower fields |
+| Scalar RDE over hyperexponential levels, Laurent coefficient and right-hand side | Complete decision over recursively supported lower fields |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |

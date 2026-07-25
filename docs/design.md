@@ -51,8 +51,8 @@ The lower-level library additionally implements:
 - weak normalization, normal-denominator, SPDE, and polynomial RDE reduction
   over a primitive field for rational coefficients, including Bronstein's
   lower-field cancellation recurrence;
-- complete hyperexponential RDE reduction when the coefficient is in the
-  lower field and the right-hand side is Laurent in the top generator;
+- complete hyperexponential RDE reduction when the coefficient and
+  right-hand side are Laurent in the top generator;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
 - rational coupled RDEs for the real hypertangent case;
@@ -80,6 +80,8 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+2394ba5  Solve Laurent-coefficient hyperexponential RDEs
+d14acaf  Reorder hyperexponential RDE roadmap
 693c0bb  Solve hyperexponential Laurent RDEs
 609b55a  Extend exact decisions through exp and tan
 4bab9ef  Certify primitive extension constants
@@ -563,13 +565,14 @@ are checked without sharing the production normalizer or denominator theorem.
 ### Hyperexponential Laurent RDEs
 
 At a hyperexponential level `K(t)` with `Dt = eta*t`, the implemented scalar
-RDE branch accepts `a in K` and a Laurent right-hand side
+RDE branch accepts Laurent coefficients and right-hand sides
 
 ```text
+a = sum(a_i*t**i),
 b = sum(b_j*t**j).
 ```
 
-The operator `D + a` preserves each Laurent mode:
+When `a` belongs to `K`, the operator `D + a` preserves each Laurent mode:
 
 ```text
 (D + a)(y_j*t**j)
@@ -581,24 +584,51 @@ for each shifted coefficient `a + j*eta`. Successful modes are accumulated
 in a partial solution; unsuccessful modes remain in an exact residual, and
 every lower-field result is retained in the certificate.
 
+For a nonconstant Laurent coefficient, Bronstein Sections 6.2 and 6.3 bound
+the support of every solution at the special factor `t` and at infinity. If
+`r = valuation_t(a)`, `s = degree_t(a)`, and `b` is nonzero, the ordinary
+bounds are:
+
+```text
+r < 0:  min_power >= min(0, valuation_t(b) - r)
+r > 0:  min_power >= min(0, valuation_t(b))
+s > 0:  max_power <= max(0, degree_t(b) - s)
+s < 0:  max_power <= max(0, degree_t(b))
+```
+
+At a zero boundary exponent, cancellation is possible only when
+
+```text
+-a_0 = m*eta + D(v)/v
+```
+
+for an integer `m` and `v in K*`. The complete parametric
+logarithmic-derivative solver supplies that exceptional `m`; a merely radical
+relation with multiplier `n > 1` is not an ordinary RDE cancellation.
+
+If `degree_t(a) > 0`, its leading product term forces solution corrections
+from the highest power downward. Otherwise `valuation_t(a) < 0`, and its
+trailing product term forces corrections upward. Each correction and the
+before/after residuals are retained in the certificate. Crossing a certified
+support bound with a nonzero residual proves nonexistence. The `a in K`
+diagonal solver is the terminal recurrence case.
+
 This is a complete rational decision under the stated restrictions, not only
 a Laurent ansatz. A rational solution cannot have a normal finite pole in the
 top generator: differentiation would increase that pole order while
-multiplication by `a in K` would not, and the Laurent right-hand side has no
-such pole. The hyperexponential special factor `t` accounts precisely for the
-allowed negative Laurent powers.
+multiplication by a Laurent coefficient introduces no normal factor, and the
+Laurent right-hand side has no such pole. The hyperexponential special factor
+`t` accounts precisely for the allowed negative Laurent powers.
 
 An independent bounded matrix oracle handles one hyperexponential level over
 `QQ(x)`. It uses a single global bivariate ansatz and does not split modes or
-call the production lower-field recurrence. Generated planted and
-nonsolution examples compare the two implementations.
+call either production recurrence. Generated arbitrary Laurent equations,
+planted solutions, radical boundary relations, high-degree cases, and
+nonsolutions compare the two implementations.
 
-The next scalar checkpoint extends this terminal Laurent problem from
-`a in K` to `a in K[t, t**-1]`. Its valuation bounds and leading/trailing
-recurrences must exist before the rational frontend: weak normalization,
-normal-denominator reduction, and SPDE ultimately reduce a general rational
-coefficient to precisely that Laurent core. Once the core is complete, those
-normal-factor stages complete the rational hyperexponential RDE.
+The remaining rational frontend is now the next scalar checkpoint. Weak
+normalization, normal-denominator reduction, and SPDE reduce general rational
+coefficients and right-hand sides to this completed Laurent core.
 
 ### Hypertangent levels
 
@@ -719,14 +749,13 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest transcendental checkpoint extends scalar RDE dispatch through the
-complete lower-coefficient/Laurent hyperexponential branch, including
-recursive hyperexponential levels and an independent matrix oracle. The next
-scalar checkpoint adds certified support bounds and leading/trailing
-recurrences for Laurent coefficients that depend on the top generator. Weak
-normalization and normal-denominator reduction follow that terminal solver.
-The current algebraic priority remains branch-place handling before the
-residue-field and divisor stages.
+The latest transcendental checkpoint completes scalar Laurent RDEs at a
+hyperexponential level: certified support bounds, ordinary-versus-radical
+boundary cancellation, leading/trailing recurrences, recursive diagonal
+descent, and an independent global matrix oracle. The next scalar checkpoint
+adds weak normalization, normal-denominator reduction, and SPDE for general
+rational inputs. The current algebraic priority remains branch-place handling
+before the residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -764,11 +793,11 @@ residue-field and divisor stages.
   supported lower towers.
 - [x] Hyperexponential Laurent RDEs with lower-field coefficients, recursive
   mode certificates, and an independent bounded matrix oracle.
+- [x] Laurent-coefficient hyperexponential RDEs with certified support bounds,
+  leading/trailing recurrences, and ordinary cancellation witnesses.
 
 ### Next transcendental steps
 
-- [ ] Extend hyperexponential RDEs to Laurent coefficients using valuation
-  bounds and certified leading/trailing recurrences.
 - [ ] Add weak normalization, normal-denominator reduction, and SPDE for
   general rational hyperexponential RDE coefficients.
 - [ ] Generalize coupled RDE solving over further supported lower tower
