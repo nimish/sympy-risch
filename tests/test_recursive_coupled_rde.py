@@ -103,6 +103,7 @@ def test_recursive_solver_handles_rational_primitive_coefficients() -> None:
     assert result.reconstructs
     assert result.real_solution == planted_real
     assert result.imaginary_solution == planted_imaginary
+    assert result.scalar_result is not None
     assert result.scalar_result.reconstructs
 
 
@@ -154,6 +155,7 @@ def test_recursive_denominator_obstruction_is_retained() -> None:
 
     assert not result.has_solution
     assert result.obstruction is CoupledRDEObstruction.DENOMINATOR
+    assert result.scalar_result is not None
     assert result.scalar_result.obstruction is not None
 
 
@@ -258,7 +260,7 @@ def test_direct_oracle_rejects_invalid_bounds(
         )
 
 
-def test_recursive_solver_rejects_unsupported_lower_families() -> None:
+def test_recursive_solver_handles_a_hyperexponential_level() -> None:
     primitive = primitive_tower()
     hyperexponential = primitive.extend(
         MonomialExtension(
@@ -266,14 +268,32 @@ def test_recursive_solver_rejects_unsupported_lower_families() -> None:
             ConstantFieldStatus.PRESERVED,
         )
     )
+    field = hyperexponential.field()
+    derivation = hyperexponential.derivation()
+    planted_real = field.from_sympy((x + s)*u**2)
+    planted_imaginary = field.from_sympy((x*s + 1)/u)
+    lambda_coefficient = field.from_sympy(2*s)
+    real_rhs = (
+        derivation(planted_real)
+        - lambda_coefficient*planted_imaginary
+    )
+    imaginary_rhs = (
+        derivation(planted_imaginary)
+        + lambda_coefficient*planted_real
+    )
 
-    with pytest.raises(NotImplementedError, match="only primitive levels"):
-        solve_coupled_risch_differential_equation(
-            1,
-            1,
-            0,
-            hyperexponential.derivation(),
-        )
+    result = solve_coupled_risch_differential_equation(
+        lambda_coefficient,
+        real_rhs,
+        imaginary_rhs,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.reconstructs
+    assert result.real_solution == planted_real
+    assert result.imaginary_solution == planted_imaginary
+    assert result.direct_result is not None
 
 
 @given(

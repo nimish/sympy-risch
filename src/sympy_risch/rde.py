@@ -101,7 +101,20 @@ class CoupledRDEObstruction(Enum):
 
     DENOMINATOR = "denominator"
     DEGREE = "degree"
+    LOWER_FIELD = "lower_field"
     NONZERO_REMAINDER = "nonzero_remainder"
+
+
+class CoupledHypertangentPolynomialRDEMode(Enum):
+    """Terminal polynomial branch used at a hypertangent level."""
+
+    NON_CANCELLATION = "non_cancellation"
+    CANCELLATION = "cancellation"
+
+
+def _field_element_is_zero(value: FieldElement, field: Domain) -> bool:
+    """Test exact zero despite noncanonical Gaussian fraction-field units."""
+    return value == field.zero or cancel(field.to_sympy(value)) == 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -543,11 +556,11 @@ class RischDifferentialEquationResult:
     @property
     def reconstructs(self) -> bool:
         """Whether a returned solution satisfies the differential equation."""
-        return (
-            self.solution is not None
-            and self.derivation(self.solution)
+        return self.solution is not None and _field_element_is_zero(
+            self.derivation(self.solution)
             + self.coefficient*self.solution
-            == self.right_hand_side
+            - self.right_hand_side,
+            self.derivation.field,
         )
 
 
@@ -627,6 +640,143 @@ class BoundedHyperexponentialLaurentRDEMatrixResult:
 
 
 @dataclass(frozen=True, slots=True)
+class CoupledHyperexponentialLaurentRDEStep:
+    """One independent Laurent mode in a coupled hyperexponential RDE."""
+
+    power: int
+    real_right_hand_side: FieldElement
+    imaginary_right_hand_side: FieldElement
+    shifted_diagonal_coefficient: FieldElement
+    lower_result: CoupledRischDifferentialEquationResult
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the lower coupled equation for this mode is solvable."""
+        return self.lower_result.has_solution
+
+
+@dataclass(frozen=True, slots=True)
+class CoupledHyperexponentialLaurentRDEResult:
+    r"""Direct Laurent-mode result for a hyperexponential top generator.
+
+    For ``Dt = eta*t`` and lower-field ``a`` and ``lambda``, the coefficient
+    of ``t**m`` in
+
+    ``D(p) + a*p - lambda*q`` and
+    ``D(q) + lambda*p + a*q``
+
+    is a coupled equation over the lower field with diagonal coefficient
+    ``a + m*eta``.  Different Laurent powers never mix.
+    """
+
+    derivation: Derivation
+    diagonal_coefficient: FieldElement
+    rotation_coefficient: FieldElement
+    real_right_hand_side: FieldElement
+    imaginary_right_hand_side: FieldElement
+    real_solution: FieldElement | None
+    imaginary_solution: FieldElement | None
+    partial_real_solution: FieldElement
+    partial_imaginary_solution: FieldElement
+    real_residual: FieldElement
+    imaginary_residual: FieldElement
+    steps: tuple[CoupledHyperexponentialLaurentRDEStep, ...]
+    obstruction: CoupledRDEObstruction | None
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether every Laurent mode has a lower-field solution."""
+        return (
+            self.real_solution is not None
+            and self.imaginary_solution is not None
+        )
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether the partial solutions and residuals reconstruct the input."""
+        return (
+            self.derivation(self.partial_real_solution)
+            + self.diagonal_coefficient*self.partial_real_solution
+            - self.rotation_coefficient*self.partial_imaginary_solution
+            + self.real_residual
+            == self.real_right_hand_side
+            and self.derivation(self.partial_imaginary_solution)
+            + self.rotation_coefficient*self.partial_real_solution
+            + self.diagonal_coefficient*self.partial_imaginary_solution
+            + self.imaginary_residual
+            == self.imaginary_right_hand_side
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CoupledHypertangentPolynomialRDECorrection:
+    """One forced leading correction in the nonlinear no-cancellation case."""
+
+    degree: int
+    real_coefficient: FieldElement
+    imaginary_coefficient: FieldElement
+    real_residual_before: Poly
+    imaginary_residual_before: Poly
+    real_residual_after: Poly
+    imaginary_residual_after: Poly
+
+
+@dataclass(frozen=True, slots=True)
+class CoupledHypertangentPolynomialRDEResult:
+    r"""Direct polynomial coupled-RDE result at a hypertangent level.
+
+    ``NON_CANCELLATION`` repeatedly removes the forced leading term created
+    by ``Dt = eta*(1+t**2)``.  ``CANCELLATION`` is Bronstein's
+    ``CoupledDECancelTan`` recurrence from Chapter 8, Section 8.4.
+    """
+
+    derivation: Derivation
+    mode: CoupledHypertangentPolynomialRDEMode
+    diagonal_coefficient: Poly
+    rotation_coefficient: FieldElement
+    real_right_hand_side: Poly
+    imaginary_right_hand_side: Poly
+    degree_bound: int
+    real_solution: Poly | None
+    imaginary_solution: Poly | None
+    partial_real_solution: Poly
+    partial_imaginary_solution: Poly
+    real_residual: Poly
+    imaginary_residual: Poly
+    obstruction: CoupledRDEObstruction | None
+    corrections: tuple[CoupledHypertangentPolynomialRDECorrection, ...] = ()
+    boundary_result: CoupledRischDifferentialEquationResult | None = None
+    recursive_result: CoupledHypertangentPolynomialRDEResult | None = None
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the polynomial coupled system has a solution."""
+        return (
+            self.real_solution is not None
+            and self.imaginary_solution is not None
+        )
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether the partial pair and residual reconstruct both equations."""
+        rotation = self.diagonal_coefficient.domain.convert(
+            self.rotation_coefficient
+        )
+        return (
+            self.derivation.polynomial(self.partial_real_solution)
+            + self.diagonal_coefficient*self.partial_real_solution
+            - self.partial_imaginary_solution.mul_ground(rotation)
+            + self.real_residual
+            == self.real_right_hand_side
+            and self.derivation.polynomial(self.partial_imaginary_solution)
+            + self.partial_real_solution.mul_ground(rotation)
+            + self.diagonal_coefficient*self.partial_imaginary_solution
+            + self.imaginary_residual
+            == self.imaginary_right_hand_side
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CoupledRationalRDEResult:
     r"""Certified real solution of a conjugate pair of rational RDEs.
 
@@ -697,25 +847,32 @@ class CoupledRischDifferentialEquationResult:
 
     The real system
 
-    ``Dp - lambda*q = u`` and ``Dq + lambda*p = v``
+    ``Dp + a*p - lambda*q = u`` and
+    ``Dq + lambda*p + a*q = v``
 
     is solved as the scalar equation
 
-    ``D(p + i*q) + i*lambda*(p + i*q) = u + i*v``
+    ``D(p + i*q) + (a + i*lambda)*(p + i*q) = u + i*v``
 
-    over the same immutable monomial tower rebased from ``QQ`` to ``QQ_I``.
-    ``scalar_result`` retains the complete weak-normalization, denominator,
-    SPDE, and recursive lower-field certificate.
+    whenever adjoining ``i`` preserves the monomial families in the active
+    tower. Direct Chapter 8 terminal recurrences are retained in
+    ``direct_result`` instead.
     """
 
     derivation: Derivation
+    diagonal_coefficient: FieldElement
     lambda_coefficient: FieldElement
     real_right_hand_side: FieldElement
     imaginary_right_hand_side: FieldElement
     real_solution: FieldElement | None
     imaginary_solution: FieldElement | None
     obstruction: CoupledRDEObstruction | None
-    scalar_result: RischDifferentialEquationResult
+    scalar_result: RischDifferentialEquationResult | None = None
+    direct_result: (
+        CoupledHyperexponentialLaurentRDEResult
+        | CoupledHypertangentPolynomialRDEResult
+        | None
+    ) = None
 
     @property
     def has_solution(self) -> bool:
@@ -733,13 +890,18 @@ class CoupledRischDifferentialEquationResult:
             or self.imaginary_solution is None
         ):
             return False
-        return (
+        return _field_element_is_zero(
             self.derivation(self.real_solution)
+            + self.diagonal_coefficient*self.real_solution
             - self.lambda_coefficient*self.imaginary_solution
-            == self.real_right_hand_side
-            and self.derivation(self.imaginary_solution)
+            - self.real_right_hand_side,
+            self.derivation.field,
+        ) and _field_element_is_zero(
+            self.derivation(self.imaginary_solution)
             + self.lambda_coefficient*self.real_solution
-            == self.imaginary_right_hand_side
+            + self.diagonal_coefficient*self.imaginary_solution
+            - self.imaginary_right_hand_side,
+            self.derivation.field,
         )
 
 
@@ -5398,6 +5560,752 @@ def solve_coupled_rational_rde(
     )
 
 
+def solve_hyperexponential_coupled_laurent_rde(
+    diagonal_coefficient: object,
+    rotation_coefficient: object,
+    real_right_hand_side: object,
+    imaginary_right_hand_side: object,
+    derivation: Derivation,
+) -> CoupledHyperexponentialLaurentRDEResult:
+    r"""Solve a coupled Laurent RDE directly at a hyperexponential level.
+
+    This is the modewise form of Bronstein's ``CoupledDECancelExp``. If
+    ``Dt = eta*t`` and both matrix coefficients belong to the lower field,
+    the coefficient pair at power ``m`` satisfies a lower coupled system with
+    diagonal coefficient ``a + m*eta``. No Gaussian tower is constructed by
+    this recurrence.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    field = extension.field
+    parent = extension.parent_field
+    diagonal_element, diagonal_terms = (
+        _hyperexponential_laurent_coefficients(
+            diagonal_coefficient,
+            extension,
+            "diagonal coefficient",
+        )
+    )
+    rotation_element, rotation_terms = (
+        _hyperexponential_laurent_coefficients(
+            rotation_coefficient,
+            extension,
+            "rotation coefficient",
+        )
+    )
+    if any(power != 0 for power in diagonal_terms):
+        raise NotImplementedError(
+            "direct hyperexponential coupled cancellation requires the "
+            "diagonal coefficient to belong to the lower field"
+        )
+    if any(power != 0 for power in rotation_terms):
+        raise NotImplementedError(
+            "direct hyperexponential coupled cancellation requires the "
+            "rotation coefficient to belong to the lower field"
+        )
+    real_rhs, real_terms = _hyperexponential_laurent_coefficients(
+        real_right_hand_side,
+        extension,
+        "real right-hand side",
+    )
+    imaginary_rhs, imaginary_terms = (
+        _hyperexponential_laurent_coefficients(
+            imaginary_right_hand_side,
+            extension,
+            "imaginary right-hand side",
+        )
+    )
+    diagonal_lower = diagonal_terms.get(0, parent.zero)
+    rotation_lower = rotation_terms.get(0, parent.zero)
+    eta = parent.convert(extension.generator_derivative.nth(1))
+    lower_derivation = derivation.lower()
+    partial_real = field.zero
+    partial_imaginary = field.zero
+    real_residual = field.zero
+    imaginary_residual = field.zero
+    steps: list[CoupledHyperexponentialLaurentRDEStep] = []
+
+    for power in sorted(set(real_terms) | set(imaginary_terms)):
+        real_coefficient = real_terms.get(power, parent.zero)
+        imaginary_coefficient = imaginary_terms.get(power, parent.zero)
+        shifted_diagonal = (
+            diagonal_lower + parent.convert(power)*eta
+        )
+        lower_result = _solve_general_coupled_risch_differential_equation(
+            shifted_diagonal,
+            rotation_lower,
+            real_coefficient,
+            imaginary_coefficient,
+            lower_derivation,
+        )
+        steps.append(
+            CoupledHyperexponentialLaurentRDEStep(
+                power,
+                real_coefficient,
+                imaginary_coefficient,
+                shifted_diagonal,
+                lower_result,
+            )
+        )
+        if lower_result.has_solution:
+            if (
+                lower_result.real_solution is None
+                or lower_result.imaginary_solution is None
+            ):
+                raise ValueError(
+                    "a solved lower coupled RDE lacks its solution pair"
+                )
+            partial_real += _hyperexponential_laurent_term(
+                lower_result.real_solution,
+                power,
+                extension,
+            )
+            partial_imaginary += _hyperexponential_laurent_term(
+                lower_result.imaginary_solution,
+                power,
+                extension,
+            )
+        else:
+            real_residual += _hyperexponential_laurent_term(
+                real_coefficient,
+                power,
+                extension,
+            )
+            imaginary_residual += _hyperexponential_laurent_term(
+                imaginary_coefficient,
+                power,
+                extension,
+            )
+
+    has_obstruction = (
+        real_residual != field.zero
+        or imaginary_residual != field.zero
+    )
+    result = CoupledHyperexponentialLaurentRDEResult(
+        derivation,
+        diagonal_element,
+        rotation_element,
+        real_rhs,
+        imaginary_rhs,
+        None if has_obstruction else partial_real,
+        None if has_obstruction else partial_imaginary,
+        partial_real,
+        partial_imaginary,
+        real_residual,
+        imaginary_residual,
+        tuple(steps),
+        CoupledRDEObstruction.LOWER_FIELD if has_obstruction else None,
+    )
+    if not result.reconstructs:
+        raise ValueError(
+            "direct hyperexponential coupled recurrence failed to reconstruct"
+        )
+    return result
+
+
+def _hypertangent_extension(derivation: Derivation) -> MonomialExtension:
+    """Validate a hypertangent top level for coupled polynomial solving."""
+    if derivation.level < 1:
+        raise TypeError(
+            "hypertangent coupled RDE solving requires a nonconstant "
+            "lower field"
+        )
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise NotImplementedError(
+            "hypertangent coupled RDE solving does not support algebraic "
+            "tower levels"
+        )
+    if extension.family is not MonomialFamily.HYPERTANGENT:
+        raise ValueError(
+            "hypertangent coupled RDE solving requires Dt = eta*(1+t**2)"
+        )
+    extension.require_preserved_constants(
+        "hypertangent coupled RDE solving"
+    )
+    return extension
+
+
+def _polynomial_at_i_coordinates(
+    polynomial: Poly,
+) -> tuple[FieldElement, FieldElement]:
+    """Return the two real coordinates of ``polynomial(i)``."""
+    domain = polynomial.domain
+    real = domain.zero
+    imaginary = domain.zero
+    for (power,), coefficient in polynomial.terms():
+        value = domain.convert(coefficient)
+        phase = power % 4
+        if phase == 0:
+            real += value
+        elif phase == 1:
+            imaginary += value
+        elif phase == 2:
+            real -= value
+        else:
+            imaginary -= value
+    return real, imaginary
+
+
+def _zero_hypertangent_coupled_result(
+    derivation: Derivation,
+    mode: CoupledHypertangentPolynomialRDEMode,
+    diagonal_coefficient: Poly,
+    rotation_coefficient: FieldElement,
+    real_right_hand_side: Poly,
+    imaginary_right_hand_side: Poly,
+    degree_bound: int,
+    obstruction: CoupledRDEObstruction,
+    *,
+    boundary_result: CoupledRischDifferentialEquationResult | None = None,
+    recursive_result: CoupledHypertangentPolynomialRDEResult | None = None,
+) -> CoupledHypertangentPolynomialRDEResult:
+    """Build a reconstructing failure certificate with zero partial solution."""
+    zero = real_right_hand_side.zero
+    result = CoupledHypertangentPolynomialRDEResult(
+        derivation,
+        mode,
+        diagonal_coefficient,
+        rotation_coefficient,
+        real_right_hand_side,
+        imaginary_right_hand_side,
+        degree_bound,
+        None,
+        None,
+        zero,
+        zero,
+        real_right_hand_side,
+        imaginary_right_hand_side,
+        obstruction,
+        boundary_result=boundary_result,
+        recursive_result=recursive_result,
+    )
+    if not result.reconstructs:
+        raise ValueError(
+            "hypertangent coupled failure certificate did not reconstruct"
+        )
+    return result
+
+
+def solve_hypertangent_coupled_cancellation_rde(
+    base_diagonal_coefficient: object,
+    rotation_coefficient: object,
+    real_right_hand_side: object,
+    imaginary_right_hand_side: object,
+    derivation: Derivation,
+    degree_bound: int,
+) -> CoupledHypertangentPolynomialRDEResult:
+    r"""Implement Bronstein's ``CoupledDECancelTan`` recurrence.
+
+    With ``Dt = eta*(1+t**2)``, this decides polynomial solutions of degree at
+    most ``n`` for the cancellation-shaped system whose diagonal is
+    ``b0 - n*eta*t`` and whose rotation coefficient is ``b2`` in the lower
+    field. Evaluation at the place ``t = i`` creates one lower coupled
+    system. Exact division by ``t - i`` is performed in real coordinates
+    using ``t**2 + 1`` before recurring with bound ``n - 1``.
+    """
+    if (
+        not isinstance(degree_bound, int)
+        or isinstance(degree_bound, bool)
+        or degree_bound < 0
+    ):
+        raise ValueError("the degree bound must be a nonnegative int")
+    extension = _hypertangent_extension(derivation)
+    parent = extension.parent_field
+    t = extension.generator
+    eta = parent.convert(extension.generator_derivative.nth(2))
+    base_diagonal = _coerce(parent, base_diagonal_coefficient)
+    rotation = _coerce(parent, rotation_coefficient)
+    real_rhs = _as_primitive_polynomial(
+        real_right_hand_side,
+        extension,
+    )
+    imaginary_rhs = _as_primitive_polynomial(
+        imaginary_right_hand_side,
+        extension,
+    )
+    diagonal = Poly(
+        parent.to_sympy(base_diagonal)
+        - degree_bound*parent.to_sympy(eta)*t,
+        t,
+        domain=parent,
+    )
+    maximum_rhs_degree = _maximum_polynomial_degree(real_rhs, imaginary_rhs)
+    if (
+        maximum_rhs_degree is not None
+        and maximum_rhs_degree > degree_bound
+    ):
+        return _zero_hypertangent_coupled_result(
+            derivation,
+            CoupledHypertangentPolynomialRDEMode.CANCELLATION,
+            diagonal,
+            rotation,
+            real_rhs,
+            imaginary_rhs,
+            degree_bound,
+            CoupledRDEObstruction.DEGREE,
+        )
+
+    if degree_bound == 0:
+        boundary_result = _solve_general_coupled_risch_differential_equation(
+            base_diagonal,
+            rotation,
+            parent.convert(real_rhs.nth(0)),
+            parent.convert(imaginary_rhs.nth(0)),
+            derivation.lower(),
+        )
+        if not boundary_result.has_solution:
+            return _zero_hypertangent_coupled_result(
+                derivation,
+                CoupledHypertangentPolynomialRDEMode.CANCELLATION,
+                diagonal,
+                rotation,
+                real_rhs,
+                imaginary_rhs,
+                degree_bound,
+                CoupledRDEObstruction.LOWER_FIELD,
+                boundary_result=boundary_result,
+            )
+        if (
+            boundary_result.real_solution is None
+            or boundary_result.imaginary_solution is None
+        ):
+            raise ValueError(
+                "a solved tangent boundary system lacks its solution pair"
+            )
+        real_solution = Poly(
+            parent.to_sympy(boundary_result.real_solution),
+            t,
+            domain=parent,
+        )
+        imaginary_solution = Poly(
+            parent.to_sympy(boundary_result.imaginary_solution),
+            t,
+            domain=parent,
+        )
+        zero = real_rhs.zero
+        result = CoupledHypertangentPolynomialRDEResult(
+            derivation,
+            CoupledHypertangentPolynomialRDEMode.CANCELLATION,
+            diagonal,
+            rotation,
+            real_rhs,
+            imaginary_rhs,
+            degree_bound,
+            real_solution,
+            imaginary_solution,
+            real_solution,
+            imaginary_solution,
+            zero,
+            zero,
+            None,
+            boundary_result=boundary_result,
+        )
+        if not result.reconstructs:
+            raise ValueError(
+                "tangent cancellation base case failed to reconstruct"
+            )
+        return result
+
+    real_at_i, real_at_i_imaginary = _polynomial_at_i_coordinates(
+        real_rhs
+    )
+    imaginary_at_i_real, imaginary_at_i = _polynomial_at_i_coordinates(
+        imaginary_rhs
+    )
+    boundary_real = real_at_i - imaginary_at_i
+    boundary_imaginary = (
+        real_at_i_imaginary + imaginary_at_i_real
+    )
+    shifted_rotation = rotation - parent.convert(degree_bound)*eta
+    boundary_result = _solve_general_coupled_risch_differential_equation(
+        base_diagonal,
+        shifted_rotation,
+        boundary_real,
+        boundary_imaginary,
+        derivation.lower(),
+    )
+    if not boundary_result.has_solution:
+        return _zero_hypertangent_coupled_result(
+            derivation,
+            CoupledHypertangentPolynomialRDEMode.CANCELLATION,
+            diagonal,
+            rotation,
+            real_rhs,
+            imaginary_rhs,
+            degree_bound,
+            CoupledRDEObstruction.LOWER_FIELD,
+            boundary_result=boundary_result,
+        )
+    if (
+        boundary_result.real_solution is None
+        or boundary_result.imaginary_solution is None
+    ):
+        raise ValueError(
+            "a solved tangent boundary system lacks its solution pair"
+        )
+    s1 = parent.convert(boundary_result.real_solution)
+    s2 = parent.convert(boundary_result.imaginary_solution)
+    n_eta = parent.convert(degree_bound)*eta
+    real_numerator = (
+        real_rhs
+        - Poly(parent.to_sympy(boundary_real), t, domain=parent)
+        + Poly(
+            parent.to_sympy(n_eta)
+            * (parent.to_sympy(s1)*t + parent.to_sympy(s2)),
+            t,
+            domain=parent,
+        )
+    )
+    imaginary_numerator = (
+        imaginary_rhs
+        - Poly(parent.to_sympy(boundary_imaginary), t, domain=parent)
+        + Poly(
+            parent.to_sympy(n_eta)
+            * (parent.to_sympy(s2)*t - parent.to_sympy(s1)),
+            t,
+            domain=parent,
+        )
+    )
+    top_generator = Poly(t, t, domain=parent)
+    special = Poly(t**2 + 1, t, domain=parent)
+    reduced_real, real_remainder = (
+        top_generator*real_numerator - imaginary_numerator
+    ).div(special)
+    reduced_imaginary, imaginary_remainder = (
+        real_numerator + top_generator*imaginary_numerator
+    ).div(special)
+    if not real_remainder.is_zero or not imaginary_remainder.is_zero:
+        raise ValueError(
+            "tangent cancellation numerator is not divisible by t - i"
+        )
+
+    recursive_result = solve_hypertangent_coupled_cancellation_rde(
+        base_diagonal,
+        rotation + eta,
+        reduced_real,
+        reduced_imaginary,
+        derivation,
+        degree_bound - 1,
+    )
+    if not recursive_result.has_solution:
+        return _zero_hypertangent_coupled_result(
+            derivation,
+            CoupledHypertangentPolynomialRDEMode.CANCELLATION,
+            diagonal,
+            rotation,
+            real_rhs,
+            imaginary_rhs,
+            degree_bound,
+            recursive_result.obstruction or CoupledRDEObstruction.LOWER_FIELD,
+            boundary_result=boundary_result,
+            recursive_result=recursive_result,
+        )
+    if (
+        recursive_result.real_solution is None
+        or recursive_result.imaginary_solution is None
+    ):
+        raise ValueError(
+            "a solved recursive tangent system lacks its solution pair"
+        )
+    real_solution = (
+        recursive_result.real_solution*top_generator
+        + recursive_result.imaginary_solution
+        + Poly(parent.to_sympy(s1), t, domain=parent)
+    )
+    imaginary_solution = (
+        recursive_result.imaginary_solution*top_generator
+        - recursive_result.real_solution
+        + Poly(parent.to_sympy(s2), t, domain=parent)
+    )
+    if (
+        real_solution.degree() > degree_bound
+        or imaginary_solution.degree() > degree_bound
+    ):
+        raise ValueError(
+            "tangent cancellation recurrence exceeded its degree bound"
+        )
+    zero = real_rhs.zero
+    result = CoupledHypertangentPolynomialRDEResult(
+        derivation,
+        CoupledHypertangentPolynomialRDEMode.CANCELLATION,
+        diagonal,
+        rotation,
+        real_rhs,
+        imaginary_rhs,
+        degree_bound,
+        real_solution,
+        imaginary_solution,
+        real_solution,
+        imaginary_solution,
+        zero,
+        zero,
+        None,
+        boundary_result=boundary_result,
+        recursive_result=recursive_result,
+    )
+    if not result.reconstructs:
+        raise ValueError(
+            "tangent cancellation recurrence failed to reconstruct"
+        )
+    return result
+
+
+def _solve_hypertangent_coupled_no_cancellation(
+    diagonal_coefficient: FieldElement,
+    rotation_coefficient: FieldElement,
+    real_right_hand_side: Poly,
+    imaginary_right_hand_side: Poly,
+    derivation: Derivation,
+) -> CoupledHypertangentPolynomialRDEResult:
+    """Solve the lower-coefficient nonlinear polynomial branch."""
+    extension = _hypertangent_extension(derivation)
+    parent = extension.parent_field
+    t = extension.generator
+    eta = parent.convert(extension.generator_derivative.nth(2))
+    diagonal = Poly(
+        parent.to_sympy(diagonal_coefficient),
+        t,
+        domain=parent,
+    )
+    zero = real_right_hand_side.zero
+    real_solution = zero
+    imaginary_solution = zero
+    real_residual = real_right_hand_side
+    imaginary_residual = imaginary_right_hand_side
+    corrections: list[CoupledHypertangentPolynomialRDECorrection] = []
+    maximum_degree = _maximum_polynomial_degree(
+        real_right_hand_side,
+        imaginary_right_hand_side,
+    )
+    degree_bound = max(0, (maximum_degree or 0) - 1)
+
+    while True:
+        residual_degree = _maximum_polynomial_degree(
+            real_residual,
+            imaginary_residual,
+        )
+        if residual_degree is None or residual_degree <= 0:
+            break
+        correction_degree = residual_degree - 1
+        if correction_degree <= 0:
+            result = CoupledHypertangentPolynomialRDEResult(
+                derivation,
+                CoupledHypertangentPolynomialRDEMode.NON_CANCELLATION,
+                diagonal,
+                rotation_coefficient,
+                real_right_hand_side,
+                imaginary_right_hand_side,
+                degree_bound,
+                None,
+                None,
+                real_solution,
+                imaginary_solution,
+                real_residual,
+                imaginary_residual,
+                CoupledRDEObstruction.DEGREE,
+                tuple(corrections),
+            )
+            if not result.reconstructs:
+                raise ValueError(
+                    "tangent no-cancellation obstruction did not reconstruct"
+                )
+            return result
+        divisor = parent.convert(correction_degree)*eta
+        real_coefficient = (
+            parent.convert(real_residual.nth(residual_degree))/divisor
+        )
+        imaginary_coefficient = (
+            parent.convert(imaginary_residual.nth(residual_degree))/divisor
+        )
+        real_correction = Poly.from_dict(
+            {(correction_degree,): real_coefficient},
+            t,
+            domain=parent,
+        )
+        imaginary_correction = Poly.from_dict(
+            {(correction_degree,): imaginary_coefficient},
+            t,
+            domain=parent,
+        )
+        new_real_residual = (
+            real_residual
+            - derivation.polynomial(real_correction)
+            - diagonal*real_correction
+            + imaginary_correction.mul_ground(rotation_coefficient)
+        )
+        new_imaginary_residual = (
+            imaginary_residual
+            - derivation.polynomial(imaginary_correction)
+            - real_correction.mul_ground(rotation_coefficient)
+            - diagonal*imaginary_correction
+        )
+        new_degree = _maximum_polynomial_degree(
+            new_real_residual,
+            new_imaginary_residual,
+        )
+        if new_degree is not None and new_degree >= residual_degree:
+            raise ValueError(
+                "tangent no-cancellation recurrence did not lower degree"
+            )
+        corrections.append(
+            CoupledHypertangentPolynomialRDECorrection(
+                correction_degree,
+                real_coefficient,
+                imaginary_coefficient,
+                real_residual,
+                imaginary_residual,
+                new_real_residual,
+                new_imaginary_residual,
+            )
+        )
+        real_solution += real_correction
+        imaginary_solution += imaginary_correction
+        real_residual = new_real_residual
+        imaginary_residual = new_imaginary_residual
+
+    lower_result = _solve_general_coupled_risch_differential_equation(
+        diagonal_coefficient,
+        rotation_coefficient,
+        parent.convert(real_residual.nth(0)),
+        parent.convert(imaginary_residual.nth(0)),
+        derivation.lower(),
+    )
+    if not lower_result.has_solution:
+        result = CoupledHypertangentPolynomialRDEResult(
+            derivation,
+            CoupledHypertangentPolynomialRDEMode.NON_CANCELLATION,
+            diagonal,
+            rotation_coefficient,
+            real_right_hand_side,
+            imaginary_right_hand_side,
+            degree_bound,
+            None,
+            None,
+            real_solution,
+            imaginary_solution,
+            real_residual,
+            imaginary_residual,
+            CoupledRDEObstruction.LOWER_FIELD,
+            tuple(corrections),
+            boundary_result=lower_result,
+        )
+        if not result.reconstructs:
+            raise ValueError(
+                "tangent lower-field obstruction did not reconstruct"
+            )
+        return result
+    if (
+        lower_result.real_solution is None
+        or lower_result.imaginary_solution is None
+    ):
+        raise ValueError(
+            "a solved tangent constant system lacks its solution pair"
+        )
+    real_solution += Poly(
+        parent.to_sympy(lower_result.real_solution),
+        t,
+        domain=parent,
+    )
+    imaginary_solution += Poly(
+        parent.to_sympy(lower_result.imaginary_solution),
+        t,
+        domain=parent,
+    )
+    result = CoupledHypertangentPolynomialRDEResult(
+        derivation,
+        CoupledHypertangentPolynomialRDEMode.NON_CANCELLATION,
+        diagonal,
+        rotation_coefficient,
+        real_right_hand_side,
+        imaginary_right_hand_side,
+        degree_bound,
+        real_solution,
+        imaginary_solution,
+        real_solution,
+        imaginary_solution,
+        zero,
+        zero,
+        None,
+        tuple(corrections),
+        boundary_result=lower_result,
+    )
+    if not result.reconstructs:
+        raise ValueError(
+            "tangent no-cancellation recurrence failed to reconstruct"
+        )
+    return result
+
+
+def solve_hypertangent_coupled_polynomial_rde(
+    diagonal_coefficient: object,
+    rotation_coefficient: object,
+    real_right_hand_side: object,
+    imaginary_right_hand_side: object,
+    derivation: Derivation,
+) -> CoupledHypertangentPolynomialRDEResult:
+    r"""Decide implemented polynomial coupled branches for ``Dt=eta(1+t²)``.
+
+    Lower-field matrix coefficients use the forced nonlinear leading
+    recurrence. A diagonal of the form ``b0 - n*eta*t`` with positive integer
+    ``n`` dispatches to Bronstein's direct cancellation recurrence.
+    """
+    extension = _hypertangent_extension(derivation)
+    parent = extension.parent_field
+    diagonal = _as_primitive_polynomial(
+        diagonal_coefficient,
+        extension,
+    )
+    rotation = _as_primitive_polynomial(
+        rotation_coefficient,
+        extension,
+    )
+    real_rhs = _as_primitive_polynomial(
+        real_right_hand_side,
+        extension,
+    )
+    imaginary_rhs = _as_primitive_polynomial(
+        imaginary_right_hand_side,
+        extension,
+    )
+    if not rotation.is_zero and rotation.degree() > 0:
+        raise NotImplementedError(
+            "hypertangent polynomial coupled solving currently requires "
+            "the rotation coefficient to belong to the lower field"
+        )
+    rotation_lower = parent.convert(rotation.nth(0))
+    if diagonal.is_zero or diagonal.degree() <= 0:
+        return _solve_hypertangent_coupled_no_cancellation(
+            parent.convert(diagonal.nth(0)),
+            rotation_lower,
+            real_rhs,
+            imaginary_rhs,
+            derivation,
+        )
+    if diagonal.degree() != 1:
+        raise NotImplementedError(
+            "the hypertangent diagonal coefficient is outside the "
+            "implemented cancellation shapes"
+        )
+    eta = parent.convert(extension.generator_derivative.nth(2))
+    cancellation_degree = _positive_integer_in_domain(
+        -parent.convert(diagonal.nth(1))/eta,
+        parent,
+    )
+    if cancellation_degree is None:
+        raise NotImplementedError(
+            "the hypertangent diagonal coefficient is not b0 - n*eta*t "
+            "for a positive integer n"
+        )
+    return solve_hypertangent_coupled_cancellation_rde(
+        parent.convert(diagonal.nth(0)),
+        rotation_lower,
+        real_rhs,
+        imaginary_rhs,
+        derivation,
+        cancellation_degree,
+    )
+
+
 def _coupled_obstruction_from_scalar(
     obstruction: (
         RationalRDEObstruction
@@ -5422,10 +6330,10 @@ def _coupled_obstruction_from_scalar(
     return CoupledRDEObstruction.NONZERO_REMAINDER
 
 
-def _require_recursively_primitive_coupled_tower(
+def _require_supported_coupled_tower(
     derivation: Derivation,
 ) -> None:
-    """Validate the currently complete coupled-RDE tower family."""
+    """Validate the monomial families understood by coupled recursion."""
     if not _is_standard_rational_derivation(
         Derivation(derivation.tower, 0)
     ):
@@ -5436,13 +6344,68 @@ def _require_recursively_primitive_coupled_tower(
         extension = derivation.tower.levels[level]
         if (
             not isinstance(extension, MonomialExtension)
-            or extension.family is not MonomialFamily.PRIMITIVE
+            or extension.family
+            not in {
+                MonomialFamily.PRIMITIVE,
+                MonomialFamily.HYPEREXPONENTIAL,
+                MonomialFamily.HYPERTANGENT,
+            }
         ):
             raise NotImplementedError(
-                "recursive coupled RDEs currently support only primitive "
-                "levels above QQ(x)"
+                "recursive coupled RDEs currently support primitive, "
+                "hyperexponential, and hypertangent monomial levels"
             )
         extension.require_preserved_constants("recursive coupled RDE solving")
+
+
+def _coupled_tower_is_gaussian_safe(derivation: Derivation) -> bool:
+    """Whether adjoining ``i`` preserves every active monomial family."""
+    return all(
+        isinstance(extension, MonomialExtension)
+        and extension.family
+        in {
+            MonomialFamily.PRIMITIVE,
+            MonomialFamily.HYPEREXPONENTIAL,
+        }
+        for extension in derivation.tower.levels[1:derivation.level + 1]
+    )
+
+
+def _has_direct_hyperexponential_laurent_shape(
+    diagonal_coefficient: FieldElement,
+    rotation_coefficient: FieldElement,
+    real_right_hand_side: FieldElement,
+    imaginary_right_hand_side: FieldElement,
+    extension: MonomialExtension,
+) -> bool:
+    """Whether Chapter 8 modewise cancellation accepts all four inputs."""
+    try:
+        _, diagonal_terms = _hyperexponential_laurent_coefficients(
+            diagonal_coefficient,
+            extension,
+            "diagonal coefficient",
+        )
+        _, rotation_terms = _hyperexponential_laurent_coefficients(
+            rotation_coefficient,
+            extension,
+            "rotation coefficient",
+        )
+        _hyperexponential_laurent_coefficients(
+            real_right_hand_side,
+            extension,
+            "real right-hand side",
+        )
+        _hyperexponential_laurent_coefficients(
+            imaginary_right_hand_side,
+            extension,
+            "imaginary right-hand side",
+        )
+    except NotImplementedError:
+        return False
+    return (
+        all(power == 0 for power in diagonal_terms)
+        and all(power == 0 for power in rotation_terms)
+    )
 
 
 def _split_gaussian_tower_element(
@@ -5457,48 +6420,130 @@ def _split_gaussian_tower_element(
     imaginary_expression = cancel((expression - conjugate)/(2*I))
     real_part = _coerce(real_field, real_expression)
     imaginary_part = _coerce(real_field, imaginary_expression)
-    if (
-        gaussian_field.from_sympy(
-            real_field.to_sympy(real_part)
-            + I*real_field.to_sympy(imaginary_part)
-        )
-        != value
+    reconstructed = gaussian_field.from_sympy(
+        real_field.to_sympy(real_part)
+        + I*real_field.to_sympy(imaginary_part)
+    )
+    if not _field_element_is_zero(
+        reconstructed - value,
+        gaussian_field,
     ):
         raise ValueError("Gaussian tower coordinates failed to reconstruct")
     return real_part, imaginary_part
 
 
-def solve_coupled_risch_differential_equation(
-    lambda_coefficient: object,
+def _solve_general_coupled_risch_differential_equation(
+    diagonal_coefficient: object,
+    rotation_coefficient: object,
     real_right_hand_side: object,
     imaginary_right_hand_side: object,
     derivation: Derivation,
 ) -> CoupledRischDifferentialEquationResult:
-    r"""Solve a real coupled RDE over ``QQ(x)`` and primitive towers.
-
-    The supplied tower is immutably rebased over ``QQ_I`` and the equivalent
-    scalar Gaussian RDE is decided by the ordinary recursive dispatcher. This
-    reuses the scalar structure theorems without introducing a second,
-    potentially divergent implementation of weak normalization or SPDE.
-    """
+    """Solve the general real two-coordinate RDE over supported tower shapes."""
     if not isinstance(derivation, Derivation):
         raise TypeError("coupled RDE solving requires a Derivation")
     if derivation.level < 0:
         raise TypeError("coupled RDE solving requires a nonconstant field")
-    _require_recursively_primitive_coupled_tower(derivation)
+    _require_supported_coupled_tower(derivation)
 
     real_field = derivation.field
-    lambda_element = _coerce(real_field, lambda_coefficient)
-    if lambda_element == real_field.zero:
-        raise ValueError("the coupled rotation coefficient must be nonzero")
+    diagonal_element = _coerce(real_field, diagonal_coefficient)
+    rotation_element = _coerce(real_field, rotation_coefficient)
     real_rhs = _coerce(real_field, real_right_hand_side)
     imaginary_rhs = _coerce(real_field, imaginary_right_hand_side)
 
+    if derivation.level > 0:
+        extension = derivation.tower.levels[derivation.level]
+        if not isinstance(extension, MonomialExtension):
+            raise NotImplementedError(
+                "coupled RDE solving does not support algebraic tower levels"
+            )
+        if (
+            extension.family is MonomialFamily.HYPEREXPONENTIAL
+            and _has_direct_hyperexponential_laurent_shape(
+                diagonal_element,
+                rotation_element,
+                real_rhs,
+                imaginary_rhs,
+                extension,
+            )
+        ):
+            direct_result = solve_hyperexponential_coupled_laurent_rde(
+                diagonal_element,
+                rotation_element,
+                real_rhs,
+                imaginary_rhs,
+                derivation,
+            )
+            result = CoupledRischDifferentialEquationResult(
+                derivation=derivation,
+                diagonal_coefficient=diagonal_element,
+                lambda_coefficient=rotation_element,
+                real_right_hand_side=real_rhs,
+                imaginary_right_hand_side=imaginary_rhs,
+                real_solution=direct_result.real_solution,
+                imaginary_solution=direct_result.imaginary_solution,
+                obstruction=direct_result.obstruction,
+                direct_result=direct_result,
+            )
+            if result.has_solution and not result.reconstructs:
+                raise ValueError(
+                    "direct hyperexponential coupled result failed to "
+                    "reconstruct"
+                )
+            return result
+        if extension.family is MonomialFamily.HYPERTANGENT:
+            direct_result = solve_hypertangent_coupled_polynomial_rde(
+                diagonal_element,
+                rotation_element,
+                real_rhs,
+                imaginary_rhs,
+                derivation,
+            )
+            real_solution = (
+                _coerce(real_field, direct_result.real_solution.as_expr())
+                if direct_result.real_solution is not None
+                else None
+            )
+            imaginary_solution = (
+                _coerce(
+                    real_field,
+                    direct_result.imaginary_solution.as_expr(),
+                )
+                if direct_result.imaginary_solution is not None
+                else None
+            )
+            result = CoupledRischDifferentialEquationResult(
+                derivation=derivation,
+                diagonal_coefficient=diagonal_element,
+                lambda_coefficient=rotation_element,
+                real_right_hand_side=real_rhs,
+                imaginary_right_hand_side=imaginary_rhs,
+                real_solution=real_solution,
+                imaginary_solution=imaginary_solution,
+                obstruction=direct_result.obstruction,
+                direct_result=direct_result,
+            )
+            if result.has_solution and not result.reconstructs:
+                raise ValueError(
+                    "direct hypertangent coupled result failed to reconstruct"
+                )
+            return result
+
+    if not _coupled_tower_is_gaussian_safe(derivation):
+        raise NotImplementedError(
+            "this coupled RDE requires the not-yet-implemented rational "
+            "frontend above a hypertangent lower level"
+        )
     gaussian_derivation = _rebase_monomial_derivation(derivation, QQ_I)
     gaussian_field = gaussian_derivation.field
-    gaussian_lambda = _coerce(
+    gaussian_diagonal = _coerce(
         gaussian_field,
-        real_field.to_sympy(lambda_element),
+        real_field.to_sympy(diagonal_element),
+    )
+    gaussian_rotation = _coerce(
+        gaussian_field,
+        real_field.to_sympy(rotation_element),
     )
     gaussian_rhs = _coerce(
         gaussian_field,
@@ -5506,7 +6551,8 @@ def solve_coupled_risch_differential_equation(
         + I*real_field.to_sympy(imaginary_rhs),
     )
     scalar_result = solve_risch_differential_equation(
-        gaussian_field.from_sympy(I)*gaussian_lambda,
+        gaussian_diagonal
+        + gaussian_field.from_sympy(I)*gaussian_rotation,
         gaussian_rhs,
         gaussian_derivation,
     )
@@ -5514,14 +6560,17 @@ def solve_coupled_risch_differential_equation(
         if scalar_result.obstruction is None:
             raise ValueError("a failed scalar RDE lacks its obstruction")
         return CoupledRischDifferentialEquationResult(
-            derivation,
-            lambda_element,
-            real_rhs,
-            imaginary_rhs,
-            None,
-            None,
-            _coupled_obstruction_from_scalar(scalar_result.obstruction),
-            scalar_result,
+            derivation=derivation,
+            diagonal_coefficient=diagonal_element,
+            lambda_coefficient=rotation_element,
+            real_right_hand_side=real_rhs,
+            imaginary_right_hand_side=imaginary_rhs,
+            real_solution=None,
+            imaginary_solution=None,
+            obstruction=_coupled_obstruction_from_scalar(
+                scalar_result.obstruction
+            ),
+            scalar_result=scalar_result,
         )
 
     real_solution, imaginary_solution = _split_gaussian_tower_element(
@@ -5530,18 +6579,49 @@ def solve_coupled_risch_differential_equation(
         real_field,
     )
     result = CoupledRischDifferentialEquationResult(
-        derivation,
-        lambda_element,
-        real_rhs,
-        imaginary_rhs,
-        real_solution,
-        imaginary_solution,
-        None,
-        scalar_result,
+        derivation=derivation,
+        diagonal_coefficient=diagonal_element,
+        lambda_coefficient=rotation_element,
+        real_right_hand_side=real_rhs,
+        imaginary_right_hand_side=imaginary_rhs,
+        real_solution=real_solution,
+        imaginary_solution=imaginary_solution,
+        obstruction=None,
+        scalar_result=scalar_result,
     )
     if not result.reconstructs:
         raise ValueError("recursive coupled RDE reconstruction failed")
     return result
+
+
+def solve_coupled_risch_differential_equation(
+    lambda_coefficient: object,
+    real_right_hand_side: object,
+    imaginary_right_hand_side: object,
+    derivation: Derivation,
+) -> CoupledRischDifferentialEquationResult:
+    r"""Solve ``Dp-lambda*q=u`` and ``Dq+lambda*p=v`` recursively.
+
+    Primitive and non-Laurent hyperexponential cases use the equivalent scalar
+    equation over an immutable ``QQ_I`` rebase. Hyperexponential Laurent
+    cancellation and the implemented hypertangent polynomial branches use the
+    direct real Chapter 8 recurrences.
+    """
+    if not isinstance(derivation, Derivation):
+        raise TypeError("coupled RDE solving requires a Derivation")
+    if derivation.level < 0:
+        raise TypeError("coupled RDE solving requires a nonconstant field")
+    field = derivation.field
+    rotation = _coerce(field, lambda_coefficient)
+    if rotation == field.zero:
+        raise ValueError("the coupled rotation coefficient must be nonzero")
+    return _solve_general_coupled_risch_differential_equation(
+        field.zero,
+        rotation,
+        real_right_hand_side,
+        imaginary_right_hand_side,
+        derivation,
+    )
 
 
 def solve_bounded_coupled_rde_matrix(
