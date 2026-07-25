@@ -615,7 +615,8 @@ def test_generated_planted_primitive_parametric_witnesses(
     )
 
 
-@settings(max_examples=80, deadline=None)
+@pytest.mark.parametrize("oracle_shard", range(8))
+@settings(max_examples=10, deadline=None)
 @given(
     f_coefficients=st.lists(
         st.integers(min_value=-2, max_value=2),
@@ -629,9 +630,22 @@ def test_generated_planted_primitive_parametric_witnesses(
     ).filter(any).map(tuple),
 )
 def test_complete_solver_matches_independent_global_primitive_oracle(
+    oracle_shard,
     f_coefficients,
     eta_coefficients,
 ) -> None:
+    # This oracle dominates the suite runtime. Rotating a fixed-size generated
+    # vector gives each shard a distinct coefficient-to-basis assignment while
+    # preserving the original total of 80 Hypothesis examples. Pytest-xdist
+    # can then schedule the eight shards independently.
+    f_coefficients = (
+        f_coefficients[oracle_shard:] + f_coefficients[:oracle_shard]
+    )
+    eta_coefficients = (
+        eta_coefficients[-oracle_shard:] + eta_coefficients[:-oracle_shard]
+        if oracle_shard
+        else eta_coefficients
+    )
     lower = logarithmic_tower()
     field = lower.field()
     derivation = lower.derivation()

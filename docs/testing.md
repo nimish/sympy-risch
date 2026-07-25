@@ -16,10 +16,20 @@ uv sync --no-editable
 Run the ordinary suite without the generated rational stress test:
 
 ```console
-uv run --no-sync pytest -q -m "not slow"
+uv run --no-sync pytest -q -n auto --dist worksteal -m "not slow"
 ```
 
 Run every test before a checkpoint commit:
+
+```console
+uv run --no-sync pytest -q -n auto --dist worksteal
+```
+
+The complete gate uses one worker per detected CPU and xdist's work-stealing
+scheduler. The largest generated oracle comparisons are split into independent
+pytest items without reducing their total Hypothesis example count, so they can
+be shared between workers. Use the serial form when debugging ordering,
+tracebacks, or a single failing example:
 
 ```console
 uv run --no-sync pytest -q
@@ -122,7 +132,7 @@ Before each incremental commit:
 
 ```console
 uv run --no-sync pytest -q tests/test_relevant_module.py
-uv run --no-sync pytest -q
+uv run --no-sync pytest -q -n auto --dist worksteal
 git diff --check
 ```
 

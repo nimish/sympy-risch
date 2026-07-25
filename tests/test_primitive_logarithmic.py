@@ -654,7 +654,8 @@ def test_generated_planted_radical_logarithmic_derivatives(
     assert signature.reconstructs_relation
 
 
-@settings(max_examples=80, deadline=None)
+@pytest.mark.parametrize("oracle_shard", range(8))
+@settings(max_examples=10, deadline=None)
 @given(
     coefficients=st.lists(
         st.integers(min_value=-2, max_value=2),
@@ -663,8 +664,13 @@ def test_generated_planted_radical_logarithmic_derivatives(
     ).map(tuple),
 )
 def test_signature_matches_independent_global_linear_oracle(
+    oracle_shard,
     coefficients,
 ) -> None:
+    # Preserve 80 generated examples but expose eight independently schedulable
+    # pytest items. Rotation also prevents the shards from assigning an
+    # identical Hypothesis vector to the same mathematical basis terms.
+    coefficients = coefficients[oracle_shard:] + coefficients[:oracle_shard]
     tower = logarithmic_tower()
     derivation = tower.derivation()
     field = tower.field()

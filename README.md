@@ -24,7 +24,7 @@ From a checkout:
 
 ```console
 uv sync --no-editable
-uv run --no-sync pytest -q -m "not slow"
+uv run --no-sync pytest -q -n auto --dist worksteal -m "not slow"
 ```
 
 The non-editable install avoids an editable-install issue on Python versions
@@ -33,8 +33,11 @@ through the configured `src` path. Run the complete suite, including the
 generated rational stress test, with:
 
 ```console
-uv run --no-sync pytest -q
+uv run --no-sync pytest -q -n auto --dist worksteal
 ```
+
+The automatic worker count was fastest on the development machine. Use plain
+`pytest -q` when debugging a failure serially.
 
 ## Minimal example
 
