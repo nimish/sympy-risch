@@ -16,7 +16,9 @@ finite-residue polynomials for supported algebraic models, generalized
 monomial residue reduction, family-aware exact-derivative decisions, and Risch
 differential-equation solvers, including recursive hyperexponential Laurent
 RDEs with general Laurent coefficients, certified support bounds, and
-leading/trailing recurrences.
+leading/trailing recurrences. General rational hyperexponential RDEs add
+resultant-based weak normalization, normal and special denominator reduction,
+degree bounds, and SPDE before reaching that Laurent core.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

@@ -80,6 +80,8 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+c77088e  Solve rational hyperexponential RDEs
+4ea759d  Document Laurent-coefficient RDEs
 2394ba5  Solve Laurent-coefficient hyperexponential RDEs
 d14acaf  Reorder hyperexponential RDE roadmap
 693c0bb  Solve hyperexponential Laurent RDEs
@@ -562,10 +564,50 @@ matrix ansatz, including generated success and nonsolution families. The
 oracle accepts a caller-supplied top denominator, so weak-normalization cases
 are checked without sharing the production normalizer or denominator theorem.
 
-### Hyperexponential Laurent RDEs
+### Hyperexponential RDEs
 
-At a hyperexponential level `K(t)` with `Dt = eta*t`, the implemented scalar
-RDE branch accepts Laurent coefficients and right-hand sides
+At a hyperexponential level `K(t)` with `Dt = eta*t`, the complete scalar RDE
+frontend accepts general rational coefficients and right-hand sides. It
+follows the Chapter 6 sequence:
+
+1. the Section 6.1 resultant construction weakly normalizes the coefficient;
+2. the normal-denominator theorem bounds every finite normal pole;
+3. `RdeSpecialDenomExp` bounds the remaining power of the special factor `t`;
+4. `RdeBoundDegreeExp` bounds the polynomial numerator;
+5. Rothstein SPDE reduces to the Laurent-coefficient core.
+
+If `f = u/d`, let `d1` be the product of normal irreducible factors that occur
+exactly once, and let `a` be the partial numerator of `f` at `d1`. The weak
+normalizer is obtained from the positive integer roots of
+
+```text
+resultant_t(a - z*D(d1), d1).
+```
+
+For each root `n`, `gcd(a - n*D(d1), d1)**n` is included in the normalizer.
+This is the general monomial algorithm: it does not assume that the factors
+are linear or that the lower field is `QQ(x)`.
+
+After normal-denominator reduction, the transformed equation has the form
+
+```text
+A*D(q) + B*q = C,
+```
+
+where `A` is polynomial and the only denominators of `B` and `C` are powers of
+`t`. If the special valuation theorem gives `valuation_t(q) >= n`, with
+`n <= 0`, the change `r = q*t**(-n)` makes `r` polynomial. A further
+nonnegative power of `t` clears the transformed equation. The degree theorem
+then checks the exceptional leading cancellation
+
+```text
+-lc(B)/lc(A) = m*eta + D(v)/v
+```
+
+before SPDE. Both special and degree-bound parametric logarithmic-derivative
+results are retained in the immutable certificate.
+
+The terminal Laurent core accepts
 
 ```text
 a = sum(a_i*t**i),
@@ -613,22 +655,17 @@ before/after residuals are retained in the certificate. Crossing a certified
 support bound with a nonzero residual proves nonexistence. The `a in K`
 diagonal solver is the terminal recurrence case.
 
-This is a complete rational decision under the stated restrictions, not only
-a Laurent ansatz. A rational solution cannot have a normal finite pole in the
-top generator: differentiation would increase that pole order while
-multiplication by a Laurent coefficient introduces no normal factor, and the
-Laurent right-hand side has no such pole. The hyperexponential special factor
-`t` accounts precisely for the allowed negative Laurent powers.
+For Laurent inputs this is already a complete rational decision: a rational
+solution cannot acquire a normal finite pole that is absent from both the
+coefficient and right-hand side. General rational inputs use the preceding
+normal-denominator stage to bound such poles instead.
 
 An independent bounded matrix oracle handles one hyperexponential level over
-`QQ(x)`. It uses a single global bivariate ansatz and does not split modes or
-call either production recurrence. Generated arbitrary Laurent equations,
-planted solutions, radical boundary relations, high-degree cases, and
-nonsolutions compare the two implementations.
-
-The remaining rational frontend is now the next scalar checkpoint. Weak
-normalization, normal-denominator reduction, and SPDE reduce general rational
-coefficients and right-hand sides to this completed Laurent core.
+`QQ(x)`. It accepts a caller-supplied normal top denominator and Laurent
+support, uses one global bivariate ansatz, and performs none of the production
+normalization, denominator, SPDE, mode-splitting, or lower-RDE steps. Generated
+rational and Laurent solutions, certified nonsolutions, radical boundary
+relations, and high-degree cases compare the two implementations.
 
 ### Hypertangent levels
 
@@ -749,13 +786,13 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest transcendental checkpoint completes scalar Laurent RDEs at a
-hyperexponential level: certified support bounds, ordinary-versus-radical
-boundary cancellation, leading/trailing recurrences, recursive diagonal
-descent, and an independent global matrix oracle. The next scalar checkpoint
-adds weak normalization, normal-denominator reduction, and SPDE for general
-rational inputs. The current algebraic priority remains branch-place handling
-before the residue-field and divisor stages.
+The latest transcendental checkpoint completes scalar rational RDEs at a
+hyperexponential level: general weak normalization, normal and special
+denominator reduction, degree bounds, SPDE, the Laurent recurrence core, and
+an independent global matrix oracle. The next scalar checkpoint is the
+corresponding recursively coupled RDE machinery needed by further
+hypertangent levels. The current algebraic priority remains branch-place
+handling before the residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -795,11 +832,12 @@ before the residue-field and divisor stages.
   mode certificates, and an independent bounded matrix oracle.
 - [x] Laurent-coefficient hyperexponential RDEs with certified support bounds,
   leading/trailing recurrences, and ordinary cancellation witnesses.
+- [x] General rational hyperexponential RDEs with resultant weak
+  normalization, normal and special denominator reduction, degree bounds,
+  SPDE, and independent normal-denominator oracle checks.
 
 ### Next transcendental steps
 
-- [ ] Add weak normalization, normal-denominator reduction, and SPDE for
-  general rational hyperexponential RDE coefficients.
 - [ ] Generalize coupled RDE solving over further supported lower tower
   families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.

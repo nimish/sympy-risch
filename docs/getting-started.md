@@ -313,9 +313,35 @@ before/after residuals. In the diagonal lower-field case it instead contains
 one recursive lower-field RDE result per Laurent power.
 
 A failed recurrence leaves its solved corrections in `partial_solution` and
-the exact obstruction in `residual`. Normal top-generator denominators such
-as `1/(t + 1)` remain unsupported until the next weak-normalization,
-normal-denominator, and SPDE checkpoint.
+the exact obstruction in `residual`.
+
+General rational coefficients and right-hand sides use the full
+hyperexponential frontend. For example, the normal factor `t + 1` and the
+special factor `t` may occur together:
+
+```python
+coefficient = field.from_sympy(t + 1/t)
+planted = field.from_sympy((x + 1)/(t**2*(t + 1)**2))
+right_hand_side = D(planted) + coefficient*planted
+
+result = solve_risch_differential_equation(
+    coefficient,
+    right_hand_side,
+    D,
+)
+assert result.solution == planted
+assert result.certificate.normal_denominator_bound == Poly(
+    (t + 1)**2,
+    t,
+    domain=base.field(),
+)
+assert result.certificate.special_denominator_power == 2
+```
+
+The certificate records the weak normalizer, normal denominator bound,
+special power bound, polynomial degree bound, terminal Laurent result, and
+any failed SPDE division. This path works over the recursively primitive lower
+fields supported by the logarithmic-derivative decision.
 
 For example, let `t = log(x)` and adjoin a formal hyperexponential `u` with
 
@@ -575,7 +601,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Recursively stacked primitive levels | End-to-end for the implemented reduction |
 | One hyperexponential level over `QQ(x)` | End-to-end |
 | Hyperexponential over a recursive primitive tower, with rational logarithmic derivative | End-to-end |
-| Scalar RDE over hyperexponential levels, Laurent coefficient and right-hand side | Complete decision over recursively supported lower fields |
+| Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision over recursively supported lower fields |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
