@@ -3,8 +3,8 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Dummy, EmptySet, Poly, Rational, cancel, linsolve, symbols
-from sympy.polys.domains import QQ
+from sympy import Dummy, EmptySet, I, Poly, Rational, cancel, linsolve, symbols
+from sympy.polys.domains import QQ, QQ_I
 
 from sympy_risch import (
     ConstantFieldStatus,
@@ -33,6 +33,16 @@ def rational_base() -> DifferentialTower:
     )
 
 
+def gaussian_rational_base() -> DifferentialTower:
+    """Return the standard Gaussian rational field ``QQ_I(x)``."""
+    return DifferentialTower(QQ_I).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ_I),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+
 def hyperexponential_extension(
     lower_tower: DifferentialTower,
     eta,
@@ -46,6 +56,82 @@ def hyperexponential_extension(
         ),
         ConstantFieldStatus.UNKNOWN,
     )
+
+
+def test_gaussian_rational_base_solves_a_parametric_witness() -> None:
+    """The integer parameters remain rational after adjoining ``i``."""
+    lower = gaussian_rational_base()
+    derivation = lower.derivation()
+    extension = hyperexponential_extension(lower, x)
+
+    result = solve_parametric_logarithmic_derivative(
+        x/2 + 1/(x + 1),
+        extension,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.n == 2
+    assert result.m == 1
+    assert result.reconstructs
+
+
+def test_gaussian_rational_base_rejects_a_nonrational_parameter() -> None:
+    """A Gaussian coefficient cannot silently become the integer ``m/n``."""
+    lower = gaussian_rational_base()
+    extension = hyperexponential_extension(lower, x)
+
+    result = solve_parametric_logarithmic_derivative(
+        I*x,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
+
+
+@pytest.mark.parametrize(
+    ("f", "eta", "n", "m", "argument"),
+    [
+        (I/(x - I), I/(x - I), 1, 1, 1),
+        ((1 + I)/(x - I), I/(x - I), 1, 1, x - I),
+    ],
+)
+def test_gaussian_rational_fallback_constrains_residues_to_qq(
+    f,
+    eta,
+    n,
+    m,
+    argument,
+) -> None:
+    """A Gaussian residue direction still has a rational valuation."""
+    lower = gaussian_rational_base()
+    extension = hyperexponential_extension(lower, eta)
+
+    result = solve_parametric_logarithmic_derivative(
+        f,
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.has_solution
+    assert (result.n, result.m) == (n, m)
+    assert result.argument == lower.field().from_sympy(argument)
+    assert result.reconstructs
+
+
+def test_gaussian_rational_fallback_rejects_nonrational_residue_ratio() -> None:
+    """The fallback never promotes a Gaussian ratio to ``m/n``."""
+    lower = gaussian_rational_base()
+    extension = hyperexponential_extension(lower, 1/(x - I))
+
+    result = solve_parametric_logarithmic_derivative(
+        I/(x - I),
+        extension,
+        lower.derivation(),
+    )
+
+    assert result.proves_no_solution
 
 
 def _independent_rational_solution_set(f, eta):

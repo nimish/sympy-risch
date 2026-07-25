@@ -33,6 +33,7 @@ from .tower import (
 if TYPE_CHECKING:
     from .dependency import ParametricLogarithmicDerivativeResult
     from .exact import ExactDerivativeResult
+    from .gaussian import HypertangentGaussianNormalForm
     from .monomial import RadicalLogarithmicDerivativeResult
 
 
@@ -855,8 +856,9 @@ class CoupledRischDifferentialEquationResult:
     ``D(p + i*q) + (a + i*lambda)*(p + i*q) = u + i*v``
 
     whenever adjoining ``i`` preserves the monomial families in the active
-    tower. Direct Chapter 8 terminal recurrences are retained in
-    ``direct_result`` instead.
+    tower.  If a hypertangent level is present, ``gaussian_normal_form``
+    records the Cayley isomorphism used before solving that scalar equation.
+    Direct Chapter 8 terminal recurrences are retained in ``direct_result``.
     """
 
     derivation: Derivation
@@ -873,6 +875,7 @@ class CoupledRischDifferentialEquationResult:
         | CoupledHypertangentPolynomialRDEResult
         | None
     ) = None
+    gaussian_normal_form: HypertangentGaussianNormalForm | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -6493,63 +6496,85 @@ def _solve_general_coupled_risch_differential_equation(
                 )
             return result
         if extension.family is MonomialFamily.HYPERTANGENT:
-            direct_result = solve_hypertangent_coupled_polynomial_rde(
-                diagonal_element,
-                rotation_element,
-                real_rhs,
-                imaginary_rhs,
-                derivation,
-            )
-            real_solution = (
-                _coerce(real_field, direct_result.real_solution.as_expr())
-                if direct_result.real_solution is not None
-                else None
-            )
-            imaginary_solution = (
-                _coerce(
-                    real_field,
-                    direct_result.imaginary_solution.as_expr(),
+            try:
+                direct_result = solve_hypertangent_coupled_polynomial_rde(
+                    diagonal_element,
+                    rotation_element,
+                    real_rhs,
+                    imaginary_rhs,
+                    derivation,
                 )
-                if direct_result.imaginary_solution is not None
-                else None
-            )
-            result = CoupledRischDifferentialEquationResult(
-                derivation=derivation,
-                diagonal_coefficient=diagonal_element,
-                lambda_coefficient=rotation_element,
-                real_right_hand_side=real_rhs,
-                imaginary_right_hand_side=imaginary_rhs,
-                real_solution=real_solution,
-                imaginary_solution=imaginary_solution,
-                obstruction=direct_result.obstruction,
-                direct_result=direct_result,
-            )
-            if result.has_solution and not result.reconstructs:
-                raise ValueError(
-                    "direct hypertangent coupled result failed to reconstruct"
+            except NotImplementedError:
+                # The terminal recurrence is complete only for its stated
+                # polynomial shapes.  General rational cases are sent
+                # through the certified Cayley normal form below.
+                pass
+            else:
+                real_solution = (
+                    _coerce(real_field, direct_result.real_solution.as_expr())
+                    if direct_result.real_solution is not None
+                    else None
                 )
-            return result
+                imaginary_solution = (
+                    _coerce(
+                        real_field,
+                        direct_result.imaginary_solution.as_expr(),
+                    )
+                    if direct_result.imaginary_solution is not None
+                    else None
+                )
+                result = CoupledRischDifferentialEquationResult(
+                    derivation=derivation,
+                    diagonal_coefficient=diagonal_element,
+                    lambda_coefficient=rotation_element,
+                    real_right_hand_side=real_rhs,
+                    imaginary_right_hand_side=imaginary_rhs,
+                    real_solution=real_solution,
+                    imaginary_solution=imaginary_solution,
+                    obstruction=direct_result.obstruction,
+                    direct_result=direct_result,
+                )
+                if result.has_solution and not result.reconstructs:
+                    raise ValueError(
+                        "direct hypertangent coupled result failed to "
+                        "reconstruct"
+                    )
+                return result
 
-    if not _coupled_tower_is_gaussian_safe(derivation):
-        raise NotImplementedError(
-            "this coupled RDE requires the not-yet-implemented rational "
-            "frontend above a hypertangent lower level"
+    gaussian_normal_form = None
+    if _coupled_tower_is_gaussian_safe(derivation):
+        gaussian_derivation = _rebase_monomial_derivation(derivation, QQ_I)
+    else:
+        from .gaussian import build_hypertangent_gaussian_normal_form
+
+        gaussian_normal_form = build_hypertangent_gaussian_normal_form(
+            derivation,
         )
-    gaussian_derivation = _rebase_monomial_derivation(derivation, QQ_I)
+        gaussian_derivation = gaussian_normal_form.target_derivation
     gaussian_field = gaussian_derivation.field
-    gaussian_diagonal = _coerce(
-        gaussian_field,
-        real_field.to_sympy(diagonal_element),
-    )
-    gaussian_rotation = _coerce(
-        gaussian_field,
-        real_field.to_sympy(rotation_element),
-    )
-    gaussian_rhs = _coerce(
-        gaussian_field,
-        real_field.to_sympy(real_rhs)
-        + I*real_field.to_sympy(imaginary_rhs),
-    )
+    if gaussian_normal_form is None:
+        gaussian_diagonal = _coerce(
+            gaussian_field,
+            real_field.to_sympy(diagonal_element),
+        )
+        gaussian_rotation = _coerce(
+            gaussian_field,
+            real_field.to_sympy(rotation_element),
+        )
+        gaussian_rhs = _coerce(
+            gaussian_field,
+            real_field.to_sympy(real_rhs)
+            + I*real_field.to_sympy(imaginary_rhs),
+        )
+    else:
+        gaussian_diagonal = gaussian_normal_form.forward(diagonal_element)
+        gaussian_rotation = gaussian_normal_form.forward(rotation_element)
+        gaussian_rhs = (
+            gaussian_normal_form.forward(real_rhs)
+            + gaussian_field.from_sympy(I)*gaussian_normal_form.forward(
+                imaginary_rhs,
+            )
+        )
     scalar_result = solve_risch_differential_equation(
         gaussian_diagonal
         + gaussian_field.from_sympy(I)*gaussian_rotation,
@@ -6571,13 +6596,19 @@ def _solve_general_coupled_risch_differential_equation(
                 scalar_result.obstruction
             ),
             scalar_result=scalar_result,
+            gaussian_normal_form=gaussian_normal_form,
         )
 
-    real_solution, imaginary_solution = _split_gaussian_tower_element(
-        scalar_result.solution,
-        gaussian_field,
-        real_field,
-    )
+    if gaussian_normal_form is None:
+        real_solution, imaginary_solution = _split_gaussian_tower_element(
+            scalar_result.solution,
+            gaussian_field,
+            real_field,
+        )
+    else:
+        real_solution, imaginary_solution = gaussian_normal_form.split_inverse(
+            scalar_result.solution,
+        )
     result = CoupledRischDifferentialEquationResult(
         derivation=derivation,
         diagonal_coefficient=diagonal_element,
@@ -6588,6 +6619,7 @@ def _solve_general_coupled_risch_differential_equation(
         imaginary_solution=imaginary_solution,
         obstruction=None,
         scalar_result=scalar_result,
+        gaussian_normal_form=gaussian_normal_form,
     )
     if not result.reconstructs:
         raise ValueError("recursive coupled RDE reconstruction failed")
@@ -6603,9 +6635,11 @@ def solve_coupled_risch_differential_equation(
     r"""Solve ``Dp-lambda*q=u`` and ``Dq+lambda*p=v`` recursively.
 
     Primitive and non-Laurent hyperexponential cases use the equivalent scalar
-    equation over an immutable ``QQ_I`` rebase. Hyperexponential Laurent
-    cancellation and the implemented hypertangent polynomial branches use the
-    direct real Chapter 8 recurrences.
+    equation over an immutable ``QQ_I`` rebase. General rational
+    hypertangent cases use a certified Cayley normal form whose top generator
+    is hyperexponential, then map the scalar answer back to real coordinates.
+    Hyperexponential Laurent cancellation and implemented hypertangent
+    polynomial branches retain the direct real Chapter 8 recurrences.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("coupled RDE solving requires a Derivation")

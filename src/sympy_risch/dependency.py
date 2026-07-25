@@ -22,7 +22,7 @@ from ._typing import FieldElement
 from .rational import (
     RationalExactDerivativeResult,
     RationalLogDerivativeResult,
-    solve_rational_logarithmic_derivative,
+    _solve_rational_logarithmic_derivative_over_domain,
 )
 from .tower import (
     ConstantFieldStatus,
@@ -156,7 +156,10 @@ class RationalParametricLogarithmicDerivativeResidue:
     numerators modulo ``factor``.  A rational radical logarithmic derivative
     may retain only a rational multiple of ``factor.diff()``.  The
     ``*_obstruction`` tuples are the remaining coordinates after projecting
-    away that one-dimensional logarithmic direction.
+    away that one-dimensional logarithmic direction.  ``*_residue`` retains
+    the projected coefficient itself.  Over ``QQ_I`` its imaginary coordinate
+    supplies an additional constraint: the final residue must still be
+    rational because it is a valuation after an integer scaling.
     """
 
     factor: Poly
@@ -164,16 +167,22 @@ class RationalParametricLogarithmicDerivativeResidue:
     eta_partial_numerator: Poly
     f_obstruction: tuple[FieldElement, ...]
     eta_obstruction: tuple[FieldElement, ...]
+    f_residue: FieldElement | None = None
+    eta_residue: FieldElement | None = None
+    rationality_constraints: tuple[
+        tuple[FieldElement, FieldElement], ...
+    ] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class RationalParametricLogarithmicDerivativeCertificate:
-    r"""Exact linear certificate for the complete ``QQ(x)`` fallback.
+    r"""Exact linear certificate for the complete rational-base fallback.
 
     Every pair ``(a, b)`` in ``linear_constraints`` represents the equation
     ``a = c*b`` for ``c = m/n``.  The first pair compares the constant
     polynomial parts; subsequent pairs compare non-logarithmic residue
-    coordinates.  An inconsistent system proves that no solution exists.
+    coordinates and, over ``QQ_I``, enforce that the surviving residue is
+    rational.  An inconsistent system proves that no solution exists.
     Otherwise ``candidate_ratio`` is the chosen ``c`` and
     ``logarithmic_result`` certifies the final radical logarithmic derivative.
     """
@@ -628,21 +637,30 @@ class HyperexponentialDependency:
 
 
 def _standard_rational_variable(derivation: Derivation) -> Symbol:
-    """Return ``x`` for the standard derivation on ``QQ(x)``."""
+    """Return ``x`` for the standard derivation on ``QQ(x)`` or ``QQ_I(x)``.
+
+    The integer parameters in a parametric logarithmic derivative are still
+    rational when the constants have been enlarged by ``i``.  Supporting the
+    Gaussian rational base is therefore a genuine extension of the same
+    decision problem, not a relaxation to arbitrary complex parameters.
+    """
     if derivation.level != 0:
         raise NotImplementedError(
-            "rational-base dependency analysis currently requires QQ(x)"
+            "rational-base dependency analysis currently requires QQ(x) "
+            "or QQ_I(x)"
         )
+    constants = derivation.tower.constants
     extension = derivation.tower.levels[0]
     if (
         not isinstance(extension, MonomialExtension)
-        or extension.parent_field != QQ
+        or constants not in {QQ, QQ_I}
+        or extension.parent_field != constants
         or extension.generator_derivative
-        != Poly(1, extension.generator, domain=QQ)
+        != Poly(1, extension.generator, domain=constants)
     ):
         raise NotImplementedError(
-            "rational-base dependency analysis currently requires "
-            "QQ(x) with Dx = 1"
+            "rational-base dependency analysis currently requires QQ(x) "
+            "with Dx = 1 or QQ_I(x) with Dx = 1"
         )
     return extension.generator
 
@@ -657,17 +675,18 @@ def _minimal_logarithmic_power(
 def _rational_polynomial_parts(
     element: FracElement,
     variable: Symbol,
+    domain: Domain,
 ) -> tuple[Poly, Poly, Poly]:
-    """Return ``p, a, d`` with ``element = p + a/d`` in ``QQ(x)``."""
+    """Return ``p, a, d`` with ``element = p + a/d`` over ``domain(x)``."""
     numerator = Poly.from_dict(
         element.numer.to_dict(),
         variable,
-        domain=QQ,
+        domain=domain,
     )
     denominator = Poly.from_dict(
         element.denom.to_dict(),
         variable,
-        domain=QQ,
+        domain=domain,
     )
     polynomial_part, proper_numerator = numerator.div(denominator)
     return polynomial_part, proper_numerator, denominator
@@ -677,48 +696,37 @@ def _rational_coefficient_ratio(
     left: Poly,
     right: Poly,
     degrees: range,
+    constant_field: Domain,
 ) -> tuple[bool, FieldElement | None]:
     r"""Solve ``coefficient(left, x**i) = c*coefficient(right, x**i)``.
 
     The boolean distinguishes an inconsistent system from a consistent one.
     A ``None`` ratio means that every compared coefficient vanishes, so the
-    system is consistent but does not determine ``c``.
+    system is consistent but does not determine ``c``.  Although the
+    coefficients may live in ``QQ_I``, the parameter ``c=m/n`` is required
+    to belong to ``QQ``.
     """
     constraints = tuple(
         (
-            QQ.convert(left.nth(degree)),
-            QQ.convert(right.nth(degree)),
+            constant_field.convert(left.nth(degree)),
+            constant_field.convert(right.nth(degree)),
         )
         for degree in degrees
     )
-    return _rational_linear_ratio(constraints)
+    return _constant_field_linear_ratio(constraints, constant_field)
 
 
 def _rational_linear_ratio(
     constraints: tuple[tuple[FieldElement, FieldElement], ...],
+    constant_field: Domain,
 ) -> tuple[bool, FieldElement | None]:
-    r"""Solve the exact scalar system ``left = c*right`` over ``QQ``.
+    r"""Solve the exact scalar system ``left = c*right`` with ``c`` in ``QQ``.
 
     ``(True, None)`` means that every equation is ``0 = c*0``, so the ratio
     remains free.  ``(False, None)`` means that no rational ratio satisfies
     all constraints.
     """
-    ratio = None
-    for left, right in constraints:
-        left_coefficient = QQ.convert(left)
-        right_coefficient = QQ.convert(right)
-        if right_coefficient == QQ.zero:
-            if left_coefficient != QQ.zero:
-                return False, None
-            continue
-
-        current = left_coefficient/right_coefficient
-        if ratio is None:
-            ratio = current
-        elif current != ratio:
-            return False, None
-
-    return True, ratio
+    return _constant_field_linear_ratio(constraints, constant_field)
 
 
 def solve_parametric_logarithmic_derivative_heuristic(
@@ -726,7 +734,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
-    r"""Run Bronstein's Section 7.3 heuristic over ``QQ(x)``.
+    r"""Run Bronstein's Section 7.3 heuristic over ``QQ(x)`` or ``QQ_I(x)``.
 
     Given ``Dtheta/theta = eta``, seek integers ``n != 0`` and ``m`` and a
     nonzero ``v`` in ``QQ(x)`` such that
@@ -748,6 +756,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
         lower_derivation,
     )
     field = lower_derivation.field
+    constant_field = lower_derivation.tower.constants
     element = _coerce(field, f)
 
     try:
@@ -764,10 +773,12 @@ def solve_parametric_logarithmic_derivative_heuristic(
     p, a, d = _rational_polynomial_parts(
         cast(FracElement, element),
         variable,
+        constant_field,
     )
     q, b, e = _rational_polynomial_parts(
         cast(FracElement, eta),
         variable,
+        constant_field,
     )
     degree_bound = 0  # Dx = 1, so max(0, degree(Dx) - 1) = 0.
 
@@ -805,6 +816,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
             p,
             q,
             range(degree_bound + 1, int(top_degree) + 1),
+            constant_field,
         )
         if not consistent:
             obstruction = certificate(
@@ -871,6 +883,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
             scaled_f,
             scaled_eta,
             range(modulus.degree()),
+            constant_field,
         )
         if not consistent:
             obstruction = certificate(
@@ -907,9 +920,10 @@ def solve_parametric_logarithmic_derivative_heuristic(
     m = int(QQ.numer(candidate_ratio))
     n = int(QQ.denom(candidate_ratio))
     residual = n*element - m*eta
-    logarithmic_result = solve_rational_logarithmic_derivative(
+    logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
         field.to_sympy(residual),
         variable,
+        constant_field,
     )
     logarithmic_power = _minimal_logarithmic_power(logarithmic_result)
     if logarithmic_power is None:
@@ -928,9 +942,10 @@ def solve_parametric_logarithmic_derivative_heuristic(
         )
 
     if logarithmic_power > 1:
-        logarithmic_result = solve_rational_logarithmic_derivative(
+        logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
             logarithmic_power*field.to_sympy(residual),
             variable,
+            constant_field,
         )
         if not logarithmic_result.has_solution:
             raise ValueError(
@@ -956,9 +971,33 @@ def solve_parametric_logarithmic_derivative_heuristic(
     )
 
 
+def _rational_residue_coefficient(
+    partial_numerator: Poly,
+    factor: Poly,
+    constant_field: Domain,
+) -> FieldElement:
+    r"""Return the ``factor.diff()`` coefficient at the leading pivot."""
+    factor_degree = factor.degree()
+    if factor_degree <= 0:
+        raise ValueError("a residue factor must be nonconstant")
+
+    derivative = factor.diff()
+    pivot_degree = factor_degree - 1
+    pivot = constant_field.convert(derivative.nth(pivot_degree))
+    if pivot == constant_field.zero:
+        raise ValueError(
+            "characteristic-zero factor derivative lost its leading term"
+        )
+    return cast(
+        FieldElement,
+        constant_field.convert(partial_numerator.nth(pivot_degree))/pivot
+    )
+
+
 def _rational_residue_obstruction(
     partial_numerator: Poly,
     factor: Poly,
+    constant_field: Domain,
 ) -> tuple[FieldElement, ...]:
     r"""Project a local numerator modulo the span of ``factor.diff()``."""
     factor_degree = factor.degree()
@@ -967,23 +1006,48 @@ def _rational_residue_obstruction(
 
     derivative = factor.diff()
     pivot_degree = factor_degree - 1
-    pivot = QQ.convert(derivative.nth(pivot_degree))
-    if pivot == QQ.zero:
-        raise ValueError(
-            "characteristic-zero factor derivative lost its leading term"
-        )
-    multiple = QQ.convert(partial_numerator.nth(pivot_degree))/pivot
+    multiple = _rational_residue_coefficient(
+        partial_numerator,
+        factor,
+        constant_field,
+    )
     return tuple(
-        QQ.convert(partial_numerator.nth(degree))
-        - multiple*QQ.convert(derivative.nth(degree))
+        constant_field.convert(partial_numerator.nth(degree))
+        - multiple*constant_field.convert(derivative.nth(degree))
         for degree in range(pivot_degree)
     )
+
+
+def _rational_residue_rationality_constraints(
+    f_residue: FieldElement,
+    eta_residue: FieldElement,
+    constant_field: Domain,
+) -> tuple[tuple[FieldElement, FieldElement], ...]:
+    r"""Constrain ``f_residue-c*eta_residue`` to lie in ``QQ``.
+
+    A local logarithmic-derivative coefficient is a valuation after a
+    positive integer scaling, hence it must be rational even after the base
+    constants are enlarged to ``QQ_I``.  The ordinary projection only says
+    that the coefficient lies in the Gaussian field; its imaginary coordinate
+    gives the missing linear equation for the rational parameter ``c=m/n``.
+    """
+    if constant_field == QQ:
+        return ()
+    if constant_field != QQ_I:
+        raise ValueError(
+            "rational residue constraints require QQ or QQ_I constants"
+        )
+    _, f_imaginary = constant_field.to_sympy(f_residue).as_real_imag()
+    _, eta_imaginary = constant_field.to_sympy(
+        eta_residue,
+    ).as_real_imag()
+    return ((QQ.from_sympy(f_imaginary), QQ.from_sympy(eta_imaginary)),)
 
 
 def _solve_rational_parametric_logarithmic_derivative_fallback(
     heuristic_result: ParametricLogarithmicDerivativeResult,
 ) -> ParametricLogarithmicDerivativeResult:
-    r"""Complete an inconclusive Section 7.3 result over ``QQ(x)``.
+    r"""Complete an inconclusive Section 7.3 result over a rational base.
 
     At the heuristic's ``failed`` exit, both polynomial parts have degree at
     most zero and the common denominator is square-free.  For
@@ -995,7 +1059,9 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
       rational multiple of the factor derivative.
 
     Removing each factor-derivative direction leaves an exact scalar linear
-    system over ``QQ`` for ``c``.
+    system for the rational parameter ``c``.  The coefficient field may be
+    ``QQ_I``; a non-rational Gaussian quotient is an inconsistency, never a
+    candidate parameter.
     """
     if not heuristic_result.is_inconclusive:
         raise ValueError(
@@ -1013,6 +1079,7 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
     extension = heuristic_result.extension
     lower_derivation = heuristic_result.lower_derivation
     field = lower_derivation.field
+    constant_field = lower_derivation.tower.constants
     variable = heuristic_certificate.variable
     eta = heuristic_result.eta
 
@@ -1040,8 +1107,8 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
     common_eta_numerator = common_denominator.exquo(e)*b
     constraints: list[tuple[FieldElement, FieldElement]] = [
         (
-            QQ.convert(p.nth(0)),
-            QQ.convert(q.nth(0)),
+            constant_field.convert(p.nth(0)),
+            constant_field.convert(q.nth(0)),
         )
     ]
     residue_certificates: list[
@@ -1057,15 +1124,33 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
         eta_partial_numerator = (
             common_eta_numerator*inverse_cofactor
         ).rem(factor)
+        f_residue = _rational_residue_coefficient(
+            f_partial_numerator,
+            factor,
+            constant_field,
+        )
+        eta_residue = _rational_residue_coefficient(
+            eta_partial_numerator,
+            factor,
+            constant_field,
+        )
         f_obstruction = _rational_residue_obstruction(
             f_partial_numerator,
             factor,
+            constant_field,
         )
         eta_obstruction = _rational_residue_obstruction(
             eta_partial_numerator,
             factor,
+            constant_field,
         )
         constraints.extend(zip(f_obstruction, eta_obstruction, strict=True))
+        rationality_constraints = _rational_residue_rationality_constraints(
+            f_residue,
+            eta_residue,
+            constant_field,
+        )
+        constraints.extend(rationality_constraints)
         residue_certificates.append(
             RationalParametricLogarithmicDerivativeResidue(
                 factor,
@@ -1073,12 +1158,18 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
                 eta_partial_numerator,
                 f_obstruction,
                 eta_obstruction,
+                f_residue,
+                eta_residue,
+                rationality_constraints,
             )
         )
 
     linear_constraints = tuple(constraints)
     residues = tuple(residue_certificates)
-    consistent, candidate_ratio = _rational_linear_ratio(linear_constraints)
+    consistent, candidate_ratio = _rational_linear_ratio(
+        linear_constraints,
+        constant_field,
+    )
     if not consistent:
         certificate = RationalParametricLogarithmicDerivativeCertificate(
             heuristic_result,
@@ -1106,9 +1197,10 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
     m = int(QQ.numer(candidate_ratio))
     n = int(QQ.denom(candidate_ratio))
     residual = n*heuristic_result.f - m*eta
-    logarithmic_result = solve_rational_logarithmic_derivative(
+    logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
         field.to_sympy(residual),
         variable,
+        constant_field,
     )
     logarithmic_power = _minimal_logarithmic_power(logarithmic_result)
     if logarithmic_power is None:
@@ -1116,9 +1208,10 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
             "rational structure constraints produced a nonlogarithmic residual"
         )
     if logarithmic_power > 1:
-        logarithmic_result = solve_rational_logarithmic_derivative(
+        logarithmic_result = _solve_rational_logarithmic_derivative_over_domain(
             logarithmic_power*field.to_sympy(residual),
             variable,
+            constant_field,
         )
         if not logarithmic_result.has_solution:
             raise ValueError(
@@ -1555,8 +1648,10 @@ def solve_parametric_logarithmic_derivative(
 ) -> ParametricLogarithmicDerivativeResult:
     r"""Decide the parametric logarithmic derivative in supported fields.
 
-    Over ``QQ(x)``, the Section 7.3 coefficient heuristic is the fast path and
-    a complete rational structure fallback handles its inconclusive exit.
+    Over ``QQ(x)`` or ``QQ_I(x)``, the Section 7.3 coefficient heuristic is
+    the fast path and a complete rational structure fallback handles its
+    inconclusive exit.  In the Gaussian case the integer ratio ``m/n`` and
+    all radical-logarithmic residues remain rational.
 
     Over a recursive primitive tower, the solver compares positive-degree
     polynomial coordinates, repeated principal parts, and simple residues

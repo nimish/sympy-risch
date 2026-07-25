@@ -373,7 +373,7 @@ def test_generic_dispatch_uses_direct_hyperexponential_recurrence() -> None:
     )
 
 
-def test_non_laurent_hyperexponential_case_reports_missing_lower_decision() -> None:
+def test_non_laurent_hyperexponential_case_uses_gaussian_base_decision() -> None:
     tower = hyperexponential_tower()
     field = tower.field()
     derivation = tower.derivation()
@@ -383,16 +383,16 @@ def test_non_laurent_hyperexponential_case_reports_missing_lower_decision() -> N
     real_rhs = derivation(planted_real) - rotation*planted_imaginary
     imaginary_rhs = derivation(planted_imaginary) + rotation*planted_real
 
-    with pytest.raises(
-        NotImplementedError,
-        match="parametric logarithmic-derivative decision",
-    ):
-        solve_coupled_risch_differential_equation(
-            rotation,
-            real_rhs,
-            imaginary_rhs,
-            derivation,
-        )
+    result = solve_coupled_risch_differential_equation(
+        rotation,
+        real_rhs,
+        imaginary_rhs,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.reconstructs
+    assert result.scalar_result is not None
 
 
 def test_generic_dispatch_uses_direct_hypertangent_polynomial_solver() -> None:
