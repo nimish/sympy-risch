@@ -15,7 +15,6 @@ from sympy_risch import (
     SpecialPolynomialStatus,
 )
 
-
 x, t, u = symbols("x t u")
 
 

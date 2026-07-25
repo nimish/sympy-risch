@@ -18,7 +18,6 @@ from sympy_risch import (
     solve_primitive_exact_derivative,
 )
 
-
 x, t, y = symbols("x t y")
 
 

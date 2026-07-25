@@ -5,16 +5,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from math import lcm
-from typing import Any
+from typing import cast
 
+from sympy.core.expr import Expr
 from sympy.core.numbers import I
+from sympy.core.singleton import S
 from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains.domain import Domain
 from sympy.polys.polyerrors import CoercionFailed
-from sympy.polys.polytools import Poly
-from sympy.polys.polytools import cancel, invert, resultant
+from sympy.polys.polytools import Poly, cancel, invert, resultant
 from sympy.simplify.radsimp import fraction
 
+from ._typing import FieldElement
 from .dependency import (
     analyze_hyperexponential_extension,
     analyze_hypertangent_extension,
@@ -88,8 +91,8 @@ class BronsteinResidueReduction:
 
     certificate: BronsteinResidueCertificate
     logarithmic_parts: tuple[tuple[Poly, Poly], ...]
-    logarithmic_derivative: Any
-    remainder: Any
+    logarithmic_derivative: FieldElement
+    remainder: FieldElement
 
     @property
     def all_normal_residues_removed(self) -> bool:
@@ -113,13 +116,13 @@ class ReducedFunctionReduction:
     polynomial_part: Poly
     special_numerator: Poly
     special_denominator: Poly
-    infinity_coefficient: Any
-    infinity_residue: Any
-    infinity_residue_derivative: Any
-    logarithmic_coefficient: Any | None
+    infinity_coefficient: FieldElement
+    infinity_residue: FieldElement
+    infinity_residue_derivative: FieldElement
+    logarithmic_coefficient: FieldElement | None
     logarithmic_argument: Poly | None
-    logarithmic_derivative: Any
-    remainder: Any
+    logarithmic_derivative: FieldElement
+    remainder: FieldElement
 
     @property
     def has_infinity_obstruction(self) -> bool:
@@ -150,14 +153,14 @@ class NonlinearMonomialReduction:
     later step.
     """
 
-    hermite_exact_part: Any
+    hermite_exact_part: FieldElement
     residue_reduction: BronsteinResidueReduction
     polynomial_exact_part: Poly
     polynomial_remainder: Poly
     reduced_function_reduction: ReducedFunctionReduction | None
-    exact_part: Any
-    logarithmic_derivative: Any
-    remainder: Any
+    exact_part: FieldElement
+    logarithmic_derivative: FieldElement
+    remainder: FieldElement
 
     @property
     def has_finite_residue_obstruction(self) -> bool:
@@ -210,7 +213,7 @@ class NonlinearNoSpecialReduction:
 
     common_reduction: NonlinearMonomialReduction
     status: NonlinearNoSpecialStatus
-    lower_remainder: Any | None = None
+    lower_remainder: FieldElement | None = None
 
     @property
     def reduced_to_lower_field(self) -> bool:
@@ -235,10 +238,10 @@ class PrimitivePolynomialStep:
     """
 
     degree: int
-    coefficient: Any
-    exact_coefficient: Any
-    eta_multiple: Any
-    obstruction: Any
+    coefficient: FieldElement
+    exact_coefficient: FieldElement
+    eta_multiple: FieldElement
+    obstruction: FieldElement
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,13 +271,13 @@ class PrimitiveMonomialReduction:
     element of the parent field for recursive integration.
     """
 
-    hermite_exact_part: Any
+    hermite_exact_part: FieldElement
     residue_reduction: BronsteinResidueReduction
     polynomial_reduction: PrimitivePolynomialReduction
-    exact_part: Any
-    logarithmic_derivative: Any
-    remainder: Any
-    lower_remainder: Any | None
+    exact_part: FieldElement
+    logarithmic_derivative: FieldElement
+    remainder: FieldElement
+    lower_remainder: FieldElement | None
 
     @property
     def has_finite_residue_obstruction(self) -> bool:
@@ -313,12 +316,12 @@ class PrimitiveExactDerivativeResult:
     ``obstruction`` because their antiderivatives do not belong to ``K(t)``.
     """
 
-    hermite_exact_part: Any
+    hermite_exact_part: FieldElement
     polynomial_reduction: PrimitivePolynomialReduction
-    exact_part: Any
+    exact_part: FieldElement
     proper_numerator: Poly
     proper_denominator: Poly
-    obstruction: Any
+    obstruction: FieldElement
 
     @property
     def has_proper_fraction_obstruction(self) -> bool:
@@ -339,7 +342,7 @@ class PrimitiveExactDerivativeResult:
         )
 
     @property
-    def antiderivative(self) -> Any | None:
+    def antiderivative(self) -> FieldElement | None:
         """Return the in-field antiderivative, or ``None`` if none exists."""
         return self.exact_part if self.has_solution else None
 
@@ -358,7 +361,7 @@ class PrimitiveLogarithmicDerivativeFactor:
     multiplicity: int
     principal_numerators: tuple[Poly, ...]
     factor_derivative: Poly
-    logarithmic_multiplicity: Any | None
+    logarithmic_multiplicity: FieldElement | None
 
     @property
     def has_repeated_pole_obstruction(self) -> bool:
@@ -384,9 +387,9 @@ class RadicalLogarithmicDerivativeResult:
     """
 
     derivation: Derivation
-    integrand: Any
+    integrand: FieldElement
     minimal_power: int | None
-    argument: Any | None
+    argument: FieldElement | None
     certificate: (
         RationalLogDerivativeResult
         | PrimitiveLogarithmicDerivativeSignature
@@ -435,12 +438,12 @@ class PrimitiveLogarithmicDerivativeSignature:
     """
 
     derivation: Derivation
-    integrand: Any
+    integrand: FieldElement
     polynomial_part: Poly
     lower_logarithmic_result: RadicalLogarithmicDerivativeResult
     factors: tuple[PrimitiveLogarithmicDerivativeFactor, ...]
     minimal_power: int | None
-    relation_argument: Any | None
+    relation_argument: FieldElement | None
 
     @property
     def has_positive_degree_polynomial_obstruction(self) -> bool:
@@ -523,8 +526,8 @@ class HyperexponentialLaurentStep:
     """
 
     power: int
-    coefficient: Any
-    exact_coefficient: Any | None
+    coefficient: FieldElement
+    exact_coefficient: FieldElement | None
     rde_result: RischDifferentialEquationResult
 
     @property
@@ -546,9 +549,9 @@ class HyperexponentialLaurentReduction:
     :class:`HyperexponentialLaurentStep`.
     """
 
-    exact_part: Any
-    remainder: Any
-    lower_remainder: Any
+    exact_part: FieldElement
+    remainder: FieldElement
+    lower_remainder: FieldElement
     steps: tuple[HyperexponentialLaurentStep, ...]
 
     @property
@@ -580,13 +583,13 @@ class HyperexponentialMonomialReduction:
     handled by :class:`HyperexponentialLaurentReduction`.
     """
 
-    hermite_exact_part: Any
+    hermite_exact_part: FieldElement
     residue_reduction: BronsteinResidueReduction
     laurent_reduction: HyperexponentialLaurentReduction | None
-    exact_part: Any
-    logarithmic_derivative: Any
-    remainder: Any
-    lower_remainder: Any | None
+    exact_part: FieldElement
+    logarithmic_derivative: FieldElement
+    remainder: FieldElement
+    lower_remainder: FieldElement | None
 
     @property
     def has_finite_residue_obstruction(self) -> bool:
@@ -620,10 +623,10 @@ class HypertangentCayleyStep:
     r"""One positive Cayley mode and its real coupled RDE certificate."""
 
     power: int
-    real_coefficient: Any
-    imaginary_coefficient: Any
-    exact_real_coefficient: Any | None
-    exact_imaginary_coefficient: Any | None
+    real_coefficient: FieldElement
+    imaginary_coefficient: FieldElement
+    exact_real_coefficient: FieldElement | None
+    exact_imaginary_coefficient: FieldElement | None
     rde_result: CoupledRationalRDEResult
 
     @property
@@ -636,9 +639,9 @@ class HypertangentCayleyStep:
 class HypertangentSpecialReduction:
     r"""Real paired-mode reduction at the special place ``1 + t**2``."""
 
-    exact_part: Any
-    remainder: Any
-    lower_remainder: Any
+    exact_part: FieldElement
+    remainder: FieldElement
+    lower_remainder: FieldElement
     steps: tuple[HypertangentCayleyStep, ...]
 
     @property
@@ -663,10 +666,10 @@ class HypertangentMonomialReduction:
 
     common_reduction: NonlinearMonomialReduction
     special_reduction: HypertangentSpecialReduction | None
-    exact_part: Any
-    logarithmic_derivative: Any
-    remainder: Any
-    lower_remainder: Any | None
+    exact_part: FieldElement
+    logarithmic_derivative: FieldElement
+    remainder: FieldElement
+    lower_remainder: FieldElement | None
 
     @property
     def has_common_obstruction(self) -> bool:
@@ -698,7 +701,7 @@ class _RationalObstructionPivot:
 
     factor: Poly
     degree: int
-    value: Any
+    value: FieldElement
 
 
 @dataclass(frozen=True, slots=True)
@@ -706,7 +709,7 @@ class _PrimitiveObstructionPivot:
     """An iterated Laurent coordinate on a primitive exact remainder."""
 
     exponents: tuple[int, ...]
-    value: Any
+    value: FieldElement
 
 
 def split_normal_special(
@@ -829,7 +832,7 @@ def _standard_rational_base_variable(derivation: Derivation) -> Symbol:
 
 
 def _qq_reduced_fraction(
-    expression: Any,
+    expression: object,
     variable: Symbol,
 ) -> tuple[Poly, Poly]:
     """Return a fraction over ``QQ`` with a monic denominator."""
@@ -845,13 +848,14 @@ def _qq_reduced_fraction(
 
 
 def _partial_numerator(
-    obstruction: Any,
+    obstruction: FieldElement,
     factor: Poly,
+    field: Domain,
     variable: Symbol,
 ) -> Poly:
     r"""Return the numerator of the ``1/factor`` partial-fraction component."""
     numerator, denominator = _qq_reduced_fraction(
-        obstruction.as_expr(),
+        field.to_sympy(obstruction),
         variable,
     )
     if not denominator.rem(factor).is_zero:
@@ -861,12 +865,13 @@ def _partial_numerator(
 
 
 def _rational_obstruction_pivot(
-    eta_obstruction: Any,
+    eta_obstruction: FieldElement,
+    field: Domain,
     variable: Symbol,
 ) -> _RationalObstructionPivot:
     """Choose a deterministic nonzero coordinate of the class of ``eta``."""
     _, denominator = _qq_reduced_fraction(
-        eta_obstruction.as_expr(),
+        field.to_sympy(eta_obstruction),
         variable,
     )
     factors = denominator.factor_list()[1]
@@ -876,6 +881,7 @@ def _rational_obstruction_pivot(
     partial_numerator = _partial_numerator(
         eta_obstruction,
         factor,
+        field,
         variable,
     )
     (degree,), value = partial_numerator.terms()[0]
@@ -887,16 +893,16 @@ def _rational_obstruction_pivot(
 
 
 def _rational_coefficient_reduction(
-    coefficient: Any,
-    eta_exact_part: Any,
-    eta_obstruction: Any,
+    coefficient: FieldElement,
+    eta_exact_part: FieldElement,
+    eta_obstruction: FieldElement,
     pivot: _RationalObstructionPivot,
-    parent: Any,
+    parent: Domain,
     variable: Symbol,
-) -> tuple[Any, Any, Any]:
+) -> tuple[FieldElement, FieldElement, FieldElement]:
     r"""Return ``b, c, r`` such that ``a = Db + c*eta + r``."""
     result = solve_rational_exact_derivative(
-        coefficient.as_expr(),
+        parent.to_sympy(coefficient),
         variable,
     )
     coefficient_exact_part = _coerce(parent, result.exact_part)
@@ -908,6 +914,7 @@ def _rational_coefficient_reduction(
         coordinate = _partial_numerator(
             coefficient_obstruction,
             pivot.factor,
+            parent,
             variable,
         ).nth(pivot.degree)
         eta_multiple = QQ.exquo(
@@ -927,10 +934,10 @@ def _rational_coefficient_reduction(
 
 
 def _laurent_coefficient_at_infinity(
-    element: Any,
+    element: object,
     extension: MonomialExtension,
     exponent: int,
-) -> Any:
+) -> FieldElement:
     r"""Return the coefficient of ``t**exponent`` at the place at infinity.
 
     For ``f = N(t)/Q(t)``, substitute ``t = 1/z`` and divide the reversed
@@ -954,7 +961,7 @@ def _laurent_coefficient_at_infinity(
         return parent.zero
 
     target_order = leading_exponent - exponent
-    quotient_coefficients: list[Any] = []
+    quotient_coefficients: list[FieldElement] = []
     denominator_leading = parent.convert(denominator.LC())
     for order in range(target_order + 1):
         numerator_index = numerator_degree - order
@@ -982,7 +989,7 @@ def _laurent_coefficient_at_infinity(
 
 
 def _primitive_obstruction_pivot(
-    eta_obstruction: Any,
+    eta_obstruction: FieldElement,
     derivation: Derivation,
 ) -> _PrimitiveObstructionPivot:
     r"""Choose a deterministic nonzero constant coordinate of ``[eta]``.
@@ -1030,10 +1037,10 @@ def _primitive_obstruction_pivot(
 
 
 def _primitive_obstruction_coordinate(
-    obstruction: Any,
+    obstruction: FieldElement,
     derivation: Derivation,
     pivot: _PrimitiveObstructionPivot,
-) -> Any:
+) -> FieldElement:
     """Apply a fixed iterated Laurent coordinate to an obstruction."""
     coefficient = obstruction
     current = derivation
@@ -1057,14 +1064,14 @@ def _primitive_obstruction_coordinate(
 
 
 def _recursive_coefficient_reduction(
-    coefficient: Any,
-    eta: Any,
-    eta_exact_part: Any,
-    eta_obstruction: Any,
+    coefficient: FieldElement,
+    eta: FieldElement,
+    eta_exact_part: FieldElement,
+    eta_obstruction: FieldElement,
     pivot: _PrimitiveObstructionPivot,
-    parent: Any,
+    parent: Domain,
     lower_derivation: Derivation,
-) -> tuple[Any, Any, Any]:
+) -> tuple[FieldElement, FieldElement, FieldElement]:
     r"""Return ``b, c, r`` with ``a = Db + c*eta + r`` over a lower tower.
 
     The recursive exact-derivative solver supplies representatives of the
@@ -1189,7 +1196,7 @@ def polynomial_reduce_primitive(
     eta_exact_part = _coerce(parent, eta_result.exact_part)
     eta_obstruction = _coerce(parent, eta_result.obstruction)
     pivot = (
-        _rational_obstruction_pivot(eta_obstruction, variable)
+        _rational_obstruction_pivot(eta_obstruction, parent, variable)
         if variable is not None
         else _primitive_obstruction_pivot(
             eta_obstruction,
@@ -1281,10 +1288,12 @@ def polynomial_reduce_primitive(
 
 
 def _reduced_polynomial_fraction(
-    element: Any,
+    element: FieldElement,
     extension: MonomialExtension,
 ) -> tuple[Poly, Poly]:
-    numerator_expression, denominator_expression = fraction(element.as_expr())
+    numerator_expression, denominator_expression = fraction(
+        extension.field.to_sympy(element)
+    )
     numerator = Poly(
         numerator_expression,
         extension.generator,
@@ -1300,7 +1309,7 @@ def _reduced_polynomial_fraction(
 
 
 def _polynomial_and_proper_fraction(
-    element: Any,
+    element: FieldElement,
     extension: MonomialExtension,
 ) -> tuple[Poly, Poly, Poly]:
     """Return the polynomial part and a proper fraction over a monic denominator."""
@@ -1317,7 +1326,7 @@ def _polynomial_and_proper_fraction(
 
 
 def _normal_fraction_part(
-    element: Any,
+    element: FieldElement,
     extension: MonomialExtension,
     derivation: Derivation,
 ) -> tuple[Poly, Poly]:
@@ -1371,13 +1380,13 @@ def _differentiate_logand(
     logand: Poly,
     derivation: Derivation,
     residue: Symbol,
-) -> Any:
+) -> Expr:
     r"""Differentiate an LRT logand while treating its residue as constant."""
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("logand differentiation requires a monomial level")
 
-    expression = 0
+    expression: Expr = S.Zero
     for (power,), coefficient in logand.terms():
         coefficient_expression = logand.domain.to_sympy(coefficient)
         coefficient_polynomial = Poly(
@@ -1405,7 +1414,7 @@ def _logarithmic_part_derivative(
     residue_factor: Poly,
     derivation: Derivation,
     residue: Symbol,
-) -> Any:
+) -> FieldElement:
     r"""Return ``sum(alpha * D(log(s(alpha))))`` by a quotient-ring trace."""
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
@@ -1446,7 +1455,7 @@ def _logarithmic_part_derivative(
 
 
 def bronstein_residue_criterion(
-    remainder: Any,
+    remainder: object,
     derivation: Derivation,
     residue: Symbol | None = None,
 ) -> BronsteinResidueCertificate:
@@ -1551,7 +1560,7 @@ def bronstein_residue_criterion(
 
 
 def residue_reduce_monomial(
-    remainder: Any,
+    remainder: object,
     derivation: Derivation,
     residue: Symbol | None = None,
 ) -> BronsteinResidueReduction:
@@ -1577,7 +1586,7 @@ def residue_reduce_monomial(
 
     element = _coerce(extension.field, remainder)
     certificate = bronstein_residue_criterion(element, derivation, residue)
-    residue = certificate.residue_polynomial.gens[0]
+    residue = cast(Symbol, certificate.residue_polynomial.gens[0])
     selected_factors = tuple(
         (factor.constant_factor, factor.multiplicity)
         for factor in certificate.factors
@@ -1620,7 +1629,7 @@ def residue_reduce_monomial(
 
 
 def reduce_monomial_reduced_function(
-    remainder: Any,
+    remainder: object,
     derivation: Derivation,
     special_polynomial: Poly | None = None,
 ) -> ReducedFunctionReduction:
@@ -1701,10 +1710,10 @@ def reduce_monomial_reduced_function(
 
     def result(
         *,
-        logarithmic_coefficient: Any | None = None,
+        logarithmic_coefficient: FieldElement | None = None,
         logarithmic_argument: Poly | None = None,
-        logarithmic_derivative: Any = field.zero,
-        reduced_remainder: Any = element,
+        logarithmic_derivative: FieldElement = field.zero,
+        reduced_remainder: FieldElement = element,
     ) -> ReducedFunctionReduction:
         return ReducedFunctionReduction(
             polynomial,
@@ -1779,7 +1788,7 @@ def reduce_monomial_reduced_function(
 
 
 def reduce_nonlinear_monomial(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     *,
     residue: Symbol | None = None,
@@ -1867,7 +1876,7 @@ def reduce_nonlinear_monomial(
 
 
 def reduce_primitive_monomial(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     *,
     residue: Symbol | None = None,
@@ -1970,7 +1979,7 @@ def _qq_constant_polynomial_multiple(
     numerator: Poly,
     direction: Poly,
     lower_derivation: Derivation,
-) -> Any | None:
+) -> FieldElement | None:
     r"""Return ``c in QQ`` when ``numerator = c*direction``.
 
     The quotient first has to be a differential constant in the lower field.
@@ -2022,7 +2031,7 @@ def _factor_principal_numerators(
 
 
 def primitive_logarithmic_derivative_signature(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
 ) -> PrimitiveLogarithmicDerivativeSignature:
     r"""Compute a radical-logarithmic signature at a primitive tower level.
@@ -2185,7 +2194,7 @@ def primitive_logarithmic_derivative_signature(
 
 
 def solve_radical_logarithmic_derivative(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
 ) -> RadicalLogarithmicDerivativeResult:
     r"""Decide ``n*f = D(v)/v`` recursively in a primitive tower.
@@ -2257,7 +2266,7 @@ def solve_radical_logarithmic_derivative(
 
 
 def solve_primitive_exact_derivative(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
 ) -> PrimitiveExactDerivativeResult:
     r"""Decide the exact-derivative problem in a primitive field ``K(t)``.
@@ -2338,7 +2347,7 @@ def solve_primitive_exact_derivative(
 
 def _validate_hyperexponential_reduction(
     derivation: Derivation,
-) -> tuple[MonomialExtension, Derivation, Any]:
+) -> tuple[MonomialExtension, Derivation, FieldElement]:
     """Validate a supported transcendental hyperexponential extension."""
     if derivation.level < 1:
         raise TypeError(
@@ -2371,11 +2380,11 @@ def _validate_hyperexponential_reduction(
 
 
 def _reduce_hyperexponential_laurent_validated(
-    element: Any,
+    element: FieldElement,
     derivation: Derivation,
     extension: MonomialExtension,
     lower_derivation: Derivation,
-    eta: Any,
+    eta: FieldElement,
 ) -> HyperexponentialLaurentReduction:
     """Reduce a validated Laurent element without repeating dependency tests."""
     field = extension.field
@@ -2454,7 +2463,7 @@ def _reduce_hyperexponential_laurent_validated(
 
 
 def reduce_hyperexponential_laurent(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
 ) -> HyperexponentialLaurentReduction:
     r"""Reduce a Laurent polynomial in a hyperexponential generator.
@@ -2485,7 +2494,7 @@ def reduce_hyperexponential_laurent(
 
 
 def reduce_hyperexponential_monomial(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     *,
     residue: Symbol | None = None,
@@ -2550,7 +2559,7 @@ def reduce_hyperexponential_monomial(
 
 def _validate_hypertangent_reduction(
     derivation: Derivation,
-) -> tuple[MonomialExtension, Symbol, Any]:
+) -> tuple[MonomialExtension, Symbol, FieldElement]:
     """Validate ``Dt = eta*(1+t**2)`` with ``eta`` in ``QQ(x)``."""
     if derivation.level < 1:
         raise TypeError(
@@ -2584,17 +2593,20 @@ def _validate_hypertangent_reduction(
     return extension, variable, eta
 
 
-def _gaussian_conjugate(coefficient: Any, gaussian_field: Any) -> Any:
+def _gaussian_conjugate(
+    coefficient: FieldElement,
+    gaussian_field: Domain,
+) -> FieldElement:
     """Conjugate a member of ``QQ_I(x)`` while fixing the formal variable."""
     expression = gaussian_field.to_sympy(coefficient)
     return gaussian_field.from_sympy(expression.xreplace({I: -I}))
 
 
 def _hypertangent_cayley_coefficients(
-    element: Any,
+    element: FieldElement,
     extension: MonomialExtension,
     variable: Symbol,
-) -> tuple[Any, dict[int, Any]]:
+) -> tuple[Domain, dict[int, FieldElement]]:
     r"""Return Laurent coefficients after ``u=(1+i*t)/(1-i*t)``.
 
     The special irreducible ``1+t**2`` becomes a monomial in ``u``.  Thus an
@@ -2607,7 +2619,7 @@ def _hypertangent_cayley_coefficients(
     gaussian_field = QQ_I.frac_field(variable)
     inverse_cayley = I*(1 - cayley_generator)/(1 + cayley_generator)
     transformed = cancel(
-        element.as_expr().subs(generator, inverse_cayley)
+        extension.field.to_sympy(element).subs(generator, inverse_cayley)
     )
     numerator_expression, denominator_expression = (
         transformed.as_numer_denom()
@@ -2646,11 +2658,11 @@ def _hypertangent_cayley_coefficients(
 
 
 def _reduce_hypertangent_special_validated(
-    element: Any,
+    element: FieldElement,
     derivation: Derivation,
     extension: MonomialExtension,
     variable: Symbol,
-    eta: Any,
+    eta: FieldElement,
 ) -> HypertangentSpecialReduction:
     """Reduce validated special modes without repeating tower checks."""
     field = extension.field
@@ -2767,11 +2779,13 @@ def _reduce_hypertangent_special_validated(
         raise ValueError(
             "hypertangent special reduction reconstruction failed"
         )
-    if not any(not step.has_solution for step in steps):
-        if remainder != _coerce(field, lower_remainder):
-            raise ValueError(
-                "solved hypertangent modes did not reduce to the lower field"
-            )
+    if (
+        not any(not step.has_solution for step in steps)
+        and remainder != _coerce(field, lower_remainder)
+    ):
+        raise ValueError(
+            "solved hypertangent modes did not reduce to the lower field"
+        )
     return HypertangentSpecialReduction(
         exact_part,
         remainder,
@@ -2781,7 +2795,7 @@ def _reduce_hypertangent_special_validated(
 
 
 def reduce_hypertangent_special(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
 ) -> HypertangentSpecialReduction:
     r"""Reduce the special part of a rational-coefficient tangent extension.
@@ -2813,7 +2827,7 @@ def reduce_hypertangent_special(
 
 
 def reduce_hypertangent_monomial(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     *,
     residue: Symbol | None = None,
@@ -2876,7 +2890,7 @@ def reduce_hypertangent_monomial(
 
 
 def reduce_nonlinear_no_special(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     *,
     residue: Symbol | None = None,
@@ -2977,9 +2991,9 @@ def _normal_denominator_excess(
 
 
 def hermite_reduce_monomial(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
-) -> tuple[Any, Any]:
+) -> tuple[FieldElement, FieldElement]:
     r"""Hermite-reduce the normal denominator in a monomial extension.
 
     Return ``(g, h)`` with ``integrand = D(g) + h`` and a square-free normal

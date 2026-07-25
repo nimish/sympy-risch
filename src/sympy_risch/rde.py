@@ -4,23 +4,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, cast
 
 from sympy.core.expr import Expr
 from sympy.core.numbers import I
 from sympy.core.singleton import S
 from sympy.core.symbol import Symbol
 from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.polytools import Poly, cancel, invert
 
+from ._typing import FieldElement
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
     solve_rational_logarithmic_derivative,
 )
 from .tower import Derivation, MonomialExtension, MonomialFamily, _coerce
+
+if TYPE_CHECKING:
+    from .exact import ExactDerivativeResult
+    from .monomial import RadicalLogarithmicDerivativeResult
 
 
 class PolynomialRDEObstruction(Enum):
@@ -206,9 +212,11 @@ class PrimitivePolynomialRischDifferentialEquationResult:
     obstruction: PrimitivePolynomialRDEObstruction | None
     partial_solution: Poly
     residual: Poly
-    lower_field_results: tuple[Any, ...] = ()
-    logarithmic_derivative_result: Any | None = None
-    exact_derivative_result: Any | None = None
+    lower_field_results: tuple[RischDifferentialEquationResult, ...] = ()
+    logarithmic_derivative_result: (
+        RadicalLogarithmicDerivativeResult | None
+    ) = None
+    exact_derivative_result: ExactDerivativeResult | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -251,13 +259,13 @@ class PrimitiveRischDifferentialEquationResult:
     cancellation cases.
     """
 
-    coefficient: Any
-    right_hand_side: Any
-    solution: Any | None
+    coefficient: FieldElement
+    right_hand_side: FieldElement
+    solution: FieldElement | None
     obstruction: PrimitiveRDEObstruction | None
     normalization_factor: Poly
-    normalized_coefficient: Any
-    normalized_right_hand_side: Any
+    normalized_coefficient: FieldElement
+    normalized_right_hand_side: FieldElement
     denominator_bound: Poly
     degree_bound: int | None = None
     polynomial_result: (
@@ -265,8 +273,10 @@ class PrimitiveRischDifferentialEquationResult:
     ) = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
-    logarithmic_derivative_result: Any | None = None
-    exact_derivative_result: Any | None = None
+    logarithmic_derivative_result: (
+        RadicalLogarithmicDerivativeResult | None
+    ) = None
+    exact_derivative_result: ExactDerivativeResult | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -302,11 +312,14 @@ class RischDifferentialEquationResult:
     """Level-independent RDE result over an explicitly supplied tower."""
 
     derivation: Derivation
-    coefficient: Any
-    right_hand_side: Any
-    solution: Any | None
-    obstruction: Any | None
-    certificate: Any
+    coefficient: FieldElement
+    right_hand_side: FieldElement
+    solution: FieldElement | None
+    obstruction: RationalRDEObstruction | PrimitiveRDEObstruction | None
+    certificate: (
+        RationalRischDifferentialEquationResult
+        | PrimitiveRischDifferentialEquationResult
+    )
 
     @property
     def has_solution(self) -> bool:
@@ -347,7 +360,7 @@ class BoundedPrimitiveRDEMatrixResult:
     lower_denominator: Poly
     lower_numerator_degree_bound: int
     top_degree_bound: int
-    solution: Any | None
+    solution: FieldElement | None
     coefficient_rank: int
     augmented_rank: int
     top_denominator: Poly | None = None
@@ -497,7 +510,7 @@ def _solve_trivial_polynomial_rde(
     b: Poly,
 ) -> PolynomialRischDifferentialEquationResult | None:
     """Handle the zero cases shared by both independent solvers."""
-    x = a.gens[0]
+    x = cast(Symbol, a.gens[0])
 
     if b.is_zero:
         zero = Poly(0, x, domain=QQ)
@@ -784,6 +797,21 @@ class _NormalDenominatorReduction:
     def succeeded(self) -> bool:
         return self.derivative_coefficient is not None
 
+    @property
+    def equation(self) -> tuple[Poly, Poly, Poly] | None:
+        """Return the transformed polynomial equation when reduction succeeds."""
+        if (
+            self.derivative_coefficient is None
+            or self.solution_coefficient is None
+            or self.right_hand_side is None
+        ):
+            return None
+        return (
+            self.derivative_coefficient,
+            self.solution_coefficient,
+            self.right_hand_side,
+        )
+
 
 def _reduce_normal_denominator(
     coefficient: Expr,
@@ -896,7 +924,7 @@ def _solve_special_polynomial_differential_equation(
     degree_bound: int,
 ) -> _SPDEResult:
     r"""Apply Rothstein's SPDE reduction, then the polynomial RDE solver."""
-    x = derivative_coefficient.gens[0]
+    x = cast(Symbol, derivative_coefficient.gens[0])
     original_derivative_coefficient = derivative_coefficient
     original_solution_coefficient = solution_coefficient
     original_rhs = right_hand_side
@@ -953,6 +981,8 @@ def _solve_special_polynomial_differential_equation(
                     polynomial_result,
                 )
             tail = polynomial_result.solution
+            if tail is None:
+                raise ValueError("a solved polynomial RDE lacks its solution")
             if (
                 not tail.is_zero
                 and tail.degree() > current_bound
@@ -1038,7 +1068,8 @@ def solve_rational_risch_differential_equation(
         normalized_rhs,
         x,
     )
-    if not denominator_reduction.succeeded:
+    equation = denominator_reduction.equation
+    if equation is None:
         return RationalRischDifferentialEquationResult(
             coefficient,
             right_hand_side,
@@ -1057,9 +1088,11 @@ def solve_rational_risch_differential_equation(
         )
 
     denominator_bound = denominator_reduction.denominator_bound
-    derivative_coefficient = denominator_reduction.derivative_coefficient
-    solution_coefficient = denominator_reduction.solution_coefficient
-    transformed_rhs = denominator_reduction.right_hand_side
+    (
+        derivative_coefficient,
+        solution_coefficient,
+        transformed_rhs,
+    ) = equation
     degree_bound = _base_polynomial_rde_degree_bound(
         derivative_coefficient,
         solution_coefficient,
@@ -1132,9 +1165,9 @@ def _primitive_rde_extension(
 
 
 def _as_primitive_fraction(
-    value: Any,
+    value: object,
     extension: MonomialExtension,
-) -> tuple[Any, Poly, Poly]:
+) -> tuple[FieldElement, Poly, Poly]:
     """Return an element and coprime polynomials in the top generator."""
     field = extension.field
     parent = extension.parent_field
@@ -1166,7 +1199,7 @@ def _as_primitive_fraction(
 
 
 def _as_primitive_polynomial(
-    value: Any,
+    value: object,
     extension: MonomialExtension,
 ) -> Poly:
     """Coerce a top-field element known to be polynomial in the generator."""
@@ -1185,7 +1218,7 @@ def _as_primitive_polynomial(
     return numerator.mul_ground(scale)
 
 
-def _positive_integer_rational(value: Any) -> int | None:
+def _positive_integer_rational(value: object) -> int | None:
     """Return a positive rational integer, or ``None`` otherwise."""
     rational = QQ.convert(value)
     if QQ.denom(rational) != 1 or QQ.numer(rational) <= 0:
@@ -1194,9 +1227,9 @@ def _positive_integer_rational(value: Any) -> int | None:
 
 
 def _weakly_normalize_primitive_rde_coefficient(
-    coefficient: Any,
+    coefficient: object,
     derivation: Derivation,
-) -> tuple[Poly, Any]:
+) -> tuple[Poly, FieldElement]:
     r"""Return ``q`` and ``coefficient - Dq/q`` weakly normalized in ``t``.
 
     At a normal irreducible factor ``p``, weak normalization removes the
@@ -1274,8 +1307,8 @@ def _weakly_normalize_primitive_rde_coefficient(
 
 
 def _reduce_primitive_normal_denominator(
-    coefficient: Any,
-    right_hand_side: Any,
+    coefficient: object,
+    right_hand_side: object,
     derivation: Derivation,
 ) -> _NormalDenominatorReduction:
     r"""Reduce a weakly normalized primitive RDE to ``A*Dq+B*q=C``.
@@ -1333,9 +1366,9 @@ def _reduce_primitive_normal_denominator(
 
 
 def _primitive_limited_integration_relation(
-    value: Any,
+    value: object,
     derivation: Derivation,
-) -> tuple[int, Any] | None:
+) -> tuple[int, FieldElement] | None:
     r"""Find ``m`` and ``z`` with ``value = m*Dt + Dz``, if supported.
 
     Reducing a constant polynomial at the current primitive level computes
@@ -1461,8 +1494,8 @@ def _solve_primitive_polynomial_exact_case(
     coefficient_polynomial: Poly,
     rhs_polynomial: Poly,
     derivation: Derivation,
-    multiplier: Any,
-    logarithmic_result: Any | None = None,
+    multiplier: object,
+    logarithmic_result: RadicalLogarithmicDerivativeResult | None = None,
 ) -> PrimitivePolynomialRischDifferentialEquationResult:
     r"""Solve a polynomial cancellation case by exact differentiation.
 
@@ -1660,8 +1693,8 @@ def _solve_primitive_polynomial_lower_coefficient(
 
 
 def solve_primitive_polynomial_risch_differential_equation(
-    coefficient: Any,
-    right_hand_side: Any,
+    coefficient: object,
+    right_hand_side: object,
     derivation: Derivation,
 ) -> PrimitivePolynomialRischDifferentialEquationResult:
     r"""Decide a polynomial RDE at a primitive tower level.
@@ -1871,6 +1904,10 @@ def _solve_primitive_spde(
                     polynomial_result,
                 )
             tail = polynomial_result.solution
+            if tail is None:
+                raise ValueError(
+                    "a solved primitive polynomial RDE lacks its solution"
+                )
             if not tail.is_zero and tail.degree() > current_bound:
                 return _PrimitiveSPDEResult(
                     None,
@@ -1906,14 +1943,14 @@ def _solve_primitive_spde(
 
 
 def _solve_primitive_rde_exact_case(
-    coefficient: Any,
-    right_hand_side: Any,
-    normalized_coefficient: Any,
-    normalized_right_hand_side: Any,
+    coefficient: FieldElement,
+    right_hand_side: FieldElement,
+    normalized_coefficient: FieldElement,
+    normalized_right_hand_side: FieldElement,
     derivation: Derivation,
     normalization_factor: Poly,
-    multiplier: Any,
-    logarithmic_result: Any | None = None,
+    multiplier: object,
+    logarithmic_result: RadicalLogarithmicDerivativeResult | None = None,
 ) -> PrimitiveRischDifferentialEquationResult:
     """Solve a weakly normalized primitive RDE by exact differentiation."""
     from .exact import solve_exact_derivative
@@ -1972,8 +2009,8 @@ def _solve_primitive_rde_exact_case(
 
 
 def solve_primitive_risch_differential_equation(
-    coefficient: Any,
-    right_hand_side: Any,
+    coefficient: object,
+    right_hand_side: object,
     derivation: Derivation,
 ) -> PrimitiveRischDifferentialEquationResult:
     r"""Decide an RDE with rational coefficient over primitive ``K(t)``.
@@ -2196,8 +2233,8 @@ def _is_standard_rational_derivation(derivation: Derivation) -> bool:
 
 
 def solve_risch_differential_equation(
-    coefficient: Any,
-    right_hand_side: Any,
+    coefficient: object,
+    right_hand_side: object,
     derivation: Derivation,
 ) -> RischDifferentialEquationResult:
     r"""Dispatch ``Dy + a*y = b`` over an implemented differential level."""
@@ -2406,8 +2443,8 @@ def _as_qq_bivariate_fraction(
 
 
 def solve_bounded_primitive_rde_matrix(
-    coefficient: Any,
-    right_hand_side: Any,
+    coefficient: object,
+    right_hand_side: object,
     derivation: Derivation,
     lower_denominator: Expr | Poly,
     lower_numerator_degree_bound: int,
@@ -2445,7 +2482,7 @@ def solve_bounded_primitive_rde_matrix(
 
     lower_extension = derivation.tower.levels[lower_derivation.level]
     if not isinstance(lower_extension, MonomialExtension):
-        raise ValueError("the rational lower level is not monomial")
+        raise TypeError("the rational lower level is not monomial")
     x = lower_extension.generator
     t = extension.generator
     denominator = Poly(lower_denominator, x, domain=QQ)
@@ -2585,7 +2622,7 @@ def _maximum_polynomial_degree(*polynomials: Poly) -> int | None:
 def _as_domain_rational(
     value: Expr | Poly,
     x: Symbol,
-    domain,
+    domain: Domain,
 ) -> tuple[Expr, Poly, Poly]:
     """Return a reduced rational function over an exact constant field."""
     if isinstance(value, Poly):
@@ -2606,7 +2643,7 @@ def _as_domain_rational(
     return expression, numerator_polynomial, denominator_polynomial
 
 
-def _integer_constant(value, domain) -> int | None:
+def _integer_constant(value: object, domain: Domain) -> int | None:
     """Return an exact integer constant, or ``None`` otherwise."""
     expression = domain.to_sympy(domain.convert(value))
     if expression.is_Integer is not True:
@@ -2617,7 +2654,7 @@ def _integer_constant(value, domain) -> int | None:
 def _weakly_normalize_over_constant_field(
     coefficient: Expr,
     x: Symbol,
-    domain,
+    domain: Domain,
 ) -> tuple[Poly, Expr]:
     r"""Apply Bronstein weak normalization over ``domain(x)``.
 
@@ -2674,12 +2711,27 @@ class _DomainNormalDenominatorReduction:
     def succeeded(self) -> bool:
         return self.derivative_coefficient is not None
 
+    @property
+    def equation(self) -> tuple[Poly, Poly, Poly] | None:
+        """Return the transformed polynomial equation when reduction succeeds."""
+        if (
+            self.derivative_coefficient is None
+            or self.solution_coefficient is None
+            or self.right_hand_side is None
+        ):
+            return None
+        return (
+            self.derivative_coefficient,
+            self.solution_coefficient,
+            self.right_hand_side,
+        )
+
 
 def _reduce_normal_denominator_over_constant_field(
     coefficient: Expr,
     right_hand_side: Expr,
     x: Symbol,
-    domain,
+    domain: Domain,
 ) -> _DomainNormalDenominatorReduction:
     """Apply Bronstein's normal-denominator theorem over ``domain(x)``."""
     _, coefficient_numerator, coefficient_denominator = _as_domain_rational(
@@ -2968,7 +3020,7 @@ def _solve_rde_over_constant_field(
     coefficient: Expr,
     right_hand_side: Expr,
     x: Symbol,
-    domain,
+    domain: Domain,
 ) -> _DomainRDEResult:
     """Solve a scalar rational RDE over ``domain(x)``."""
     coefficient, _, _ = _as_domain_rational(coefficient, x, domain)
@@ -3005,7 +3057,8 @@ def _solve_rde_over_constant_field(
             domain,
         )
     )
-    if not denominator_reduction.succeeded:
+    equation = denominator_reduction.equation
+    if equation is None:
         return _DomainRDEResult(
             None,
             RationalRDEObstruction.DENOMINATOR,
@@ -3016,15 +3069,20 @@ def _solve_rde_over_constant_field(
             denominator_reduction.obstruction_polynomial,
             denominator_reduction.obstruction_remainder,
         )
+    (
+        derivative_coefficient,
+        solution_coefficient,
+        transformed_rhs,
+    ) = equation
     degree_bound = _domain_polynomial_degree_bound(
-        denominator_reduction.derivative_coefficient,
-        denominator_reduction.solution_coefficient,
-        denominator_reduction.right_hand_side,
+        derivative_coefficient,
+        solution_coefficient,
+        transformed_rhs,
     )
     spde_result = _solve_spde_over_constant_field(
-        denominator_reduction.derivative_coefficient,
-        denominator_reduction.solution_coefficient,
-        denominator_reduction.right_hand_side,
+        derivative_coefficient,
+        solution_coefficient,
+        transformed_rhs,
         degree_bound,
     )
     if spde_result.solution is None:
@@ -3174,6 +3232,8 @@ def _solve_coupled_rational_rotation(
         ),
     }
     if scalar_result.solution is None:
+        if scalar_result.obstruction is None:
+            raise ValueError("a failed scalar RDE lacks its obstruction")
         return CoupledRationalRDEResult(
             lambda_coefficient,
             real_rhs,
@@ -3367,6 +3427,8 @@ def solve_coupled_rational_rde(
             real_residual,
             imaginary_residual,
         )
+        if residual_degree is None:
+            raise ValueError("a nonzero coupled residual has no degree")
         candidate_degree = residual_degree - rotation.degree()
         if candidate_degree < 0 or candidate_degree > current_bound:
             if (

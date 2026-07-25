@@ -15,7 +15,6 @@ from sympy_risch import (
     solve_parametric_logarithmic_derivative,
 )
 
-
 x, t, u, theta = symbols("x t u theta")
 
 

@@ -19,7 +19,6 @@ from sympy_risch import (
     solve_bounded_rational_rde_matrix,
 )
 
-
 x, t, u = symbols("x t u")
 
 

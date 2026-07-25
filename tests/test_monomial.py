@@ -24,7 +24,6 @@ from sympy_risch import (
     split_normal_special,
 )
 
-
 x, t = symbols("x t")
 
 

@@ -15,7 +15,6 @@ from sympy_risch import (
     solve_coupled_rational_rde,
 )
 
-
 x = symbols("x")
 
 

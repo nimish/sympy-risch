@@ -24,13 +24,16 @@ From a checkout:
 
 ```console
 uv sync --no-editable
+uv run --no-sync ruff check .
+uv run --no-sync ty check
 uv run --no-sync pytest -q -n auto --dist worksteal -m "not slow"
 ```
 
 The non-editable install avoids an editable-install issue on Python versions
 that ignore hidden `.pth` files. Pytest still reads the current source tree
-through the configured `src` path. Run the complete suite, including the
-generated rational stress test, with:
+through the configured `src` path. Ruff checks the complete checkout, while ty
+checks the production package under `src`. Run the complete suite, including
+the generated rational stress test, with:
 
 ```console
 uv run --no-sync pytest -q -n auto --dist worksteal

@@ -14,7 +14,6 @@ from sympy_risch import (
     solve_rational_logarithmic_derivative,
 )
 
-
 x = symbols("x")
 
 

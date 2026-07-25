@@ -9,9 +9,10 @@ a lower-level derivation instead of mutating shared tower state.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from enum import Enum
-from typing import Any, Protocol
+from typing import Protocol, cast
 
 from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
@@ -21,6 +22,10 @@ from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly
 from sympy.simplify.radsimp import fraction
+
+from ._typing import FieldElement, SupportsAsExpr
+
+CoefficientDerivation = Callable[[object], FieldElement]
 
 
 class DifferentialExtension(Protocol):
@@ -37,13 +42,13 @@ class DifferentialExtension(Protocol):
 
     def differentiate(
         self,
-        element: Any,
-        coefficient_derivation: Callable[[Any], Any],
-    ) -> Any:
+        element: FieldElement,
+        coefficient_derivation: CoefficientDerivation,
+    ) -> FieldElement:
         """Differentiate ``element`` using a derivation on the parent."""
 
 
-def _coerce(domain: Domain, element: Any) -> Any:
+def _coerce(domain: Domain, element: object) -> FieldElement:
     """Coerce to ``domain``, including between nested fraction fields.
 
     SymPy's generic ``Domain.convert`` does not currently embed every
@@ -52,16 +57,13 @@ def _coerce(domain: Domain, element: Any) -> Any:
     native domain element.
     """
     try:
-        return domain.convert(element)
+        return cast(FieldElement, domain.convert(element))
     except (CoercionFailed, ValueError):
         if isinstance(element, Expr):
             expression = element
         else:
-            try:
-                expression = element.as_expr()
-            except AttributeError:
-                raise
-        return domain.from_sympy(expression)
+            expression = cast(SupportsAsExpr, element).as_expr()
+        return cast(FieldElement, domain.from_sympy(expression))
 
 
 def _domain_symbols(domain: Domain) -> set[Symbol]:
@@ -85,7 +87,9 @@ def _adjoin_transcendental(parent_field: Domain, generator: Symbol) -> Domain:
     fields while the tower metadata retains the coefficient-field hierarchy.
     """
     if isinstance(parent_field, FractionField):
-        return parent_field.domain.frac_field(*parent_field.symbols, generator)
+        ground = cast(Domain, parent_field.domain)
+        generators = cast(tuple[Symbol, ...], parent_field.symbols)
+        return ground.frac_field(*generators, generator)
     return parent_field.frac_field(generator)
 
 
@@ -187,7 +191,7 @@ class MonomialExtension:
     @property
     def generator(self) -> Symbol:
         """The transcendental generator ``t``."""
-        return self.generator_derivative.gens[0]
+        return cast(Symbol, self.generator_derivative.gens[0])
 
     @property
     def parent_field(self) -> Domain:
@@ -249,7 +253,7 @@ class MonomialExtension:
     def differentiate_coefficients(
         self,
         polynomial: Poly,
-        coefficient_derivation: Callable[[Any], Any],
+        coefficient_derivation: CoefficientDerivation,
     ) -> Poly:
         """Differentiate only the coefficients of ``polynomial``."""
         self._validate_polynomial(polynomial)
@@ -265,7 +269,7 @@ class MonomialExtension:
     def differentiate_polynomial(
         self,
         polynomial: Poly,
-        coefficient_derivation: Callable[[Any], Any],
+        coefficient_derivation: CoefficientDerivation,
     ) -> Poly:
         """Differentiate a polynomial in the extension generator."""
         coefficient_part = self.differentiate_coefficients(
@@ -276,11 +280,12 @@ class MonomialExtension:
 
     def differentiate(
         self,
-        element: Any,
-        coefficient_derivation: Callable[[Any], Any],
-    ) -> Any:
+        element: FieldElement,
+        coefficient_derivation: CoefficientDerivation,
+    ) -> FieldElement:
         """Differentiate an element of ``K(t)`` by the quotient rule."""
-        numerator_expression, denominator_expression = fraction(element.as_expr())
+        expression = self.field.to_sympy(element)
+        numerator_expression, denominator_expression = fraction(expression)
         numerator = Poly(
             numerator_expression,
             self.generator,
@@ -305,8 +310,11 @@ class MonomialExtension:
         )
         result_denominator = denominator**2
 
-        return self.field.from_sympy(
-            result_numerator.as_expr()/result_denominator.as_expr()
+        return cast(
+            FieldElement,
+            self.field.from_sympy(
+                result_numerator.as_expr()/result_denominator.as_expr()
+            ),
         )
 
 
@@ -320,7 +328,11 @@ class AlgebraicExtension:
     """
 
     minimal_polynomial: Poly
-    _field: Domain = dataclass_field(init=False, repr=False, compare=False)
+    _field: FiniteExtension = dataclass_field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         modulus = self.minimal_polynomial
@@ -349,7 +361,7 @@ class AlgebraicExtension:
     @property
     def generator(self) -> Symbol:
         """The algebraic generator ``y``."""
-        return self.minimal_polynomial.gens[0]
+        return cast(Symbol, self.minimal_polynomial.gens[0])
 
     @property
     def parent_field(self) -> Domain:
@@ -357,14 +369,14 @@ class AlgebraicExtension:
         return self.minimal_polynomial.domain
 
     @property
-    def field(self) -> Domain:
+    def field(self) -> FiniteExtension:
         """The native SymPy finite-extension field."""
         return self._field
 
     def _differentiate_coefficients(
         self,
         polynomial: Poly,
-        coefficient_derivation: Callable[[Any], Any],
+        coefficient_derivation: CoefficientDerivation,
     ) -> Poly:
         return Poly.from_dict(
             {
@@ -375,14 +387,17 @@ class AlgebraicExtension:
             domain=self.parent_field,
         )
 
-    def _from_polynomial(self, polynomial: Poly) -> Any:
+    def _from_polynomial(self, polynomial: Poly) -> FieldElement:
         """Embed a native parent-domain polynomial without an Expr round trip."""
-        return self.field.dtype(polynomial.rep.rem(self.field.mod), self.field)
+        return cast(
+            FieldElement,
+            self.field.dtype(polynomial.rep.rem(self.field.mod), self.field),
+        )
 
     def generator_derivative(
         self,
-        coefficient_derivation: Callable[[Any], Any],
-    ) -> Any:
+        coefficient_derivation: CoefficientDerivation,
+    ) -> FieldElement:
         r"""Return ``Dy = -D_K(m)/partial_y(m)``."""
         coefficient_part = self._differentiate_coefficients(
             self.minimal_polynomial,
@@ -395,13 +410,13 @@ class AlgebraicExtension:
 
     def differentiate(
         self,
-        element: Any,
-        coefficient_derivation: Callable[[Any], Any],
-        generator_derivative: Any | None = None,
-    ) -> Any:
+        element: FieldElement,
+        coefficient_derivation: CoefficientDerivation,
+        generator_derivative: FieldElement | None = None,
+    ) -> FieldElement:
         """Differentiate a reduced representative modulo the minimal polynomial."""
         representative = Poly(
-            element.as_expr(),
+            self.field.to_sympy(element),
             self.generator,
             domain=self.parent_field,
         )
@@ -444,7 +459,7 @@ class DifferentialTower:
                 parent_field = level.parent_field
                 generator = level.generator
                 extension_field = level.field
-                level.differentiate
+                _differentiate = level.differentiate
             except AttributeError as exc:
                 raise TypeError("tower levels must be differential extensions") from exc
 
@@ -475,7 +490,7 @@ class DifferentialTower:
 
     def extend(self, extension: DifferentialExtension) -> DifferentialTower:
         """Return a new tower with ``extension`` appended."""
-        return DifferentialTower(self.constants, self.levels + (extension,))
+        return DifferentialTower(self.constants, (*self.levels, extension))
 
     def derivation(self, level: int | None = None) -> Derivation:
         """Return an immutable derivation bound to ``level``."""
@@ -495,7 +510,7 @@ class Derivation:
         repr=False,
         compare=False,
     )
-    _algebraic_generator_derivative: Any | None = dataclass_field(
+    _algebraic_generator_derivative: FieldElement | None = dataclass_field(
         init=False,
         repr=False,
         compare=False,
@@ -536,12 +551,12 @@ class Derivation:
             raise ValueError("the constant field has no lower derivation")
         return self._lower_derivation
 
-    def __call__(self, element: Any) -> Any:
+    def __call__(self, element: object) -> FieldElement:
         """Differentiate ``element`` and return a native domain element."""
         element = _coerce(self.field, element)
 
         if self.level == -1:
-            return self.field.zero
+            return cast(FieldElement, self.field.zero)
 
         extension = self.tower.levels[self.level]
         if isinstance(extension, AlgebraicExtension):
@@ -572,7 +587,7 @@ class Derivation:
             raise TypeError("polynomial differentiation requires a monomial level")
         return extension.differentiate_polynomial(polynomial, self.lower())
 
-    def fraction(self, numerator: Poly, denominator: Poly) -> Any:
+    def fraction(self, numerator: Poly, denominator: Poly) -> FieldElement:
         """Differentiate the fraction ``numerator/denominator``."""
         if self.level == -1:
             raise ValueError("the constant field has no polynomial generator")

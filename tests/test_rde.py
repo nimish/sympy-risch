@@ -20,7 +20,6 @@ from sympy_risch import (
     solve_polynomial_risch_differential_equation_matrix,
 )
 
-
 x, t = symbols("x t")
 
 

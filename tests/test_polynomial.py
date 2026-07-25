@@ -1,12 +1,10 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
 from sympy import Poly, Rational, symbols
 from sympy.polys.polyerrors import CoercionFailed, PolynomialError
 
 from sympy_risch import integrate_polynomial
-
 
 x, a = symbols("x a")
 

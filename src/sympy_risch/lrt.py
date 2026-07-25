@@ -3,7 +3,6 @@ r"""Lazard--Rioboo--Trager rational logarithmic-part computation."""
 from __future__ import annotations
 
 from sympy.core.expr import Expr
-from sympy.core.singleton import S
 from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.polytools import Poly, resultant

@@ -17,7 +17,6 @@ from sympy_risch import (
     solve_rational_risch_differential_equation,
 )
 
-
 x, t = symbols("x t")
 
 

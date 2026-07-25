@@ -17,7 +17,6 @@ from sympy_risch import (
     solve_exact_derivative,
 )
 
-
 x, t, u, v = symbols("x t u v")
 
 

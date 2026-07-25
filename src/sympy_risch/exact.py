@@ -3,23 +3,27 @@ r"""Exact-derivative dispatch across implemented differential tower levels."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
+from ._typing import FieldElement
 from .monomial import PrimitiveExactDerivativeResult, solve_primitive_exact_derivative
 from .rational import RationalExactDerivativeResult, solve_rational_exact_derivative
 from .tower import Derivation, MonomialExtension, _coerce
+
+ExactDerivativeCertificate = (
+    RationalExactDerivativeResult | PrimitiveExactDerivativeResult
+)
 
 
 @dataclass(frozen=True, slots=True)
 class ExactDerivativeResult:
     r"""Level-independent exact-derivative result using native domain elements."""
 
-    exact_part: Any
-    obstruction: Any
-    certificate: Any
+    exact_part: FieldElement
+    obstruction: FieldElement
+    certificate: ExactDerivativeCertificate | None
 
     @property
     def has_solution(self) -> bool:
@@ -27,7 +31,7 @@ class ExactDerivativeResult:
         return self.obstruction == 0
 
     @property
-    def antiderivative(self) -> Any | None:
+    def antiderivative(self) -> FieldElement | None:
         """Return the in-field antiderivative, or ``None`` if none exists."""
         return self.exact_part if self.has_solution else None
 
@@ -42,7 +46,7 @@ def _is_standard_rational_level(extension: MonomialExtension) -> bool:
 
 
 def solve_exact_derivative(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
 ) -> ExactDerivativeResult:
     r"""Dispatch the exact-derivative problem at an implemented tower level.
@@ -66,7 +70,7 @@ def solve_exact_derivative(
     certificate: RationalExactDerivativeResult | PrimitiveExactDerivativeResult
     if _is_standard_rational_level(extension):
         certificate = solve_rational_exact_derivative(
-            element.as_expr(),
+            field.to_sympy(element),
             extension.generator,
         )
     elif derivation.level > 0 and extension.generator_derivative.degree() == 0:

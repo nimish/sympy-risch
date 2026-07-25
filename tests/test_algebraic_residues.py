@@ -19,7 +19,6 @@ from sympy_risch import (
     trager_algebraic_residue_polynomial,
 )
 
-
 x, y, z = symbols("x y z")
 
 
@@ -36,7 +35,7 @@ def algebraic_tower(modulus, constants=QQ):
 
 
 def test_quadratic_residue_polynomial_records_complete_certificate() -> None:
-    tower, extension, basis = algebraic_tower(y**2 - x)
+    tower, _extension, basis = algebraic_tower(y**2 - x)
 
     result = trager_algebraic_residue_polynomial(
         y/(x - 1),

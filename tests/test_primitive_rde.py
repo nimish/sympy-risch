@@ -20,7 +20,6 @@ from sympy_risch import (
     solve_risch_differential_equation,
 )
 
-
 x, t, u = symbols("x t u")
 
 

@@ -17,7 +17,6 @@ from sympy_risch import (
     simple_radical_integral_basis,
 )
 
-
 x, y = symbols("x y")
 distinct_linear_shifts = st.tuples(
     st.integers(min_value=-3, max_value=3),

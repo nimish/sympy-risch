@@ -3,7 +3,6 @@ from math import prod
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-
 from sympy import Abs, Poly, Rational, atan, cancel, log, sqrt, symbols
 
 from sympy_risch import (
@@ -14,7 +13,6 @@ from sympy_risch import (
     rothstein_trager_residue_polynomial,
     solve_rational_exact_derivative,
 )
-
 
 x, z = symbols("x z")
 

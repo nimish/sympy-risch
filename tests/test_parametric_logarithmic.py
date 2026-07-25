@@ -20,7 +20,6 @@ from sympy_risch import (
     verify_parametric_logarithmic_derivative_witness,
 )
 
-
 x, t, theta = symbols("x t theta")
 
 

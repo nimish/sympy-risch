@@ -19,7 +19,6 @@ from sympy_risch import (
     solve_radical_logarithmic_derivative,
 )
 
-
 x, t, u, v = symbols("x t u v")
 
 
@@ -121,7 +120,7 @@ def _independent_radical_logarithmic_oracle(
         if polynomial_part.is_zero
         else extension.parent_field.convert(polynomial_part.nth(0))
     )
-    lower_numerator_expression, lower_denominator_expression = cancel(
+    _lower_numerator_expression, lower_denominator_expression = cancel(
         extension.parent_field.to_sympy(lower_constant),
     ).as_numer_denom()
     lower_denominator = Poly(

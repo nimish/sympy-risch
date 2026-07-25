@@ -16,7 +16,6 @@ from sympy_risch import (
     solve_bounded_coupled_rde_matrix,
 )
 
-
 x, t = symbols("x t")
 
 

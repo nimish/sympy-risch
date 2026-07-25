@@ -6,20 +6,22 @@ from dataclasses import dataclass
 from enum import Enum
 from math import lcm
 from operator import index as integer_index
-from typing import Any
+from typing import TYPE_CHECKING, SupportsIndex, cast
 
 from sympy.core.expr import Expr
 from sympy.core.numbers import I
 from sympy.core.singleton import S
 from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains.domain import Domain
+from sympy.polys.fields import FracElement
 from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly, cancel, invert
 
+from ._typing import FieldElement
 from .rational import (
     RationalExactDerivativeResult,
     RationalLogDerivativeResult,
-    solve_rational_exact_derivative,
     solve_rational_logarithmic_derivative,
 )
 from .tower import (
@@ -29,6 +31,14 @@ from .tower import (
     MonomialFamily,
     _coerce,
 )
+
+if TYPE_CHECKING:
+    from .exact import ExactDerivativeResult
+    from .monomial import (
+        PrimitiveExactDerivativeResult,
+        PrimitiveLogarithmicDerivativeSignature,
+        RadicalLogarithmicDerivativeResult,
+    )
 
 
 class ParametricLogarithmicDerivativeOutcome(Enum):
@@ -80,7 +90,7 @@ class ParametricLogarithmicDerivativeHeuristicCertificate:
     eta_denominator: Poly
     branch: ParametricLogarithmicDerivativeHeuristicBranch
     comparison_modulus: Poly | None
-    candidate_ratio: Any | None
+    candidate_ratio: FieldElement | None
     logarithmic_power: int | None
     logarithmic_result: RationalLogDerivativeResult | None
     reason: str
@@ -100,8 +110,8 @@ class RationalParametricLogarithmicDerivativeResidue:
     factor: Poly
     f_partial_numerator: Poly
     eta_partial_numerator: Poly
-    f_obstruction: tuple[Any, ...]
-    eta_obstruction: tuple[Any, ...]
+    f_obstruction: tuple[FieldElement, ...]
+    eta_obstruction: tuple[FieldElement, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,8 +129,8 @@ class RationalParametricLogarithmicDerivativeCertificate:
     heuristic_result: ParametricLogarithmicDerivativeResult
     common_denominator: Poly
     residues: tuple[RationalParametricLogarithmicDerivativeResidue, ...]
-    linear_constraints: tuple[tuple[Any, Any], ...]
-    candidate_ratio: Any | None
+    linear_constraints: tuple[tuple[FieldElement, FieldElement], ...]
+    candidate_ratio: FieldElement | None
     logarithmic_power: int | None
     logarithmic_result: RationalLogDerivativeResult | None
     reason: str
@@ -140,7 +150,7 @@ class PrimitiveParametricLogarithmicDerivativeFactor:
     factor_derivative: Poly
     f_principal_numerators: tuple[Poly, ...]
     eta_principal_numerators: tuple[Poly, ...]
-    linear_constraints: tuple[tuple[Any, Any], ...]
+    linear_constraints: tuple[tuple[FieldElement, FieldElement], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,21 +169,21 @@ class PrimitiveParametricLogarithmicDerivativeCertificate:
     and constructs its argument.
     """
 
-    f_signature: Any
-    eta_signature: Any
-    polynomial_constraints: tuple[tuple[Any, Any], ...]
+    f_signature: PrimitiveLogarithmicDerivativeSignature
+    eta_signature: PrimitiveLogarithmicDerivativeSignature
+    polynomial_constraints: tuple[tuple[FieldElement, FieldElement], ...]
     factors: tuple[PrimitiveParametricLogarithmicDerivativeFactor, ...]
-    linear_constraints: tuple[tuple[Any, Any], ...]
-    candidate_ratio: Any | None
+    linear_constraints: tuple[tuple[FieldElement, FieldElement], ...]
+    candidate_ratio: FieldElement | None
     lower_parametric_result: ParametricLogarithmicDerivativeResult | None
-    residual_signature: Any | None
+    residual_signature: PrimitiveLogarithmicDerivativeSignature | None
     reason: str
 
 
 def _parametric_logarithmic_derivative_eta(
     extension: MonomialExtension,
     lower_derivation: Derivation,
-) -> Any:
+) -> FieldElement:
     r"""Validate ``Dtheta = eta*theta`` over the supplied lower field."""
     if not isinstance(extension, MonomialExtension):
         raise TypeError(
@@ -197,9 +207,9 @@ def _parametric_logarithmic_derivative_eta(
     )
 
 
-def _integer_parameter(value: Any, name: str) -> int:
+def _integer_parameter(value: object, name: str) -> int:
     """Return an exact integer parameter, rejecting booleans and rationals."""
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, SupportsIndex):
         raise TypeError(f"{name} must be an integer")
     try:
         return int(integer_index(value))
@@ -208,12 +218,12 @@ def _integer_parameter(value: Any, name: str) -> int:
 
 
 def verify_parametric_logarithmic_derivative_witness(
-    f: Any,
+    f: object,
     extension: MonomialExtension,
     lower_derivation: Derivation,
     n: int,
     m: int,
-    argument: Any,
+    argument: object,
 ) -> bool:
     r"""Verify one exact witness for Bronstein's equation (7.37).
 
@@ -265,12 +275,17 @@ class ParametricLogarithmicDerivativeResult:
 
     extension: MonomialExtension
     lower_derivation: Derivation
-    f: Any
+    f: FieldElement
     outcome: ParametricLogarithmicDerivativeOutcome
     n: int | None = None
     m: int | None = None
-    argument: Any | None = None
-    certificate: Any | None = None
+    argument: FieldElement | None = None
+    certificate: (
+        ParametricLogarithmicDerivativeHeuristicCertificate
+        | RationalParametricLogarithmicDerivativeCertificate
+        | PrimitiveParametricLogarithmicDerivativeCertificate
+        | None
+    ) = None
     detail: str | None = None
 
     def __post_init__(self) -> None:
@@ -350,7 +365,7 @@ class ParametricLogarithmicDerivativeResult:
             )
 
     @property
-    def eta(self) -> Any:
+    def eta(self) -> FieldElement:
         """Return ``Dtheta/theta`` as an element of the lower field."""
         return _parametric_logarithmic_derivative_eta(
             self.extension,
@@ -389,7 +404,12 @@ class ParametricLogarithmicDerivativeResult:
     @property
     def reconstructs(self) -> bool:
         """Whether the stored solution witness satisfies equation (7.37)."""
-        if not self.has_solution:
+        if (
+            not self.has_solution
+            or self.n is None
+            or self.m is None
+            or self.argument is None
+        ):
             return False
         return verify_parametric_logarithmic_derivative_witness(
             self.f,
@@ -432,7 +452,7 @@ class HypertangentDependency:
     """
 
     extension: MonomialExtension
-    eta: Any
+    eta: FieldElement
     kind: HyperexponentialDependencyKind
     minimal_power: int | None
     relation_argument: Expr | None
@@ -494,12 +514,21 @@ class HyperexponentialDependency:
     """
 
     extension: MonomialExtension
-    eta: Any
+    eta: FieldElement
     kind: HyperexponentialDependencyKind
     minimal_power: int | None
     relation_argument: Expr | None
-    logarithmic_result: Any
-    exact_result: Any
+    logarithmic_result: (
+        RationalLogDerivativeResult
+        | PrimitiveLogarithmicDerivativeSignature
+        | RadicalLogarithmicDerivativeResult
+    )
+    exact_result: (
+        RationalExactDerivativeResult
+        | PrimitiveExactDerivativeResult
+        | ExactDerivativeResult
+        | None
+    )
     exponential_exponent: Expr | None
 
     @property
@@ -573,7 +602,7 @@ def _minimal_logarithmic_power(
 
 
 def _rational_polynomial_parts(
-    element: Any,
+    element: FracElement,
     variable: Symbol,
 ) -> tuple[Poly, Poly, Poly]:
     """Return ``p, a, d`` with ``element = p + a/d`` in ``QQ(x)``."""
@@ -595,7 +624,7 @@ def _rational_coefficient_ratio(
     left: Poly,
     right: Poly,
     degrees: range,
-) -> tuple[bool, Any | None]:
+) -> tuple[bool, FieldElement | None]:
     r"""Solve ``coefficient(left, x**i) = c*coefficient(right, x**i)``.
 
     The boolean distinguishes an inconsistent system from a consistent one.
@@ -613,8 +642,8 @@ def _rational_coefficient_ratio(
 
 
 def _rational_linear_ratio(
-    constraints: tuple[tuple[Any, Any], ...],
-) -> tuple[bool, Any | None]:
+    constraints: tuple[tuple[FieldElement, FieldElement], ...],
+) -> tuple[bool, FieldElement | None]:
     r"""Solve the exact scalar system ``left = c*right`` over ``QQ``.
 
     ``(True, None)`` means that every equation is ``0 = c*0``, so the ratio
@@ -640,7 +669,7 @@ def _rational_linear_ratio(
 
 
 def solve_parametric_logarithmic_derivative_heuristic(
-    f: Any,
+    f: object,
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
@@ -679,8 +708,14 @@ def solve_parametric_logarithmic_derivative_heuristic(
             detail=str(exc),
         )
 
-    p, a, d = _rational_polynomial_parts(element, variable)
-    q, b, e = _rational_polynomial_parts(eta, variable)
+    p, a, d = _rational_polynomial_parts(
+        cast(FracElement, element),
+        variable,
+    )
+    q, b, e = _rational_polynomial_parts(
+        cast(FracElement, eta),
+        variable,
+    )
     degree_bound = 0  # Dx = 1, so max(0, degree(Dx) - 1) = 0.
 
     branch = ParametricLogarithmicDerivativeHeuristicBranch.POLYNOMIAL_PART
@@ -690,7 +725,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
     def certificate(
         reason: str,
         *,
-        ratio: Any | None,
+        ratio: FieldElement | None,
         logarithmic_power: int | None = None,
         logarithmic_result: RationalLogDerivativeResult | None = None,
     ) -> ParametricLogarithmicDerivativeHeuristicCertificate:
@@ -782,7 +817,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
         consistent, candidate_ratio = _rational_coefficient_ratio(
             scaled_f,
             scaled_eta,
-            range(0, modulus.degree()),
+            range(modulus.degree()),
         )
         if not consistent:
             obstruction = certificate(
@@ -871,7 +906,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
 def _rational_residue_obstruction(
     partial_numerator: Poly,
     factor: Poly,
-) -> tuple[Any, ...]:
+) -> tuple[FieldElement, ...]:
     r"""Project a local numerator modulo the span of ``factor.diff()``."""
     factor_degree = factor.degree()
     if factor_degree <= 0:
@@ -950,7 +985,7 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
 
     common_f_numerator = common_denominator.exquo(d)*a
     common_eta_numerator = common_denominator.exquo(e)*b
-    constraints: list[tuple[Any, Any]] = [
+    constraints: list[tuple[FieldElement, FieldElement]] = [
         (
             QQ.convert(p.nth(0)),
             QQ.convert(q.nth(0)),
@@ -1061,9 +1096,9 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
 
 
 def _constant_field_linear_ratio(
-    constraints: tuple[tuple[Any, Any], ...],
-    field: Any,
-) -> tuple[bool, Any | None]:
+    constraints: tuple[tuple[FieldElement, FieldElement], ...],
+    field: Domain,
+) -> tuple[bool, FieldElement | None]:
     r"""Solve ``left = c*right`` for one ``c in QQ`` over ``field``."""
     ratio = None
     for left, right in constraints:
@@ -1087,13 +1122,13 @@ def _constant_field_linear_ratio(
 
 
 def _primitive_parametric_signature_constraints(
-    f_signature: Any,
-    eta_signature: Any,
+    f_signature: PrimitiveLogarithmicDerivativeSignature,
+    eta_signature: PrimitiveLogarithmicDerivativeSignature,
     derivation: Derivation,
 ) -> tuple[
-    tuple[tuple[Any, Any], ...],
+    tuple[tuple[FieldElement, FieldElement], ...],
     tuple[PrimitiveParametricLogarithmicDerivativeFactor, ...],
-    tuple[tuple[Any, Any], ...],
+    tuple[tuple[FieldElement, FieldElement], ...],
 ]:
     r"""Align two primitive signatures and project away every ``QQ*Dp``."""
     extension = derivation.tower.levels[derivation.level]
@@ -1141,28 +1176,40 @@ def _primitive_parametric_signature_constraints(
     for expression in factor_expressions:
         f_factor = f_by_expression.get(expression)
         eta_factor = eta_by_expression.get(expression)
-        factor = (
-            f_factor.factor
-            if f_factor is not None
-            else eta_factor.factor
-        )
+        if f_factor is None and eta_factor is None:
+            raise ValueError("a collected factor has no source signature")
+        if f_factor is not None:
+            factor = f_factor.factor
+        else:
+            assert eta_factor is not None
+            factor = eta_factor.factor
         maximum_multiplicity = max(
             f_factor.multiplicity if f_factor is not None else 0,
             eta_factor.multiplicity if eta_factor is not None else 0,
         )
 
-        def padded_principal_numerators(factor_signature):
-            if factor_signature is None:
-                return (factor.zero,)*maximum_multiplicity
-            return factor_signature.principal_numerators + (
+        if f_factor is None:
+            f_principal_numerators = (
+                factor.zero,
+            )*maximum_multiplicity
+        else:
+            f_principal_numerators = f_factor.principal_numerators + (
                 factor.zero,
             )*(
                 maximum_multiplicity
-                - len(factor_signature.principal_numerators)
+                - len(f_factor.principal_numerators)
             )
-
-        f_principal_numerators = padded_principal_numerators(f_factor)
-        eta_principal_numerators = padded_principal_numerators(eta_factor)
+        if eta_factor is None:
+            eta_principal_numerators = (
+                factor.zero,
+            )*maximum_multiplicity
+        else:
+            eta_principal_numerators = eta_factor.principal_numerators + (
+                factor.zero,
+            )*(
+                maximum_multiplicity
+                - len(eta_factor.principal_numerators)
+            )
         factor_derivative = derivation.polynomial(factor).rem(factor)
         if factor_derivative.is_zero:
             raise ValueError(
@@ -1233,7 +1280,7 @@ def _primitive_parametric_signature_constraints(
 
 
 def _solve_primitive_parametric_logarithmic_derivative(
-    f: Any,
+    f: object,
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
@@ -1327,7 +1374,9 @@ def _solve_primitive_parametric_logarithmic_derivative(
     lower_parametric_result = None
     residual_signature = None
 
-    def certificate(reason: str):
+    def certificate(
+        reason: str,
+    ) -> PrimitiveParametricLogarithmicDerivativeCertificate:
         return PrimitiveParametricLogarithmicDerivativeCertificate(
             f_signature,
             eta_signature,
@@ -1430,6 +1479,8 @@ def _solve_primitive_parametric_logarithmic_derivative(
         )
 
     logarithmic_power = residual_signature.minimal_power
+    if logarithmic_power is None:
+        raise ValueError("a solved radical signature lacks its minimal power")
     return ParametricLogarithmicDerivativeResult(
         extension,
         lower_derivation,
@@ -1445,7 +1496,7 @@ def _solve_primitive_parametric_logarithmic_derivative(
 
 
 def solve_parametric_logarithmic_derivative(
-    f: Any,
+    f: object,
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
@@ -1516,7 +1567,7 @@ def _gaussian_logarithmic_relation(
     if denominator.gcd(denominator.diff()).degree() > 0:
         return None
 
-    residues: list[tuple[Poly, Any]] = []
+    residues: list[tuple[Poly, FieldElement]] = []
     power = 1
     for factor, multiplicity in denominator.factor_list()[1]:
         if multiplicity != 1:

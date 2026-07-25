@@ -13,6 +13,19 @@ checkout:
 uv sync --no-editable
 ```
 
+Run the static quality gates:
+
+```console
+uv run --no-sync ruff check .
+uv run --no-sync ty check
+```
+
+Ruff checks both production and test code. Production functions require
+annotations; test functions are exempt from annotation-style rules because
+pytest and Hypothesis supply many values dynamically. Ty checks `src` and
+therefore verifies the public implementation and all recursive solver paths
+without treating the untyped test harness as part of the library API.
+
 Run the ordinary suite without the generated rational stress test:
 
 ```console
@@ -132,6 +145,8 @@ Before each incremental commit:
 
 ```console
 uv run --no-sync pytest -q tests/test_relevant_module.py
+uv run --no-sync ruff check .
+uv run --no-sync ty check
 uv run --no-sync pytest -q -n auto --dist worksteal
 git diff --check
 ```

@@ -2,45 +2,62 @@ r"""Hermite reduction in finite algebraic function fields."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field as dataclass_field
-from typing import Any
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
+from typing import cast
 
 from sympy.core.symbol import Symbol
+from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.fields import FracElement
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.matrices.normalforms import smith_normal_decomp
 from sympy.polys.polyclasses import DMP
 from sympy.polys.polytools import Poly, invert, resultant
 
+from ._typing import SupportsAsExpr
 from .tower import AlgebraicExtension, Derivation
 
 
-def _extension_element(extension: AlgebraicExtension, value: Any) -> Any:
+def _extension_element(
+    extension: AlgebraicExtension,
+    value: object,
+) -> ExtensionElement:
     if getattr(value, "ext", None) == extension.field:
-        return value
-    if hasattr(value, "as_expr"):
+        return cast(ExtensionElement, value)
+    if isinstance(value, SupportsAsExpr):
         value = value.as_expr()
-    return extension.field.from_sympy(value)
+    return cast(ExtensionElement, extension.field.from_sympy(value))
 
 
 def _base_polynomial_ring(
     extension: AlgebraicExtension,
 ) -> tuple[FractionField, Domain, Symbol]:
     parent = extension.parent_field
-    if not isinstance(parent, FractionField) or len(parent.symbols) != 1:
+    if not isinstance(parent, FractionField):
         raise NotImplementedError(
             "algebraic Hermite reduction currently requires a one-variable "
             "rational parent field",
         )
-    if not parent.domain.is_Field:
+    symbols = parent.symbols
+    constants = parent.domain
+    if symbols is None or len(symbols) != 1:
+        raise NotImplementedError(
+            "algebraic Hermite reduction currently requires a one-variable "
+            "rational parent field",
+        )
+    if constants is None or not constants.is_Field:
         raise ValueError("the rational function field must be over a field")
-    return parent, parent.domain, parent.symbols[0]
+    variable = symbols[0]
+    if not isinstance(variable, Symbol):
+        raise TypeError("the rational parent generator must be a Symbol")
+    return parent, constants, variable
 
 
 def _parent_element_polynomial(
-    element: Any,
+    element: object,
     parent: FractionField,
     constants: Domain,
     variable: Symbol,
@@ -66,15 +83,18 @@ def _parent_element_polynomial(
 def _polynomial_parent_element(
     polynomial: Poly,
     parent: FractionField,
-) -> Any:
+) -> FracElement:
     """Embed a polynomial directly into its fraction field."""
     ring = parent.field.ring
     numerator = ring.from_dict(polynomial.rep.to_dict())
-    return parent.dtype(numerator, ring.one)
+    dtype = parent.dtype
+    if dtype is None:
+        raise TypeError("the rational parent field has no element type")
+    return cast(FracElement, dtype(numerator, ring.one))
 
 
 def _common_denominator(
-    elements: tuple[Any, ...],
+    elements: tuple[FracElement, ...],
     constants: Domain,
     variable: Symbol,
 ) -> Poly:
@@ -123,7 +143,7 @@ class TragerAlgebraicResidueResult:
 
     extension: AlgebraicExtension
     derivation: Derivation
-    integrand: Any
+    integrand: ExtensionElement
     basis: IntegralBasis
     residue_symbol: Symbol
     defining_polynomial: Poly
@@ -176,7 +196,7 @@ class IntegralBasis:
     """
 
     extension: AlgebraicExtension
-    elements: tuple[Any, ...]
+    elements: tuple[ExtensionElement, ...]
     _power_inverse: DomainMatrix = dataclass_field(
         init=False,
         repr=False,
@@ -218,14 +238,20 @@ class IntegralBasis:
         """Use the power basis when it is known to be an integral basis."""
         return cls(extension, extension.field.basis)
 
-    def _power_coordinates(self, element: Any) -> tuple[Any, ...]:
+    def _power_coordinates(
+        self,
+        element: object,
+    ) -> tuple[FracElement, ...]:
         representative = _extension_element(self.extension, element).rep
-        return tuple(
-            representative.nth(degree)
-            for degree in range(self.extension.field.rank)
+        return cast(
+            tuple[FracElement, ...],
+            tuple(
+                representative.nth(degree)
+                for degree in range(self.extension.field.rank)
+            ),
         )
 
-    def coordinates(self, element: Any) -> tuple[Any, ...]:
+    def coordinates(self, element: object) -> tuple[FracElement, ...]:
         """Return the coordinates of ``element`` in this basis."""
         parent = self.extension.parent_field
         power_coordinates = self._power_coordinates(element)
@@ -236,9 +262,15 @@ class IntegralBasis:
             parent,
         )
         result = self._power_inverse*vector
-        return tuple(row[0] for row in result.to_list())
+        return cast(
+            tuple[FracElement, ...],
+            tuple(row[0] for row in result.to_list()),
+        )
 
-    def element(self, coordinates: tuple[Any, ...]) -> Any:
+    def element(
+        self,
+        coordinates: tuple[object, ...],
+    ) -> ExtensionElement:
         """Construct a field element from integral-basis coordinates."""
         if len(coordinates) != len(self.elements):
             raise ValueError("coordinate vector has the wrong length")
@@ -251,7 +283,7 @@ class IntegralBasis:
             result += basis_element.rep.mul_ground(coefficient)
         return field.dtype(result, field)
 
-    def fraction(self, element: Any) -> AlgebraicFraction:
+    def fraction(self, element: object) -> AlgebraicFraction:
         """Return the normalized common-denominator representation."""
         parent, constants, variable = _base_polynomial_ring(self.extension)
         coordinates = self.coordinates(element)
@@ -318,7 +350,7 @@ def _polynomial_plane_model(
 
 
 def _polynomial_power_numerator(
-    element: Any,
+    element: ExtensionElement,
     fraction: AlgebraicFraction,
     basis: IntegralBasis,
     parent: FractionField,
@@ -372,7 +404,7 @@ def _polynomial_power_numerator(
 
 
 def trager_algebraic_residue_polynomial(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     basis: IntegralBasis,
     residue: Symbol,
@@ -557,12 +589,12 @@ class SimpleRadicalData:
 
     extension: AlgebraicExtension
     degree: int
-    radicand: Any
+    radicand: FracElement
     numerator: Poly
     denominator: Poly
     extracted_factor: Poly
     normalized_radicand: Poly
-    normalized_generator: Any
+    normalized_generator: ExtensionElement
 
 
 def recognize_simple_radical(
@@ -645,7 +677,7 @@ def simple_radical_integral_basis(
 
 def _coordinate_matrix(
     basis: IntegralBasis,
-    elements: tuple[Any, ...],
+    elements: tuple[ExtensionElement, ...],
 ) -> DomainMatrix:
     parent = basis.extension.parent_field
     rank = len(basis.elements)
@@ -661,7 +693,7 @@ def _coordinate_matrix(
 
 
 def _primitive_polynomial_vector(
-    elements: tuple[Any, ...],
+    elements: tuple[FracElement, ...],
     parent: FractionField,
     constants: Domain,
     variable: Symbol,
@@ -694,8 +726,15 @@ def _denominator_excess(denominator: Poly) -> int:
     )
 
 
-def _embed_parent(extension: AlgebraicExtension, element: Any) -> Any:
+def _embed_parent(
+    extension: AlgebraicExtension,
+    element: object,
+) -> ExtensionElement:
     parent = extension.parent_field
+    if not isinstance(parent, FractionField):
+        raise NotImplementedError(
+            "integral-basis refinement requires a rational parent field"
+        )
     if isinstance(element, Poly):
         element = _polynomial_parent_element(element, parent)
     else:
@@ -755,12 +794,12 @@ def _adjoin_integral_element(
 
 
 def _hermite_reduce_algebraic(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     basis: IntegralBasis,
     *,
     lazy: bool,
-) -> tuple[Any, Any, IntegralBasis]:
+) -> tuple[ExtensionElement, ExtensionElement, IntegralBasis]:
     r"""Implement equations (7)--(9) of Bronstein's ISSAC'98 tutorial.
 
     For denominator ``D = U*V**m``, the algorithm seeks ``B`` such that
@@ -777,7 +816,7 @@ def _hermite_reduce_algebraic(
     remainder = _extension_element(extension, integrand)
     exact_part = extension.field.zero
     differentiated_basis: IntegralBasis | None = None
-    basis_derivatives: tuple[Any, ...] | None = None
+    basis_derivatives: tuple[ExtensionElement, ...] | None = None
     derivative_matrix: DomainMatrix | None = None
 
     while True:
@@ -803,9 +842,12 @@ def _hermite_reduce_algebraic(
             # D(w_i) depends only on the basis and derivation, not on the pole
             # currently being reduced.  Cache its coordinate matrix until a
             # lazy refinement replaces the basis.
-            basis_derivatives = tuple(
-                derivation(element)
-                for element in basis.elements
+            basis_derivatives = cast(
+                tuple[ExtensionElement, ...],
+                tuple(
+                    derivation(element)
+                    for element in basis.elements
+                ),
             )
             derivative_matrix = _coordinate_matrix(
                 basis,
@@ -998,10 +1040,10 @@ def _hermite_reduce_algebraic(
 
 
 def hermite_reduce_algebraic(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     basis: IntegralBasis,
-) -> tuple[Any, Any]:
+) -> tuple[ExtensionElement, ExtensionElement]:
     r"""Write ``integrand = D(g) + h`` using a supplied integral basis."""
     exact, remainder, _ = _hermite_reduce_algebraic(
         integrand,
@@ -1013,10 +1055,10 @@ def hermite_reduce_algebraic(
 
 
 def lazy_hermite_reduce_algebraic(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
     basis: IntegralBasis,
-) -> tuple[Any, Any, IntegralBasis]:
+) -> tuple[ExtensionElement, ExtensionElement, IntegralBasis]:
     r"""Hermite-reduce while refining denominator-obstructed integral bases.
 
     This implements the three lazy-refinement theorems in Manuel Bronstein,

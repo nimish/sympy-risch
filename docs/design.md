@@ -145,6 +145,7 @@ The current implementation is organized by mathematical responsibility:
 
 | Module | Responsibility |
 | --- | --- |
+| `_typing.py` | Structural types for native SymPy domain elements |
 | `tower.py` | Immutable extension metadata and level-bound derivations |
 | `exact.py` | Level-independent exact-derivative dispatch |
 | `monomial.py` | Primitive signatures, radical logarithmic decisions, and family reducers |
@@ -164,6 +165,15 @@ QQ(x) <- primitive <- primitive <- ...
 
 with explicit `Const(K(t)) = Const(K)` evidence at every primitive level.
 Unsupported intervening families do not silently become negative decisions.
+
+SymPy's exact domains return several backend-specific element classes:
+`python-flint` ground values, fraction-field elements, and algebraic-extension
+elements. The internal `FieldElement` protocol describes the arithmetic shared
+by those values without erasing them to `Any`. Public coercion boundaries
+accept `object`, then validate or convert it before field operations. Result
+objects, recursive callbacks, and certificates carry concrete structural or
+algorithm-specific types. Ruff enforces annotations in production code and ty
+checks the complete `src` tree.
 
 The important consumer relationships are:
 
@@ -311,8 +321,18 @@ Const(K(t)) = Const(K).
 ```
 
 `ConstantFieldStatus` records whether that condition is `PRESERVED`,
-`ENLARGED`, or `UNKNOWN`. Manual towers must supply the evidence. Algorithms
-that rely on the condition reject unproved cases.
+`ENLARGED`, or `UNKNOWN`. Manual towers currently supply the evidence.
+Algorithms that rely on the condition reject unproved cases.
+
+For a primitive proposal `K(t)` with `Dt = eta` in `K`, this condition is
+decidable using machinery already present in the lower tower. If
+`eta = D(v)` for some `v` in `K`, then `t - v` is a new constant, so the
+proposed generator is dependent and the level must be rejected or recorded as
+`ENLARGED`. If the lower exact-derivative decision proves that no such `v`
+exists, constants are preserved. Applying that test from the bottom upward
+also detects dependencies between primitive generators; for example, after
+`Dt1 = 1/x`, a proposal `Dt2 = 2/x` is rejected because
+`2/x = D(2*t1)`.
 
 ### Normal and special polynomials
 
@@ -633,14 +653,16 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest completed major checkpoint adds weak normalization and the full
-primitive degree bound for rational RDE coefficients. This makes
-hyperexponential reduction consume rational logarithmic derivatives over
-recursively primitive lower towers. Trager's finite-residue polynomial is
-also implemented for supported algebraic models. The current algebraic
-priority is branch-place handling before the residue-field and divisor
-stages; the next transcendental priority is extending scalar RDE and
-exact-derivative decisions to further lower tower families.
+The latest architecture checkpoint gives the production kernel complete
+function annotations, structural types for native SymPy field elements, and
+reproducible Ruff and ty gates. The latest mathematical checkpoint adds weak
+normalization and the full primitive degree bound for rational RDE
+coefficients, allowing hyperexponential reduction over recursively primitive
+lower towers. Trager's finite-residue polynomial is also implemented for
+supported algebraic models. The next architecture step is to turn primitive
+constant preservation from caller-supplied metadata into a checked,
+bottom-up certificate. The current algebraic priority remains branch-place
+handling before the residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -675,11 +697,15 @@ exact-derivative decisions to further lower tower families.
 
 ### Next transcendental steps
 
+- [ ] Add a checked primitive-extension analyzer/factory. For `Dt = eta`, run
+  the lower exact-derivative decision and return a certified
+  preserved/dependent/unknown outcome; cache the result as immutable extension
+  metadata and never mark unsupported parent families as preserved.
 - [ ] Generalize exact-derivative and RDE solving over further supported lower
   tower families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.
-- [ ] Complete automatic dependence checks needed to justify constant-field
-  preservation.
+- [ ] Extend automatic dependence and constant-field checks to the remaining
+  monomial families.
 - [ ] Add the missing general-special-polynomial branch for nonlinear
   monomials.
 

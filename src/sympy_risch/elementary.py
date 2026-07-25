@@ -22,7 +22,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 from sympy.core.add import Add
 from sympy.core.expr import Expr
@@ -33,9 +32,14 @@ from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 from sympy.polys.rootoftools import RootSum
 
+from ._typing import FieldElement
 from .monomial import (
     BronsteinResidueReduction,
+    HyperexponentialMonomialReduction,
+    HypertangentMonomialReduction,
+    NonlinearNoSpecialReduction,
     NonlinearNoSpecialStatus,
+    PrimitiveMonomialReduction,
     ReducedFunctionReduction,
     reduce_hyperexponential_monomial,
     reduce_hypertangent_monomial,
@@ -50,6 +54,13 @@ from .tower import (
     MonomialFamily,
     SpecialPolynomialStatus,
     _coerce,
+)
+
+MonomialLevelCertificate = (
+    PrimitiveMonomialReduction
+    | HyperexponentialMonomialReduction
+    | HypertangentMonomialReduction
+    | NonlinearNoSpecialReduction
 )
 
 
@@ -73,8 +84,8 @@ class IntegrationObstruction:
     generator: Symbol | None
     family: MonomialFamily | None
     kinds: tuple[IntegrationObstructionKind, ...]
-    remainder: Any
-    certificate: Any
+    remainder: FieldElement
+    certificate: MonomialLevelCertificate | None
 
     def __post_init__(self) -> None:
         if not self.kinds:
@@ -93,9 +104,12 @@ class LogarithmicTerm:
     """
 
     antiderivative: Expr
-    derivative: Any
+    derivative: FieldElement
     level: int
-    certificate: Any
+    certificate: (
+        RationalElementaryReduction
+        | tuple[BronsteinResidueReduction, ReducedFunctionReduction | None]
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,12 +125,12 @@ class RationalElementaryReduction:
 class _LevelReduction:
     """Normalized internal view of one family-specific reduction."""
 
-    certificate: Any
-    exact_part: Any
-    logarithmic_derivative: Any
+    certificate: MonomialLevelCertificate
+    exact_part: FieldElement
+    logarithmic_derivative: FieldElement
     logarithmic_terms: tuple[LogarithmicTerm, ...]
-    remainder: Any
-    lower_remainder: Any | None
+    remainder: FieldElement
+    lower_remainder: FieldElement | None
     obstruction: IntegrationObstruction | None
 
 
@@ -135,14 +149,14 @@ class ElementaryIntegralResult:
     """
 
     derivation: Derivation
-    integrand: Any
-    exact_part: Any
+    integrand: FieldElement
+    exact_part: FieldElement
     logarithmic_terms: tuple[LogarithmicTerm, ...]
-    logarithmic_derivative: Any
-    remainder: Any
+    logarithmic_derivative: FieldElement
+    remainder: FieldElement
     lower_result: ElementaryIntegralResult | None
     obstruction: IntegrationObstruction | None
-    certificate: Any
+    certificate: RationalElementaryReduction | MonomialLevelCertificate | None
 
     @property
     def is_elementary(self) -> bool:
@@ -150,7 +164,7 @@ class ElementaryIntegralResult:
         return self.obstruction is None
 
     @property
-    def total_exact_part(self) -> Any:
+    def total_exact_part(self) -> FieldElement:
         """Return exact parts from every recursive level in the top field."""
         total = self.exact_part
         if self.lower_result is not None:
@@ -168,7 +182,7 @@ class ElementaryIntegralResult:
         return self.logarithmic_terms + self.lower_result.all_logarithmic_terms
 
     @property
-    def total_logarithmic_derivative(self) -> Any:
+    def total_logarithmic_derivative(self) -> FieldElement:
         """Return logarithmic derivatives from every level in the top field."""
         total = self.logarithmic_derivative
         if self.lower_result is not None:
@@ -179,7 +193,7 @@ class ElementaryIntegralResult:
         return total
 
     @property
-    def unintegrated_remainder(self) -> Any:
+    def unintegrated_remainder(self) -> FieldElement:
         """Return zero on success, or the terminal obstruction in the top field."""
         if self.lower_result is None:
             return self.remainder
@@ -253,18 +267,16 @@ def _logarithmic_expression(
             raise ValueError(
                 "a logarithmic argument needs a logarithmic coefficient"
             )
+        argument = reduced_function_reduction.logarithmic_argument
         terms.append(
-            coefficient.as_expr()
-            * log(
-                reduced_function_reduction.logarithmic_argument.as_expr()
-            )
+            argument.domain.to_sympy(coefficient) * log(argument.as_expr())
         )
     return Add(*terms)
 
 
 def _monomial_logarithmic_terms(
     residue_reduction: BronsteinResidueReduction,
-    logarithmic_derivative: Any,
+    logarithmic_derivative: FieldElement,
     level: int,
     reduced_function_reduction: ReducedFunctionReduction | None = None,
 ) -> tuple[LogarithmicTerm, ...]:
@@ -296,8 +308,8 @@ def _monomial_logarithmic_terms(
 def _obstruction(
     derivation: Derivation,
     kinds: list[IntegrationObstructionKind],
-    remainder: Any,
-    certificate: Any,
+    remainder: FieldElement,
+    certificate: MonomialLevelCertificate,
 ) -> IntegrationObstruction:
     """Construct a terminal obstruction for the current monomial level."""
     extension = derivation.tower.levels[derivation.level]
@@ -314,7 +326,7 @@ def _obstruction(
 
 
 def _rational_base(
-    element: Any,
+    element: FieldElement,
     derivation: Derivation,
     extension: MonomialExtension,
 ) -> ElementaryIntegralResult:
@@ -366,7 +378,7 @@ def _rational_base(
 
 
 def _primitive_level(
-    element: Any,
+    element: FieldElement,
     derivation: Derivation,
 ) -> _LevelReduction:
     reduction = reduce_primitive_monomial(element, derivation)
@@ -397,7 +409,7 @@ def _primitive_level(
 
 
 def _hyperexponential_level(
-    element: Any,
+    element: FieldElement,
     derivation: Derivation,
 ) -> _LevelReduction:
     reduction = reduce_hyperexponential_monomial(element, derivation)
@@ -430,7 +442,7 @@ def _hyperexponential_level(
 
 
 def _hypertangent_level(
-    element: Any,
+    element: FieldElement,
     derivation: Derivation,
 ) -> _LevelReduction:
     reduction = reduce_hypertangent_monomial(element, derivation)
@@ -467,7 +479,7 @@ def _hypertangent_level(
 
 
 def _nonlinear_no_special_level(
-    element: Any,
+    element: FieldElement,
     derivation: Derivation,
 ) -> _LevelReduction:
     reduction = reduce_nonlinear_no_special(element, derivation)
@@ -507,7 +519,7 @@ def _nonlinear_no_special_level(
 
 
 def integrate_elementary(
-    integrand: Any,
+    integrand: object,
     derivation: Derivation,
 ) -> ElementaryIntegralResult:
     r"""Integrate ``integrand`` recursively in an explicit differential tower.

@@ -19,7 +19,6 @@ from sympy_risch import (
     integrate_elementary,
 )
 
-
 x, t, u, y = symbols("x t u y")
 
 

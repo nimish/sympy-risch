@@ -29,7 +29,6 @@ from sympy_risch import (
     reduce_primitive_monomial,
 )
 
-
 x, t, z = symbols("x t z")
 
 
@@ -213,7 +212,7 @@ def test_rubi_logarithmic_power_family(
     assert result.reduced_to_lower_field
 
 
-@pytest.mark.parametrize("power_log", range(0, 9))
+@pytest.mark.parametrize("power_log", range(9))
 def test_rubi_logarithmic_power_over_x_family(power_log: int) -> None:
     tower = logarithmic_tower()
     field = tower.field()

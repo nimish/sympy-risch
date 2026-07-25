@@ -1,5 +1,4 @@
 import pytest
-
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from sympy import Poly, Rational, cancel, prod, symbols
@@ -9,7 +8,6 @@ from sympy_risch import (
     lazard_rioboo_trager,
     rothstein_trager_residue_polynomial,
 )
-
 
 x, z = symbols("x z")
 

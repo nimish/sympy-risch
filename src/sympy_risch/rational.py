@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import lcm
-from typing import Any
 
 from sympy.core.add import Add
 from sympy.core.expr import Expr
@@ -21,6 +20,7 @@ from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.polytools import Poly, cancel, invert, resultant
 from sympy.polys.rootoftools import RootSum
 
+from ._typing import FieldElement
 from .lrt import lazard_rioboo_trager
 from .polynomial import integrate_polynomial
 
@@ -68,7 +68,7 @@ class RationalLogDerivativeFactor:
 
     factor: Poly
     partial_numerator: Poly
-    multiplicity: Any | None
+    multiplicity: FieldElement | None
 
     @property
     def has_logarithmic_residue(self) -> bool:
@@ -392,7 +392,7 @@ def solve_rational_logarithmic_derivative(
         )
 
     factor_certificates: list[RationalLogDerivativeFactor] = []
-    argument: Expr = S.One
+    argument: Expr | None = S.One
     for factor, _ in denominator_factors:
         cofactor = denominator.exquo(factor)
         partial_numerator = (

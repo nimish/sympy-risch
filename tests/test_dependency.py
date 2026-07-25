@@ -17,7 +17,6 @@ from sympy_risch import (
     analyze_hypertangent_extension,
 )
 
-
 x, t, z = symbols("x t z")
 
 
