@@ -31,6 +31,7 @@ from sympy_risch import (
     solve_parametric_logarithmic_derivative_heuristic,
     solve_exact_derivative,
     solve_radical_logarithmic_derivative,
+    solve_risch_differential_equation,
     trager_algebraic_residue_polynomial,
 )
 
@@ -272,6 +273,42 @@ in the current primitive generator are weakly normalized before
 normal-denominator reduction. Positive-integer logarithmic residues are
 removed by an exact change of unknown; other residues remain in the normalized
 equation and are handled by the denominator, degree-bound, and SPDE stages.
+
+At a hyperexponential level `K(t)` with `Dt = eta*t`, the RDE dispatcher also
+handles a lower-field coefficient `a in K` and a Laurent right-hand side.
+Each power is solved independently:
+
+```text
+D(y_j) + (a + j*eta)*y_j = b_j.
+```
+
+For example:
+
+```python
+exp_x = base.extend(
+    MonomialExtension(
+        Poly(t, t, domain=base.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+field = exp_x.field()
+D = exp_x.derivation()
+planted = field.from_sympy((x + 1)/t**2 + x*t)
+coefficient = field.from_sympy(3)
+rhs = D(planted) + coefficient*planted
+
+result = solve_risch_differential_equation(coefficient, rhs, D)
+assert result.has_solution
+assert result.solution == planted
+assert result.reconstructs
+```
+
+The structured certificate contains one recursive lower-field RDE result per
+Laurent power. A failed mode remains in `residual`, while all independently
+solved modes remain in `partial_solution`. Coefficients depending on `t` and
+right-hand sides with normal factors such as `t + 1` are deliberately
+unsupported until the next weak-normalization and denominator-reduction
+checkpoint.
 
 For example, let `t = log(x)` and adjoin a formal hyperexponential `u` with
 
@@ -531,6 +568,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Recursively stacked primitive levels | End-to-end for the implemented reduction |
 | One hyperexponential level over `QQ(x)` | End-to-end |
 | Hyperexponential over a recursive primitive tower, with rational logarithmic derivative | End-to-end |
+| Scalar RDE over hyperexponential levels, lower-field coefficient and Laurent right-hand side | Complete decision over recursively supported lower fields |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |

@@ -51,6 +51,8 @@ The lower-level library additionally implements:
 - weak normalization, normal-denominator, SPDE, and polynomial RDE reduction
   over a primitive field for rational coefficients, including Bronstein's
   lower-field cancellation recurrence;
+- complete hyperexponential RDE reduction when the coefficient is in the
+  lower field and the right-hand side is Laurent in the top generator;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
 - rational coupled RDEs for the real hypertangent case;
@@ -78,6 +80,12 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+693c0bb  Solve hyperexponential Laurent RDEs
+609b55a  Extend exact decisions through exp and tan
+4bab9ef  Certify primitive extension constants
+f1fe842  Type the Risch solver kernel
+e98ab35  Parallelize generated oracle tests
+3b2744b  Document primitive weak normalization
 4d732c6  Complete primitive RDE weak normalization
 bc763f1  Reconcile recursive primitive checkpoint
 889e4f6  Complete primitive RDE cancellation
@@ -552,6 +560,43 @@ matrix ansatz, including generated success and nonsolution families. The
 oracle accepts a caller-supplied top denominator, so weak-normalization cases
 are checked without sharing the production normalizer or denominator theorem.
 
+### Hyperexponential Laurent RDEs
+
+At a hyperexponential level `K(t)` with `Dt = eta*t`, the implemented scalar
+RDE branch accepts `a in K` and a Laurent right-hand side
+
+```text
+b = sum(b_j*t**j).
+```
+
+The operator `D + a` preserves each Laurent mode:
+
+```text
+(D + a)(y_j*t**j)
+    = (D(y_j) + (a + j*eta)*y_j)*t**j.
+```
+
+The solver therefore invokes the general RDE dispatcher on the lower field
+for each shifted coefficient `a + j*eta`. Successful modes are accumulated
+in a partial solution; unsuccessful modes remain in an exact residual, and
+every lower-field result is retained in the certificate.
+
+This is a complete rational decision under the stated restrictions, not only
+a Laurent ansatz. A rational solution cannot have a normal finite pole in the
+top generator: differentiation would increase that pole order while
+multiplication by `a in K` would not, and the Laurent right-hand side has no
+such pole. The hyperexponential special factor `t` accounts precisely for the
+allowed negative Laurent powers.
+
+An independent bounded matrix oracle handles one hyperexponential level over
+`QQ(x)`. It uses a single global bivariate ansatz and does not split modes or
+call the production lower-field recurrence. Generated planted and
+nonsolution examples compare the two implementations.
+
+The remaining rational hyperexponential RDE requires weak normalization and
+normal-denominator reduction for a coefficient that itself depends on `t`.
+That is the next scalar-RDE checkpoint.
+
 ### Hypertangent levels
 
 For `Dt = eta*(1 + t**2)`, the irreducible real special polynomial is
@@ -671,13 +716,13 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest transcendental checkpoint extends exact-derivative dispatch through
-the supported hyperexponential and hypertangent reducers, including recursive
-lower-field exactness and canonical finite-residue obstructions. Primitive
-constant preservation is now certified bottom-up by the same exact decision.
-The next transcendental checkpoint generalizes RDE solving to further lower
-tower families. The current algebraic priority remains branch-place handling
-before the residue-field and divisor stages.
+The latest transcendental checkpoint extends scalar RDE dispatch through the
+complete lower-coefficient/Laurent hyperexponential branch, including
+recursive hyperexponential levels and an independent matrix oracle. The next
+scalar checkpoint adds weak normalization and normal-denominator reduction
+for top-dependent hyperexponential coefficients. The current algebraic
+priority remains branch-place handling before the residue-field and divisor
+stages.
 
 ### Completed foundation
 
@@ -713,10 +758,15 @@ before the residue-field and divisor stages.
   witnesses and conservative unknown outcomes.
 - [x] Hyperexponential and hypertangent exact-derivative dispatch over the
   supported lower towers.
+- [x] Hyperexponential Laurent RDEs with lower-field coefficients, recursive
+  mode certificates, and an independent bounded matrix oracle.
 
 ### Next transcendental steps
 
-- [ ] Generalize RDE solving over further supported lower tower families.
+- [ ] Add weak normalization and normal-denominator reduction for general
+  rational hyperexponential RDE coefficients.
+- [ ] Generalize coupled RDE solving over further supported lower tower
+  families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.
 - [ ] Extend automatic dependence and constant-field checks to the remaining
   monomial families.

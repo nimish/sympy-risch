@@ -14,7 +14,8 @@ parametric logarithmic-derivative decisions over primitive towers, primitive
 RDE weak normalization and cancellation, algebraic Hermite reduction, Trager
 finite-residue polynomials for supported algebraic models, generalized
 monomial residue reduction, family-aware exact-derivative decisions, and Risch
-differential-equation solvers.
+differential-equation solvers, including recursive hyperexponential Laurent
+RDEs with lower-field coefficients.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

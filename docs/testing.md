@@ -79,6 +79,13 @@ generated hyperexponential and hypertangent examples, normal and logarithmic
 residues, unsolved special-mode RDEs, recursive lower-field exactness, and
 idempotent obstructions. The family RDE decisions are independently covered
 by the bounded matrix-oracle comparisons in the corresponding reducer tests.
+`tests/test_hyperexponential_rde.py` checks positive, zero, and negative
+Laurent modes; recursive dispatch through two hyperexponential levels;
+partial-solution and obstruction invariants; unsupported normal denominators
+and top-dependent coefficients; and constant-field preconditions. Generated
+planted solutions and single-mode nonsolutions are cross-checked against a
+global bivariate matrix oracle that neither separates Laurent modes nor calls
+the production lower-field RDE solver.
 `tests/test_primitive_logarithmic.py` checks recursive primitive signatures
 through three tower levels. It compares both one-level and nested decisions
 with separate global linear ansatzes. Generated inputs mix inherited
