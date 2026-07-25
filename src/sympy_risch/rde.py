@@ -547,6 +547,7 @@ class RischDifferentialEquationResult:
         | PrimitiveRischDifferentialEquationResult
         | HyperexponentialRischDifferentialEquationResult
         | HyperexponentialLaurentRischDifferentialEquationResult
+        | HypertangentGaussianRischDifferentialEquationResult
     )
 
     @property
@@ -563,6 +564,32 @@ class RischDifferentialEquationResult:
             - self.right_hand_side,
             self.derivation.field,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class HypertangentGaussianRischDifferentialEquationResult:
+    r"""Scalar real RDE certificate obtained through the Cayley isomorphism."""
+
+    normal_form: HypertangentGaussianNormalForm
+    target_result: RischDifferentialEquationResult
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the Gaussian target equation has a solution."""
+        return self.target_result.has_solution
+
+    @property
+    def obstruction(
+        self,
+    ) -> (
+        RationalRDEObstruction
+        | PrimitiveRDEObstruction
+        | HyperexponentialRDEObstruction
+        | HyperexponentialLaurentRDEObstruction
+        | None
+    ):
+        """Return the obstruction transported from the target equation."""
+        return self.target_result.obstruction
 
 
 @dataclass(frozen=True, slots=True)
@@ -3873,6 +3900,7 @@ def solve_risch_differential_equation(
                 rhs_element,
                 derivation,
             )
+            solution = certificate.solution
         elif extension.family is MonomialFamily.HYPEREXPONENTIAL:
             try:
                 _hyperexponential_laurent_coefficients(
@@ -3901,12 +3929,34 @@ def solve_risch_differential_equation(
                         derivation,
                     )
                 )
+            solution = certificate.solution
+        elif extension.family is MonomialFamily.HYPERTANGENT:
+            from .gaussian import build_hypertangent_gaussian_normal_form
+
+            normal_form = build_hypertangent_gaussian_normal_form(
+                derivation,
+            )
+            target_result = solve_risch_differential_equation(
+                normal_form.forward(coefficient_element),
+                normal_form.forward(rhs_element),
+                normal_form.target_derivation,
+            )
+            certificate = HypertangentGaussianRischDifferentialEquationResult(
+                normal_form,
+                target_result,
+            )
+            if target_result.solution is None:
+                solution = None
+            else:
+                real_solution, _ = normal_form.split_inverse(
+                    target_result.solution,
+                )
+                solution = real_solution
         else:
             raise NotImplementedError(
                 f"RDE dispatch does not yet support "
                 f"{extension.family.value} monomial levels"
             )
-        solution = certificate.solution
 
     result = RischDifferentialEquationResult(
         derivation,

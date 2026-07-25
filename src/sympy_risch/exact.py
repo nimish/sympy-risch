@@ -3,8 +3,10 @@ r"""Exact-derivative dispatch across implemented differential tower levels."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from sympy.polys.domains import QQ
+from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly
 
 from ._typing import FieldElement
@@ -17,8 +19,14 @@ from .monomial import (
     reduce_hypertangent_monomial,
     solve_primitive_exact_derivative,
 )
-from .rational import RationalExactDerivativeResult, solve_rational_exact_derivative
+from .rational import (
+    RationalExactDerivativeResult,
+    _solve_rational_exact_derivative_over_domain,
+)
 from .tower import Derivation, MonomialExtension, MonomialFamily, _coerce
+
+if TYPE_CHECKING:
+    from .rde import RischDifferentialEquationResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +49,18 @@ class TranscendentalExactDerivativeCertificate:
     )
     lower_result: ExactDerivativeResult | None
 
+
+@dataclass(frozen=True, slots=True)
+class HypertangentGaussianExactDerivativeCertificate:
+    """Exactness decision obtained from the Gaussian scalar RDE fallback."""
+
+    rde_result: RischDifferentialEquationResult
+
 ExactDerivativeCertificate = (
     RationalExactDerivativeResult
     | PrimitiveExactDerivativeResult
     | TranscendentalExactDerivativeCertificate
+    | HypertangentGaussianExactDerivativeCertificate
 )
 
 
@@ -67,13 +83,20 @@ class ExactDerivativeResult:
         return self.exact_part if self.has_solution else None
 
 
-def _is_standard_rational_level(extension: MonomialExtension) -> bool:
-    """Whether ``extension`` represents ``QQ(x)`` with ``Dx = 1``."""
-    return (
-        extension.parent_field == QQ
-        and extension.generator_derivative
-        == Poly(1, extension.generator, domain=QQ)
-    )
+def _standard_rational_constant_field(
+    extension: MonomialExtension,
+) -> Domain | None:
+    """Return ``C`` for a supported standard rational base ``C(x)``."""
+    constant_field = extension.parent_field
+    if constant_field not in {QQ, QQ_I}:
+        return None
+    if extension.generator_derivative != Poly(
+        1,
+        extension.generator,
+        domain=constant_field,
+    ):
+        return None
+    return constant_field
 
 
 def _transcendental_lower_remainder(
@@ -200,6 +223,32 @@ def _finish_transcendental_exact_derivative(
     )
 
 
+def _solve_hypertangent_exact_derivative_via_rde(
+    element: FieldElement,
+    derivation: Derivation,
+) -> ExactDerivativeResult:
+    """Use the complete scalar RDE fallback for a mixed tangent lower field."""
+    from .rde import solve_risch_differential_equation
+
+    result = solve_risch_differential_equation(
+        derivation.field.zero,
+        element,
+        derivation,
+    )
+    certificate = HypertangentGaussianExactDerivativeCertificate(result)
+    if result.solution is None:
+        return ExactDerivativeResult(
+            derivation.field.zero,
+            element,
+            certificate,
+        )
+    return ExactDerivativeResult(
+        result.solution,
+        derivation.field.zero,
+        certificate,
+    )
+
+
 def solve_exact_derivative(
     integrand: object,
     derivation: Derivation,
@@ -222,10 +271,12 @@ def solve_exact_derivative(
             "exact-derivative dispatch does not yet support algebraic levels"
         )
 
-    if _is_standard_rational_level(extension):
-        certificate = solve_rational_exact_derivative(
+    constant_field = _standard_rational_constant_field(extension)
+    if constant_field is not None:
+        certificate = _solve_rational_exact_derivative_over_domain(
             field.to_sympy(element),
             extension.generator,
+            constant_field,
         )
     elif derivation.level > 0 and extension.family is MonomialFamily.PRIMITIVE:
         certificate = solve_primitive_exact_derivative(
@@ -239,10 +290,17 @@ def solve_exact_derivative(
             reduce_hyperexponential_monomial(element, derivation),
         )
     elif extension.family is MonomialFamily.HYPERTANGENT:
+        try:
+            reduction = reduce_hypertangent_monomial(element, derivation)
+        except NotImplementedError:
+            return _solve_hypertangent_exact_derivative_via_rde(
+                element,
+                derivation,
+            )
         return _finish_transcendental_exact_derivative(
             element,
             derivation,
-            reduce_hypertangent_monomial(element, derivation),
+            reduction,
         )
     else:
         raise NotImplementedError(

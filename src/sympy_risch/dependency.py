@@ -24,6 +24,10 @@ from .rational import (
     RationalLogDerivativeResult,
     _solve_rational_logarithmic_derivative_over_domain,
 )
+from .relations import (
+    LogarithmicRelationSystemResult,
+    solve_logarithmic_relation_system,
+)
 from .tower import (
     ConstantFieldStatus,
     Derivation,
@@ -36,9 +40,13 @@ from .tower import (
 if TYPE_CHECKING:
     from .exact import (
         ExactDerivativeResult,
+        HypertangentGaussianExactDerivativeCertificate,
         TranscendentalExactDerivativeCertificate,
     )
+    from .gaussian import HypertangentGaussianNormalForm
     from .monomial import (
+        HyperexponentialLogarithmicDerivativeSignature,
+        HypertangentLogarithmicDerivativeSignature,
         PrimitiveExactDerivativeResult,
         PrimitiveLogarithmicDerivativeSignature,
         RadicalLogarithmicDerivativeResult,
@@ -241,6 +249,30 @@ class PrimitiveParametricLogarithmicDerivativeCertificate:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class MonomialRelationSystemParametricCertificate:
+    r"""Chapter-9 rational relation-system certificate for mixed towers.
+
+    The system compiles normal valuations and hyperexponential special
+    valuations into one homogeneous matrix over ``QQ``.  A row with a nonzero
+    coefficient of ``f`` is exactly a solution of the parametric
+    logarithmic-derivative problem; absence of such a row is a complete
+    obstruction in the supported primitive/hyperexponential tower scope.
+    """
+
+    system: LogarithmicRelationSystemResult
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class HypertangentGaussianParametricLogarithmicDerivativeCertificate:
+    r"""Real PLogD certificate obtained through the Cayley Gaussian form."""
+
+    normal_form: HypertangentGaussianNormalForm
+    target_result: ParametricLogarithmicDerivativeResult
+    reason: str
+
+
 def _parametric_logarithmic_derivative_eta(
     extension: MonomialExtension,
     lower_derivation: Derivation,
@@ -345,6 +377,8 @@ class ParametricLogarithmicDerivativeResult:
         ParametricLogarithmicDerivativeHeuristicCertificate
         | RationalParametricLogarithmicDerivativeCertificate
         | PrimitiveParametricLogarithmicDerivativeCertificate
+        | MonomialRelationSystemParametricCertificate
+        | HypertangentGaussianParametricLogarithmicDerivativeCertificate
         | None
     ) = None
     detail: str | None = None
@@ -582,12 +616,15 @@ class HyperexponentialDependency:
     logarithmic_result: (
         RationalLogDerivativeResult
         | PrimitiveLogarithmicDerivativeSignature
+        | HyperexponentialLogarithmicDerivativeSignature
+        | HypertangentLogarithmicDerivativeSignature
         | RadicalLogarithmicDerivativeResult
     )
     exact_result: (
         RationalExactDerivativeResult
         | PrimitiveExactDerivativeResult
         | TranscendentalExactDerivativeCertificate
+        | HypertangentGaussianExactDerivativeCertificate
         | ExactDerivativeResult
         | None
     )
@@ -634,6 +671,66 @@ class HyperexponentialDependency:
             declared is not ConstantFieldStatus.UNKNOWN
             and declared is not self.inferred_constant_field_status
         )
+
+
+@dataclass(frozen=True, slots=True)
+class TranscendentalExtensionAnalysis:
+    r"""Checked constant-field certificate for an exponential or tangent proposal.
+
+    A hyperexponential proposal is admissible precisely when its logarithmic
+    derivative has no rational logarithmic relation in the lower field. A
+    hypertangent proposal has the same criterion after its Cayley transform.
+    In either dependent case, the formal generator would introduce a new
+    constant, so the returned immutable extension records ``ENLARGED``.
+
+    ``UNKNOWN`` is reserved for an uncertified lower tower or a lower family
+    outside the implemented decision procedures. This keeps a missing
+    implementation distinct from a proved transcendence result.
+    """
+
+    extension: MonomialExtension
+    dependency: HyperexponentialDependency | HypertangentDependency | None
+    detail: str | None = None
+
+    @property
+    def status(self) -> ConstantFieldStatus:
+        """Return the constant-field status cached on ``extension``."""
+        return self.extension.constant_field_status
+
+    @property
+    def is_dependent(self) -> bool:
+        """Whether the proposal produces a new constant relation."""
+        return self.status is ConstantFieldStatus.ENLARGED
+
+
+def _uncertified_lower_tower_detail(
+    lower_derivation: Derivation,
+) -> str | None:
+    """Explain why a proposed transcendental level cannot yet be certified."""
+    if lower_derivation.level < 0:
+        return (
+            "transcendental extension certification requires a supported "
+            "nonconstant lower differential field"
+        )
+    lower_levels = lower_derivation.tower.levels[
+        : lower_derivation.level + 1
+    ]
+    uncertified_level = next(
+        (
+            level
+            for level in lower_levels
+            if isinstance(level, MonomialExtension)
+            and level.constant_field_status
+            is not ConstantFieldStatus.PRESERVED
+        ),
+        None,
+    )
+    if uncertified_level is None:
+        return None
+    return (
+        "the lower tower contains a monomial level without certified "
+        "constant preservation"
+    )
 
 
 def _standard_rational_variable(derivation: Derivation) -> Symbol:
@@ -1641,6 +1738,180 @@ def _solve_primitive_parametric_logarithmic_derivative(
     )
 
 
+def _tower_contains_hyperexponential_level(derivation: Derivation) -> bool:
+    """Whether a lower tower needs the multi-direction relation fallback."""
+    return any(
+        isinstance(level, MonomialExtension)
+        and level.family is MonomialFamily.HYPEREXPONENTIAL
+        for level in derivation.tower.levels[: derivation.level + 1]
+    )
+
+
+def _tower_contains_hypertangent_level(derivation: Derivation) -> bool:
+    """Whether a real lower tower must first enter Cayley normal form."""
+    return any(
+        isinstance(level, MonomialExtension)
+        and level.family is MonomialFamily.HYPERTANGENT
+        for level in derivation.tower.levels[: derivation.level + 1]
+    )
+
+
+def _solve_monomial_relation_system_parametric_logarithmic_derivative(
+    f: object,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> ParametricLogarithmicDerivativeResult:
+    r"""Solve PLogD by the complete finite QQ relation system.
+
+    A hyperexponential lower level introduces its own special direction
+    ``Dt/t``.  Therefore the lower descent is generally multi-parameter and
+    cannot be represented by the one-ratio primitive recurrence.  The
+    relation system keeps all such directions simultaneously.
+    """
+    field = lower_derivation.field
+    element = _coerce(field, f)
+    try:
+        system = solve_logarithmic_relation_system(
+            (element, _parametric_logarithmic_derivative_eta(
+                extension,
+                lower_derivation,
+            )),
+            lower_derivation,
+        )
+    except NotImplementedError as exc:
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            detail=str(exc),
+        )
+
+    for relation in system.relations:
+        n, eta_coefficient = relation.source_coefficients
+        if n == 0:
+            continue
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.SOLUTION,
+            n=n,
+            m=-eta_coefficient,
+            argument=relation.argument,
+            certificate=MonomialRelationSystemParametricCertificate(
+                system,
+                "the complete monomial relation system produced a verified "
+                "witness",
+            ),
+        )
+
+    return ParametricLogarithmicDerivativeResult(
+        extension,
+        lower_derivation,
+        element,
+        ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
+        certificate=MonomialRelationSystemParametricCertificate(
+            system,
+            "no rational relation-system kernel vector has a nonzero f "
+            "coordinate",
+        ),
+    )
+
+
+def _solve_hypertangent_parametric_logarithmic_derivative(
+    f: object,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> ParametricLogarithmicDerivativeResult:
+    r"""Solve a real PLogD through an immutable Cayley normal form.
+
+    If the Gaussian witness is ``V=P+iQ``, its logarithmic derivative is
+    real.  Thus each nonzero real coordinate separately satisfies the same
+    first-order equation.  Selecting ``P`` or ``Q`` recovers a real witness
+    without unnecessarily doubling the relation.
+    """
+    field = lower_derivation.field
+    element = _coerce(field, f)
+    eta = _parametric_logarithmic_derivative_eta(
+        extension,
+        lower_derivation,
+    )
+    try:
+        from .gaussian import build_hypertangent_gaussian_normal_form
+
+        normal_form = build_hypertangent_gaussian_normal_form(
+            lower_derivation,
+        )
+    except (NotImplementedError, ValueError) as exc:
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            detail=str(exc),
+        )
+
+    target_extension = MonomialExtension(
+        Poly(
+            normal_form.target_field.to_sympy(normal_form.forward(eta))
+            * extension.generator,
+            extension.generator,
+            domain=normal_form.target_field,
+        ),
+        extension.constant_field_status,
+    )
+    target_result = solve_parametric_logarithmic_derivative(
+        normal_form.forward(element),
+        target_extension,
+        normal_form.target_derivation,
+    )
+    certificate = HypertangentGaussianParametricLogarithmicDerivativeCertificate(
+        normal_form,
+        target_result,
+        "the Cayley Gaussian normal form preserves the parametric relation",
+    )
+    if not target_result.has_solution:
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            target_result.outcome,
+            certificate=(
+                certificate
+                if target_result.proves_no_solution
+                else None
+            ),
+            detail=target_result.detail,
+        )
+    if (
+        target_result.n is None
+        or target_result.m is None
+        or target_result.argument is None
+    ):
+        raise ValueError("a solved Gaussian parametric result lacks a witness")
+    real_part, imaginary_part = normal_form.split_inverse(
+        target_result.argument,
+    )
+    argument = (
+        real_part
+        if real_part != field.zero
+        else imaginary_part
+    )
+    if argument == field.zero:
+        raise ValueError("a nonzero Gaussian witness has no real coordinate")
+    return ParametricLogarithmicDerivativeResult(
+        extension,
+        lower_derivation,
+        element,
+        ParametricLogarithmicDerivativeOutcome.SOLUTION,
+        n=target_result.n,
+        m=target_result.m,
+        argument=argument,
+        certificate=certificate,
+    )
+
+
 def solve_parametric_logarithmic_derivative(
     f: object,
     extension: MonomialExtension,
@@ -1658,6 +1929,78 @@ def solve_parametric_logarithmic_derivative(
     modulo ``QQ*Dp`` at each level.  If the current coordinates leave ``m/n``
     free, the same complete decision descends to the lower component.
     """
+    eta = _parametric_logarithmic_derivative_eta(
+        extension,
+        lower_derivation,
+    )
+    field = lower_derivation.field
+    element = _coerce(field, f)
+
+    if _tower_contains_hypertangent_level(lower_derivation):
+        return _solve_hypertangent_parametric_logarithmic_derivative(
+            element,
+            extension,
+            lower_derivation,
+        )
+
+    has_hyperexponential_level = _tower_contains_hyperexponential_level(
+        lower_derivation,
+    )
+    if has_hyperexponential_level:
+        uncertified_level = next(
+            (
+                level
+                for level in lower_derivation.tower.levels[
+                    1 : lower_derivation.level + 1
+                ]
+                if isinstance(level, MonomialExtension)
+                and level.constant_field_status
+                is not ConstantFieldStatus.PRESERVED
+            ),
+            None,
+        )
+        if uncertified_level is not None:
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+                detail=(
+                    "parametric logarithmic derivatives require "
+                    "Const(K(t)) = Const(K) at every lower monomial level"
+                ),
+            )
+        # These identities are independent of the recursive field family.
+        # They also prevent an unavailable lower structure solver from
+        # turning the universal witnesses ``D(1)/1`` and
+        # ``Dtheta/theta`` into a false negative result.  Pure primitive
+        # towers retain their existing recurrence certificates below.
+        if element == field.zero:
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.SOLUTION,
+                n=1,
+                m=0,
+                argument=field.one,
+            )
+        if element == eta:
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.SOLUTION,
+                n=1,
+                m=1,
+                argument=field.one,
+            )
+        return _solve_monomial_relation_system_parametric_logarithmic_derivative(
+            element,
+            extension,
+            lower_derivation,
+        )
+
     if lower_derivation.level >= 1:
         lower_extension = lower_derivation.tower.levels[
             lower_derivation.level
@@ -1803,13 +2146,27 @@ def analyze_hypertangent_extension(
             else:
                 kind = HyperexponentialDependencyKind.ALGEBRAIC
     else:
-        gaussian_derivation = _rebase_monomial_derivation(
-            lower_derivation,
-            QQ_I,
-        )
+        normal_form = None
+        if _tower_contains_hypertangent_level(lower_derivation):
+            from .gaussian import build_hypertangent_gaussian_normal_form
+
+            normal_form = build_hypertangent_gaussian_normal_form(
+                lower_derivation,
+            )
+            gaussian_derivation = normal_form.target_derivation
+        else:
+            gaussian_derivation = _rebase_monomial_derivation(
+                lower_derivation,
+                QQ_I,
+            )
         gaussian_field = gaussian_derivation.field
+        eta_expression = extension.parent_field.to_sympy(eta)
+        if normal_form is not None:
+            eta_expression = gaussian_field.to_sympy(
+                normal_form.forward(eta),
+            )
         gaussian_eta = gaussian_field.from_sympy(
-            2*I*extension.parent_field.to_sympy(eta)
+            2*I*eta_expression,
         )
         from .monomial import solve_radical_logarithmic_derivative
 
@@ -1819,7 +2176,11 @@ def analyze_hypertangent_extension(
         )
         minimal_power = radical_result.minimal_power
         relation_argument = (
-            gaussian_field.to_sympy(radical_result.argument)
+            (
+                normal_form.inverse_expression(radical_result.argument)
+                if normal_form is not None
+                else gaussian_field.to_sympy(radical_result.argument)
+            )
             if radical_result.argument is not None
             else None
         )
@@ -2007,4 +2368,105 @@ def analyze_hyperexponential_extension(
         logarithmic_result,
         exact_result,
         exponential_exponent,
+    )
+
+
+def _validate_transcendental_extension_proposal(
+    generator_derivative: Poly,
+    lower_derivation: Derivation,
+    family: MonomialFamily,
+    derivative_description: str,
+) -> MonomialExtension:
+    """Construct and validate a proposed exponential or tangent extension."""
+    if not isinstance(lower_derivation, Derivation):
+        raise TypeError(
+            "transcendental extension certification requires a Derivation"
+        )
+    if not isinstance(generator_derivative, Poly):
+        raise TypeError(
+            "transcendental extension certification requires a SymPy Poly"
+        )
+    extension = MonomialExtension(generator_derivative)
+    if extension.family is not family:
+        raise ValueError(
+            "transcendental extension certification requires "
+            f"{derivative_description}"
+        )
+    if extension.parent_field != lower_derivation.field:
+        raise ValueError(
+            "extension parent field does not match the lower derivation"
+        )
+    return extension
+
+
+def certify_hyperexponential_extension(
+    generator_derivative: Poly,
+    lower_derivation: Derivation,
+) -> TranscendentalExtensionAnalysis:
+    r"""Certify constants for a proposal ``Dtheta = eta*theta``.
+
+    The complete supported radical-logarithmic derivative decision determines
+    whether ``theta**n/v`` would be a new constant. A true relation yields
+    ``ENLARGED``; otherwise the hyperexponential structure theorem certifies
+    ``PRESERVED``. Unsupported lower fields remain explicitly ``UNKNOWN``.
+    """
+    extension = _validate_transcendental_extension_proposal(
+        generator_derivative,
+        lower_derivation,
+        MonomialFamily.HYPEREXPONENTIAL,
+        "Dtheta = eta*theta",
+    )
+    detail = _uncertified_lower_tower_detail(lower_derivation)
+    if detail is not None:
+        return TranscendentalExtensionAnalysis(extension, None, detail)
+    try:
+        dependency = analyze_hyperexponential_extension(
+            extension,
+            lower_derivation,
+        )
+    except NotImplementedError as exc:
+        return TranscendentalExtensionAnalysis(extension, None, str(exc))
+    certified_extension = replace(
+        extension,
+        constant_field_status=dependency.inferred_constant_field_status,
+    )
+    return TranscendentalExtensionAnalysis(
+        certified_extension,
+        replace(dependency, extension=certified_extension),
+    )
+
+
+def certify_hypertangent_extension(
+    generator_derivative: Poly,
+    lower_derivation: Derivation,
+) -> TranscendentalExtensionAnalysis:
+    r"""Certify constants for a proposal ``Dt = eta*(1+t**2)``.
+
+    Cayley transforms the candidate to a hyperexponential generator over the
+    Gaussian constant field. The resulting radical relation is therefore the
+    exact constant-field criterion for the real hypertangent proposal.
+    """
+    extension = _validate_transcendental_extension_proposal(
+        generator_derivative,
+        lower_derivation,
+        MonomialFamily.HYPERTANGENT,
+        "Dt = eta*(1 + t**2)",
+    )
+    detail = _uncertified_lower_tower_detail(lower_derivation)
+    if detail is not None:
+        return TranscendentalExtensionAnalysis(extension, None, detail)
+    try:
+        dependency = analyze_hypertangent_extension(
+            extension,
+            lower_derivation,
+        )
+    except NotImplementedError as exc:
+        return TranscendentalExtensionAnalysis(extension, None, str(exc))
+    certified_extension = replace(
+        extension,
+        constant_field_status=dependency.inferred_constant_field_status,
+    )
+    return TranscendentalExtensionAnalysis(
+        certified_extension,
+        replace(dependency, extension=certified_extension),
     )

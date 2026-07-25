@@ -29,7 +29,7 @@ from .polynomial import integrate_polynomial
 
 @dataclass(frozen=True, slots=True)
 class RationalExactDerivativeResult:
-    r"""Certified result of the exact-derivative problem in ``QQ(x)``.
+    r"""Certified result of the exact-derivative problem in ``C(x)``.
 
     The fields satisfy
 
@@ -192,53 +192,82 @@ def _as_reduced_fraction_over_domain(
     return numerator_poly, denominator_poly
 
 
-def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
-    r"""Write ``f`` as ``D(g) + h`` with a square-free denominator for ``h``.
+def _integrate_polynomial_over_domain(
+    polynomial: Poly,
+) -> Expr:
+    """Integrate a univariate polynomial over an exact constant field."""
+    if len(polynomial.gens) != 1:
+        raise ValueError("polynomial integration requires one generator")
+    domain = polynomial.domain
+    generator = polynomial.gens[0]
+    integrated_terms: dict[tuple[int], FieldElement] = {}
+    for (degree,), coefficient in polynomial.terms():
+        new_degree = degree + 1
+        integrated_terms[(new_degree,)] = domain.exquo(
+            domain.convert(coefficient),
+            domain.convert(new_degree),
+        )
+    return Poly.from_dict(
+        integrated_terms,
+        generator,
+        domain=domain,
+    ).as_expr()
 
-    This uses the Horowitz--Ostrogradsky form of rational Hermite reduction.
-    Both the polynomial part of the integral and the rational function ``g``
-    are included in the first return value.
-    """
-    numerator, denominator = _as_reduced_fraction(f, x)
+
+def _hermite_reduce_rational_over_domain(
+    f: Expr,
+    x: Symbol,
+    domain: Domain,
+) -> tuple[Expr, Expr]:
+    """Hermite-reduce ``f`` over the exact constant field ``domain``."""
+    if not isinstance(x, Symbol):
+        raise TypeError("the differentiation variable must be a Symbol")
+    if not domain.is_Field or domain.characteristic() != 0:
+        raise ValueError(
+            "Hermite reduction requires a characteristic-zero field"
+        )
+    numerator, denominator = _as_reduced_fraction_over_domain(f, x, domain)
     polynomial_part, proper_numerator = numerator.div(denominator)
 
-    exact_part = integrate_polynomial(polynomial_part, x)
+    exact_part = _integrate_polynomial_over_domain(polynomial_part)
 
     if proper_numerator.is_zero:
         return exact_part, S.Zero
 
-    repeated_part, square_free_part, _ = denominator.cofactors(denominator.diff())
+    repeated_part, square_free_part, _ = denominator.cofactors(
+        denominator.diff(),
+    )
 
     rational_degree = repeated_part.degree()
     remainder_degree = square_free_part.degree()
     correction = (repeated_part.diff()*square_free_part).quo(repeated_part)
     rational_columns = []
     for degree in range(rational_degree):
-        monomial = Poly(x**degree, x, domain=QQ)
+        monomial = Poly(x**degree, x, domain=domain)
         rational_columns.append(
             monomial.diff()*square_free_part - monomial*correction,
         )
     remainder_columns = [
-        Poly(x**degree, x, domain=QQ)*repeated_part
+        Poly(x**degree, x, domain=domain)*repeated_part
         for degree in range(remainder_degree)
     ]
     columns = rational_columns + remainder_columns
     unknown_count = len(columns)
     system = DomainMatrix(
         [
-            [QQ.convert(column.nth(degree)) for column in columns]
+            [domain.convert(column.nth(degree)) for column in columns]
             for degree in range(unknown_count)
         ],
         (unknown_count, unknown_count),
-        QQ,
+        domain,
     )
     right_hand_side = DomainMatrix(
         [
-            [QQ.convert(proper_numerator.nth(degree))]
+            [domain.convert(proper_numerator.nth(degree))]
             for degree in range(unknown_count)
         ],
         (unknown_count, 1),
-        QQ,
+        domain,
     )
     try:
         solution_numerators, solution_denominator = system.solve_den(
@@ -258,7 +287,7 @@ def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
             for degree, coefficient in enumerate(solution[:rational_degree])
         },
         x,
-        domain=QQ,
+        domain=domain,
     ).as_expr()
     remainder_numerator = Poly.from_dict(
         {
@@ -266,13 +295,24 @@ def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
             for degree, coefficient in enumerate(solution[rational_degree:])
         },
         x,
-        domain=QQ,
+        domain=domain,
     ).as_expr()
 
     rational_part = cancel(rational_numerator/repeated_part.as_expr())
-    reduced_remainder = cancel(remainder_numerator/square_free_part.as_expr())
-
+    reduced_remainder = cancel(
+        remainder_numerator/square_free_part.as_expr(),
+    )
     return exact_part + rational_part, reduced_remainder
+
+
+def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
+    r"""Write ``f`` as ``D(g) + h`` with a square-free denominator for ``h``.
+
+    This uses the Horowitz--Ostrogradsky form of rational Hermite reduction.
+    Both the polynomial part of the integral and the rational function ``g``
+    are included in the first return value.
+    """
+    return _hermite_reduce_rational_over_domain(f, x, QQ)
 
 
 def hermite_reduce_rational_recursive(
@@ -353,7 +393,20 @@ def solve_rational_exact_derivative(
     reduced remainder and a certificate that the exact-derivative equation
     has no rational solution.
     """
-    exact_part, obstruction = hermite_reduce_rational(f, x)
+    return _solve_rational_exact_derivative_over_domain(f, x, QQ)
+
+
+def _solve_rational_exact_derivative_over_domain(
+    f: Expr,
+    x: Symbol,
+    domain: Domain,
+) -> RationalExactDerivativeResult:
+    """Decide rational exactness over the exact constant field ``domain``."""
+    exact_part, obstruction = _hermite_reduce_rational_over_domain(
+        f,
+        x,
+        domain,
+    )
     return RationalExactDerivativeResult(exact_part, obstruction)
 
 

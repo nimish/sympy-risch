@@ -3,8 +3,8 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, symbols
-from sympy.polys.domains import QQ
+from sympy import I, Poly, symbols
+from sympy.polys.domains import QQ, QQ_I
 
 from sympy_risch import (
     AlgebraicExtension,
@@ -357,6 +357,41 @@ def test_generic_dispatches_to_the_rational_solver_with_native_outputs() -> None
     assert obstructed.antiderivative is None
     assert obstructed.exact_part == field.zero
     assert obstructed.obstruction == field.from_sympy(1/x)
+
+
+def test_generic_dispatch_supports_the_gaussian_rational_base() -> None:
+    tower = DifferentialTower(QQ_I).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ_I),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy(I*x**2/2 - 1/(x + I))
+
+    result = solve_exact_derivative(derivation(planted), derivation)
+
+    assert result.has_solution
+    assert result.obstruction == field.zero
+    assert derivation(result.exact_part) == derivation(planted)
+    assert isinstance(result.certificate, RationalExactDerivativeResult)
+
+
+def test_gaussian_rational_exact_dispatch_keeps_simple_poles_as_obstructions() -> None:
+    tower = DifferentialTower(QQ_I).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ_I),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    field = tower.field()
+    integrand = field.from_sympy(1/(x + I))
+
+    result = solve_exact_derivative(integrand, tower.derivation())
+
+    assert not result.has_solution
+    assert result.obstruction == integrand
 
 
 def test_generic_dispatches_to_the_primitive_solver() -> None:
