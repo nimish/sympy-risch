@@ -323,11 +323,11 @@ Implement Bronstein §7.3 for the existing rational and primitive towers:
 n*f = D(v)/v + m*D(theta)/theta
 ```
 
-Status: complete over `QQ(x)` and one primitive level above it, including the
-fast rational path, both structure fallbacks, integer normalization, exact
-witness reconstruction, Example 7.3.2, generated planted witnesses, and
-independent global linear-system oracles. Recursive primitive lower fields
-still need the Chapter 9 fundamental-signature solver.
+Status: complete over `QQ(x)` and recursively primitive towers, including the
+fast rational path, recursive structure fallbacks, integer normalization,
+exact witness reconstruction, Example 7.3.2, generated planted witnesses, and
+independent one-level and nested global linear-system oracles. General mixed
+transcendental towers still need the Chapter 9 fundamental-signature solver.
 
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.
@@ -738,7 +738,8 @@ The parallel transcendental backlog remains:
 
 - [x] generalize primitive radical-logarithmic signatures recursively;
 - [x] generalize the primitive parametric fallback recursively;
-- use that decision in primitive RDE cancellation and degree bounds;
+- [x] use the recursive logarithmic decision in primitive RDE cancellation
+  and degree bounds;
 - add weak normalization for primitive coefficients with top-generator poles;
   and
 - generalize the completed scalar RDE one lower-field family at a time.

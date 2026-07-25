@@ -2357,57 +2357,15 @@ def _validate_hyperexponential_reduction(
     eta = extension.parent_field.convert(
         extension.generator_derivative.nth(1)
     )
-    if lower_derivation.level == 0:
-        _standard_rational_base_variable(lower_derivation)
-        dependency = analyze_hyperexponential_extension(
-            extension,
-            lower_derivation,
+    dependency = analyze_hyperexponential_extension(
+        extension,
+        lower_derivation,
+    )
+    if dependency.is_dependent:
+        raise ValueError(
+            "hyperexponential reduction requires a transcendental "
+            "generator; the proposed generator is algebraically dependent"
         )
-        if dependency.is_dependent:
-            raise ValueError(
-                "hyperexponential reduction requires a transcendental "
-                "generator; the proposed generator is algebraically dependent"
-            )
-    else:
-        lower_extension = lower_derivation.tower.levels[
-            lower_derivation.level
-        ]
-        if (
-            not isinstance(lower_extension, MonomialExtension)
-            or lower_extension.family is not MonomialFamily.PRIMITIVE
-        ):
-            raise NotImplementedError(
-                "hyperexponential reduction currently supports QQ(x) or a "
-                "primitive lower level"
-            )
-        lower_extension.require_preserved_constants(
-            "hyperexponential independence over a primitive field"
-        )
-        numerator, denominator = _reduced_polynomial_fraction(
-            eta,
-            lower_extension,
-        )
-        if denominator.degree() > 0:
-            raise NotImplementedError(
-                "hyperexponential reduction over a primitive field currently "
-                "requires a polynomial logarithmic derivative"
-            )
-        eta_polynomial = numerator.mul_ground(
-            lower_extension.parent_field.one
-            / lower_extension.parent_field.convert(denominator.LC())
-        )
-        if eta_polynomial.degree() <= 0:
-            raise NotImplementedError(
-                "hyperexponential reduction over a primitive field currently "
-                "requires positive degree in the primitive generator"
-            )
-
-        # In a primitive extension with no new constants, Dp has degree
-        # strictly below a monic nonconstant p. Thus a reduced logarithmic
-        # derivative Dv/v can be polynomial in the primitive generator only
-        # when v belongs to the lower field, in which case its degree is zero.
-        # Positive degree therefore certifies that no positive multiple of eta
-        # is a logarithmic derivative and the new generator is transcendental.
 
     return extension, lower_derivation, eta
 

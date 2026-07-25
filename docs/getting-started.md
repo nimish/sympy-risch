@@ -194,11 +194,11 @@ assert result.antiderivative == log(t**2 + 1)
 assert result.reconstructs
 ```
 
-The direct hyperexponential and hypertangent dispatchers currently require
-the standard rational base in the general case. One mixed hyperexponential
-branch is also implemented: the lower field may be primitive when the new
-logarithmic derivative is polynomial of positive degree in the top primitive
-generator.
+The direct hypertangent dispatcher currently requires the standard rational
+base. A hyperexponential level may instead sit over a recursively primitive
+lower tower when its logarithmic derivative is polynomial in the top
+primitive generator. Recursive dependency analysis rejects rational and
+algebraic presentations before reduction.
 
 For example, start from the earlier `log_x` tower and adjoin
 `u = exp(t**2)`. Since `Dt = 1/x`, its derivative law is
@@ -234,9 +234,18 @@ Dy + (2t/x)y = 1 + 2t,
 
 with solution `y = x`. The implementation also handles rational
 right-hand sides in the primitive generator through normal-denominator and
-SPDE reduction. Coefficients with poles in the primitive generator, and the
-cancellation case where the coefficient lies entirely in the next lower
-field, remain explicit `NotImplementedError` boundaries.
+SPDE reduction. When the coefficient lies entirely in the next lower field,
+the solver now applies Bronstein's primitive cancellation recurrence. It
+either:
+
+1. recognizes `a = D(z)/z` and solves the equivalent exact-derivative problem
+   `D(z*y) = z*b`; or
+2. removes each leading power of the primitive generator by recursively
+   solving `D(s) + a*s = lc(b)` in the lower field.
+
+This works through recursively primitive lower towers. Coefficients with poles
+in the current primitive generator remain an explicit `NotImplementedError`
+boundary because they require weak normalization before denominator reduction.
 
 ## Test a parametric logarithmic derivative
 
@@ -424,15 +433,15 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
 | Recursively stacked primitive levels | End-to-end for the implemented reduction |
 | One hyperexponential level over `QQ(x)` | End-to-end |
-| Hyperexponential over a primitive level, with positive-degree polynomial logarithmic derivative | End-to-end |
+| Hyperexponential over a recursive primitive tower, with polynomial logarithmic derivative | End-to-end |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
-| Parametric logarithmic derivative | Complete decision over `QQ(x)` and one primitive level |
-| Primitive radical logarithmic signature | Low-level API over one primitive level above `QQ(x)` |
+| Parametric logarithmic derivative | Complete decision over `QQ(x)` and recursive primitive towers |
+| Primitive radical logarithmic signature | Recursive low-level API over primitive towers |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic levels in `integrate_elementary` | Not implemented |
-| Other nested hyperexponential shapes or nested hypertangent levels | Not implemented |
+| Hyperexponential coefficients with top-generator poles or nested hypertangent levels | Not implemented |
 | Automatic tower discovery and back-substitution | Not implemented |
 | Complete global real branch management | Not implemented |
 

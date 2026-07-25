@@ -45,6 +45,8 @@ class PrimitivePolynomialRDEObstruction(Enum):
 
     DEGREE = "degree"
     NONZERO_REMAINDER = "nonzero_remainder"
+    LOWER_FIELD = "lower_field"
+    EXACT_DERIVATIVE = "exact_derivative"
 
 
 class PrimitiveRDEObstruction(Enum):
@@ -54,6 +56,7 @@ class PrimitiveRDEObstruction(Enum):
     SPDE_DEGREE = "spde_degree"
     SPDE_DIVISIBILITY = "spde_divisibility"
     POLYNOMIAL = "polynomial"
+    EXACT_DERIVATIVE = "exact_derivative"
 
 
 class CoupledRDEObstruction(Enum):
@@ -188,11 +191,12 @@ class RationalRischDifferentialEquationResult:
 class PrimitivePolynomialRischDifferentialEquationResult:
     r"""Certified polynomial RDE result at one primitive tower level.
 
-    The coefficient has positive degree in the primitive generator. Hence
-    ``a*y`` strictly dominates ``D(y)`` at the leading degree, and every
-    correction in the recurrence is forced. A rational solution cannot have
-    a finite pole because a primitive extension with no new constants has no
-    nonconstant special polynomial.
+    For a positive-degree coefficient, ``a*y`` strictly dominates ``D(y)``
+    and every correction is forced.  For a lower-field coefficient, the
+    Bronstein 6.6 cancellation recurrence solves one lower-field RDE for each
+    leading coefficient.  If that coefficient is itself a logarithmic
+    derivative, ``exact_derivative_result`` records the equivalent exact
+    differentiation problem.
     """
 
     coefficient: Poly
@@ -202,21 +206,41 @@ class PrimitivePolynomialRischDifferentialEquationResult:
     obstruction: PrimitivePolynomialRDEObstruction | None
     partial_solution: Poly
     residual: Poly
+    lower_field_results: tuple[Any, ...] = ()
+    logarithmic_derivative_result: Any | None = None
+    exact_derivative_result: Any | None = None
 
     @property
     def has_solution(self) -> bool:
         """Whether the equation has a solution in the primitive field."""
         return self.solution is not None
 
+    @property
+    def has_lower_field_obstruction(self) -> bool:
+        """Whether a recursively solved leading coefficient failed."""
+        return (
+            self.obstruction
+            is PrimitivePolynomialRDEObstruction.LOWER_FIELD
+        )
+
+    @property
+    def has_exact_derivative_obstruction(self) -> bool:
+        """Whether the transformed exact-derivative problem failed."""
+        return (
+            self.obstruction
+            is PrimitivePolynomialRDEObstruction.EXACT_DERIVATIVE
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class PrimitiveRischDifferentialEquationResult:
     r"""Certified RDE result over ``K(t)`` with ``Dt`` in ``K``.
 
-    This checkpoint covers a polynomial coefficient of positive degree and an
-    arbitrary rational right-hand side. The normal-denominator theorem first
-    reduces a possible solution to ``q/h``. Rothstein SPDE then reduces the
-    numerator equation to a polynomial RDE.
+    The coefficient is polynomial in ``t`` and the right-hand side is
+    arbitrary rational. The normal-denominator theorem first reduces a
+    possible solution to ``q/h``. Rothstein SPDE then reduces the numerator
+    equation to a polynomial RDE, including Bronstein's primitive
+    lower-field cancellation case.
     """
 
     coefficient: Poly
@@ -230,6 +254,8 @@ class PrimitiveRischDifferentialEquationResult:
     ) = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
+    logarithmic_derivative_result: Any | None = None
+    exact_derivative_result: Any | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -253,6 +279,11 @@ class PrimitiveRischDifferentialEquationResult:
     def has_polynomial_obstruction(self) -> bool:
         """Whether the terminal polynomial recurrence proves failure."""
         return self.obstruction is PrimitiveRDEObstruction.POLYNOMIAL
+
+    @property
+    def has_exact_derivative_obstruction(self) -> bool:
+        """Whether a transformed exact-derivative problem proves failure."""
+        return self.obstruction is PrimitiveRDEObstruction.EXACT_DERIVATIVE
 
 
 @dataclass(frozen=True, slots=True)
@@ -1142,22 +1173,224 @@ def _as_primitive_polynomial(
     return numerator.mul_ground(scale)
 
 
+def _solve_primitive_polynomial_exact_case(
+    coefficient_polynomial: Poly,
+    rhs_polynomial: Poly,
+    derivation: Derivation,
+    multiplier: Any,
+    logarithmic_result: Any | None = None,
+) -> PrimitivePolynomialRischDifferentialEquationResult:
+    r"""Solve a polynomial cancellation case by exact differentiation.
+
+    If the coefficient is zero, ``multiplier`` is one.  Otherwise the caller
+    has certified ``coefficient = D(multiplier)/multiplier``, so
+
+    ``D(y) + coefficient*y = c``
+
+    is equivalent to ``D(multiplier*y) = multiplier*c``.
+    """
+    from .exact import solve_exact_derivative
+
+    extension = _primitive_rde_extension(derivation)
+    field = extension.field
+    zero = rhs_polynomial.zero
+    multiplier_element = _coerce(field, multiplier)
+    transformed_rhs = (
+        multiplier_element
+        * _coerce(field, rhs_polynomial.as_expr())
+    )
+    exact_result = solve_exact_derivative(
+        transformed_rhs,
+        derivation,
+    )
+    degree_bound = (
+        0 if rhs_polynomial.is_zero else rhs_polynomial.degree() + 1
+    )
+    if not exact_result.has_solution:
+        return PrimitivePolynomialRischDifferentialEquationResult(
+            coefficient_polynomial,
+            rhs_polynomial,
+            degree_bound,
+            None,
+            PrimitivePolynomialRDEObstruction.EXACT_DERIVATIVE,
+            zero,
+            rhs_polynomial,
+            logarithmic_derivative_result=logarithmic_result,
+            exact_derivative_result=exact_result,
+        )
+
+    solution_element = exact_result.antiderivative/multiplier_element
+    solution = _as_primitive_polynomial(
+        solution_element,
+        extension,
+    )
+    if not solution.is_zero and solution.degree() > degree_bound:
+        raise ValueError(
+            "primitive exact cancellation exceeded its degree bound"
+        )
+    if (
+        derivation.polynomial(solution)
+        + coefficient_polynomial*solution
+        != rhs_polynomial
+    ):
+        raise ValueError(
+            "primitive exact cancellation reconstruction failed"
+        )
+    return PrimitivePolynomialRischDifferentialEquationResult(
+        coefficient_polynomial,
+        rhs_polynomial,
+        degree_bound,
+        solution,
+        None,
+        solution,
+        zero,
+        logarithmic_derivative_result=logarithmic_result,
+        exact_derivative_result=exact_result,
+    )
+
+
+def _solve_primitive_polynomial_lower_coefficient(
+    coefficient_polynomial: Poly,
+    rhs_polynomial: Poly,
+    derivation: Derivation,
+) -> PrimitivePolynomialRischDifferentialEquationResult:
+    r"""Apply Bronstein's ``PolyRischDECancelPrim`` recurrence."""
+    from .monomial import solve_radical_logarithmic_derivative
+
+    extension = _primitive_rde_extension(derivation)
+    parent = extension.parent_field
+    lower_derivation = derivation.lower()
+    coefficient = parent.convert(coefficient_polynomial.nth(0))
+    zero = rhs_polynomial.zero
+
+    if coefficient == parent.zero:
+        return _solve_primitive_polynomial_exact_case(
+            coefficient_polynomial,
+            rhs_polynomial,
+            derivation,
+            parent.one,
+        )
+
+    logarithmic_result = solve_radical_logarithmic_derivative(
+        coefficient,
+        lower_derivation,
+    )
+    if (
+        logarithmic_result.has_solution
+        and logarithmic_result.minimal_power == 1
+    ):
+        return _solve_primitive_polynomial_exact_case(
+            coefficient_polynomial,
+            rhs_polynomial,
+            derivation,
+            logarithmic_result.argument,
+            logarithmic_result,
+        )
+
+    if rhs_polynomial.is_zero:
+        return PrimitivePolynomialRischDifferentialEquationResult(
+            coefficient_polynomial,
+            rhs_polynomial,
+            0,
+            zero,
+            None,
+            zero,
+            zero,
+            logarithmic_derivative_result=logarithmic_result,
+        )
+
+    degree_bound = rhs_polynomial.degree()
+    solution = zero
+    residual = rhs_polynomial
+    lower_results = []
+    while not residual.is_zero:
+        degree = residual.degree()
+        lower_rhs = parent.convert(residual.LC())
+        lower_result = solve_risch_differential_equation(
+            coefficient,
+            lower_rhs,
+            lower_derivation,
+        )
+        lower_results.append(lower_result)
+        if not lower_result.has_solution:
+            if (
+                derivation.polynomial(solution)
+                + coefficient_polynomial*solution
+                + residual
+                != rhs_polynomial
+            ):
+                raise ValueError(
+                    "primitive cancellation obstruction invariant failed"
+                )
+            return PrimitivePolynomialRischDifferentialEquationResult(
+                coefficient_polynomial,
+                rhs_polynomial,
+                degree_bound,
+                None,
+                PrimitivePolynomialRDEObstruction.LOWER_FIELD,
+                solution,
+                residual,
+                lower_field_results=tuple(lower_results),
+                logarithmic_derivative_result=logarithmic_result,
+            )
+
+        correction = Poly.from_dict(
+            {
+                (degree,): _coerce(parent, lower_result.solution),
+            },
+            extension.generator,
+            domain=parent,
+        )
+        new_residual = (
+            residual
+            - derivation.polynomial(correction)
+            - coefficient_polynomial*correction
+        )
+        if (
+            not new_residual.is_zero
+            and new_residual.degree() >= residual.degree()
+        ):
+            raise ValueError(
+                "primitive cancellation residual degree did not decrease"
+            )
+        solution += correction
+        residual = new_residual
+
+    if (
+        derivation.polynomial(solution)
+        + coefficient_polynomial*solution
+        != rhs_polynomial
+    ):
+        raise ValueError("primitive cancellation reconstruction failed")
+    return PrimitivePolynomialRischDifferentialEquationResult(
+        coefficient_polynomial,
+        rhs_polynomial,
+        degree_bound,
+        solution,
+        None,
+        solution,
+        residual,
+        lower_field_results=tuple(lower_results),
+        logarithmic_derivative_result=logarithmic_result,
+    )
+
+
 def solve_primitive_polynomial_risch_differential_equation(
     coefficient: Any,
     right_hand_side: Any,
     derivation: Derivation,
 ) -> PrimitivePolynomialRischDifferentialEquationResult:
-    r"""Decide a polynomial RDE with positive-degree primitive coefficient.
+    r"""Decide a polynomial RDE at a primitive tower level.
 
-    For ``Dt`` in ``K`` and ``deg_t(a) > 0``, solve
+    For ``Dt`` in ``K``, solve
 
     ``D(y) + a*y = b``, with ``a,b`` in ``K[t]``.
 
-    The leading term of ``a*y`` cannot cancel with ``D(y)`` because the latter
-    has degree at most ``deg_t(y)``. Each recurrence correction is therefore
-    forced and strictly lowers the residual degree. Preservation of constants
-    excludes special finite poles, so the polynomial decision also covers all
-    rational solutions when both inputs are polynomial.
+    Positive-degree coefficients use the no-cancellation leading recurrence.
+    Lower-field coefficients use Bronstein's cancellation recurrence,
+    recursively solving coefficient equations in ``K``. Preservation of
+    constants excludes special finite poles, so the polynomial decision also
+    covers all rational solutions when both inputs are polynomial.
     """
     extension = _primitive_rde_extension(derivation)
     coefficient_polynomial = _as_primitive_polynomial(
@@ -1168,10 +1401,14 @@ def solve_primitive_polynomial_risch_differential_equation(
         right_hand_side,
         extension,
     )
-    if coefficient_polynomial.is_zero or coefficient_polynomial.degree() <= 0:
-        raise NotImplementedError(
-            "primitive polynomial RDE cancellation with a lower-field "
-            "coefficient is not implemented"
+    if (
+        coefficient_polynomial.is_zero
+        or coefficient_polynomial.degree() <= 0
+    ):
+        return _solve_primitive_polynomial_lower_coefficient(
+            coefficient_polynomial,
+            rhs_polynomial,
+            derivation,
         )
 
     zero = Poly(
@@ -1384,17 +1621,68 @@ def _solve_primitive_spde(
         alpha *= derivative_coefficient
 
 
+def _solve_primitive_rde_exact_case(
+    coefficient_polynomial: Poly,
+    rhs_element: Any,
+    derivation: Derivation,
+    multiplier: Any,
+    logarithmic_result: Any | None = None,
+) -> PrimitiveRischDifferentialEquationResult:
+    """Solve a rational primitive RDE transformed to exact differentiation."""
+    from .exact import solve_exact_derivative
+
+    extension = _primitive_rde_extension(derivation)
+    field = extension.field
+    one = Poly(
+        1,
+        extension.generator,
+        domain=extension.parent_field,
+    )
+    multiplier_element = _coerce(field, multiplier)
+    exact_result = solve_exact_derivative(
+        multiplier_element*rhs_element,
+        derivation,
+    )
+    if not exact_result.has_solution:
+        return PrimitiveRischDifferentialEquationResult(
+            coefficient_polynomial,
+            rhs_element,
+            None,
+            PrimitiveRDEObstruction.EXACT_DERIVATIVE,
+            one,
+            logarithmic_derivative_result=logarithmic_result,
+            exact_derivative_result=exact_result,
+        )
+
+    solution = exact_result.antiderivative/multiplier_element
+    coefficient_element = _coerce(
+        field,
+        coefficient_polynomial.as_expr(),
+    )
+    if derivation(solution) + coefficient_element*solution != rhs_element:
+        raise ValueError("primitive exact RDE reconstruction failed")
+    return PrimitiveRischDifferentialEquationResult(
+        coefficient_polynomial,
+        rhs_element,
+        solution,
+        None,
+        one,
+        logarithmic_derivative_result=logarithmic_result,
+        exact_derivative_result=exact_result,
+    )
+
+
 def solve_primitive_risch_differential_equation(
     coefficient: Any,
     right_hand_side: Any,
     derivation: Derivation,
 ) -> PrimitiveRischDifferentialEquationResult:
-    r"""Decide a supported RDE over a primitive extension ``K(t)``.
+    r"""Decide an RDE with polynomial coefficient over primitive ``K(t)``.
 
-    The coefficient must be polynomial of positive degree in ``t``. The
-    right-hand side may be any rational function in ``t``. This is exactly the
-    no-cancellation branch needed for a hyperexponential whose logarithmic
-    derivative has positive degree in the primitive generator.
+    The right-hand side may be any rational function in ``t``. A
+    positive-degree coefficient uses the no-cancellation degree bound. A
+    coefficient in ``K`` uses Bronstein's primitive cancellation algorithm,
+    including its logarithmic-derivative transformation.
 
     This follows the Chapter 6 sequence in Bronstein, *Symbolic Integration
     I*: normal denominator, primitive degree bound, Rothstein SPDE, and
@@ -1406,11 +1694,6 @@ def solve_primitive_risch_differential_equation(
         coefficient,
         extension,
     )
-    if coefficient_polynomial.is_zero or coefficient_polynomial.degree() <= 0:
-        raise NotImplementedError(
-            "primitive RDE cancellation with a lower-field coefficient is "
-            "not implemented"
-        )
     rhs_element, rhs_numerator, rhs_denominator = _as_primitive_fraction(
         right_hand_side,
         extension,
@@ -1426,6 +1709,43 @@ def solve_primitive_risch_differential_equation(
             one,
             0,
         )
+
+    coefficient_logarithmic_result = None
+    coefficient_is_lower = (
+        coefficient_polynomial.is_zero
+        or coefficient_polynomial.degree() <= 0
+    )
+    if coefficient_is_lower:
+        coefficient_lower = extension.parent_field.convert(
+            coefficient_polynomial.nth(0)
+        )
+        if coefficient_lower == extension.parent_field.zero:
+            return _solve_primitive_rde_exact_case(
+                coefficient_polynomial,
+                rhs_element,
+                derivation,
+                extension.parent_field.one,
+            )
+
+        from .monomial import solve_radical_logarithmic_derivative
+
+        coefficient_logarithmic_result = (
+            solve_radical_logarithmic_derivative(
+                coefficient_lower,
+                derivation.lower(),
+            )
+        )
+        if (
+            coefficient_logarithmic_result.has_solution
+            and coefficient_logarithmic_result.minimal_power == 1
+        ):
+            return _solve_primitive_rde_exact_case(
+                coefficient_polynomial,
+                rhs_element,
+                derivation,
+                coefficient_logarithmic_result.argument,
+                coefficient_logarithmic_result,
+            )
 
     # Bronstein's normal-denominator theorem specializes particularly cleanly
     # here. With a polynomial coefficient and no special irreducibles, the
@@ -1443,6 +1763,9 @@ def solve_primitive_risch_differential_equation(
             denominator_bound,
             obstruction_polynomial=rhs_denominator,
             obstruction_remainder=remainder,
+            logarithmic_derivative_result=(
+                coefficient_logarithmic_result
+            ),
         )
 
     derivative_coefficient = denominator_bound
@@ -1451,14 +1774,27 @@ def solve_primitive_risch_differential_equation(
         - derivation.polynomial(denominator_bound)
     )
     transformed_rhs = quotient*rhs_numerator
-    if solution_coefficient.degree() <= derivative_coefficient.degree():
-        raise ValueError(
-            "positive-degree primitive coefficient lost degree dominance"
+    if coefficient_is_lower:
+        if (
+            solution_coefficient.degree()
+            != derivative_coefficient.degree()
+        ):
+            raise ValueError(
+                "lower-field primitive coefficient lost equal-degree form"
+            )
+        degree_bound = max(
+            0,
+            transformed_rhs.degree() - derivative_coefficient.degree(),
         )
-    degree_bound = max(
-        0,
-        transformed_rhs.degree() - solution_coefficient.degree(),
-    )
+    else:
+        if solution_coefficient.degree() <= derivative_coefficient.degree():
+            raise ValueError(
+                "positive-degree primitive coefficient lost degree dominance"
+            )
+        degree_bound = max(
+            0,
+            transformed_rhs.degree() - solution_coefficient.degree(),
+        )
     spde_result = _solve_primitive_spde(
         derivative_coefficient,
         solution_coefficient,
@@ -1477,6 +1813,9 @@ def solve_primitive_risch_differential_equation(
             spde_result.polynomial_result,
             spde_result.obstruction_polynomial,
             spde_result.obstruction_remainder,
+            logarithmic_derivative_result=(
+                coefficient_logarithmic_result
+            ),
         )
 
     solution = _coerce(
@@ -1500,6 +1839,7 @@ def solve_primitive_risch_differential_equation(
         denominator_bound,
         degree_bound,
         spde_result.polynomial_result,
+        logarithmic_derivative_result=coefficient_logarithmic_result,
     )
 
 

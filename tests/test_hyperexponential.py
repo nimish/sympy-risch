@@ -515,6 +515,24 @@ def test_laurent_reduction_over_a_primitive_field_solves_the_lower_rde() -> None
     )
 
 
+def test_primitive_lower_rde_uses_lower_field_cancellation() -> None:
+    tower = hyperexponential_over_log_tower(1)
+    field = tower.field()
+    derivation = tower.derivation()
+    integrand = field.from_sympy((t + 1/x)*u)
+
+    result = reduce_hyperexponential_laurent(integrand, derivation)
+
+    assert result.reduced_to_lower_field
+    assert result.remainder == field.zero
+    assert result.exact_part == field.from_sympy(t*u)
+    step = result.steps[0]
+    assert step.has_solution
+    certificate = step.rde_result.certificate
+    assert isinstance(certificate, PrimitiveRischDifferentialEquationResult)
+    assert certificate.polynomial_result.lower_field_results
+
+
 def test_primitive_lower_rde_handles_a_repeated_normal_denominator() -> None:
     tower = hyperexponential_over_log_tower(2*t/x)
     field = tower.field()
@@ -557,16 +575,20 @@ def test_unsolvable_primitive_lower_rde_is_retained_as_an_obstruction() -> None:
     assert step.rde_result.obstruction is PrimitiveRDEObstruction.POLYNOMIAL
 
 
-@pytest.mark.parametrize("eta", [1/x, 1/(t - 1)])
-def test_unimplemented_primitive_dependency_shapes_are_not_misclassified(
-    eta,
-) -> None:
-    tower = hyperexponential_over_log_tower(eta)
+def test_dependent_primitive_hyperexponential_is_rejected() -> None:
+    tower = hyperexponential_over_log_tower(1/x)
 
-    with pytest.raises(
-        NotImplementedError,
-        match="positive degree|polynomial logarithmic derivative",
-    ):
+    with pytest.raises(ValueError, match="algebraically dependent"):
+        reduce_hyperexponential_laurent(
+            tower.field().from_sympy(u),
+            tower.derivation(),
+        )
+
+
+def test_primitive_coefficient_pole_remains_explicit_after_classification() -> None:
+    tower = hyperexponential_over_log_tower(1/(t - 1))
+
+    with pytest.raises(NotImplementedError, match="coefficient.*poles"):
         reduce_hyperexponential_laurent(
             tower.field().from_sympy(u),
             tower.derivation(),

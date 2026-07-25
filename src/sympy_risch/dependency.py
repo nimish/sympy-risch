@@ -471,7 +471,7 @@ class HypertangentDependency:
 
 @dataclass(frozen=True, slots=True)
 class HyperexponentialDependency:
-    r"""Dependency certificate for ``Dt = eta*t`` over ``QQ(x)``.
+    r"""Dependency certificate for ``Dt = eta*t`` over a supported tower.
 
     In the rational and algebraic cases, ``minimal_power`` and
     ``relation_argument`` satisfy
@@ -489,8 +489,8 @@ class HyperexponentialDependency:
     constants rather than making ``t`` algebraic over the original field.
 
     Independently, ``exponential_exponent`` is present when ``eta = Du`` for a
-    rational ``u``.  It records the named presentation ``t = c*exp(u)`` but
-    does not make ``t`` dependent over the lower rational field.
+    lower-field element ``u``.  It records the named presentation
+    ``t = c*exp(u)`` but does not make ``t`` dependent over the lower field.
     """
 
     extension: MonomialExtension
@@ -498,8 +498,8 @@ class HyperexponentialDependency:
     kind: HyperexponentialDependencyKind
     minimal_power: int | None
     relation_argument: Expr | None
-    logarithmic_result: RationalLogDerivativeResult
-    exact_result: RationalExactDerivativeResult
+    logarithmic_result: Any
+    exact_result: Any
     exponential_exponent: Expr | None
 
     @property
@@ -1612,12 +1612,11 @@ def analyze_hyperexponential_extension(
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> HyperexponentialDependency:
-    r"""Classify a proposed ``Dt = eta*t`` extension over ``QQ(x)``.
+    r"""Classify a proposed ``Dt = eta*t`` over a supported lower tower.
 
-    The logarithmic-derivative test detects both direct dependencies and
-    radical dependencies.  If its factor valuations are rational but not all
-    integral, their denominator least common multiple is the minimal positive
-    ``n`` for which ``n*eta = Du/u``.
+    The recursive logarithmic-derivative test detects both direct and radical
+    dependencies.  Its ``minimal_power`` is the least positive ``n`` for
+    which ``n*eta = Du/u``.
 
     The ordinary exact-derivative test is independent: ``eta = Dv`` records
     the presentation ``t = c*exp(v)`` for a genuinely transcendental
@@ -1640,43 +1639,53 @@ def analyze_hyperexponential_extension(
             "extension parent field does not match the lower derivation"
         )
 
-    variable = _standard_rational_variable(lower_derivation)
     eta = extension.parent_field.convert(
         extension.generator_derivative.nth(1)
     )
-    eta_expression = eta.as_expr()
+    # Local imports avoid the module cycle: primitive monomial reductions use
+    # the dependency analyses defined in this module.
+    from .exact import solve_exact_derivative
+    from .monomial import solve_radical_logarithmic_derivative
 
-    logarithmic_result = solve_rational_logarithmic_derivative(
-        eta_expression,
-        variable,
+    radical_result = solve_radical_logarithmic_derivative(
+        eta,
+        lower_derivation,
     )
-    minimal_power = _minimal_logarithmic_power(logarithmic_result)
+    minimal_power = radical_result.minimal_power
     relation_argument = None
     if minimal_power is None:
         kind = HyperexponentialDependencyKind.TRANSCENDENTAL
     elif minimal_power == 1:
         kind = HyperexponentialDependencyKind.RATIONAL
-        relation_argument = logarithmic_result.argument
+        relation_argument = lower_derivation.field.to_sympy(
+            radical_result.argument,
+        )
     else:
         kind = HyperexponentialDependencyKind.ALGEBRAIC
-        scaled_result = solve_rational_logarithmic_derivative(
-            minimal_power*eta_expression,
-            variable,
+        relation_argument = lower_derivation.field.to_sympy(
+            radical_result.argument,
         )
-        if not scaled_result.has_solution:
-            raise ValueError(
-                "minimal logarithmic power did not produce a dependency"
-            )
-        relation_argument = scaled_result.argument
 
-    exact_result = solve_rational_exact_derivative(
-        eta_expression,
-        variable,
+    recursive_exact_result = solve_exact_derivative(
+        eta,
+        lower_derivation,
     )
     exponential_exponent = (
-        exact_result.antiderivative
-        if exact_result.has_solution
+        lower_derivation.field.to_sympy(
+            recursive_exact_result.antiderivative,
+        )
+        if recursive_exact_result.has_solution
         else None
+    )
+    logarithmic_result = (
+        radical_result.certificate
+        if lower_derivation.level == 0
+        else radical_result
+    )
+    exact_result = (
+        recursive_exact_result.certificate
+        if lower_derivation.level == 0
+        else recursive_exact_result
     )
 
     return HyperexponentialDependency(

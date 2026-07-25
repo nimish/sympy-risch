@@ -28,7 +28,10 @@ uv run --no-sync pytest -q
 Focused files mirror the implementation modules. For example,
 `tests/test_nested_primitive.py` exercises recursive primitive descent,
 `tests/test_primitive_rde.py` cross-checks the primitive-field recurrence
-against an independent bounded matrix oracle,
+against an independent bounded matrix oracle. Its cancellation tests cover
+logarithmic-coefficient exact transformations, recursively solved leading
+coefficients, rational solution denominators, certified failures, nested
+primitive towers, and generated positive and negative oracle comparisons.
 `tests/test_hypertangent.py` exercises the direct tangent reducer, and
 `tests/test_algebraic.py` exercises algebraic Hermite reduction and integral
 bases. `tests/test_parametric_logarithmic.py` checks Bronstein's equation
@@ -41,6 +44,10 @@ repeated poles, and irreducible factors of degrees two and three. The oracle
 does not consume the solver's certificate or locally constructed constraints.
 The tests enforce the distinction between a proved obstruction, an
 inconclusive fast path, and an unsupported field.
+`tests/test_dependency.py` verifies rational and radical hyperexponential
+dependencies over both `QQ(x)` and primitive lower towers, including exact
+named-exponential presentations and exact reconstruction of the resulting
+constant relation.
 `tests/test_primitive_logarithmic.py` checks recursive primitive signatures
 through three tower levels. It compares both one-level and nested decisions
 with separate global linear ansatzes. Generated inputs mix inherited

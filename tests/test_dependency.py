@@ -313,6 +313,73 @@ def test_transcendental_obstructions_retain_their_certificates() -> None:
         assert result.relation_argument is None
 
 
+@pytest.mark.parametrize(
+    (
+        "eta",
+        "expected_kind",
+        "expected_power",
+        "expected_argument",
+        "expected_exponent",
+    ),
+    [
+        (
+            1/(x*t),
+            HyperexponentialDependencyKind.RATIONAL,
+            1,
+            t,
+            None,
+        ),
+        (
+            1/(2*x*t),
+            HyperexponentialDependencyKind.ALGEBRAIC,
+            2,
+            t,
+            None,
+        ),
+        (
+            1,
+            HyperexponentialDependencyKind.TRANSCENDENTAL,
+            None,
+            None,
+            x,
+        ),
+    ],
+)
+def test_dependency_analysis_descends_through_a_primitive_level(
+    eta,
+    expected_kind,
+    expected_power,
+    expected_argument,
+    expected_exponent,
+) -> None:
+    rational = rational_base()
+    primitive = rational.extend(
+        MonomialExtension(
+            Poly(1/x, t, domain=rational.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    extension = MonomialExtension(
+        Poly(eta*z, z, domain=primitive.field()),
+    )
+
+    result = analyze_hyperexponential_extension(
+        extension,
+        primitive.derivation(),
+    )
+
+    assert result.kind is expected_kind
+    assert result.minimal_power == expected_power
+    assert result.relation_argument == expected_argument
+    assert result.exponential_exponent == expected_exponent
+    if result.is_dependent:
+        tower = primitive.extend(extension)
+        relation = tower.field().from_sympy(
+            z**expected_power/result.relation_argument,
+        )
+        assert tower.derivation()(relation) == tower.field().zero
+
+
 @given(
     x_valuation=st.integers(min_value=-5, max_value=5),
     linear_valuation=st.integers(min_value=-5, max_value=5),

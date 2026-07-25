@@ -202,22 +202,211 @@ def test_zero_right_hand_side_uses_the_canonical_zero_solution() -> None:
     assert result.solution == field.zero
 
 
-@pytest.mark.parametrize(
-    "coefficient",
-    [1, 1/(t - 1)],
-)
-def test_unsupported_primitive_coefficient_branches_are_explicit(
-    coefficient,
-) -> None:
+def test_top_generator_pole_in_coefficient_remains_explicit() -> None:
     tower = logarithmic_tower()
     field = tower.field()
 
     with pytest.raises(NotImplementedError, match="coefficient"):
         solve_risch_differential_equation(
-            field.from_sympy(coefficient),
+            field.from_sympy(1/(t - 1)),
             field.from_sympy(1),
             tower.derivation(),
         )
+
+
+def test_lower_field_coefficient_uses_primitive_cancellation_recurrence() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(1)
+    planted = field.from_sympy((x + 1)*t**3 + (x - 2)*t + 4)
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    result = solve_primitive_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.degree_bound == 3
+    assert result.polynomial_result.has_solution
+    assert result.polynomial_result.lower_field_results
+    assert result.polynomial_result.logarithmic_derivative_result is not None
+    assert not (
+        result.polynomial_result.logarithmic_derivative_result.has_solution
+    )
+
+
+def test_lower_field_logarithmic_coefficient_becomes_exact_derivative() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(1/x)
+    planted = field.from_sympy(t**5 + x*t)
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    result = solve_primitive_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.logarithmic_derivative_result.has_solution
+    assert result.logarithmic_derivative_result.minimal_power == 1
+    assert (
+        result.logarithmic_derivative_result.argument
+        == tower.field(0).from_sympy(x)
+    )
+    assert result.exact_derivative_result.has_solution
+
+
+def test_zero_coefficient_dispatches_to_exact_derivative_solver() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+
+    result = solve_primitive_risch_differential_equation(
+        field.zero,
+        field.from_sympy(1/x),
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution == field.from_sympy(t)
+    assert result.exact_derivative_result.has_solution
+
+
+@pytest.mark.parametrize(
+    ("coefficient", "right_hand_side"),
+    [
+        (0, 1/t),
+        (1/x, 1/t),
+    ],
+)
+def test_exact_cancellation_obstruction_is_certified(
+    coefficient,
+    right_hand_side,
+) -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+
+    result = solve_primitive_risch_differential_equation(
+        field.from_sympy(coefficient),
+        field.from_sympy(right_hand_side),
+        tower.derivation(),
+    )
+
+    assert not result.has_solution
+    assert result.has_exact_derivative_obstruction
+    assert result.exact_derivative_result is not None
+    assert not result.exact_derivative_result.has_solution
+
+
+def test_nonintegral_radical_coefficient_does_not_trigger_exact_transform() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(1/(2*x))
+    planted = field.from_sympy((x + 1)*t**2)
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    result = solve_primitive_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.logarithmic_derivative_result.has_solution
+    assert result.logarithmic_derivative_result.minimal_power == 2
+    assert result.exact_derivative_result is None
+    assert result.polynomial_result.lower_field_results
+
+
+def test_lower_field_coefficient_with_rational_solution_denominator() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(1)
+    planted = field.from_sympy((x + 1)/(t - 1)**2)
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    result = solve_primitive_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.denominator_bound == Poly(
+        (t - 1)**2,
+        t,
+        domain=tower.field(0),
+    )
+
+
+def test_lower_coefficient_failure_retains_recursive_obstruction() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+
+    result = solve_primitive_risch_differential_equation(
+        field.from_sympy(1),
+        field.from_sympy(t),
+        tower.derivation(),
+    )
+
+    assert not result.has_solution
+    assert result.has_polynomial_obstruction
+    polynomial = result.polynomial_result
+    assert polynomial.has_lower_field_obstruction
+    assert polynomial.lower_field_results
+    assert not polynomial.lower_field_results[-1].has_solution
+    assert (
+        tower.derivation().polynomial(polynomial.partial_solution)
+        + polynomial.coefficient*polynomial.partial_solution
+        + polynomial.residual
+        == polynomial.right_hand_side
+    )
+
+
+def test_cancellation_recurrence_descends_through_nested_primitive_tower() -> None:
+    lower = logarithmic_tower()
+    tower = lower.extend(
+        MonomialExtension(
+            Poly(1/(x*t), u, domain=lower.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(t)
+    planted = field.from_sympy((x + 1)*u**2 + x*u + 1)
+    right_hand_side = derivation(planted) + coefficient*planted
+
+    result = solve_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.solution == planted
+    assert result.reconstructs
+    lower_results = result.certificate.polynomial_result.lower_field_results
+    assert lower_results
+    assert all(lower_result.has_solution for lower_result in lower_results)
+    assert all(
+        isinstance(
+            lower_result.certificate,
+            PrimitiveRischDifferentialEquationResult,
+        )
+        for lower_result in lower_results
+    )
 
 
 def test_primitive_rde_requires_no_new_constants_evidence() -> None:
@@ -450,3 +639,103 @@ def test_recurrence_agrees_with_independent_bounded_matrix_oracle(
     assert recurrence.solution == planted
     assert matrix.has_solution
     assert matrix.solution == planted
+
+
+@given(
+    coefficient=st.integers(min_value=-3, max_value=3).filter(bool),
+    solution_data=st.lists(
+        st.tuples(
+            st.integers(min_value=-3, max_value=3),
+            st.integers(min_value=-3, max_value=3),
+        ),
+        min_size=1,
+        max_size=4,
+    ),
+    denominator_power=st.integers(min_value=0, max_value=1),
+)
+@settings(max_examples=35, deadline=None)
+def test_generated_lower_coefficient_cancellation_matches_matrix_oracle(
+    coefficient,
+    solution_data,
+    denominator_power,
+) -> None:
+    assume(any(pair != (0, 0) for pair in solution_data))
+    tower = logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    denominator = (x + 1)**denominator_power
+    planted = field.from_sympy(
+        sum(
+            (linear*x + constant)*t**degree
+            for degree, (linear, constant) in enumerate(solution_data)
+        )/denominator
+    )
+    coefficient_element = field.from_sympy(coefficient)
+    right_hand_side = (
+        derivation(planted) + coefficient_element*planted
+    )
+
+    recurrence = solve_primitive_risch_differential_equation(
+        coefficient_element,
+        right_hand_side,
+        derivation,
+    )
+    matrix = solve_bounded_primitive_rde_matrix(
+        coefficient_element,
+        right_hand_side,
+        derivation,
+        denominator,
+        1,
+        len(solution_data) - 1,
+    )
+
+    assert recurrence.has_solution
+    assert recurrence.solution == planted
+    assert matrix.has_solution
+    assert matrix.solution == planted
+
+
+@given(
+    coefficient=st.integers(min_value=-3, max_value=3).filter(bool),
+    rhs_coefficients=st.lists(
+        st.integers(min_value=-2, max_value=2),
+        min_size=9,
+        max_size=9,
+    ).map(tuple),
+)
+@settings(max_examples=35, deadline=None)
+def test_lower_coefficient_decision_matches_global_matrix_oracle(
+    coefficient,
+    rhs_coefficients,
+) -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    right_hand_side = field.from_sympy(
+        sum(
+            rhs_coefficients[3*top_degree + lower_degree]
+            * x**lower_degree
+            * t**top_degree
+            for top_degree in range(3)
+            for lower_degree in range(3)
+        )
+    )
+    coefficient_element = field.from_sympy(coefficient)
+
+    recurrence = solve_primitive_risch_differential_equation(
+        coefficient_element,
+        right_hand_side,
+        derivation,
+    )
+    matrix = solve_bounded_primitive_rde_matrix(
+        coefficient_element,
+        right_hand_side,
+        derivation,
+        1,
+        2,
+        2,
+    )
+
+    assert recurrence.has_solution is matrix.has_solution
+    if recurrence.has_solution:
+        assert recurrence.solution == matrix.solution
