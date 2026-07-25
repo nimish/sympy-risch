@@ -337,9 +337,10 @@ satisfying `n*f = D(v)/v`, whether `derivation` is on `QQ(x)` or at the top of
 a recursively primitive tower. Its immutable certificate retains the rational
 result or complete primitive signature from the current level.
 
-The public parametric solver consumes these coordinates when its lower field
-is `QQ(x)(t)`. For example, the repeated pole in `eta` is not itself
-logarithmic, but it cancels at the uniquely determined ratio:
+The public parametric solver consumes these coordinates recursively when its
+lower field is a primitive tower over `QQ(x)`. For example, the repeated pole
+in `eta` is not itself logarithmic, but it cancels at the uniquely determined
+ratio:
 
 ```python
 primitive_eta = 1/t + 1/t**2

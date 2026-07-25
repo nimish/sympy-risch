@@ -145,7 +145,7 @@ class PrimitiveParametricLogarithmicDerivativeFactor:
 
 @dataclass(frozen=True, slots=True)
 class PrimitiveParametricLogarithmicDerivativeCertificate:
-    r"""Exact one-level primitive structure-theorem certificate.
+    r"""Exact recursive primitive structure-theorem certificate.
 
     ``polynomial_constraints`` compares every positive power of the primitive
     generator.  The factor certificates compare repeated principal parts and
@@ -153,7 +153,7 @@ class PrimitiveParametricLogarithmicDerivativeCertificate:
     leave free the rational ratio ``candidate_ratio = m/n``.
 
     If the top-level constraints leave the ratio free,
-    ``lower_parametric_result`` records the complete rational decision on the
+    ``lower_parametric_result`` records the complete recursive decision on the
     constant-in-the-generator part.  ``residual_signature`` finally certifies
     whether the selected integer residual is a radical logarithmic derivative
     and constructs its argument.
@@ -1237,16 +1237,16 @@ def _solve_primitive_parametric_logarithmic_derivative(
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
-    r"""Decide the parametric problem over one primitive level above ``QQ(x)``."""
+    r"""Decide the parametric problem over a recursive primitive tower."""
     eta = _parametric_logarithmic_derivative_eta(
         extension,
         lower_derivation,
     )
     field = lower_derivation.field
     element = _coerce(field, f)
-    if lower_derivation.level != 1:
+    if lower_derivation.level < 1:
         raise ValueError(
-            "one-level primitive parametric solving requires level one"
+            "primitive parametric solving requires a primitive lower field"
         )
     primitive_extension = lower_derivation.tower.levels[
         lower_derivation.level
@@ -1256,23 +1256,38 @@ def _solve_primitive_parametric_logarithmic_derivative(
         or primitive_extension.family is not MonomialFamily.PRIMITIVE
     ):
         raise ValueError(
-            "one-level primitive parametric solving requires a primitive "
-            "lower field"
+            "primitive parametric solving requires a primitive lower field"
         )
-    if (
-        primitive_extension.constant_field_status
-        is not ConstantFieldStatus.PRESERVED
-    ):
-        return ParametricLogarithmicDerivativeResult(
-            extension,
-            lower_derivation,
-            element,
-            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
-            detail=(
-                "primitive parametric solving requires Const(K(t)) = "
-                "Const(K)"
-            ),
-        )
+    for level in range(1, lower_derivation.level + 1):
+        recursive_extension = lower_derivation.tower.levels[level]
+        if (
+            not isinstance(recursive_extension, MonomialExtension)
+            or recursive_extension.family is not MonomialFamily.PRIMITIVE
+        ):
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+                detail=(
+                    "recursive primitive parametric solving requires every "
+                    "transcendental level above QQ(x) to be primitive"
+                ),
+            )
+        if (
+            recursive_extension.constant_field_status
+            is not ConstantFieldStatus.PRESERVED
+        ):
+            return ParametricLogarithmicDerivativeResult(
+                extension,
+                lower_derivation,
+                element,
+                ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+                detail=(
+                    "primitive parametric solving requires Const(K(t)) = "
+                    "Const(K) at every primitive level"
+                ),
+            )
 
     # Local import avoids the module cycle: monomial family reducers use the
     # dependency analyses defined in this module.
@@ -1372,13 +1387,20 @@ def _solve_primitive_parametric_logarithmic_derivative(
                     ParametricLogarithmicDerivativeOutcome.PROVED_NO_SOLUTION,
                     certificate=certificate(
                         "the top signature leaves m/n free, but the complete "
-                        "lower rational problem is inconsistent"
+                        "recursive lower problem is inconsistent"
                     ),
                 )
             if not lower_parametric_result.has_solution:
-                raise ValueError(
-                    "the one-level lower rational parametric problem was "
-                    "not decided"
+                return ParametricLogarithmicDerivativeResult(
+                    extension,
+                    lower_derivation,
+                    element,
+                    ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+                    certificate=certificate(
+                        "the top signature leaves m/n free, but the lower "
+                        "field family is unsupported"
+                    ),
+                    detail=lower_parametric_result.detail,
                 )
             candidate_ratio = QQ(
                 lower_parametric_result.m,
@@ -1432,14 +1454,15 @@ def solve_parametric_logarithmic_derivative(
     Over ``QQ(x)``, the Section 7.3 coefficient heuristic is the fast path and
     a complete rational structure fallback handles its inconclusive exit.
 
-    Over one primitive level ``QQ(x)(t)``, the solver compares positive-degree
+    Over a recursive primitive tower, the solver compares positive-degree
     polynomial coordinates, repeated principal parts, and simple residues
-    modulo ``QQ*Dp``.  If those top coordinates leave ``m/n`` free, the
-    complete rational solver chooses it from the lower component.  Recursive
-    primitive towers remain ``UNSUPPORTED``.
+    modulo ``QQ*Dp`` at each level.  If the current coordinates leave ``m/n``
+    free, the same complete decision descends to the lower component.
     """
-    if lower_derivation.level == 1:
-        lower_extension = lower_derivation.tower.levels[1]
+    if lower_derivation.level >= 1:
+        lower_extension = lower_derivation.tower.levels[
+            lower_derivation.level
+        ]
         if (
             isinstance(lower_extension, MonomialExtension)
             and lower_extension.family is MonomialFamily.PRIMITIVE

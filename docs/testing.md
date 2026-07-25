@@ -48,9 +48,10 @@ lower-field obstructions, positive-degree polynomial parts, repeated top
 poles, and logarithmic and nonlogarithmic residues at
 coefficient-dependent irreducible factors.
 `tests/test_primitive_parametric_logarithmic.py` compares the local
-structure-theorem recurrence with a separate global parametric ansatz. It
-includes cancellations that occur only after selecting `m/n`, conflicting
-top and lower constraints, and generated quadratic and cubic factors.
+structure-theorem recurrence with separate one-level and nested global
+parametric ansatzes. It includes cancellations that occur only after selecting
+`m/n`, ratios determined only after recursive descent, conflicting top and
+lower constraints, and generated quadratic and cubic factors.
 `tests/test_algebraic_residues.py` checks Trager's nested resultant against
 directly specialized residues, the rational Rothstein--Trager degeneration,
 and a high-degree explicit local oracle. Generated quadratic models vary the
