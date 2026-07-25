@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, cast
 from sympy.core.expr import Expr
 from sympy.core.numbers import I
 from sympy.core.singleton import S
-from sympy.core.symbol import Symbol
+from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
-from sympy.polys.polytools import Poly, cancel, invert
+from sympy.polys.polytools import Poly, cancel, invert, resultant
 
 from ._typing import FieldElement
 from .polynomial import integrate_polynomial
@@ -71,6 +71,15 @@ class HyperexponentialLaurentRDEObstruction(Enum):
 
     LOWER_FIELD = "lower_field"
     NONZERO_REMAINDER = "nonzero_remainder"
+
+
+class HyperexponentialRDEObstruction(Enum):
+    """Why a rational RDE fails at a hyperexponential level."""
+
+    DENOMINATOR = "denominator"
+    SPDE_DEGREE = "spde_degree"
+    SPDE_DIVISIBILITY = "spde_divisibility"
+    LAURENT = "laurent"
 
 
 class HyperexponentialLaurentRDEDirection(Enum):
@@ -430,6 +439,75 @@ class HyperexponentialLaurentRischDifferentialEquationResult:
 
 
 @dataclass(frozen=True, slots=True)
+class HyperexponentialRischDifferentialEquationResult:
+    r"""Certified rational RDE result over ``K(t)`` with ``Dt = eta*t``.
+
+    ``normalization_factor`` records Bronstein's weak normalization
+
+    ``a_normal = a - D(normalization_factor)/normalization_factor``.
+
+    Normal-denominator reduction proves that every normalized solution has
+    denominator dividing ``normal_denominator_bound`` away from ``t = 0``.
+    The special-denominator step then bounds its remaining power of ``t``:
+
+    ``y_normal = polynomial_numerator
+                  / (normal_denominator_bound*t**special_denominator_power)``.
+
+    SPDE reduces the resulting polynomial equation to a Laurent RDE. The
+    terminal Laurent certificate is retained in ``laurent_result``; failed
+    exact divisions retain their polynomial and remainder.
+    """
+
+    coefficient: FieldElement
+    right_hand_side: FieldElement
+    solution: FieldElement | None
+    obstruction: HyperexponentialRDEObstruction | None
+    normalization_factor: Poly
+    normalized_coefficient: FieldElement
+    normalized_right_hand_side: FieldElement
+    normal_denominator_bound: Poly
+    special_denominator_power: int | None = None
+    special_clearing_power: int | None = None
+    degree_bound: int | None = None
+    laurent_result: (
+        HyperexponentialLaurentRischDifferentialEquationResult | None
+    ) = None
+    obstruction_polynomial: Poly | None = None
+    obstruction_remainder: Poly | None = None
+    special_boundary_result: (
+        ParametricLogarithmicDerivativeResult | None
+    ) = None
+    special_exceptional_power: int | None = None
+    degree_boundary_result: (
+        ParametricLogarithmicDerivativeResult | None
+    ) = None
+    degree_exceptional_power: int | None = None
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the RDE has a rational solution in this field."""
+        return self.solution is not None
+
+    @property
+    def has_denominator_obstruction(self) -> bool:
+        """Whether the normal-denominator theorem proves nonexistence."""
+        return self.obstruction is HyperexponentialRDEObstruction.DENOMINATOR
+
+    @property
+    def has_spde_obstruction(self) -> bool:
+        """Whether SPDE degree or divisibility proves nonexistence."""
+        return self.obstruction in {
+            HyperexponentialRDEObstruction.SPDE_DEGREE,
+            HyperexponentialRDEObstruction.SPDE_DIVISIBILITY,
+        }
+
+    @property
+    def has_laurent_obstruction(self) -> bool:
+        """Whether the terminal complete Laurent decision proves failure."""
+        return self.obstruction is HyperexponentialRDEObstruction.LAURENT
+
+
+@dataclass(frozen=True, slots=True)
 class RischDifferentialEquationResult:
     """Level-independent RDE result over an explicitly supplied tower."""
 
@@ -440,12 +518,14 @@ class RischDifferentialEquationResult:
     obstruction: (
         RationalRDEObstruction
         | PrimitiveRDEObstruction
+        | HyperexponentialRDEObstruction
         | HyperexponentialLaurentRDEObstruction
         | None
     )
     certificate: (
         RationalRischDifferentialEquationResult
         | PrimitiveRischDifferentialEquationResult
+        | HyperexponentialRischDifferentialEquationResult
         | HyperexponentialLaurentRischDifferentialEquationResult
     )
 
@@ -510,6 +590,7 @@ class BoundedHyperexponentialLaurentRDEMatrixResult:
     solution: FieldElement | None
     coefficient_rank: int
     augmented_rank: int
+    top_denominator: Poly | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -1370,6 +1451,178 @@ def _positive_integer_rational(value: object) -> int | None:
     if QQ.denom(rational) != 1 or QQ.numer(rational) <= 0:
         return None
     return int(QQ.numer(rational))
+
+
+def _positive_integer_in_domain(value: object, domain: Domain) -> int | None:
+    """Return a positive integer represented in ``domain``, if any."""
+    expression = domain.to_sympy(domain.convert(value))
+    if expression.is_Integer is not True or expression.is_positive is not True:
+        return None
+    return int(expression)
+
+
+def _weakly_normalize_hyperexponential_rde_coefficient(
+    coefficient: object,
+    derivation: Derivation,
+) -> tuple[Poly, FieldElement]:
+    r"""Apply Bronstein's general weak-normalizer resultant construction.
+
+    Let ``d1`` be the product of the normal irreducible denominator factors
+    that occur exactly once. If ``a`` is the partial numerator of ``f`` at
+    ``d1``, the positive integer roots of
+
+    ``resultant_t(a - z*D(d1), d1)``
+
+    are precisely the logarithmic residues that weak normalization removes.
+    For every such root ``n``, the factor
+    ``gcd(a - n*D(d1), d1)**n`` is included in the normalizer.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    field = extension.field
+    parent = extension.parent_field
+    element, numerator, denominator = _as_primitive_fraction(
+        coefficient,
+        extension,
+    )
+    from .monomial import split_normal_special
+
+    normal_denominator, _ = split_normal_special(denominator, derivation)
+    repeated_part = normal_denominator.gcd(normal_denominator.diff())
+    squarefree_part = normal_denominator.exquo(repeated_part)
+    simple_normal_part = squarefree_part.exquo(
+        squarefree_part.gcd(repeated_part)
+    ).monic()
+    one = Poly(1, extension.generator, domain=parent)
+    if simple_normal_part.degree() == 0:
+        return one, element
+
+    cofactor = denominator.exquo(simple_normal_part)
+    partial_numerator = (
+        numerator*invert(cofactor, simple_normal_part)
+    ).rem(simple_normal_part)
+    simple_derivative = derivation.polynomial(simple_normal_part)
+    residue_symbol = Dummy("z")
+    residue_polynomial = Poly(
+        resultant(
+            (
+                partial_numerator.as_expr()
+                - residue_symbol*simple_derivative.as_expr()
+            ),
+            simple_normal_part.as_expr(),
+            extension.generator,
+        ),
+        residue_symbol,
+        domain=parent,
+    )
+
+    normalizer = one
+    for root in residue_polynomial.ground_roots():
+        multiplicity = _positive_integer_in_domain(root, parent)
+        if multiplicity is None:
+            continue
+        factor = (
+            partial_numerator
+            - simple_derivative.mul_ground(parent.convert(multiplicity))
+        ).gcd(simple_normal_part)
+        normalizer *= factor**multiplicity
+    normalizer = normalizer.monic()
+    if normalizer.degree() == 0:
+        return normalizer, element
+
+    normalizer_element = _coerce(field, normalizer.as_expr())
+    normalized = element - derivation(normalizer_element)/normalizer_element
+    if (
+        normalized
+        + derivation(normalizer_element)/normalizer_element
+        != element
+    ):
+        raise ValueError(
+            "hyperexponential weak normalization failed to reconstruct"
+        )
+    return normalizer, normalized
+
+
+@dataclass(frozen=True, slots=True)
+class _HyperexponentialNormalDenominatorReduction:
+    """Internal result of Bronstein's normal-denominator theorem."""
+
+    denominator_bound: Poly
+    derivative_coefficient: FieldElement | None
+    solution_coefficient: FieldElement | None
+    right_hand_side: FieldElement | None
+    obstruction_polynomial: Poly | None = None
+    obstruction_remainder: Poly | None = None
+
+    @property
+    def succeeded(self) -> bool:
+        return self.derivative_coefficient is not None
+
+
+def _reduce_hyperexponential_normal_denominator(
+    coefficient: object,
+    right_hand_side: object,
+    derivation: Derivation,
+) -> _HyperexponentialNormalDenominatorReduction:
+    r"""Bound all normal factors in a hyperexponential RDE solution.
+
+    This is ``RdeNormalDenominator`` from Bronstein, Section 6.1. The returned
+    equation ``A*Dq + B*q = C`` has only special powers of ``t`` in ``B`` and
+    ``C``; every normalized solution is ``q/h`` where ``h`` is the returned
+    denominator bound.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    field = extension.field
+    _, _, coefficient_denominator = _as_primitive_fraction(
+        coefficient,
+        extension,
+    )
+    _, _, rhs_denominator = _as_primitive_fraction(
+        right_hand_side,
+        extension,
+    )
+    from .monomial import split_normal_special
+
+    coefficient_normal, _ = split_normal_special(
+        coefficient_denominator,
+        derivation,
+    )
+    rhs_normal, _ = split_normal_special(rhs_denominator, derivation)
+    shared_normal = coefficient_normal.gcd(rhs_normal)
+    denominator_bound = (
+        rhs_normal.gcd(rhs_normal.diff())
+        .exquo(shared_normal.gcd(shared_normal.diff()))
+        .monic()
+    )
+    divisibility_target = coefficient_normal*denominator_bound**2
+    _, remainder = divisibility_target.div(rhs_normal)
+    if not remainder.is_zero:
+        return _HyperexponentialNormalDenominatorReduction(
+            denominator_bound,
+            None,
+            None,
+            None,
+            rhs_normal,
+            remainder,
+        )
+
+    coefficient_element = _coerce(field, coefficient)
+    rhs_element = _coerce(field, right_hand_side)
+    normal_element = _coerce(field, coefficient_normal.as_expr())
+    bound_element = _coerce(field, denominator_bound.as_expr())
+    derivative_coefficient = normal_element*bound_element
+    solution_coefficient = (
+        derivative_coefficient*coefficient_element
+        - normal_element*derivation(bound_element)
+    )
+    transformed_rhs = (
+        normal_element*bound_element*bound_element*rhs_element
+    )
+    return _HyperexponentialNormalDenominatorReduction(
+        denominator_bound,
+        derivative_coefficient,
+        solution_coefficient,
+        transformed_rhs,
+    )
 
 
 def _weakly_normalize_primitive_rde_coefficient(
@@ -2472,6 +2725,301 @@ def _hyperexponential_boundary_power(
     return result, None
 
 
+@dataclass(frozen=True, slots=True)
+class _HyperexponentialSpecialDenominatorReduction:
+    """Internal output of ``RdeSpecialDenomExp``."""
+
+    derivative_coefficient: Poly
+    solution_coefficient: Poly
+    right_hand_side: Poly
+    solution_denominator_power: int
+    clearing_power: int
+    boundary_result: ParametricLogarithmicDerivativeResult | None = None
+    exceptional_power: int | None = None
+
+
+def _hyperexponential_special_denominator(
+    derivative_coefficient: object,
+    solution_coefficient: object,
+    right_hand_side: object,
+    derivation: Derivation,
+) -> _HyperexponentialSpecialDenominatorReduction:
+    r"""Apply Bronstein's hyperexponential special-denominator reduction.
+
+    For ``A*Dq + B*q = C``, all remaining denominators are powers of the
+    special polynomial ``t``. The valuation bound ``n <= 0`` implies
+    ``r = q*t**(-n)`` is polynomial. A final power ``N`` clears the transformed
+    equation
+
+    ``A*Dr + (B + n*A*Dt/t)*r = C*t**(-n)``.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    parent = extension.parent_field
+    t = extension.generator
+    derivative_polynomial = _as_primitive_polynomial(
+        derivative_coefficient,
+        extension,
+    )
+    if derivative_polynomial.eval(parent.zero) == parent.zero:
+        raise ValueError(
+            "the special-denominator derivative coefficient must be "
+            "coprime to the hyperexponential generator"
+        )
+    solution_element, solution_terms = (
+        _hyperexponential_laurent_coefficients(
+            solution_coefficient,
+            extension,
+            "special-denominator solution coefficient",
+        )
+    )
+    rhs_element, rhs_terms = _hyperexponential_laurent_coefficients(
+        right_hand_side,
+        extension,
+        "special-denominator right-hand side",
+    )
+    if not rhs_terms:
+        raise ValueError(
+            "special-denominator reduction requires a nonzero right-hand side"
+        )
+
+    solution_valuation = min(solution_terms) if solution_terms else None
+    rhs_valuation = min(rhs_terms)
+    bounded_solution_valuation = min(0, solution_valuation or 0)
+    valuation_bound = min(
+        0,
+        rhs_valuation - bounded_solution_valuation,
+    )
+    boundary_result = None
+    exceptional_power = None
+    if solution_valuation == 0:
+        alpha = (
+            -solution_terms[0]
+            / parent.convert(derivative_polynomial.nth(0))
+        )
+        boundary_result, exceptional_power = (
+            _hyperexponential_boundary_power(
+                -alpha,
+                extension,
+                derivation.lower(),
+            )
+        )
+        if exceptional_power is not None:
+            valuation_bound = min(valuation_bound, exceptional_power)
+
+    clearing_power = max(
+        0,
+        -solution_valuation if solution_valuation is not None else 0,
+        valuation_bound - rhs_valuation,
+    )
+    field = extension.field
+    t_power = _coerce(field, t**clearing_power)
+    eta = parent.convert(extension.generator_derivative.nth(1))
+    eta_element = _coerce(field, parent.to_sympy(eta))
+    derivative_element = _coerce(
+        field,
+        derivative_polynomial.as_expr(),
+    )
+    transformed_derivative = derivative_element*t_power
+    transformed_solution = (
+        solution_element
+        + field.convert(valuation_bound)*derivative_element*eta_element
+    )*t_power
+    transformed_rhs = (
+        rhs_element
+        * _coerce(field, t**(clearing_power - valuation_bound))
+    )
+    derivative_output = _as_primitive_polynomial(
+        transformed_derivative,
+        extension,
+    )
+    solution_output = _as_primitive_polynomial(
+        transformed_solution,
+        extension,
+    )
+    rhs_output = _as_primitive_polynomial(transformed_rhs, extension)
+    return _HyperexponentialSpecialDenominatorReduction(
+        derivative_output,
+        solution_output,
+        rhs_output,
+        -valuation_bound,
+        clearing_power,
+        boundary_result,
+        exceptional_power,
+    )
+
+
+def _hyperexponential_rde_degree_bound(
+    derivative_coefficient: Poly,
+    solution_coefficient: Poly,
+    right_hand_side: Poly,
+    derivation: Derivation,
+) -> tuple[
+    int,
+    ParametricLogarithmicDerivativeResult | None,
+    int | None,
+]:
+    r"""Implement Bronstein's ``RdeBoundDegreeExp``."""
+    if derivative_coefficient.is_zero:
+        raise ValueError("the derivative coefficient must be nonzero")
+    if right_hand_side.is_zero:
+        return 0, None, None
+
+    degree_a = derivative_coefficient.degree()
+    degree_b = (
+        solution_coefficient.degree()
+        if not solution_coefficient.is_zero
+        else -1
+    )
+    degree_c = right_hand_side.degree()
+    bound = max(0, degree_c - max(degree_b, degree_a))
+    boundary_result = None
+    exceptional_power = None
+    if degree_a == degree_b:
+        parent = derivative_coefficient.domain
+        alpha = parent.convert(
+            -solution_coefficient.LC()/derivative_coefficient.LC()
+        )
+        extension = _hyperexponential_laurent_rde_extension(derivation)
+        boundary_result, exceptional_power = (
+            _hyperexponential_boundary_power(
+                -alpha,
+                extension,
+                derivation.lower(),
+            )
+        )
+        if exceptional_power is not None:
+            bound = max(bound, exceptional_power)
+    return bound, boundary_result, exceptional_power
+
+
+@dataclass(frozen=True, slots=True)
+class _HyperexponentialSPDEResult:
+    """Internal numerator result after hyperexponential SPDE."""
+
+    solution: Poly | None
+    obstruction: HyperexponentialRDEObstruction | None
+    laurent_result: (
+        HyperexponentialLaurentRischDifferentialEquationResult | None
+    ) = None
+    obstruction_polynomial: Poly | None = None
+    obstruction_remainder: Poly | None = None
+
+
+def _solve_hyperexponential_spde(
+    derivative_coefficient: Poly,
+    solution_coefficient: Poly,
+    right_hand_side: Poly,
+    degree_bound: int,
+    derivation: Derivation,
+) -> _HyperexponentialSPDEResult:
+    """Apply Rothstein SPDE and finish with the complete Laurent solver."""
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    parent = extension.parent_field
+    original_derivative = derivative_coefficient
+    original_solution = solution_coefficient
+    original_rhs = right_hand_side
+    alpha = derivative_coefficient.one
+    beta = derivative_coefficient.zero
+    current_bound = degree_bound
+
+    while True:
+        if right_hand_side.is_zero:
+            if (
+                original_derivative*derivation.polynomial(beta)
+                + original_solution*beta
+                != original_rhs
+            ):
+                raise ValueError(
+                    "hyperexponential SPDE zero-tail reconstruction failed"
+                )
+            return _HyperexponentialSPDEResult(beta, None)
+        if current_bound < 0:
+            return _HyperexponentialSPDEResult(
+                None,
+                HyperexponentialRDEObstruction.SPDE_DEGREE,
+            )
+
+        common_factor = derivative_coefficient.gcd(solution_coefficient)
+        quotient, remainder = right_hand_side.div(common_factor)
+        if not remainder.is_zero:
+            return _HyperexponentialSPDEResult(
+                None,
+                HyperexponentialRDEObstruction.SPDE_DIVISIBILITY,
+                obstruction_polynomial=common_factor,
+                obstruction_remainder=remainder,
+            )
+        derivative_coefficient = derivative_coefficient.exquo(common_factor)
+        solution_coefficient = solution_coefficient.exquo(common_factor)
+        right_hand_side = quotient
+
+        if derivative_coefficient.degree() == 0:
+            inverse = parent.one/parent.convert(derivative_coefficient.LC())
+            normalized_coefficient = solution_coefficient.mul_ground(inverse)
+            normalized_rhs = right_hand_side.mul_ground(inverse)
+            laurent_result = (
+                solve_hyperexponential_laurent_risch_differential_equation(
+                    normalized_coefficient,
+                    normalized_rhs,
+                    derivation,
+                )
+            )
+            if not laurent_result.has_solution:
+                return _HyperexponentialSPDEResult(
+                    None,
+                    HyperexponentialRDEObstruction.LAURENT,
+                    laurent_result,
+                )
+            tail_element = laurent_result.solution
+            if tail_element is None:
+                raise ValueError(
+                    "a solved hyperexponential Laurent RDE lacks its solution"
+                )
+            _, tail_numerator, tail_denominator = _as_primitive_fraction(
+                tail_element,
+                extension,
+            )
+            if tail_denominator.degree() > 0:
+                return _HyperexponentialSPDEResult(
+                    None,
+                    HyperexponentialRDEObstruction.SPDE_DEGREE,
+                    laurent_result,
+                )
+            tail = tail_numerator.mul_ground(
+                parent.one/parent.convert(tail_denominator.LC())
+            )
+            if not tail.is_zero and tail.degree() > current_bound:
+                return _HyperexponentialSPDEResult(
+                    None,
+                    HyperexponentialRDEObstruction.SPDE_DEGREE,
+                    laurent_result,
+                )
+            numerator_solution = alpha*tail + beta
+            if (
+                original_derivative*derivation.polynomial(numerator_solution)
+                + original_solution*numerator_solution
+                != original_rhs
+            ):
+                raise ValueError("hyperexponential SPDE reconstruction failed")
+            return _HyperexponentialSPDEResult(
+                numerator_solution,
+                None,
+                laurent_result,
+            )
+
+        inverse = invert(solution_coefficient, derivative_coefficient)
+        residue = (right_hand_side*inverse).rem(derivative_coefficient)
+        quotient = (
+            right_hand_side - solution_coefficient*residue
+        ).exquo(derivative_coefficient)
+        right_hand_side = quotient - derivation.polynomial(residue)
+        solution_coefficient += derivation.polynomial(
+            derivative_coefficient
+        )
+        current_bound -= derivative_coefficient.degree()
+        beta += alpha*residue
+        alpha *= derivative_coefficient
+
+
 def _hyperexponential_laurent_support_bounds(
     coefficient: dict[int, FieldElement],
     right_hand_side: dict[int, FieldElement],
@@ -2824,6 +3372,176 @@ def solve_hyperexponential_laurent_risch_differential_equation(
     )
 
 
+def solve_hyperexponential_risch_differential_equation(
+    coefficient: object,
+    right_hand_side: object,
+    derivation: Derivation,
+) -> HyperexponentialRischDifferentialEquationResult:
+    r"""Decide ``D(y) + a*y = b`` over hyperexponential ``K(t)``.
+
+    This implements the complete Chapter 6 rational frontend for the
+    hyperexponential case: general weak normalization, normal-denominator
+    reduction, the special ``t``-denominator valuation bound, the
+    hyperexponential polynomial degree bound, and Rothstein SPDE. The terminal
+    equation is delegated to the complete Laurent-coefficient solver.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    field = extension.field
+    parent = extension.parent_field
+    coefficient_element = _coerce(
+        field,
+        coefficient.as_expr() if isinstance(coefficient, Poly) else coefficient,
+    )
+    rhs_element = _coerce(
+        field,
+        (
+            right_hand_side.as_expr()
+            if isinstance(right_hand_side, Poly)
+            else right_hand_side
+        ),
+    )
+    normalization_factor, normalized_coefficient = (
+        _weakly_normalize_hyperexponential_rde_coefficient(
+            coefficient_element,
+            derivation,
+        )
+    )
+    normalization_element = _coerce(
+        field,
+        normalization_factor.as_expr(),
+    )
+    normalized_rhs = normalization_element*rhs_element
+    one = Poly(1, extension.generator, domain=parent)
+    if normalized_rhs == field.zero:
+        return HyperexponentialRischDifferentialEquationResult(
+            coefficient_element,
+            rhs_element,
+            field.zero,
+            None,
+            normalization_factor,
+            normalized_coefficient,
+            normalized_rhs,
+            one,
+            special_denominator_power=0,
+            special_clearing_power=0,
+            degree_bound=0,
+        )
+
+    denominator_reduction = _reduce_hyperexponential_normal_denominator(
+        normalized_coefficient,
+        normalized_rhs,
+        derivation,
+    )
+    if not denominator_reduction.succeeded:
+        return HyperexponentialRischDifferentialEquationResult(
+            coefficient_element,
+            rhs_element,
+            None,
+            HyperexponentialRDEObstruction.DENOMINATOR,
+            normalization_factor,
+            normalized_coefficient,
+            normalized_rhs,
+            denominator_reduction.denominator_bound,
+            obstruction_polynomial=(
+                denominator_reduction.obstruction_polynomial
+            ),
+            obstruction_remainder=(
+                denominator_reduction.obstruction_remainder
+            ),
+        )
+    derivative_element = denominator_reduction.derivative_coefficient
+    solution_element = denominator_reduction.solution_coefficient
+    transformed_rhs_element = denominator_reduction.right_hand_side
+    if (
+        derivative_element is None
+        or solution_element is None
+        or transformed_rhs_element is None
+    ):
+        raise ValueError(
+            "successful hyperexponential denominator reduction lacks "
+            "an equation"
+        )
+
+    special_reduction = _hyperexponential_special_denominator(
+        derivative_element,
+        solution_element,
+        transformed_rhs_element,
+        derivation,
+    )
+    (
+        degree_bound,
+        degree_boundary_result,
+        degree_exceptional_power,
+    ) = _hyperexponential_rde_degree_bound(
+        special_reduction.derivative_coefficient,
+        special_reduction.solution_coefficient,
+        special_reduction.right_hand_side,
+        derivation,
+    )
+    spde_result = _solve_hyperexponential_spde(
+        special_reduction.derivative_coefficient,
+        special_reduction.solution_coefficient,
+        special_reduction.right_hand_side,
+        degree_bound,
+        derivation,
+    )
+    if spde_result.solution is None:
+        return HyperexponentialRischDifferentialEquationResult(
+            coefficient_element,
+            rhs_element,
+            None,
+            spde_result.obstruction,
+            normalization_factor,
+            normalized_coefficient,
+            normalized_rhs,
+            denominator_reduction.denominator_bound,
+            special_reduction.solution_denominator_power,
+            special_reduction.clearing_power,
+            degree_bound,
+            spde_result.laurent_result,
+            spde_result.obstruction_polynomial,
+            spde_result.obstruction_remainder,
+            special_reduction.boundary_result,
+            special_reduction.exceptional_power,
+            degree_boundary_result,
+            degree_exceptional_power,
+        )
+
+    solution = _coerce(
+        field,
+        spde_result.solution.as_expr()
+        / (
+            normalization_factor.as_expr()
+            * denominator_reduction.denominator_bound.as_expr()
+            * extension.generator
+            ** special_reduction.solution_denominator_power
+        ),
+    )
+    if (
+        derivation(solution) + coefficient_element*solution
+        != rhs_element
+    ):
+        raise ValueError("hyperexponential RDE reconstruction failed")
+    return HyperexponentialRischDifferentialEquationResult(
+        coefficient_element,
+        rhs_element,
+        solution,
+        None,
+        normalization_factor,
+        normalized_coefficient,
+        normalized_rhs,
+        denominator_reduction.denominator_bound,
+        special_reduction.solution_denominator_power,
+        special_reduction.clearing_power,
+        degree_bound,
+        spde_result.laurent_result,
+        special_boundary_result=special_reduction.boundary_result,
+        special_exceptional_power=special_reduction.exceptional_power,
+        degree_boundary_result=degree_boundary_result,
+        degree_exceptional_power=degree_exceptional_power,
+    )
+
+
 def solve_risch_differential_equation(
     coefficient: object,
     right_hand_side: object,
@@ -2869,13 +3587,33 @@ def solve_risch_differential_equation(
                 derivation,
             )
         elif extension.family is MonomialFamily.HYPEREXPONENTIAL:
-            certificate = (
-                solve_hyperexponential_laurent_risch_differential_equation(
+            try:
+                _hyperexponential_laurent_coefficients(
                     coefficient_element,
-                    rhs_element,
-                    derivation,
+                    extension,
+                    "coefficient",
                 )
-            )
+                _hyperexponential_laurent_coefficients(
+                    rhs_element,
+                    extension,
+                    "right-hand side",
+                )
+            except NotImplementedError:
+                certificate = (
+                    solve_hyperexponential_risch_differential_equation(
+                        coefficient_element,
+                        rhs_element,
+                        derivation,
+                    )
+                )
+            else:
+                certificate = (
+                    solve_hyperexponential_laurent_risch_differential_equation(
+                        coefficient_element,
+                        rhs_element,
+                        derivation,
+                    )
+                )
         else:
             raise NotImplementedError(
                 f"RDE dispatch does not yet support "
@@ -3228,16 +3966,18 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
     lower_numerator_degree_bound: int,
     minimum_power: int,
     maximum_power: int,
+    top_denominator: Expr | Poly = S.One,
 ) -> BoundedHyperexponentialLaurentRDEMatrixResult:
-    r"""Solve a bounded Laurent RDE ansatz by exact global linear algebra.
+    r"""Solve a bounded rational RDE ansatz by exact global linear algebra.
 
     This independent oracle is limited to one hyperexponential level over
     ``QQ(x)``.  It searches
 
-    ``sum(c_ij*x**i*t**j/lower_denominator)``
+    ``sum(c_ij*x**i*t**j/(lower_denominator*top_denominator))``
 
     for ``minimum_power <= j <= maximum_power``.  It deliberately does not
-    split Laurent modes or invoke lower-field RDE solvers.
+    perform weak normalization, denominator reduction, special-denominator
+    reduction, SPDE, or lower-field RDE solving.
     """
     extension = _hyperexponential_laurent_rde_extension(derivation)
     lower_derivation = derivation.lower()
@@ -3272,6 +4012,14 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
     if denominator.is_zero:
         raise ValueError("the lower ansatz denominator must be nonzero")
     denominator = denominator.monic()
+    top_denominator_polynomial = Poly(
+        top_denominator,
+        t,
+        domain=extension.parent_field,
+    )
+    if top_denominator_polynomial.is_zero:
+        raise ValueError("the top ansatz denominator must be nonzero")
+    top_denominator_polynomial = top_denominator_polynomial.monic()
 
     field = extension.field
     coefficient_element = _coerce(
@@ -3289,7 +4037,11 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
     basis = [
         _coerce(
             field,
-            x**lower_degree*t**top_power/denominator.as_expr(),
+            x**lower_degree*t**top_power
+            / (
+                denominator.as_expr()
+                * top_denominator_polynomial.as_expr()
+            ),
         )
         for top_power in range(minimum_power, maximum_power + 1)
         for lower_degree in range(lower_numerator_degree_bound + 1)
@@ -3356,6 +4108,7 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
             None,
             coefficient_rank,
             augmented_rank,
+            top_denominator_polynomial,
         )
 
     reduced_matrix, pivots = augmented.rref()
@@ -3379,6 +4132,7 @@ def solve_bounded_hyperexponential_laurent_rde_matrix(
         solution,
         coefficient_rank,
         augmented_rank,
+        top_denominator_polynomial,
     )
 
 

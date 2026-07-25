@@ -421,36 +421,6 @@ def test_laurent_coefficient_recurs_through_an_outer_exponential_level() -> None
     )
 
 
-def test_normal_coefficient_is_explicitly_outside_this_checkpoint() -> None:
-    tower = exponential_tower()
-    field = tower.field()
-
-    with pytest.raises(
-        NotImplementedError,
-        match="coefficient must be a Laurent polynomial",
-    ):
-        solve_risch_differential_equation(
-            field.from_sympy(1/(t + 1)),
-            field.one,
-            tower.derivation(),
-        )
-
-
-def test_normal_top_denominator_is_explicitly_outside_this_checkpoint() -> None:
-    tower = exponential_tower()
-    field = tower.field()
-
-    with pytest.raises(
-        NotImplementedError,
-        match="right-hand side must be a Laurent polynomial",
-    ):
-        solve_risch_differential_equation(
-            field.one,
-            field.from_sympy(1/(t + 1)),
-            tower.derivation(),
-        )
-
-
 def test_solver_requires_no_new_constants_evidence() -> None:
     tower = exponential_tower(
         constant_field_status=ConstantFieldStatus.UNKNOWN,
