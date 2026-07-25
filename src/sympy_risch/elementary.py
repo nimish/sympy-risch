@@ -531,14 +531,15 @@ def integrate_elementary(
     * a hyperexponential level directly over that base, or over a primitive
       lower tower with a rational logarithmic derivative in the top primitive
       generator;
-    * one hypertangent level directly over the rational base;
+    * a hypertangent level over the rational base or a recursively primitive
+      lower tower;
     * a general nonlinear level when absence of special polynomials is
       recorded on its :class:`~sympy_risch.tower.MonomialExtension`.
 
     The nonlinear no-special case can also recurse through already supported
-    lower levels. Other nested hyperexponential shapes and nested hypertangent
-    levels still require unimplemented Risch differential-equation branches
-    and are rejected explicitly.
+    lower levels. Other nested hyperexponential and hypertangent shapes still
+    require unimplemented Risch differential-equation branches and are
+    rejected explicitly.
     """
     field = derivation.field
     element = _coerce(field, integrand)

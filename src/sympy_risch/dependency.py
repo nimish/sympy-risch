@@ -30,6 +30,7 @@ from .tower import (
     MonomialExtension,
     MonomialFamily,
     _coerce,
+    _rebase_monomial_derivation,
 )
 
 if TYPE_CHECKING:
@@ -1661,10 +1662,13 @@ def analyze_hypertangent_extension(
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> HypertangentDependency:
-    r"""Classify a proposed ``Dt=eta*(1+t**2)`` extension over ``QQ(x)``.
+    r"""Classify ``Dt=eta*(1+t**2)`` over a supported lower tower.
 
-    The analysis applies the rational logarithmic-derivative criterion to the
-    Cayley coordinate, whose logarithmic derivative is ``2*i*eta``.
+    The Cayley coordinate has logarithmic derivative ``2*i*eta``. Over the
+    rational base the direct Gaussian residue test remains the fast path.
+    Over recursively primitive towers, the tower is immutably rebased over
+    ``QQ_I`` and the recursive radical logarithmic-derivative decision is
+    applied there.
     """
     if not isinstance(extension, MonomialExtension):
         raise TypeError(
@@ -1684,21 +1688,49 @@ def analyze_hypertangent_extension(
             "extension parent field does not match the lower derivation"
         )
 
-    variable = _standard_rational_variable(lower_derivation)
     eta = extension.parent_field.convert(
         extension.generator_derivative.nth(2)
     )
-    relation = _gaussian_logarithmic_relation(
-        2*I*extension.parent_field.to_sympy(eta),
-        variable,
-    )
-    if relation is None:
-        kind = HyperexponentialDependencyKind.TRANSCENDENTAL
-        minimal_power = None
-        relation_argument = None
+    if lower_derivation.level == 0:
+        variable = _standard_rational_variable(lower_derivation)
+        relation = _gaussian_logarithmic_relation(
+            2*I*extension.parent_field.to_sympy(eta),
+            variable,
+        )
+        if relation is None:
+            kind = HyperexponentialDependencyKind.TRANSCENDENTAL
+            minimal_power = None
+            relation_argument = None
+        else:
+            minimal_power, relation_argument = relation
+            if minimal_power == 1:
+                kind = HyperexponentialDependencyKind.RATIONAL
+            else:
+                kind = HyperexponentialDependencyKind.ALGEBRAIC
     else:
-        minimal_power, relation_argument = relation
-        if minimal_power == 1:
+        gaussian_derivation = _rebase_monomial_derivation(
+            lower_derivation,
+            QQ_I,
+        )
+        gaussian_field = gaussian_derivation.field
+        gaussian_eta = gaussian_field.from_sympy(
+            2*I*extension.parent_field.to_sympy(eta)
+        )
+        from .monomial import solve_radical_logarithmic_derivative
+
+        radical_result = solve_radical_logarithmic_derivative(
+            gaussian_eta,
+            gaussian_derivation,
+        )
+        minimal_power = radical_result.minimal_power
+        relation_argument = (
+            gaussian_field.to_sympy(radical_result.argument)
+            if radical_result.argument is not None
+            else None
+        )
+        if minimal_power is None:
+            kind = HyperexponentialDependencyKind.TRANSCENDENTAL
+        elif minimal_power == 1:
             kind = HyperexponentialDependencyKind.RATIONAL
         else:
             kind = HyperexponentialDependencyKind.ALGEBRAIC

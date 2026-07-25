@@ -25,13 +25,15 @@ from .dependency import (
 from .lrt import _differential_lazard_rioboo_trager
 from .rational import (
     RationalLogDerivativeResult,
+    _solve_rational_logarithmic_derivative_over_domain,
     solve_rational_exact_derivative,
-    solve_rational_logarithmic_derivative,
 )
 from .rde import (
     CoupledRationalRDEResult,
+    CoupledRischDifferentialEquationResult,
     RischDifferentialEquationResult,
     solve_coupled_rational_rde,
+    solve_coupled_risch_differential_equation,
     solve_risch_differential_equation,
 )
 from .tower import (
@@ -627,7 +629,10 @@ class HypertangentCayleyStep:
     imaginary_coefficient: FieldElement
     exact_real_coefficient: FieldElement | None
     exact_imaginary_coefficient: FieldElement | None
-    rde_result: CoupledRationalRDEResult
+    rde_result: (
+        CoupledRationalRDEResult
+        | CoupledRischDifferentialEquationResult
+    )
 
     @property
     def has_solution(self) -> bool:
@@ -662,7 +667,7 @@ class HypertangentSpecialReduction:
 
 @dataclass(frozen=True, slots=True)
 class HypertangentMonomialReduction:
-    r"""Complete real reduction at one hypertangent level over ``QQ(x)``."""
+    """Complete real reduction at one supported hypertangent level."""
 
     common_reduction: NonlinearMonomialReduction
     special_reduction: HypertangentSpecialReduction | None
@@ -2200,8 +2205,9 @@ def solve_radical_logarithmic_derivative(
     r"""Decide ``n*f = D(v)/v`` recursively in a primitive tower.
 
     The base case is the complete rational logarithmic-derivative decision in
-    ``QQ(x)``.  Every higher supported level applies the primitive structure
-    theorem and descends on its constant polynomial coordinate.
+    ``C(x)`` for ``C = QQ`` or ``QQ_I``. Every higher supported level applies
+    the primitive structure theorem and descends on its constant polynomial
+    coordinate.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError(
@@ -2211,17 +2217,44 @@ def solve_radical_logarithmic_derivative(
     field = derivation.field
     element = _coerce(field, integrand)
     if derivation.level == 0:
-        variable = _standard_rational_base_variable(derivation)
-        rational_result = solve_rational_logarithmic_derivative(
-            field.to_sympy(element),
-            variable,
+        extension = derivation.tower.levels[0]
+        if not isinstance(extension, MonomialExtension):
+            raise TypeError(
+                "the rational logarithmic base must be monomial"
+            )
+        if extension.parent_field == QQ:
+            variable = _standard_rational_base_variable(derivation)
+        elif (
+            extension.parent_field == QQ_I
+            and extension.generator_derivative
+            == Poly(
+                1,
+                extension.generator,
+                domain=extension.parent_field,
+            )
+        ):
+            variable = extension.generator
+        else:
+            raise NotImplementedError(
+                "radical logarithmic derivatives require C(x) with Dx = 1 "
+                "for C = QQ or QQ_I"
+            )
+        rational_result = (
+            _solve_rational_logarithmic_derivative_over_domain(
+                field.to_sympy(element),
+                variable,
+                extension.parent_field,
+            )
         )
         minimal_power = rational_result.minimal_radical_power
         argument = None
         if minimal_power is not None:
-            scaled_result = solve_rational_logarithmic_derivative(
-                cancel(minimal_power*field.to_sympy(element)),
-                variable,
+            scaled_result = (
+                _solve_rational_logarithmic_derivative_over_domain(
+                    cancel(minimal_power*field.to_sympy(element)),
+                    variable,
+                    extension.parent_field,
+                )
             )
             if not scaled_result.has_solution:
                 raise ValueError(
@@ -2559,11 +2592,11 @@ def reduce_hyperexponential_monomial(
 
 def _validate_hypertangent_reduction(
     derivation: Derivation,
-) -> tuple[MonomialExtension, Symbol, FieldElement]:
-    """Validate ``Dt = eta*(1+t**2)`` with ``eta`` in ``QQ(x)``."""
+) -> tuple[MonomialExtension, FieldElement]:
+    """Validate ``Dt = eta*(1+t**2)`` over a supported lower tower."""
     if derivation.level < 1:
         raise TypeError(
-            "hypertangent reduction requires a monomial over QQ(x)"
+            "hypertangent reduction requires a nonconstant lower field"
         )
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
@@ -2575,7 +2608,22 @@ def _validate_hypertangent_reduction(
     extension.require_preserved_constants("hypertangent reduction")
 
     lower_derivation = derivation.lower()
-    variable = _standard_rational_base_variable(lower_derivation)
+    _standard_rational_base_variable(
+        Derivation(derivation.tower, 0)
+    )
+    for level in range(1, lower_derivation.level + 1):
+        lower_extension = derivation.tower.levels[level]
+        if (
+            not isinstance(lower_extension, MonomialExtension)
+            or lower_extension.family is not MonomialFamily.PRIMITIVE
+        ):
+            raise NotImplementedError(
+                "hypertangent reduction currently supports only primitive "
+                "levels above QQ(x)"
+            )
+        lower_extension.require_preserved_constants(
+            "hypertangent reduction"
+        )
     dependency = analyze_hypertangent_extension(
         extension,
         lower_derivation,
@@ -2590,14 +2638,14 @@ def _validate_hypertangent_reduction(
     )
     if eta == extension.parent_field.zero:
         raise ValueError("the hypertangent coefficient eta must be nonzero")
-    return extension, variable, eta
+    return extension, eta
 
 
 def _gaussian_conjugate(
     coefficient: FieldElement,
     gaussian_field: Domain,
 ) -> FieldElement:
-    """Conjugate a member of ``QQ_I(x)`` while fixing the formal variable."""
+    """Conjugate a member of ``K(i)`` while fixing all tower generators."""
     expression = gaussian_field.to_sympy(coefficient)
     return gaussian_field.from_sympy(expression.xreplace({I: -I}))
 
@@ -2605,18 +2653,24 @@ def _gaussian_conjugate(
 def _hypertangent_cayley_coefficients(
     element: FieldElement,
     extension: MonomialExtension,
-    variable: Symbol,
 ) -> tuple[Domain, dict[int, FieldElement]]:
     r"""Return Laurent coefficients after ``u=(1+i*t)/(1-i*t)``.
 
     The special irreducible ``1+t**2`` becomes a monomial in ``u``.  Thus an
     element whose only non-lower-field poles are special becomes a Laurent
-    polynomial over ``QQ_I(x)``.  This is the Cayley-coordinate form of the
+    polynomial over ``K(i)``. This is the Cayley-coordinate form of the
     hypertangent reduction in Bronstein, *Symbolic Integration I*, Chapter 5.
     """
     generator = extension.generator
     cayley_generator = Dummy("u")
-    gaussian_field = QQ_I.frac_field(variable)
+    parent = extension.parent_field
+    parent_symbols = tuple(getattr(parent, "symbols", ()) or ())
+    if getattr(parent, "domain", None) != QQ or not parent_symbols:
+        raise NotImplementedError(
+            "hypertangent Cayley reduction requires a rational-function "
+            "lower field over QQ"
+        )
+    gaussian_field = QQ_I.frac_field(*parent_symbols)
     inverse_cayley = I*(1 - cayley_generator)/(1 + cayley_generator)
     transformed = cancel(
         extension.field.to_sympy(element).subs(generator, inverse_cayley)
@@ -2661,7 +2715,6 @@ def _reduce_hypertangent_special_validated(
     element: FieldElement,
     derivation: Derivation,
     extension: MonomialExtension,
-    variable: Symbol,
     eta: FieldElement,
 ) -> HypertangentSpecialReduction:
     """Reduce validated special modes without repeating tower checks."""
@@ -2671,7 +2724,6 @@ def _reduce_hypertangent_special_validated(
     gaussian_field, coefficients = _hypertangent_cayley_coefficients(
         element,
         extension,
-        variable,
     )
     zero = gaussian_field.zero
 
@@ -2734,12 +2786,22 @@ def _reduce_hypertangent_special_validated(
                 / (2*I)
             ),
         )
-        rde_result = solve_coupled_rational_rde(
-            2*power*parent.to_sympy(eta),
-            parent.to_sympy(real_coefficient),
-            parent.to_sympy(imaginary_coefficient),
-            variable,
-        )
+        lower_derivation = derivation.lower()
+        if lower_derivation.level == 0:
+            variable = _standard_rational_base_variable(lower_derivation)
+            rde_result = solve_coupled_rational_rde(
+                2*power*parent.to_sympy(eta),
+                parent.to_sympy(real_coefficient),
+                parent.to_sympy(imaginary_coefficient),
+                variable,
+            )
+        else:
+            rde_result = solve_coupled_risch_differential_equation(
+                parent.convert(2*power)*eta,
+                real_coefficient,
+                imaginary_coefficient,
+                lower_derivation,
+            )
         exact_real_coefficient = None
         exact_imaginary_coefficient = None
         if rde_result.has_solution:
@@ -2806,22 +2868,19 @@ def reduce_hypertangent_special(
 
     Real inputs have paired Laurent coefficients.  A positive mode
     ``(a + i*b)*u**n`` and its conjugate are exact precisely when the real
-    coupled rational system
+    coupled lower-field system
 
     ``Dp - 2*n*eta*q = a`` and ``Dq + 2*n*eta*p = b``
 
-    has a solution.  Pairing before reconstruction keeps the public result in
-    the real field ``QQ(x,t)``.
+    has a solution. Pairing before reconstruction keeps the public result in
+    the real field ``K(t)``.
     """
-    extension, variable, eta = _validate_hypertangent_reduction(
-        derivation
-    )
+    extension, eta = _validate_hypertangent_reduction(derivation)
     element = _coerce(extension.field, integrand)
     return _reduce_hypertangent_special_validated(
         element,
         derivation,
         extension,
-        variable,
         eta,
     )
 
@@ -2832,16 +2891,15 @@ def reduce_hypertangent_monomial(
     *,
     residue: Symbol | None = None,
 ) -> HypertangentMonomialReduction:
-    r"""Apply the complete reduction for ``Dt=eta*(1+t**2)``, ``eta in QQ(x)``.
+    r"""Apply the complete reduction for ``Dt=eta*(1+t**2)``.
 
     Common nonlinear Hermite, normal-residue, polynomial, and infinity
     reductions run first.  If they leave no Liouville obstruction, the
-    remaining powers of the special polynomial are reduced through real
-    conjugate Cayley modes and coupled rational Risch equations.
+    remaining powers of the special polynomial are reduced through conjugate
+    Cayley modes and real coupled Risch equations over the supported lower
+    tower.
     """
-    extension, variable, eta = _validate_hypertangent_reduction(
-        derivation
-    )
+    extension, eta = _validate_hypertangent_reduction(derivation)
     field = extension.field
     element = _coerce(field, integrand)
     common_reduction = reduce_nonlinear_monomial(
@@ -2862,7 +2920,6 @@ def reduce_hypertangent_monomial(
             common_reduction.remainder,
             derivation,
             extension,
-            variable,
             eta,
         )
         exact_part += special_reduction.exact_part

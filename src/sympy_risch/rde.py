@@ -22,7 +22,13 @@ from .rational import (
     hermite_reduce_rational,
     solve_rational_logarithmic_derivative,
 )
-from .tower import Derivation, MonomialExtension, MonomialFamily, _coerce
+from .tower import (
+    Derivation,
+    MonomialExtension,
+    MonomialFamily,
+    _coerce,
+    _rebase_monomial_derivation,
+)
 
 if TYPE_CHECKING:
     from .dependency import ParametricLogarithmicDerivativeResult
@@ -580,6 +586,28 @@ class BoundedPrimitiveRDEMatrixResult:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundedPrimitiveCoupledRDEMatrixResult:
+    """Direct real block-matrix oracle over one primitive level."""
+
+    lower_denominator: Poly
+    lower_numerator_degree_bound: int
+    top_degree_bound: int
+    real_solution: FieldElement | None
+    imaginary_solution: FieldElement | None
+    coefficient_rank: int
+    augmented_rank: int
+    top_denominator: Poly
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the bounded real-pair ansatz contains a solution."""
+        return (
+            self.real_solution is not None
+            and self.imaginary_solution is not None
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class BoundedHyperexponentialLaurentRDEMatrixResult:
     """Exact matrix oracle for a bounded hyperexponential Laurent ansatz."""
 
@@ -661,6 +689,58 @@ class CoupledRationalRDEResult:
     def has_nonzero_remainder_obstruction(self) -> bool:
         """Whether recurrence or SPDE leaves an uncancellable remainder."""
         return self.obstruction is CoupledRDEObstruction.NONZERO_REMAINDER
+
+
+@dataclass(frozen=True, slots=True)
+class CoupledRischDifferentialEquationResult:
+    r"""Certified coupled RDE result over a supported differential tower.
+
+    The real system
+
+    ``Dp - lambda*q = u`` and ``Dq + lambda*p = v``
+
+    is solved as the scalar equation
+
+    ``D(p + i*q) + i*lambda*(p + i*q) = u + i*v``
+
+    over the same immutable monomial tower rebased from ``QQ`` to ``QQ_I``.
+    ``scalar_result`` retains the complete weak-normalization, denominator,
+    SPDE, and recursive lower-field certificate.
+    """
+
+    derivation: Derivation
+    lambda_coefficient: FieldElement
+    real_right_hand_side: FieldElement
+    imaginary_right_hand_side: FieldElement
+    real_solution: FieldElement | None
+    imaginary_solution: FieldElement | None
+    obstruction: CoupledRDEObstruction | None
+    scalar_result: RischDifferentialEquationResult
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether both coupled equations have a solution."""
+        return (
+            self.real_solution is not None
+            and self.imaginary_solution is not None
+        )
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether the returned pair satisfies both coupled equations."""
+        if (
+            self.real_solution is None
+            or self.imaginary_solution is None
+        ):
+            return False
+        return (
+            self.derivation(self.real_solution)
+            - self.lambda_coefficient*self.imaginary_solution
+            == self.real_right_hand_side
+            and self.derivation(self.imaginary_solution)
+            + self.lambda_coefficient*self.real_solution
+            == self.imaginary_right_hand_side
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -2618,17 +2698,25 @@ def solve_primitive_risch_differential_equation(
     )
 
 
-def _is_standard_rational_derivation(derivation: Derivation) -> bool:
-    """Whether the derivation is ``d/dx`` on the standard ``QQ(x)`` base."""
+def _is_standard_rational_derivation_over(
+    derivation: Derivation,
+    constants: Domain,
+) -> bool:
+    """Whether ``derivation`` is ``d/dx`` on ``constants(x)``."""
     if derivation.level != 0:
         return False
     extension = derivation.tower.levels[0]
     return (
         isinstance(extension, MonomialExtension)
-        and extension.parent_field == QQ
+        and extension.parent_field == constants
         and extension.generator_derivative
-        == Poly(1, extension.generator, domain=QQ)
+        == Poly(1, extension.generator, domain=constants)
     )
+
+
+def _is_standard_rational_derivation(derivation: Derivation) -> bool:
+    """Whether the derivation is ``d/dx`` on the standard ``QQ(x)`` base."""
+    return _is_standard_rational_derivation_over(derivation, QQ)
 
 
 def _hyperexponential_laurent_rde_extension(
@@ -3574,6 +3662,40 @@ def solve_risch_differential_equation(
             if certificate.has_solution
             else None
         )
+    elif _is_standard_rational_derivation_over(derivation, QQ_I):
+        extension = derivation.tower.levels[0]
+        domain_result = _solve_rde_over_constant_field(
+            field.to_sympy(coefficient_element),
+            field.to_sympy(rhs_element),
+            extension.generator,
+            QQ_I,
+        )
+        normalized_rhs = cancel(
+            domain_result.normalization_factor.as_expr()
+            * field.to_sympy(rhs_element)
+        )
+        certificate = RationalRischDifferentialEquationResult(
+            field.to_sympy(coefficient_element),
+            field.to_sympy(rhs_element),
+            domain_result.solution,
+            domain_result.obstruction,
+            domain_result.normalization_factor,
+            domain_result.normalized_coefficient,
+            normalized_rhs,
+            domain_result.denominator_bound,
+            domain_result.degree_bound,
+            obstruction_polynomial=(
+                domain_result.obstruction_polynomial
+            ),
+            obstruction_remainder=(
+                domain_result.obstruction_remainder
+            ),
+        )
+        solution = (
+            _coerce(field, domain_result.solution)
+            if domain_result.solution is not None
+            else None
+        )
     else:
         extension = derivation.tower.levels[derivation.level]
         if not isinstance(extension, MonomialExtension):
@@ -3952,6 +4074,211 @@ def solve_bounded_primitive_rde_matrix(
         lower_numerator_degree_bound,
         top_degree_bound,
         solution,
+        coefficient_rank,
+        augmented_rank,
+        top_denominator_polynomial,
+    )
+
+
+def solve_bounded_primitive_coupled_rde_matrix(
+    lambda_coefficient: object,
+    real_right_hand_side: object,
+    imaginary_right_hand_side: object,
+    derivation: Derivation,
+    lower_denominator: Expr | Poly,
+    lower_numerator_degree_bound: int,
+    top_degree_bound: int,
+    top_denominator: Expr | Poly = S.One,
+) -> BoundedPrimitiveCoupledRDEMatrixResult:
+    r"""Solve a bounded coupled ansatz by direct real block linear algebra.
+
+    This independent oracle is limited to one primitive level over ``QQ(x)``.
+    It constructs both real equations directly and never rebases the tower to
+    ``QQ_I`` or invokes a scalar RDE solver.
+    """
+    extension = _primitive_rde_extension(derivation)
+    lower_derivation = derivation.lower()
+    if not _is_standard_rational_derivation(lower_derivation):
+        raise NotImplementedError(
+            "the bounded primitive coupled oracle requires QQ(x) below "
+            "the primitive level"
+        )
+    for name, bound in (
+        ("lower numerator", lower_numerator_degree_bound),
+        ("top", top_degree_bound),
+    ):
+        if (
+            not isinstance(bound, int)
+            or isinstance(bound, bool)
+            or bound < 0
+        ):
+            raise ValueError(f"the {name} degree bound must be nonnegative")
+
+    lower_extension = derivation.tower.levels[0]
+    if not isinstance(lower_extension, MonomialExtension):
+        raise TypeError("the rational lower level is not monomial")
+    x = lower_extension.generator
+    t = extension.generator
+    denominator = Poly(lower_denominator, x, domain=QQ)
+    if denominator.is_zero:
+        raise ValueError("the lower ansatz denominator must be nonzero")
+    denominator = denominator.monic()
+    top_denominator_polynomial = Poly(
+        top_denominator,
+        t,
+        domain=extension.parent_field,
+    )
+    if top_denominator_polynomial.is_zero:
+        raise ValueError("the top ansatz denominator must be nonzero")
+    top_denominator_polynomial = top_denominator_polynomial.monic()
+
+    field = extension.field
+    lambda_element = _coerce(field, lambda_coefficient)
+    if lambda_element == field.zero:
+        raise ValueError("the coupled rotation coefficient must be nonzero")
+    real_rhs = _coerce(field, real_right_hand_side)
+    imaginary_rhs = _coerce(field, imaginary_right_hand_side)
+    basis = [
+        _coerce(
+            field,
+            x**lower_degree*t**top_degree
+            / (
+                denominator.as_expr()
+                * top_denominator_polynomial.as_expr()
+            ),
+        )
+        for top_degree in range(top_degree_bound + 1)
+        for lower_degree in range(lower_numerator_degree_bound + 1)
+    ]
+    basis_derivatives = [derivation(candidate) for candidate in basis]
+    real_columns = [
+        *basis_derivatives,
+        *(-lambda_element*candidate for candidate in basis),
+    ]
+    imaginary_columns = [
+        *(lambda_element*candidate for candidate in basis),
+        *basis_derivatives,
+    ]
+    all_elements = [
+        *real_columns,
+        real_rhs,
+        *imaginary_columns,
+        imaginary_rhs,
+    ]
+    fractions = [
+        _as_qq_bivariate_fraction(field.to_sympy(element), x, t)
+        for element in all_elements
+    ]
+    common_denominator = Poly(1, x, t, domain=QQ)
+    for _, element_denominator in fractions:
+        common_denominator = common_denominator.lcm(element_denominator)
+    cleared = [
+        numerator*common_denominator.exquo(element_denominator)
+        for numerator, element_denominator in fractions
+    ]
+    unknown_count = 2*len(basis)
+    real_columns_polynomial = cleared[:unknown_count]
+    real_rhs_polynomial = cleared[unknown_count]
+    imaginary_start = unknown_count + 1
+    imaginary_columns_polynomial = cleared[
+        imaginary_start:imaginary_start + unknown_count
+    ]
+    imaginary_rhs_polynomial = cleared[-1]
+    all_polynomials = [
+        *real_columns_polynomial,
+        real_rhs_polynomial,
+        *imaginary_columns_polynomial,
+        imaginary_rhs_polynomial,
+    ]
+    monomials = sorted(
+        {
+            monomial
+            for polynomial in all_polynomials
+            for monomial, _ in polynomial.terms()
+        },
+        reverse=True,
+    )
+    if not monomials:
+        monomials = [(0, 0)]
+
+    coefficient_rows = [
+        [
+            QQ.convert(polynomial.nth(*monomial))
+            for polynomial in columns
+        ]
+        for columns in (
+            real_columns_polynomial,
+            imaginary_columns_polynomial,
+        )
+        for monomial in monomials
+    ]
+    rhs_rows = [
+        [QQ.convert(polynomial.nth(*monomial))]
+        for polynomial in (
+            real_rhs_polynomial,
+            imaginary_rhs_polynomial,
+        )
+        for monomial in monomials
+    ]
+    system = DomainMatrix(
+        coefficient_rows,
+        (len(coefficient_rows), unknown_count),
+        QQ,
+    )
+    rhs = DomainMatrix(rhs_rows, (len(rhs_rows), 1), QQ)
+    coefficient_rank = system.rank()
+    augmented = system.hstack(rhs)
+    augmented_rank = augmented.rank()
+    if augmented_rank > coefficient_rank:
+        return BoundedPrimitiveCoupledRDEMatrixResult(
+            denominator,
+            lower_numerator_degree_bound,
+            top_degree_bound,
+            None,
+            None,
+            coefficient_rank,
+            augmented_rank,
+            top_denominator_polynomial,
+        )
+
+    reduced_matrix, pivots = augmented.rref()
+    rows = reduced_matrix.to_list()
+    coefficients = [QQ.zero for _ in range(unknown_count)]
+    for row, pivot in enumerate(pivots):
+        if pivot < unknown_count:
+            coefficients[pivot] = rows[row][unknown_count]
+    real_solution = field.zero
+    imaginary_solution = field.zero
+    basis_count = len(basis)
+    for value, candidate in zip(
+        coefficients[:basis_count],
+        basis,
+        strict=True,
+    ):
+        real_solution += field.convert(value)*candidate
+    for value, candidate in zip(
+        coefficients[basis_count:],
+        basis,
+        strict=True,
+    ):
+        imaginary_solution += field.convert(value)*candidate
+    if (
+        derivation(real_solution)
+        - lambda_element*imaginary_solution
+        != real_rhs
+        or derivation(imaginary_solution)
+        + lambda_element*real_solution
+        != imaginary_rhs
+    ):
+        raise ValueError(
+            "bounded primitive coupled matrix reconstruction failed"
+        )
+    return BoundedPrimitiveCoupledRDEMatrixResult(
+        denominator,
+        lower_numerator_degree_bound,
+        top_degree_bound,
+        real_solution,
+        imaginary_solution,
         coefficient_rank,
         augmented_rank,
         top_denominator_polynomial,
@@ -5069,6 +5396,152 @@ def solve_coupled_rational_rde(
         denominator_bound,
         degree_bound,
     )
+
+
+def _coupled_obstruction_from_scalar(
+    obstruction: (
+        RationalRDEObstruction
+        | PrimitiveRDEObstruction
+        | HyperexponentialRDEObstruction
+        | HyperexponentialLaurentRDEObstruction
+    ),
+) -> CoupledRDEObstruction:
+    """Map a scalar Gaussian RDE obstruction to the real coupled contract."""
+    if obstruction in {
+        RationalRDEObstruction.DENOMINATOR,
+        PrimitiveRDEObstruction.DENOMINATOR,
+        HyperexponentialRDEObstruction.DENOMINATOR,
+    }:
+        return CoupledRDEObstruction.DENOMINATOR
+    if obstruction in {
+        RationalRDEObstruction.SPDE_DEGREE,
+        PrimitiveRDEObstruction.SPDE_DEGREE,
+        HyperexponentialRDEObstruction.SPDE_DEGREE,
+    }:
+        return CoupledRDEObstruction.DEGREE
+    return CoupledRDEObstruction.NONZERO_REMAINDER
+
+
+def _require_recursively_primitive_coupled_tower(
+    derivation: Derivation,
+) -> None:
+    """Validate the currently complete coupled-RDE tower family."""
+    if not _is_standard_rational_derivation(
+        Derivation(derivation.tower, 0)
+    ):
+        raise NotImplementedError(
+            "recursive coupled RDEs require the standard QQ(x) base"
+        )
+    for level in range(1, derivation.level + 1):
+        extension = derivation.tower.levels[level]
+        if (
+            not isinstance(extension, MonomialExtension)
+            or extension.family is not MonomialFamily.PRIMITIVE
+        ):
+            raise NotImplementedError(
+                "recursive coupled RDEs currently support only primitive "
+                "levels above QQ(x)"
+            )
+        extension.require_preserved_constants("recursive coupled RDE solving")
+
+
+def _split_gaussian_tower_element(
+    value: FieldElement,
+    gaussian_field: Domain,
+    real_field: Domain,
+) -> tuple[FieldElement, FieldElement]:
+    """Split a Gaussian tower element into exact real-field coordinates."""
+    expression = gaussian_field.to_sympy(value)
+    conjugate = expression.xreplace({I: -I})
+    real_expression = cancel((expression + conjugate)/2)
+    imaginary_expression = cancel((expression - conjugate)/(2*I))
+    real_part = _coerce(real_field, real_expression)
+    imaginary_part = _coerce(real_field, imaginary_expression)
+    if (
+        gaussian_field.from_sympy(
+            real_field.to_sympy(real_part)
+            + I*real_field.to_sympy(imaginary_part)
+        )
+        != value
+    ):
+        raise ValueError("Gaussian tower coordinates failed to reconstruct")
+    return real_part, imaginary_part
+
+
+def solve_coupled_risch_differential_equation(
+    lambda_coefficient: object,
+    real_right_hand_side: object,
+    imaginary_right_hand_side: object,
+    derivation: Derivation,
+) -> CoupledRischDifferentialEquationResult:
+    r"""Solve a real coupled RDE over ``QQ(x)`` and primitive towers.
+
+    The supplied tower is immutably rebased over ``QQ_I`` and the equivalent
+    scalar Gaussian RDE is decided by the ordinary recursive dispatcher. This
+    reuses the scalar structure theorems without introducing a second,
+    potentially divergent implementation of weak normalization or SPDE.
+    """
+    if not isinstance(derivation, Derivation):
+        raise TypeError("coupled RDE solving requires a Derivation")
+    if derivation.level < 0:
+        raise TypeError("coupled RDE solving requires a nonconstant field")
+    _require_recursively_primitive_coupled_tower(derivation)
+
+    real_field = derivation.field
+    lambda_element = _coerce(real_field, lambda_coefficient)
+    if lambda_element == real_field.zero:
+        raise ValueError("the coupled rotation coefficient must be nonzero")
+    real_rhs = _coerce(real_field, real_right_hand_side)
+    imaginary_rhs = _coerce(real_field, imaginary_right_hand_side)
+
+    gaussian_derivation = _rebase_monomial_derivation(derivation, QQ_I)
+    gaussian_field = gaussian_derivation.field
+    gaussian_lambda = _coerce(
+        gaussian_field,
+        real_field.to_sympy(lambda_element),
+    )
+    gaussian_rhs = _coerce(
+        gaussian_field,
+        real_field.to_sympy(real_rhs)
+        + I*real_field.to_sympy(imaginary_rhs),
+    )
+    scalar_result = solve_risch_differential_equation(
+        gaussian_field.from_sympy(I)*gaussian_lambda,
+        gaussian_rhs,
+        gaussian_derivation,
+    )
+    if scalar_result.solution is None:
+        if scalar_result.obstruction is None:
+            raise ValueError("a failed scalar RDE lacks its obstruction")
+        return CoupledRischDifferentialEquationResult(
+            derivation,
+            lambda_element,
+            real_rhs,
+            imaginary_rhs,
+            None,
+            None,
+            _coupled_obstruction_from_scalar(scalar_result.obstruction),
+            scalar_result,
+        )
+
+    real_solution, imaginary_solution = _split_gaussian_tower_element(
+        scalar_result.solution,
+        gaussian_field,
+        real_field,
+    )
+    result = CoupledRischDifferentialEquationResult(
+        derivation,
+        lambda_element,
+        real_rhs,
+        imaginary_rhs,
+        real_solution,
+        imaginary_solution,
+        None,
+        scalar_result,
+    )
+    if not result.reconstructs:
+        raise ValueError("recursive coupled RDE reconstruction failed")
+    return result
 
 
 def solve_bounded_coupled_rde_matrix(

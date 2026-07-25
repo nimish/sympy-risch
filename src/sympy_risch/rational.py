@@ -15,8 +15,10 @@ from sympy.functions.elementary.exponential import log
 from sympy.functions.elementary.miscellaneous import sqrt
 from sympy.functions.elementary.trigonometric import atan
 from sympy.polys.domains import QQ
+from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
+from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly, cancel, invert, resultant
 from sympy.polys.rootoftools import RootSum
 
@@ -171,9 +173,18 @@ class RationalLogDerivativeResult:
 
 def _as_reduced_fraction(f: Expr, x: Symbol) -> tuple[Poly, Poly]:
     """Return coprime numerator and denominator polynomials in ``QQ[x]``."""
+    return _as_reduced_fraction_over_domain(f, x, QQ)
+
+
+def _as_reduced_fraction_over_domain(
+    f: Expr,
+    x: Symbol,
+    domain: Domain,
+) -> tuple[Poly, Poly]:
+    """Return coprime numerator and denominator polynomials over ``domain``."""
     numerator, denominator = cancel(f).as_numer_denom()
-    numerator_poly = Poly(numerator, x, domain=QQ)
-    denominator_poly = Poly(denominator, x, domain=QQ)
+    numerator_poly = Poly(numerator, x, domain=domain)
+    denominator_poly = Poly(denominator, x, domain=domain)
     coefficient, numerator_poly, denominator_poly = numerator_poly.cancel(
         denominator_poly,
     )
@@ -367,10 +378,32 @@ def solve_rational_logarithmic_derivative(
     logarithmic argument, but the certificate records why squaring a
     hyperexponential candidate can reveal an algebraic dependency.
     """
+    return _solve_rational_logarithmic_derivative_over_domain(f, x, QQ)
+
+
+def _solve_rational_logarithmic_derivative_over_domain(
+    f: Expr,
+    x: Symbol,
+    domain: Domain,
+) -> RationalLogDerivativeResult:
+    """Decide a rational logarithmic derivative over ``domain(x)``.
+
+    Valuations of rational functions are integers even when the exact
+    constant field is larger than ``QQ``. A local constant residue outside
+    ``QQ`` is therefore a nonlogarithmic obstruction.
+    """
     if not isinstance(x, Symbol):
         raise TypeError("the differentiation variable must be a Symbol")
+    if not domain.is_Field or domain.characteristic() != 0:
+        raise ValueError(
+            "logarithmic derivatives require a characteristic-zero field"
+        )
 
-    numerator, denominator = _as_reduced_fraction(f, x)
+    numerator, denominator = _as_reduced_fraction_over_domain(
+        f,
+        x,
+        domain,
+    )
     polynomial_part, proper_numerator = numerator.div(denominator)
     denominator_factors = tuple(denominator.factor_list()[1])
 
@@ -401,9 +434,17 @@ def solve_rational_logarithmic_derivative(
         quotient, remainder = partial_numerator.div(factor.diff())
         multiplicity = None
         if remainder.is_zero and quotient.degree() <= 0:
-            multiplicity = QQ.convert(quotient.nth(0))
-            if QQ.denom(multiplicity) == 1:
-                argument *= factor.as_expr()**int(QQ.numer(multiplicity))
+            try:
+                multiplicity = QQ.convert(quotient.nth(0))
+            except CoercionFailed:
+                multiplicity = None
+            if (
+                multiplicity is not None
+                and QQ.denom(multiplicity) == 1
+            ):
+                argument *= factor.as_expr() ** int(
+                    QQ.numer(multiplicity)
+                )
 
         factor_certificates.append(
             RationalLogDerivativeFactor(

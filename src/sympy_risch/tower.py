@@ -499,6 +499,45 @@ class DifferentialTower:
         return Derivation(self, level)
 
 
+def _rebase_monomial_derivation(
+    derivation: Derivation,
+    constants: Domain,
+) -> Derivation:
+    """Copy a monomial derivation over a larger exact constant field.
+
+    Generator symbols, derivative laws, and proof metadata are preserved.
+    Algebraic levels require a separate constant-extension construction and
+    are intentionally rejected.
+    """
+    if not isinstance(derivation, Derivation):
+        raise TypeError("rebasing requires a Derivation")
+    if not constants.is_Field or constants.characteristic() != 0:
+        raise ValueError(
+            "rebasing requires an exact characteristic-zero constant field"
+        )
+
+    tower = DifferentialTower(constants)
+    for level_index in range(derivation.level + 1):
+        source = derivation.tower.levels[level_index]
+        if not isinstance(source, MonomialExtension):
+            raise NotImplementedError(
+                "constant-field rebasing does not yet support algebraic levels"
+            )
+        derivative = Poly(
+            source.generator_derivative.as_expr(),
+            source.generator,
+            domain=tower.field(),
+        )
+        tower = tower.extend(
+            MonomialExtension(
+                derivative,
+                source.constant_field_status,
+                source.special_polynomial_status,
+            )
+        )
+    return tower.derivation()
+
+
 @dataclass(frozen=True, slots=True)
 class Derivation:
     """The derivation on one explicit level of a differential tower."""
