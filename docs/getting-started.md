@@ -219,11 +219,45 @@ assert not logarithmic.has_solution
 assert logarithmic.obstruction == tan_x.field().from_sympy(2*t)
 ```
 
-The direct hypertangent dispatcher currently requires the standard rational
-base. A hyperexponential level may instead sit over a recursively primitive
-lower tower when its logarithmic derivative is polynomial in the top
-primitive generator. Recursive dependency analysis rejects rational and
+Hypertangent and hyperexponential levels may also sit over recursively
+primitive lower towers. Recursive dependency analysis rejects rational and
 algebraic presentations before reduction.
+
+For example, use the earlier `t = log(x)` level and adjoin the formal
+hypertangent `u` with
+
+```text
+D(u) = (1 + u**2)/(x*t).
+```
+
+This represents `u = tan(log(log(x)))` up to a constant phase:
+
+```python
+tan_log_log = log_x.extend(
+    MonomialExtension(
+        Poly(
+            (1 + u**2)/(x*t),
+            u,
+            domain=log_x.field(),
+        ),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+field = tan_log_log.field()
+D = tan_log_log.derivation()
+planted = field.from_sympy(x*u)
+result = integrate_elementary(D(planted), D)
+
+assert result.is_elementary
+assert result.reconstructs
+assert field.from_sympy(result.antiderivative) == planted
+```
+
+Internally the tangent special place is converted into conjugate Cayley
+modes. Each mode produces a real coupled RDE over `QQ(x,t)`. The solver
+temporarily rebases the immutable primitive tower over `QQ_I`, solves one
+ordinary scalar RDE, and converts the exact real and imaginary coordinates
+back. Its direct block-matrix test oracle does not use that conversion.
 
 For example, start from the earlier `log_x` tower and adjoin
 `u = exp(t**2)`. Since `Dt = 1/x`, its derivative law is
@@ -603,6 +637,8 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Hyperexponential over a recursive primitive tower, with rational logarithmic derivative | End-to-end |
 | Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision over recursively supported lower fields |
 | One hypertangent level over `QQ(x)` | End-to-end |
+| Hypertangent over a recursive primitive tower | End-to-end |
+| Coupled RDE over `QQ(x)` or a recursive primitive tower | Complete decision |
 | Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
 | Parametric logarithmic derivative | Complete decision over `QQ(x)` and recursive primitive towers |
@@ -610,7 +646,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic levels in `integrate_elementary` | Not implemented |
-| Nested hypertangent levels | Not implemented |
+| Hypertangent over hyperexponential or hypertangent lower levels | Not implemented |
 | Automatic tower discovery and back-substitution | Not implemented |
 | Complete global real branch management | Not implemented |
 

@@ -93,6 +93,15 @@ denominator bounds, degree and divisibility obstructions, recursive primitive
 lower fields, and generated rational solutions. Its matrix oracle accepts an
 independent top denominator and broad Laurent support, so it does not reuse
 the production normalizer, denominator theorem, valuation bound, or SPDE.
+`tests/test_recursive_coupled_rde.py` checks the Gaussian scalar construction
+over one and two primitive levels, denominator obstructions, and generated
+solution and arbitrary-right-hand-side families. Its oracle builds the two
+real equations directly as a block matrix over `QQ`, so it does not share the
+production tower rebasing or scalar RDE dispatcher.
+`tests/test_nested_hypertangent.py` checks Gaussian dependency analysis,
+dependent-generator rejection, special and full reductions, exact recursive
+coupled certificates, elementary dispatch, two primitive lower levels, and
+generated Cayley-mode families.
 `tests/test_primitive_logarithmic.py` checks recursive primitive signatures
 through three tower levels. It compares both one-level and nested decisions
 with separate global linear ansatzes. Generated inputs mix inherited

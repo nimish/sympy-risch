@@ -24,7 +24,8 @@ It operates on a manually constructed differential tower and supports:
 - recursively stacked primitive extensions;
 - one hyperexponential or hypertangent level directly over `QQ(x)`;
 - a hyperexponential level over a recursively primitive lower tower with a
-  rational logarithmic derivative in the top primitive generator; and
+  rational logarithmic derivative in the top primitive generator;
+- a hypertangent level over a recursively primitive lower tower; and
 - a nonlinear polynomial monomial over supported lower levels when absence of
   nonconstant special polynomials has been certified.
 
@@ -55,7 +56,8 @@ The lower-level library additionally implements:
   right-hand side are Laurent in the top generator;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
-- rational coupled RDEs for the real hypertangent case;
+- coupled RDEs over `QQ(x)` and recursively primitive towers for the real
+  hypertangent case;
 - recursive dependency tests for hyperexponential generators over primitive
   towers and rational dependency tests for hypertangent generators;
 - an exact result and verification contract for Bronstein's parametric
@@ -80,6 +82,7 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+7ad35a7  Solve coupled RDEs over primitive towers
 c77088e  Solve rational hyperexponential RDEs
 4ea759d  Document Laurent-coefficient RDEs
 2394ba5  Solve Laurent-coefficient hyperexponential RDEs
@@ -478,8 +481,9 @@ The obstruction kinds currently distinguish:
 primitive, hyperexponential, and hypertangent tower shapes. At a
 hyperexponential level it reduces every nonzero Laurent mode through
 `Dy + n*eta*y = b`; at a hypertangent level it uses the real coupled RDE for
-each conjugate Cayley pair. The power-zero mode is passed recursively to the
-lower exact-derivative decision.
+each conjugate Cayley pair. Those coupled equations now recurse through
+primitive lower towers. The power-zero mode is passed recursively to the lower
+exact-derivative decision.
 
 Constant normal residues and the hypertangent residue at infinity are
 logarithmic derivatives, not in-field derivatives, so they remain exactness
@@ -674,9 +678,41 @@ For `Dt = eta*(1 + t**2)`, the irreducible real special polynomial is
 a complex-exponential rewrite the production representation.
 
 The special reduction uses the Cayley correspondence as mathematics and as a
-test oracle, while solving the resulting two-component coupled RDE over the
-rational lower field. General lower fields and global real branch correction
-remain unimplemented.
+representation:
+
+```text
+u = (1 + i*t)/(1 - i*t),        Du/u = 2*i*eta.
+```
+
+A paired mode produces the real coupled system
+
+```text
+Dp - lambda*q = a,
+Dq + lambda*p = b.
+```
+
+Following the opening reduction of Bronstein Chapter 8, this is the scalar RDE
+
+```text
+D(p + i*q) + i*lambda*(p + i*q) = a + i*b
+```
+
+over `K(i)`. For a rational or recursively primitive lower field, the
+implementation immutably rebases the same tower metadata over `QQ_I`, invokes
+the ordinary scalar RDE dispatcher, and splits the answer exactly back into
+the real field. The scalar certificate retains weak normalization,
+denominator reduction, degree bounds, SPDE, and recursive lower-field
+decisions.
+
+The restriction to primitive lower levels is deliberate. Bronstein notes that
+adjoining `i` below an already-hypertangent monomial requires rewriting that
+generator as a complex hyperexponential. Supporting those lower families will
+instead use the direct coupled cancellation algorithms from Chapter 8.
+
+A separate bounded oracle over one primitive level constructs the two real
+equations as one block matrix over `QQ`. It never adjoins `i` or calls the
+scalar solver, and generated solution and nonsolution families compare the two
+implementations. Global real branch correction remains unimplemented.
 
 ### Nonlinear monomials without special polynomials
 
@@ -786,13 +822,14 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest transcendental checkpoint completes scalar rational RDEs at a
-hyperexponential level: general weak normalization, normal and special
-denominator reduction, degree bounds, SPDE, the Laurent recurrence core, and
-an independent global matrix oracle. The next scalar checkpoint is the
-corresponding recursively coupled RDE machinery needed by further
-hypertangent levels. The current algebraic priority remains branch-place
-handling before the residue-field and divisor stages.
+The latest transcendental checkpoint extends real coupled RDE solving and
+hypertangent integration through recursively primitive lower towers. It
+includes Gaussian dependency analysis, immutable `QQ_I` tower rebasing,
+recursive scalar certificates, and an independent direct real block-matrix
+oracle. The next transcendental checkpoint is Bronstein's direct coupled
+cancellation recurrence for lower hyperexponential and hypertangent families.
+The current algebraic priority remains branch-place handling before the
+residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -835,11 +872,15 @@ handling before the residue-field and divisor stages.
 - [x] General rational hyperexponential RDEs with resultant weak
   normalization, normal and special denominator reduction, degree bounds,
   SPDE, and independent normal-denominator oracle checks.
+- [x] Coupled RDE solving over rational and recursively primitive towers,
+  with a direct real block-matrix oracle.
+- [x] Hypertangent dependency analysis, reduction, exact derivatives, and
+  elementary integration over recursively primitive lower towers.
 
 ### Next transcendental steps
 
-- [ ] Generalize coupled RDE solving over further supported lower tower
-  families.
+- [ ] Implement Bronstein Chapter 8 direct coupled cancellation over lower
+  hyperexponential and hypertangent families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.
 - [ ] Extend automatic dependence and constant-field checks to the remaining
   monomial families.

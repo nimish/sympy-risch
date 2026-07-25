@@ -7,18 +7,17 @@ differential tower explicitly.
 
 The implemented end-to-end dispatcher handles rational functions, recursively
 stacked primitive extensions, direct hyperexponential and hypertangent
-extensions over `QQ(x)`, and hyperexponential extensions over recursively
-primitive lower towers with rational logarithmic derivatives in the top
-primitive generator. Lower-level modules also provide recursive radical and
-parametric logarithmic-derivative decisions over primitive towers, primitive
-RDE weak normalization and cancellation, algebraic Hermite reduction, Trager
-finite-residue polynomials for supported algebraic models, generalized
-monomial residue reduction, family-aware exact-derivative decisions, and Risch
-differential-equation solvers, including recursive hyperexponential Laurent
-RDEs with general Laurent coefficients, certified support bounds, and
-leading/trailing recurrences. General rational hyperexponential RDEs add
-resultant-based weak normalization, normal and special denominator reduction,
-degree bounds, and SPDE before reaching that Laurent core.
+extensions over `QQ(x)`, a hypertangent extension over recursively primitive
+lower towers, and the supported hyperexponential-over-primitive branch.
+Lower-level modules also provide
+recursive radical and parametric logarithmic-derivative decisions over
+primitive towers, primitive RDE weak normalization and cancellation,
+algebraic Hermite reduction, Trager finite-residue polynomials for supported
+algebraic models, generalized monomial residue reduction, family-aware
+exact-derivative decisions, and Risch differential-equation solvers.
+Hyperexponential RDEs include general weak normalization, normal and special
+denominator reduction, SPDE, and the Laurent recurrence core. Real coupled
+RDEs over primitive towers support the nested hypertangent branch.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.
