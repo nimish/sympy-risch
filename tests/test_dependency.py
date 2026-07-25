@@ -80,6 +80,7 @@ def test_primitive_factory_certifies_the_rational_base() -> None:
     assert analysis.detail is None
     assert analysis.exact_result is not None
     assert not analysis.exact_result.has_solution
+    assert analysis.lower_fundamental_signature is None
 
 
 def test_primitive_factory_certifies_recursive_independence() -> None:
@@ -97,6 +98,11 @@ def test_primitive_factory_certifies_recursive_independence() -> None:
     assert not logarithm_analysis.is_dependent
     assert logarithm_analysis.exact_result is not None
     assert logarithm_analysis.exact_result.obstruction == base.field().from_sympy(1 / x)
+    assert logarithm_analysis.lower_fundamental_signature is not None
+    assert tuple(
+        direction.level
+        for direction in logarithm_analysis.lower_fundamental_signature.directions
+    ) == (0,)
 
 
 def test_primitive_factory_finds_dependencies_between_generators() -> None:
@@ -157,6 +163,7 @@ def test_primitive_factory_keeps_unsupported_parents_unknown() -> None:
     assert analysis.exact_result is None
     assert analysis.detail is not None
     assert "algebraic levels" in analysis.detail
+    assert analysis.lower_fundamental_signature is None
 
 
 def test_primitive_factory_requires_a_certified_lower_tower() -> None:
@@ -173,6 +180,28 @@ def test_primitive_factory_requires_a_certified_lower_tower() -> None:
     assert analysis.exact_result is None
     assert analysis.detail is not None
     assert "without certified constant preservation" in analysis.detail
+    assert analysis.lower_fundamental_signature is None
+
+
+def test_primitive_factory_leaves_an_unsupported_lower_family_unknown() -> None:
+    base = rational_base()
+    unsupported = base.extend(
+        MonomialExtension(
+            Poly(1 + t**3, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+    analysis = certify_primitive_extension(
+        Poly(1, z, domain=unsupported.field()),
+        unsupported.derivation(),
+    )
+
+    assert analysis.status is ConstantFieldStatus.UNKNOWN
+    assert analysis.exact_result is None
+    assert analysis.lower_fundamental_signature is None
+    assert analysis.detail is not None
+    assert "currently supports" in analysis.detail
 
 
 @pytest.mark.parametrize(

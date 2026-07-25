@@ -24,6 +24,12 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from ._typing import FieldElement
+from .relations import (
+    FundamentalSignature,
+    HyperexponentialFundamentalDirection,
+    HypertangentFundamentalDirection,
+    build_fundamental_signature,
+)
 from .tower import (
     ConstantFieldStatus,
     Derivation,
@@ -253,3 +259,56 @@ def build_hypertangent_gaussian_normal_form(
     if not normal_form.verifies_derivation():
         raise ValueError("Cayley Gaussian normal form does not intertwine derivations")
     return normal_form
+
+
+def hypertangent_cayley_logarithmic_direction(
+    source_signature: FundamentalSignature,
+    normal_form: HypertangentGaussianNormalForm,
+    level: int,
+) -> HyperexponentialFundamentalDirection:
+    r"""Return the verified Gaussian image of one real hypertangent direction.
+
+    The source signature deliberately retains the real coefficient ``eta`` of
+    ``Dt = eta*(1 + t**2)``.  This adapter independently rebuilds the target
+    signature and verifies that the same Cayley level has logarithmic
+    derivative ``Dz/z = 2*i*forward(eta)``.  It does not make the relation
+    compiler depend on Gaussian coordinates.
+    """
+    if not isinstance(source_signature, FundamentalSignature):
+        raise TypeError("the source signature must be a FundamentalSignature")
+    if not isinstance(normal_form, HypertangentGaussianNormalForm):
+        raise TypeError("the normal form must be a HypertangentGaussianNormalForm")
+    if not isinstance(level, int):
+        raise TypeError("the hypertangent level must be an integer")
+    if not source_signature.supported:
+        raise ValueError("the source tower needs a certified fundamental signature")
+    if source_signature.derivation != normal_form.source_derivation:
+        raise ValueError(
+            "the signature and Gaussian normal form have different sources"
+        )
+
+    source_direction = source_signature.direction_at(level)
+    if not isinstance(source_direction, HypertangentFundamentalDirection):
+        raise ValueError("the requested source level is not hypertangent")
+
+    target_signature = build_fundamental_signature(normal_form.target_derivation)
+    if not target_signature.supported:
+        raise ValueError("the Gaussian target lacks a certified fundamental signature")
+    target_direction = target_signature.direction_at(level)
+    if not isinstance(target_direction, HyperexponentialFundamentalDirection):
+        raise ValueError("the requested Gaussian target level is not hyperexponential")
+    if target_direction.generator != source_direction.generator:
+        raise ValueError("the Gaussian target does not retain the Cayley generator")
+
+    expected = normal_form.target_field.from_sympy(2 * I) * normal_form.forward(
+        source_direction.cayley_coefficient,
+    )
+    actual = _coerce(
+        normal_form.target_field,
+        target_direction.logarithmic_derivative,
+    )
+    if not _zero_in_field(actual - expected, normal_form.target_field):
+        raise ValueError(
+            "the Gaussian hyperexponential direction does not match the Cayley image"
+        )
+    return target_direction

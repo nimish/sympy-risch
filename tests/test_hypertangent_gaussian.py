@@ -8,11 +8,16 @@ from sympy_risch import (
     ConstantFieldStatus,
     CoupledRDEObstruction,
     DifferentialTower,
+    HyperexponentialFundamentalDirection,
     MonomialExtension,
     MonomialFamily,
+    build_fundamental_signature,
     solve_coupled_risch_differential_equation,
 )
-from sympy_risch.gaussian import build_hypertangent_gaussian_normal_form
+from sympy_risch.gaussian import (
+    build_hypertangent_gaussian_normal_form,
+    hypertangent_cayley_logarithmic_direction,
+)
 
 x, t, u = symbols("x t u")
 
@@ -119,6 +124,50 @@ def test_cayley_normal_form_rewrites_later_hypertangent_coefficients() -> None:
         domain=QQ_I.frac_field(x, t),
     )
     assert normal_form.verifies_derivation()
+
+
+def test_cayley_signature_adapter_checks_each_hypertangent_direction() -> None:
+    tower = nested_hypertangent_tower()
+    signature = build_fundamental_signature(tower.derivation())
+    normal_form = build_hypertangent_gaussian_normal_form(tower.derivation())
+
+    first = hypertangent_cayley_logarithmic_direction(signature, normal_form, 1)
+    second = hypertangent_cayley_logarithmic_direction(signature, normal_form, 2)
+
+    assert isinstance(first, HyperexponentialFundamentalDirection)
+    assert isinstance(second, HyperexponentialFundamentalDirection)
+    target_signature = build_fundamental_signature(normal_form.target_derivation)
+    assert first == target_signature.direction_at(1)
+    assert second == target_signature.direction_at(2)
+
+    for level, target_direction in ((1, first), (2, second)):
+        source_direction = signature.direction_at(level)
+        assert source_direction is not None
+        expected = normal_form.target_field.from_sympy(2 * I) * normal_form.forward(
+            source_direction.cayley_coefficient,
+        )
+        actual = normal_form.target_field.convert(
+            target_direction.logarithmic_derivative,
+        )
+        assert cancel(normal_form.target_field.to_sympy(actual - expected)) == 0
+
+
+def test_cayley_signature_adapter_rejects_a_mismatched_source() -> None:
+    first_tower = hypertangent_tower()
+    second_prefix = hypertangent_tower()
+    second_tower = second_prefix.extend(
+        MonomialExtension(
+            Poly(1 / (t + 1), u, domain=second_prefix.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="different sources"):
+        hypertangent_cayley_logarithmic_direction(
+            build_fundamental_signature(second_tower.derivation()),
+            build_hypertangent_gaussian_normal_form(first_tower.derivation()),
+            1,
+        )
 
 
 def test_cayley_normal_form_requires_certified_constants() -> None:

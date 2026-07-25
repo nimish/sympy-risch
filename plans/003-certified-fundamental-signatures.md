@@ -19,6 +19,32 @@
 - **Depends on**: `plans/002-executable-admission-matrix.md`
 - **Category**: direction / architecture / correctness
 - **Planned at**: commit `97fccfc`, 2026-07-25
+- **Implementation status**: DONE, 2026-07-25
+
+## Implemented-contract note
+
+The implementation is intentionally narrower than a general Chapter 9
+solver.  A supported `FundamentalSignature` describes one active immutable
+tower prefix over the standard `QQ(x)` or `QQ_I(x)` base with `Dx = 1`.  It
+contains exactly one native-field direction for every active level, in tower
+order: `Dt` for primitive levels, `Dt/t` for hyperexponential levels, and the
+real coefficient `eta` for hypertangent levels.  The rational base variable
+is retained as the initial primitive direction.  Every non-base direction
+requires certified `ConstantFieldStatus.PRESERVED` evidence.
+
+For a hypertangent source level, the signature deliberately retains the real
+law `Dt = eta*(1 + t**2)`.  Its Cayley image, whose logarithmic derivative is
+`2*i*eta`, is checked separately by the immutable Gaussian normal form.  The
+signature must not make the Gaussian conversion self-validating, and it does
+not claim a direct real structure theorem for arbitrary special polynomials.
+
+`UNSUPPORTED` means only that this narrow representation cannot be certified;
+it is never a negative relation, dependency, or integrability conclusion.
+The existing normal-factor valuation logic remains a dynamic part of relation
+solving, so the signature does not enumerate all Darboux or non-generator
+special factors.  Checked extension factories may retain signature evidence
+only when it is already available; lack of a signature must remain
+`UNKNOWN`/`UNSUPPORTED`, never an inferred preserved-constants result.
 
 ## Why this matters
 
@@ -170,13 +196,13 @@ constant field and do not claim a full Chapter 9 implementation.
 
 ## Done criteria
 
-- [ ] A public immutable signature object describes every accepted P/E/T
+- [x] A public immutable signature object describes every accepted P/E/T
   tower prefix.
-- [ ] Existing relation and dependency results preserve their outcomes and
+- [x] Existing relation and dependency results preserve their outcomes and
   exact witness checks.
-- [ ] Gaussian hypertangent conversion remains independently checked.
-- [ ] No unsupported lower family receives a false `PRESERVED` status.
-- [ ] Focused and full quality gates pass.
+- [x] Gaussian hypertangent conversion remains independently checked.
+- [x] No unsupported lower family receives a false `PRESERVED` status.
+- [x] Focused and full quality gates pass.
 
 ## STOP conditions
 

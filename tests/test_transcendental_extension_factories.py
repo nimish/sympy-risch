@@ -42,6 +42,10 @@ def test_hyperexponential_factory_certifies_independence() -> None:
     assert analysis.dependency.kind is HyperexponentialDependencyKind.TRANSCENDENTAL
     assert analysis.dependency.extension == analysis.extension
     assert analysis.detail is None
+    assert analysis.lower_fundamental_signature is not None
+    assert tuple(
+        direction.level for direction in analysis.lower_fundamental_signature.directions
+    ) == (0,)
 
 
 @pytest.mark.parametrize(
@@ -69,6 +73,7 @@ def test_hyperexponential_factory_records_the_new_constant_relation(
     assert analysis.dependency.kind is kind
     assert analysis.dependency.extension == analysis.extension
     assert analysis.dependency.relation_argument == x
+    assert analysis.lower_fundamental_signature is not None
     proposed = base.extend(analysis.extension)
     relation = proposed.field().from_sympy(
         t**power / analysis.dependency.relation_argument,
@@ -118,6 +123,7 @@ def test_hypertangent_factory_certifies_independence_and_dependence(
     assert analysis.dependency.extension == analysis.extension
     assert analysis.dependency.kind is kind
     assert analysis.dependency.minimal_power == power
+    assert analysis.lower_fundamental_signature is not None
 
 
 def test_factories_reuse_the_mixed_hypertangent_relation_decision() -> None:
@@ -139,6 +145,7 @@ def test_factories_reuse_the_mixed_hypertangent_relation_decision() -> None:
     assert analysis.dependency.kind is HyperexponentialDependencyKind.RATIONAL
     assert analysis.dependency.extension == analysis.extension
     assert cancel(analysis.dependency.relation_argument / (1 + t**2)) == Rational(1, 4)
+    assert analysis.lower_fundamental_signature is not None
 
 
 def test_hypertangent_factory_reuses_the_hyperexponential_lower_solver() -> None:
@@ -159,6 +166,7 @@ def test_hypertangent_factory_reuses_the_hyperexponential_lower_solver() -> None
     assert analysis.dependency is not None
     assert analysis.dependency.extension == analysis.extension
     assert analysis.dependency.kind is HyperexponentialDependencyKind.TRANSCENDENTAL
+    assert analysis.lower_fundamental_signature is not None
 
 
 @pytest.mark.parametrize(
@@ -188,6 +196,7 @@ def test_factories_leave_uncertified_lower_towers_unknown(
     assert analysis.dependency is None
     assert analysis.detail is not None
     assert "without certified constant preservation" in analysis.detail
+    assert analysis.lower_fundamental_signature is None
 
 
 @pytest.mark.parametrize(
@@ -212,6 +221,7 @@ def test_factories_leave_a_constant_base_unknown(
     assert analysis.dependency is None
     assert analysis.detail is not None
     assert "nonconstant lower differential field" in analysis.detail
+    assert analysis.lower_fundamental_signature is None
 
 
 def test_factory_leaves_an_unsupported_monomial_lower_family_unknown() -> None:
@@ -232,6 +242,7 @@ def test_factory_leaves_an_unsupported_monomial_lower_family_unknown() -> None:
     assert analysis.dependency is None
     assert analysis.detail is not None
     assert "currently support" in analysis.detail
+    assert analysis.lower_fundamental_signature is None
 
 
 @pytest.mark.parametrize(

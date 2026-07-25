@@ -456,6 +456,29 @@ Within the documented P/E/T contract this supplies the same
 verified-witness-or-proved-negative outcome. Algebraic and generalized
 monomial lower levels remain `UNSUPPORTED`, never negative decisions.
 
+### Certified fundamental signatures
+
+`relations.build_fundamental_signature` makes the certified part of that
+Chapter 9 route inspectable.  For one active P/E/T prefix over the standard
+`QQ(x)` or `QQ_I(x)` base, it records immutable native-field directions in
+tower order: `Dt` for primitive levels, `Dt/t` for hyperexponential levels,
+and the real `eta` in `Dt = eta*(1 + t**2)` for hypertangent levels.  The
+rational base variable is the initial primitive direction.  A supported
+signature requires `ConstantFieldStatus.PRESERVED` for every non-base active
+level; otherwise it returns an explicit `UNSUPPORTED` boundary result rather
+than a mathematical negative.
+
+The relation compiler consults the signature for the active family and the
+canonical hyperexponential direction, but it still performs normal-factor
+valuations dynamically.  Thus a signature is not a complete
+Darboux-polynomial list and does not settle a non-generator special factor.
+Hypertangent directions stay in the real source tower.  The immutable
+Gaussian Cayley normal form independently checks their conversion to
+logarithmic derivative `2*i*eta`, so the coordinate translation is not being
+used to prove itself.  General effective constants, algebraic levels, and a
+direct real special-polynomial structure theorem remain outside this
+checkpoint.
+
 ## Recursive elementary integration
 
 Each level reducer establishes an exact identity
@@ -945,10 +968,11 @@ The most recent normalization checkpoint adds the verified Möbius law
 can use the established hyperexponential integrator without mutating the
 source tower. The structure-theorem track now has conservative certificates
 for concrete special factors: they can prove `PRESENT`, never infer `ABSENT`.
-The next transcendental work is complete special-factor/fundamental-signature
-decisions and expression-to-tower construction. The current algebraic
-priority remains branch-place handling before the residue-field and divisor
-stages.
+The signature checkpoint exposes the certified P/E/T directions without
+widening their theorem domain.  The next transcendental work after it
+is complete special-factor decisions and expression-to-tower construction.
+The current algebraic priority remains branch-place handling before the
+residue-field and divisor stages.
 
 ### Completed foundation
 

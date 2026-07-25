@@ -25,7 +25,9 @@ from .rational import (
     _solve_rational_logarithmic_derivative_over_domain,
 )
 from .relations import (
+    FundamentalSignature,
     LogarithmicRelationSystemResult,
+    build_fundamental_signature,
     solve_logarithmic_relation_system,
 )
 from .tower import (
@@ -88,11 +90,17 @@ class PrimitiveExtensionAnalysis:
     :class:`ConstantFieldStatus` records the proved outcome.  ``UNKNOWN`` is
     used only when a prerequisite lower level is uncertified or the lower
     exact-derivative decision is not implemented.
+
+    ``lower_fundamental_signature`` records the certified P/E/T structure of
+    the lower field when it lies within that narrower relation-theorem scope.
+    It is evidence only: the extension factory keeps its existing exact
+    derivative decision and never treats a missing signature as preservation.
     """
 
     extension: MonomialExtension
     exact_result: ExactDerivativeResult | None
     detail: str | None = None
+    lower_fundamental_signature: FundamentalSignature | None = None
 
     @property
     def status(self) -> ConstantFieldStatus:
@@ -658,11 +666,16 @@ class TranscendentalExtensionAnalysis:
     ``UNKNOWN`` is reserved for an uncertified lower tower or a lower family
     outside the implemented decision procedures. This keeps a missing
     implementation distinct from a proved transcendence result.
+
+    ``lower_fundamental_signature`` retains P/E/T structural evidence only
+    after the lower tower has independently certified its constants.  It does
+    not broaden the supported dependency decision.
     """
 
     extension: MonomialExtension
     dependency: HyperexponentialDependency | HypertangentDependency | None
     detail: str | None = None
+    lower_fundamental_signature: FundamentalSignature | None = None
 
     @property
     def status(self) -> ConstantFieldStatus:
@@ -700,6 +713,24 @@ def _uncertified_lower_tower_detail(
         "the lower tower contains a monomial level without certified "
         "constant preservation"
     )
+
+
+def _certified_lower_fundamental_signature(
+    lower_derivation: Derivation,
+) -> FundamentalSignature | None:
+    r"""Return P/E/T evidence only for an already-certified lower tower.
+
+    The relation signature deliberately accepts a standard rational base even
+    when callers have not annotated its status, because the direct relation
+    compiler historically did so.  Extension factories are stricter: their
+    no-new-constants certificate needs every lower monomial level to be
+    certified first.  Keeping that distinction here preserves the existing
+    factory outcomes while exposing structural evidence only when it is safe.
+    """
+    if _uncertified_lower_tower_detail(lower_derivation) is not None:
+        return None
+    signature = build_fundamental_signature(lower_derivation)
+    return signature if signature.supported else None
 
 
 def _standard_rational_variable(derivation: Derivation) -> Symbol:
@@ -2129,6 +2160,9 @@ def certify_primitive_extension(
     if extension.parent_field != lower_derivation.field:
         raise ValueError("extension parent field does not match the lower derivation")
 
+    lower_fundamental_signature = _certified_lower_fundamental_signature(
+        lower_derivation,
+    )
     lower_levels = lower_derivation.tower.levels[: lower_derivation.level + 1]
     uncertified_level = next(
         (
@@ -2145,6 +2179,7 @@ def certify_primitive_extension(
             None,
             "the lower tower contains a monomial level without certified "
             "constant preservation",
+            lower_fundamental_signature,
         )
 
     eta = _coerce(
@@ -2158,7 +2193,12 @@ def certify_primitive_extension(
     try:
         exact_result = solve_exact_derivative(eta, lower_derivation)
     except NotImplementedError as exc:
-        return PrimitiveExtensionAnalysis(extension, None, str(exc))
+        return PrimitiveExtensionAnalysis(
+            extension,
+            None,
+            str(exc),
+            lower_fundamental_signature,
+        )
 
     status = (
         ConstantFieldStatus.ENLARGED
@@ -2172,6 +2212,7 @@ def certify_primitive_extension(
     return PrimitiveExtensionAnalysis(
         certified_extension,
         exact_result,
+        lower_fundamental_signature=lower_fundamental_signature,
     )
 
 
@@ -2295,16 +2336,29 @@ def certify_hyperexponential_extension(
         MonomialFamily.HYPEREXPONENTIAL,
         "Dtheta = eta*theta",
     )
+    lower_fundamental_signature = _certified_lower_fundamental_signature(
+        lower_derivation,
+    )
     detail = _uncertified_lower_tower_detail(lower_derivation)
     if detail is not None:
-        return TranscendentalExtensionAnalysis(extension, None, detail)
+        return TranscendentalExtensionAnalysis(
+            extension,
+            None,
+            detail,
+            lower_fundamental_signature,
+        )
     try:
         dependency = analyze_hyperexponential_extension(
             extension,
             lower_derivation,
         )
     except NotImplementedError as exc:
-        return TranscendentalExtensionAnalysis(extension, None, str(exc))
+        return TranscendentalExtensionAnalysis(
+            extension,
+            None,
+            str(exc),
+            lower_fundamental_signature,
+        )
     certified_extension = replace(
         extension,
         constant_field_status=dependency.inferred_constant_field_status,
@@ -2312,6 +2366,7 @@ def certify_hyperexponential_extension(
     return TranscendentalExtensionAnalysis(
         certified_extension,
         replace(dependency, extension=certified_extension),
+        lower_fundamental_signature=lower_fundamental_signature,
     )
 
 
@@ -2331,16 +2386,29 @@ def certify_hypertangent_extension(
         MonomialFamily.HYPERTANGENT,
         "Dt = eta*(1 + t**2)",
     )
+    lower_fundamental_signature = _certified_lower_fundamental_signature(
+        lower_derivation,
+    )
     detail = _uncertified_lower_tower_detail(lower_derivation)
     if detail is not None:
-        return TranscendentalExtensionAnalysis(extension, None, detail)
+        return TranscendentalExtensionAnalysis(
+            extension,
+            None,
+            detail,
+            lower_fundamental_signature,
+        )
     try:
         dependency = analyze_hypertangent_extension(
             extension,
             lower_derivation,
         )
     except NotImplementedError as exc:
-        return TranscendentalExtensionAnalysis(extension, None, str(exc))
+        return TranscendentalExtensionAnalysis(
+            extension,
+            None,
+            str(exc),
+            lower_fundamental_signature,
+        )
     certified_extension = replace(
         extension,
         constant_field_status=dependency.inferred_constant_field_status,
@@ -2348,4 +2416,5 @@ def certify_hypertangent_extension(
     return TranscendentalExtensionAnalysis(
         certified_extension,
         replace(dependency, extension=certified_extension),
+        lower_fundamental_signature=lower_fundamental_signature,
     )

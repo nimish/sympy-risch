@@ -89,6 +89,40 @@ coordinate is a negative certificate in the supported tower scope.
 Tangent lower levels enter this same calculation through the Gaussian normal
 form. The integer valuation lattice remains over `QQ`, not `QQ(i)`.
 
+## Certified fundamental signatures
+
+`build_fundamental_signature` exposes the certified structural directions of
+an active P/E/T tower prefix as one immutable object.  On a supported prefix,
+directions are ordered by tower level and retain native parent-field elements:
+
+| family | recorded source direction |
+| --- | --- |
+| rational base / primitive | `Dt` |
+| hyperexponential | `Dt/t` |
+| hypertangent | `eta` in `Dt = eta*(1 + t**2)` |
+
+The signature is supported only for the standard rational base and when every
+non-base active level has certified preserved constants.  An unsupported
+signature records why the narrow representation is unavailable; it is not a
+negative theorem about a relation or an integral.
+
+The public entry point is `build_fundamental_signature(derivation)`.  Its
+`directions` property is ordered by active tower level, while the three
+family-specific tuples retain the native field element needed by each
+structure theorem.  Checked primitive, hyperexponential, and hypertangent
+factory results expose the lower signature as
+`lower_fundamental_signature` only when that lower tower is already within
+this certified P/E/T scope; `None` never implies preserved constants.
+
+For a hypertangent level, the recorded direction remains real.  The Gaussian
+normal form independently verifies that its Cayley coordinate has
+logarithmic derivative `2*i*eta`; this conversion is an adapter check, not a
+second source of signature data.  The direct relation compiler consults the
+signature for the active family and hyperexponential generator direction while
+retaining its existing normal-factor valuation logic.  In particular, a
+signature is not a catalogue of all Darboux polynomials and does not decide
+non-generator special factors.
+
 ## Checked construction
 
 The dependency module provides immutable checked factories:

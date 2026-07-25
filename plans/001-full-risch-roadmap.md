@@ -20,7 +20,8 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
-- **Last implementation reconciliation**: commit `97fccfc`, 2026-07-25
+- **Last implementation reconciliation**: Plan 003 signature checkpoint
+  completed, 2026-07-25
 
 ## Why this matters
 
@@ -359,9 +360,10 @@ Status: complete throughout the normalized P/E/T contract, including the fast
 rational and recursive primitive paths, mixed relation-system fallback,
 hypertangent Gaussian normalization, integer normalization, exact witness
 reconstruction, generated planted witnesses, and independent global
-linear-system oracles. The remaining work is to expose the underlying
-fundamental signatures and extend them to non-generator special factors and
-general effective constant fields.
+linear-system oracles. Plan 003 exposes those already-certified P/E/T
+directions as immutable signatures. The remaining work is to extend that
+representation to non-generator special factors and general effective
+constant fields.
 
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.
@@ -373,9 +375,10 @@ general effective constant fields.
 
 ### 2.2 Complex Risch structure theorem
 
-Status: the P/E/T relation compiler supplies a specialized implementation.
-Generalize it into an explicit fundamental-signature solver rather than
-duplicating its current P/E/T logic.
+Status: the P/E/T relation compiler supplies the specialized implementation;
+Plan 003 exposes its certified source directions as immutable signatures
+rather than duplicating its P/E/T logic. The signature is deliberately not a
+general Darboux-polynomial decision.
 
 - Compute and retain the ordered logarithmic and exponential index sets for
   the tower.
@@ -396,9 +399,11 @@ duplicating its current P/E/T logic.
 
 ### 2.3 Real structure theorem
 
-Status: hypertangent P/E/T inputs currently use an immutable Cayley Gaussian
-normal form. A direct real signature remains necessary for general special
-polynomials and for a branch-aware public presentation.
+Status: hypertangent P/E/T inputs use an immutable Cayley Gaussian normal
+form. Plan 003 records the real source coefficient `eta` in the signature and
+keeps the Cayley image `2*i*eta` as an independently checked adapter. Direct
+real rational relations for general special polynomials and a branch-aware
+public presentation remain future work.
 
 - Add the tangent and arctangent index sets from Theorem 9.3.2.
 - Implement the real rational relations of Corollary 9.3.2.
@@ -780,9 +785,9 @@ separate commit after focused and full-suite verification.
 
 ### Parallel first mathematical gates
 
-2. [ ] **Plan 003**: extract the current P/E/T relation logic into immutable
-   complex and real fundamental signatures. Keep the existing compiler and
-   Gaussian normal form as behavioral oracles.
+2. [x] **Plan 003**: extracted the current P/E/T relation logic into
+   immutable complex and real fundamental signatures. The existing compiler
+   and Gaussian normal form remain behavioral oracles.
 3. [ ] **Plan 004**: decide or explicitly reject algebraic constant-field
    enlargement, then bridge Hermite remainders to canonical all-place
    residue data. Do not extend the unramified plane-model shortcut by guess.
