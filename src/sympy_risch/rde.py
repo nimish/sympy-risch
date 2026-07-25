@@ -234,19 +234,30 @@ class PrimitivePolynomialRischDifferentialEquationResult:
 
 @dataclass(frozen=True, slots=True)
 class PrimitiveRischDifferentialEquationResult:
-    r"""Certified RDE result over ``K(t)`` with ``Dt`` in ``K``.
+    r"""Certified RDE result over primitive ``K(t)`` with ``Dt`` in ``K``.
 
-    The coefficient is polynomial in ``t`` and the right-hand side is
-    arbitrary rational. The normal-denominator theorem first reduces a
-    possible solution to ``q/h``. Rothstein SPDE then reduces the numerator
-    equation to a polynomial RDE, including Bronstein's primitive
-    lower-field cancellation case.
+    ``normalization_factor`` records Bronstein's weak normalization
+
+    ``a_normal = a - D(normalization_factor)/normalization_factor``.
+
+    Under the substitution ``z = normalization_factor*y``, the original
+    equation becomes
+
+    ``Dz + a_normal*z = normalized_right_hand_side``.
+
+    The normal-denominator theorem next reduces a possible normalized solution
+    to ``q/denominator_bound``. Rothstein SPDE then reduces the numerator
+    equation to a polynomial RDE, including the primitive lower-field
+    cancellation cases.
     """
 
-    coefficient: Poly
+    coefficient: Any
     right_hand_side: Any
     solution: Any | None
     obstruction: PrimitiveRDEObstruction | None
+    normalization_factor: Poly
+    normalized_coefficient: Any
+    normalized_right_hand_side: Any
     denominator_bound: Poly
     degree_bound: int | None = None
     polynomial_result: (
@@ -339,6 +350,7 @@ class BoundedPrimitiveRDEMatrixResult:
     solution: Any | None
     coefficient_rank: int
     augmented_rank: int
+    top_denominator: Poly | None = None
 
     @property
     def has_solution(self) -> bool:
@@ -1173,6 +1185,278 @@ def _as_primitive_polynomial(
     return numerator.mul_ground(scale)
 
 
+def _positive_integer_rational(value: Any) -> int | None:
+    """Return a positive rational integer, or ``None`` otherwise."""
+    rational = QQ.convert(value)
+    if QQ.denom(rational) != 1 or QQ.numer(rational) <= 0:
+        return None
+    return int(QQ.numer(rational))
+
+
+def _weakly_normalize_primitive_rde_coefficient(
+    coefficient: Any,
+    derivation: Derivation,
+) -> tuple[Poly, Any]:
+    r"""Return ``q`` and ``coefficient - Dq/q`` weakly normalized in ``t``.
+
+    At a normal irreducible factor ``p``, weak normalization removes the
+    simple logarithmic residue only when it is a positive integer ``n``.
+    Multiplying ``q`` by ``p**n`` subtracts ``n*Dp/p`` from the coefficient.
+
+    A primitive monomial with preserved constants has no nonconstant special
+    factors, so the complete principal-part signature supplies every factor
+    that must be inspected.
+    """
+    extension = _primitive_rde_extension(derivation)
+    field = extension.field
+    element = _coerce(field, coefficient)
+    _, _, denominator = _as_primitive_fraction(element, extension)
+    if denominator.degree() == 0:
+        return (
+            Poly(
+                1,
+                extension.generator,
+                domain=extension.parent_field,
+            ),
+            element,
+        )
+
+    # Local import avoids the module cycle: primitive monomial reduction uses
+    # the RDE dispatcher defined in this module.
+    from .monomial import primitive_logarithmic_derivative_signature
+
+    signature = primitive_logarithmic_derivative_signature(
+        element,
+        derivation,
+    )
+    normalizer = Poly(
+        1,
+        extension.generator,
+        domain=extension.parent_field,
+    )
+    for factor in signature.factors:
+        if factor.logarithmic_multiplicity is None:
+            continue
+        multiplicity = _positive_integer_rational(
+            factor.logarithmic_multiplicity,
+        )
+        if multiplicity is not None:
+            normalizer *= factor.factor**multiplicity
+    normalizer = normalizer.monic()
+    if normalizer.degree() == 0:
+        return normalizer, element
+
+    normalizer_element = _coerce(field, normalizer.as_expr())
+    normalized = element - derivation(normalizer_element)/normalizer_element
+    if (
+        normalized
+        + derivation(normalizer_element)/normalizer_element
+        != element
+    ):
+        raise ValueError("primitive weak normalization failed to reconstruct")
+
+    normalized_signature = primitive_logarithmic_derivative_signature(
+        normalized,
+        derivation,
+    )
+    for factor in normalized_signature.factors:
+        if (
+            factor.logarithmic_multiplicity is not None
+            and _positive_integer_rational(
+                factor.logarithmic_multiplicity,
+            )
+            is not None
+        ):
+            raise ValueError(
+                "primitive weak normalization left a positive integer residue"
+            )
+    return normalizer, normalized
+
+
+def _reduce_primitive_normal_denominator(
+    coefficient: Any,
+    right_hand_side: Any,
+    derivation: Derivation,
+) -> _NormalDenominatorReduction:
+    r"""Reduce a weakly normalized primitive RDE to ``A*Dq+B*q=C``.
+
+    Every nonconstant polynomial is normal in a primitive extension with
+    preserved constants. Thus Bronstein's normal-denominator formula uses the
+    complete top-generator denominators and no special-factor component.
+    Formal differentiation detects their repeated factors, while ``D(h)`` in
+    the transformed equation is the total tower derivative.
+    """
+    extension = _primitive_rde_extension(derivation)
+    _, coefficient_numerator, coefficient_denominator = (
+        _as_primitive_fraction(coefficient, extension)
+    )
+    _, rhs_numerator, rhs_denominator = _as_primitive_fraction(
+        right_hand_side,
+        extension,
+    )
+
+    shared_denominator = coefficient_denominator.gcd(rhs_denominator)
+    denominator_bound = (
+        rhs_denominator.gcd(rhs_denominator.diff())
+        .exquo(
+            shared_denominator.gcd(shared_denominator.diff())
+        )
+        .monic()
+    )
+    derivative_coefficient = coefficient_denominator*denominator_bound
+    solution_coefficient = (
+        denominator_bound*coefficient_numerator
+        - coefficient_denominator
+        * derivation.polynomial(denominator_bound)
+    )
+    multiplier = (
+        coefficient_denominator
+        * denominator_bound
+        * denominator_bound
+    )
+    quotient, remainder = multiplier.div(rhs_denominator)
+    if not remainder.is_zero:
+        return _NormalDenominatorReduction(
+            denominator_bound,
+            None,
+            None,
+            None,
+            rhs_denominator,
+            remainder,
+        )
+    return _NormalDenominatorReduction(
+        denominator_bound,
+        derivative_coefficient,
+        solution_coefficient,
+        quotient*rhs_numerator,
+    )
+
+
+def _primitive_limited_integration_relation(
+    value: Any,
+    derivation: Derivation,
+) -> tuple[int, Any] | None:
+    r"""Find ``m`` and ``z`` with ``value = m*Dt + Dz``, if supported.
+
+    Reducing a constant polynomial at the current primitive level computes
+    exactly the quotient by ``D(K) + Const(K)*Dt``. The degree-bound theorem
+    additionally requires the coefficient of ``Dt`` to be an integer.
+    """
+    extension = _primitive_rde_extension(derivation)
+    parent = extension.parent_field
+    element = parent.convert(value)
+    if element == parent.zero:
+        return 0, parent.zero
+
+    # See the cycle note in primitive weak normalization above.
+    from .monomial import polynomial_reduce_primitive
+
+    reduction = polynomial_reduce_primitive(
+        Poly(
+            element,
+            extension.generator,
+            domain=parent,
+        ),
+        derivation,
+    )
+    if reduction.has_obstruction or len(reduction.steps) != 1:
+        return None
+    step = reduction.steps[0]
+    integer_multiple = _integer_constant(
+        step.eta_multiple,
+        derivation.tower.constants,
+    )
+    if integer_multiple is None:
+        return None
+    exact_part = parent.convert(step.exact_coefficient)
+    eta = parent.convert(extension.generator_derivative.nth(0))
+    if (
+        derivation.lower()(exact_part)
+        + parent.convert(integer_multiple)*eta
+        != element
+    ):
+        raise ValueError("primitive limited-integration relation is invalid")
+    return integer_multiple, exact_part
+
+
+def _primitive_rde_degree_bound(
+    derivative_coefficient: Poly,
+    solution_coefficient: Poly,
+    right_hand_side: Poly,
+    derivation: Derivation,
+) -> int:
+    r"""Implement Bronstein's primitive polynomial RDE degree bound.
+
+    This is ``RdeBoundDegreePrim`` from Section 6.3. Besides the generic
+    degree estimate, the two possible leading cancellations require one
+    limited-integration decision and, at equal degrees, one logarithmic
+    derivative decision in the lower field.
+    """
+    if derivative_coefficient.is_zero:
+        raise ValueError("the derivative coefficient must be nonzero")
+    if right_hand_side.is_zero:
+        return 0
+
+    degree_a = derivative_coefficient.degree()
+    degree_b = (
+        solution_coefficient.degree()
+        if not solution_coefficient.is_zero
+        else -1
+    )
+    degree_c = right_hand_side.degree()
+    if degree_b > degree_a:
+        bound = max(0, degree_c - degree_b)
+    else:
+        bound = max(0, degree_c - degree_a + 1)
+
+    parent = derivative_coefficient.domain
+    if (
+        not solution_coefficient.is_zero
+        and degree_b == degree_a - 1
+    ):
+        alpha = parent.convert(
+            -solution_coefficient.LC()/derivative_coefficient.LC()
+        )
+        relation = _primitive_limited_integration_relation(
+            alpha,
+            derivation,
+        )
+        if relation is not None:
+            bound = max(bound, relation[0])
+
+    if degree_b == degree_a:
+        alpha = parent.convert(
+            -solution_coefficient.LC()/derivative_coefficient.LC()
+        )
+        from .monomial import solve_radical_logarithmic_derivative
+
+        logarithmic_result = solve_radical_logarithmic_derivative(
+            alpha,
+            derivation.lower(),
+        )
+        if (
+            logarithmic_result.has_solution
+            and logarithmic_result.minimal_power == 1
+        ):
+            z = parent.convert(logarithmic_result.argument)
+            dz = derivation.lower()(z)
+            transformed = (
+                derivative_coefficient.mul_ground(dz)
+                + solution_coefficient.mul_ground(z)
+            )
+            beta = parent.convert(
+                -transformed.LC()
+                / (z*parent.convert(derivative_coefficient.LC()))
+            )
+            relation = _primitive_limited_integration_relation(
+                beta,
+                derivation,
+            )
+            if relation is not None:
+                bound = max(bound, relation[0])
+    return bound
+
+
 def _solve_primitive_polynomial_exact_case(
     coefficient_polynomial: Poly,
     rhs_polynomial: Poly,
@@ -1622,13 +1906,16 @@ def _solve_primitive_spde(
 
 
 def _solve_primitive_rde_exact_case(
-    coefficient_polynomial: Poly,
-    rhs_element: Any,
+    coefficient: Any,
+    right_hand_side: Any,
+    normalized_coefficient: Any,
+    normalized_right_hand_side: Any,
     derivation: Derivation,
+    normalization_factor: Poly,
     multiplier: Any,
     logarithmic_result: Any | None = None,
 ) -> PrimitiveRischDifferentialEquationResult:
-    """Solve a rational primitive RDE transformed to exact differentiation."""
+    """Solve a weakly normalized primitive RDE by exact differentiation."""
     from .exact import solve_exact_derivative
 
     extension = _primitive_rde_extension(derivation)
@@ -1638,35 +1925,47 @@ def _solve_primitive_rde_exact_case(
         extension.generator,
         domain=extension.parent_field,
     )
+    normalization_element = _coerce(
+        field,
+        normalization_factor.as_expr(),
+    )
     multiplier_element = _coerce(field, multiplier)
     exact_result = solve_exact_derivative(
-        multiplier_element*rhs_element,
+        multiplier_element*normalized_right_hand_side,
         derivation,
     )
     if not exact_result.has_solution:
         return PrimitiveRischDifferentialEquationResult(
-            coefficient_polynomial,
-            rhs_element,
-            None,
-            PrimitiveRDEObstruction.EXACT_DERIVATIVE,
-            one,
+            coefficient=coefficient,
+            right_hand_side=right_hand_side,
+            solution=None,
+            obstruction=PrimitiveRDEObstruction.EXACT_DERIVATIVE,
+            normalization_factor=normalization_factor,
+            normalized_coefficient=normalized_coefficient,
+            normalized_right_hand_side=normalized_right_hand_side,
+            denominator_bound=one,
             logarithmic_derivative_result=logarithmic_result,
             exact_derivative_result=exact_result,
         )
 
-    solution = exact_result.antiderivative/multiplier_element
-    coefficient_element = _coerce(
-        field,
-        coefficient_polynomial.as_expr(),
+    normalized_solution = (
+        exact_result.antiderivative/multiplier_element
     )
-    if derivation(solution) + coefficient_element*solution != rhs_element:
+    solution = normalized_solution/normalization_element
+    if (
+        derivation(solution) + coefficient*solution
+        != right_hand_side
+    ):
         raise ValueError("primitive exact RDE reconstruction failed")
     return PrimitiveRischDifferentialEquationResult(
-        coefficient_polynomial,
-        rhs_element,
-        solution,
-        None,
-        one,
+        coefficient=coefficient,
+        right_hand_side=right_hand_side,
+        solution=solution,
+        obstruction=None,
+        normalization_factor=normalization_factor,
+        normalized_coefficient=normalized_coefficient,
+        normalized_right_hand_side=normalized_right_hand_side,
+        denominator_bound=one,
         logarithmic_derivative_result=logarithmic_result,
         exact_derivative_result=exact_result,
     )
@@ -1677,53 +1976,88 @@ def solve_primitive_risch_differential_equation(
     right_hand_side: Any,
     derivation: Derivation,
 ) -> PrimitiveRischDifferentialEquationResult:
-    r"""Decide an RDE with polynomial coefficient over primitive ``K(t)``.
+    r"""Decide an RDE with rational coefficient over primitive ``K(t)``.
 
-    The right-hand side may be any rational function in ``t``. A
-    positive-degree coefficient uses the no-cancellation degree bound. A
-    coefficient in ``K`` uses Bronstein's primitive cancellation algorithm,
-    including its logarithmic-derivative transformation.
-
-    This follows the Chapter 6 sequence in Bronstein, *Symbolic Integration
-    I*: normal denominator, primitive degree bound, Rothstein SPDE, and
-    polynomial RDE. Weak normalization is unnecessary here because the
-    coefficient is polynomial and therefore has no finite normal residues.
+    This implements the Chapter 6 sequence in Bronstein, *Symbolic
+    Integration I*: weak normalization, normal denominator, primitive degree
+    bound, Rothstein SPDE, and the polynomial RDE. Polynomial coefficients
+    retain the existing no-cancellation and recursive lower-field
+    cancellation paths.
     """
     extension = _primitive_rde_extension(derivation)
-    coefficient_polynomial = _as_primitive_polynomial(
-        coefficient,
-        extension,
+    field = extension.field
+    coefficient_element = _coerce(
+        field,
+        coefficient.as_expr() if isinstance(coefficient, Poly) else coefficient,
     )
-    rhs_element, rhs_numerator, rhs_denominator = _as_primitive_fraction(
-        right_hand_side,
-        extension,
+    rhs_element = _coerce(
+        field,
+        (
+            right_hand_side.as_expr()
+            if isinstance(right_hand_side, Poly)
+            else right_hand_side
+        ),
     )
-
-    one = rhs_denominator.one
-    if rhs_numerator.is_zero:
-        return PrimitiveRischDifferentialEquationResult(
-            coefficient_polynomial,
-            rhs_element,
-            extension.field.zero,
-            None,
-            one,
-            0,
+    normalization_factor, normalized_coefficient = (
+        _weakly_normalize_primitive_rde_coefficient(
+            coefficient_element,
+            derivation,
         )
+    )
+    normalization_element = _coerce(
+        field,
+        normalization_factor.as_expr(),
+    )
+    normalized_rhs = normalization_element*rhs_element
+    one = Poly(
+        1,
+        extension.generator,
+        domain=extension.parent_field,
+    )
+    if normalized_rhs == field.zero:
+        return PrimitiveRischDifferentialEquationResult(
+            coefficient=coefficient_element,
+            right_hand_side=rhs_element,
+            solution=field.zero,
+            obstruction=None,
+            normalization_factor=normalization_factor,
+            normalized_coefficient=normalized_coefficient,
+            normalized_right_hand_side=normalized_rhs,
+            denominator_bound=one,
+            degree_bound=0,
+        )
+
+    _, normalized_numerator, normalized_denominator = (
+        _as_primitive_fraction(normalized_coefficient, extension)
+    )
+    normalized_polynomial = None
+    if normalized_denominator.degree() == 0:
+        inverse = (
+            extension.parent_field.one
+            / extension.parent_field.convert(normalized_denominator.LC())
+        )
+        normalized_polynomial = normalized_numerator.mul_ground(inverse)
 
     coefficient_logarithmic_result = None
     coefficient_is_lower = (
-        coefficient_polynomial.is_zero
-        or coefficient_polynomial.degree() <= 0
+        normalized_polynomial is not None
+        and (
+            normalized_polynomial.is_zero
+            or normalized_polynomial.degree() <= 0
+        )
     )
     if coefficient_is_lower:
         coefficient_lower = extension.parent_field.convert(
-            coefficient_polynomial.nth(0)
+            normalized_polynomial.nth(0)
         )
         if coefficient_lower == extension.parent_field.zero:
             return _solve_primitive_rde_exact_case(
-                coefficient_polynomial,
+                coefficient_element,
                 rhs_element,
+                normalized_coefficient,
+                normalized_rhs,
                 derivation,
+                normalization_factor,
                 extension.parent_field.one,
             )
 
@@ -1740,61 +2074,60 @@ def solve_primitive_risch_differential_equation(
             and coefficient_logarithmic_result.minimal_power == 1
         ):
             return _solve_primitive_rde_exact_case(
-                coefficient_polynomial,
+                coefficient_element,
                 rhs_element,
+                normalized_coefficient,
+                normalized_rhs,
                 derivation,
+                normalization_factor,
                 coefficient_logarithmic_result.argument,
                 coefficient_logarithmic_result,
             )
 
-    # Bronstein's normal-denominator theorem specializes particularly cleanly
-    # here. With a polynomial coefficient and no special irreducibles, the
-    # candidate denominator is the repeated part of the right-hand-side
-    # denominator. A simple normal pole makes the divisibility test below fail.
-    denominator_bound = rhs_denominator.gcd(rhs_denominator.diff()).monic()
-    multiplier = denominator_bound*denominator_bound
-    quotient, remainder = multiplier.div(rhs_denominator)
-    if not remainder.is_zero:
+    denominator_reduction = _reduce_primitive_normal_denominator(
+        normalized_coefficient,
+        normalized_rhs,
+        derivation,
+    )
+    if not denominator_reduction.succeeded:
         return PrimitiveRischDifferentialEquationResult(
-            coefficient_polynomial,
-            rhs_element,
-            None,
-            PrimitiveRDEObstruction.DENOMINATOR,
-            denominator_bound,
-            obstruction_polynomial=rhs_denominator,
-            obstruction_remainder=remainder,
+            coefficient=coefficient_element,
+            right_hand_side=rhs_element,
+            solution=None,
+            obstruction=PrimitiveRDEObstruction.DENOMINATOR,
+            normalization_factor=normalization_factor,
+            normalized_coefficient=normalized_coefficient,
+            normalized_right_hand_side=normalized_rhs,
+            denominator_bound=denominator_reduction.denominator_bound,
+            obstruction_polynomial=(
+                denominator_reduction.obstruction_polynomial
+            ),
+            obstruction_remainder=(
+                denominator_reduction.obstruction_remainder
+            ),
             logarithmic_derivative_result=(
                 coefficient_logarithmic_result
             ),
         )
 
-    derivative_coefficient = denominator_bound
-    solution_coefficient = (
-        denominator_bound*coefficient_polynomial
-        - derivation.polynomial(denominator_bound)
+    denominator_bound = denominator_reduction.denominator_bound
+    derivative_coefficient = denominator_reduction.derivative_coefficient
+    solution_coefficient = denominator_reduction.solution_coefficient
+    transformed_rhs = denominator_reduction.right_hand_side
+    if (
+        derivative_coefficient is None
+        or solution_coefficient is None
+        or transformed_rhs is None
+    ):
+        raise ValueError(
+            "successful primitive denominator reduction lacks an equation"
+        )
+    degree_bound = _primitive_rde_degree_bound(
+        derivative_coefficient,
+        solution_coefficient,
+        transformed_rhs,
+        derivation,
     )
-    transformed_rhs = quotient*rhs_numerator
-    if coefficient_is_lower:
-        if (
-            solution_coefficient.degree()
-            != derivative_coefficient.degree()
-        ):
-            raise ValueError(
-                "lower-field primitive coefficient lost equal-degree form"
-            )
-        degree_bound = max(
-            0,
-            transformed_rhs.degree() - derivative_coefficient.degree(),
-        )
-    else:
-        if solution_coefficient.degree() <= derivative_coefficient.degree():
-            raise ValueError(
-                "positive-degree primitive coefficient lost degree dominance"
-            )
-        degree_bound = max(
-            0,
-            transformed_rhs.degree() - solution_coefficient.degree(),
-        )
     spde_result = _solve_primitive_spde(
         derivative_coefficient,
         solution_coefficient,
@@ -1804,27 +2137,30 @@ def solve_primitive_risch_differential_equation(
     )
     if spde_result.solution is None:
         return PrimitiveRischDifferentialEquationResult(
-            coefficient_polynomial,
-            rhs_element,
-            None,
-            spde_result.obstruction,
-            denominator_bound,
-            degree_bound,
-            spde_result.polynomial_result,
-            spde_result.obstruction_polynomial,
-            spde_result.obstruction_remainder,
+            coefficient=coefficient_element,
+            right_hand_side=rhs_element,
+            solution=None,
+            obstruction=spde_result.obstruction,
+            normalization_factor=normalization_factor,
+            normalized_coefficient=normalized_coefficient,
+            normalized_right_hand_side=normalized_rhs,
+            denominator_bound=denominator_bound,
+            degree_bound=degree_bound,
+            polynomial_result=spde_result.polynomial_result,
+            obstruction_polynomial=spde_result.obstruction_polynomial,
+            obstruction_remainder=spde_result.obstruction_remainder,
             logarithmic_derivative_result=(
                 coefficient_logarithmic_result
             ),
         )
 
     solution = _coerce(
-        extension.field,
-        spde_result.solution.as_expr()/denominator_bound.as_expr(),
-    )
-    coefficient_element = _coerce(
-        extension.field,
-        coefficient_polynomial.as_expr(),
+        field,
+        spde_result.solution.as_expr()
+        / (
+            normalization_factor.as_expr()
+            * denominator_bound.as_expr()
+        ),
     )
     if (
         derivation(solution) + coefficient_element*solution
@@ -1832,13 +2168,16 @@ def solve_primitive_risch_differential_equation(
     ):
         raise ValueError("primitive RDE reconstruction failed")
     return PrimitiveRischDifferentialEquationResult(
-        coefficient_polynomial,
-        rhs_element,
-        solution,
-        None,
-        denominator_bound,
-        degree_bound,
-        spde_result.polynomial_result,
+        coefficient=coefficient_element,
+        right_hand_side=rhs_element,
+        solution=solution,
+        obstruction=None,
+        normalization_factor=normalization_factor,
+        normalized_coefficient=normalized_coefficient,
+        normalized_right_hand_side=normalized_rhs,
+        denominator_bound=denominator_bound,
+        degree_bound=degree_bound,
+        polynomial_result=spde_result.polynomial_result,
         logarithmic_derivative_result=coefficient_logarithmic_result,
     )
 
@@ -2073,13 +2412,14 @@ def solve_bounded_primitive_rde_matrix(
     lower_denominator: Expr | Poly,
     lower_numerator_degree_bound: int,
     top_degree_bound: int,
+    top_denominator: Expr | Poly = S.One,
 ) -> BoundedPrimitiveRDEMatrixResult:
     r"""Solve a bounded primitive-field RDE by global exact linear algebra.
 
     This independent oracle is limited to one primitive level over ``QQ(x)``.
     It searches
 
-    ``sum(c_ij*x**i*t**j/lower_denominator)``
+    ``sum(c_ij*x**i*t**j/(lower_denominator*top_denominator))``
 
     over the caller-supplied rectangular degree bounds. It shares no
     denominator theorem, SPDE, or leading recurrence with the production
@@ -2112,6 +2452,14 @@ def solve_bounded_primitive_rde_matrix(
     if denominator.is_zero:
         raise ValueError("the lower ansatz denominator must be nonzero")
     denominator = denominator.monic()
+    top_denominator_polynomial = Poly(
+        top_denominator,
+        t,
+        domain=extension.parent_field,
+    )
+    if top_denominator_polynomial.is_zero:
+        raise ValueError("the top ansatz denominator must be nonzero")
+    top_denominator_polynomial = top_denominator_polynomial.monic()
 
     field = extension.field
     coefficient_element = _coerce(
@@ -2129,7 +2477,11 @@ def solve_bounded_primitive_rde_matrix(
     basis = [
         _coerce(
             field,
-            x**lower_degree*t**top_degree/denominator.as_expr(),
+            x**lower_degree*t**top_degree
+            / (
+                denominator.as_expr()
+                * top_denominator_polynomial.as_expr()
+            ),
         )
         for top_degree in range(top_degree_bound + 1)
         for lower_degree in range(lower_numerator_degree_bound + 1)
@@ -2195,6 +2547,7 @@ def solve_bounded_primitive_rde_matrix(
             None,
             coefficient_rank,
             augmented_rank,
+            top_denominator_polynomial,
         )
 
     reduced_matrix, pivots = augmented.rref()
@@ -2215,6 +2568,7 @@ def solve_bounded_primitive_rde_matrix(
         solution,
         coefficient_rank,
         augmented_rank,
+        top_denominator_polynomial,
     )
 
 

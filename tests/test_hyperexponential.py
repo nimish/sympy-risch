@@ -13,6 +13,7 @@ from sympy_risch import (
     PrimitiveRDEObstruction,
     PrimitiveRischDifferentialEquationResult,
     RationalRDEObstruction,
+    integrate_elementary,
     reduce_hyperexponential_laurent,
     reduce_hyperexponential_monomial,
     solve_bounded_rational_rde_matrix,
@@ -585,14 +586,37 @@ def test_dependent_primitive_hyperexponential_is_rejected() -> None:
         )
 
 
-def test_primitive_coefficient_pole_remains_explicit_after_classification() -> None:
+def test_primitive_coefficient_pole_produces_a_certified_obstruction() -> None:
     tower = hyperexponential_over_log_tower(1/(t - 1))
+    field = tower.field()
 
-    with pytest.raises(NotImplementedError, match="coefficient.*poles"):
-        reduce_hyperexponential_laurent(
-            tower.field().from_sympy(u),
-            tower.derivation(),
-        )
+    result = reduce_hyperexponential_laurent(
+        field.from_sympy(u),
+        tower.derivation(),
+    )
+
+    assert result.has_obstruction
+    assert result.exact_part == field.zero
+    assert result.remainder == field.from_sympy(u)
+    certificate = result.obstructed_steps[0].rde_result.certificate
+    assert isinstance(certificate, PrimitiveRischDifferentialEquationResult)
+    assert certificate.obstruction is PrimitiveRDEObstruction.SPDE_DEGREE
+    assert certificate.degree_bound == 1
+
+
+def test_primitive_coefficient_pole_integrates_end_to_end() -> None:
+    tower = hyperexponential_over_log_tower(1/(t - 1))
+    field = tower.field()
+    integrand = field.from_sympy((1 + x/(t - 1))*u)
+
+    result = integrate_elementary(
+        integrand,
+        tower.derivation(),
+    )
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.antiderivative == x*u
 
 
 def test_primitive_independence_requires_lower_constant_field_evidence() -> None:
