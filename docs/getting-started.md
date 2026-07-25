@@ -28,6 +28,7 @@ from sympy_risch import (
     primitive_logarithmic_derivative_signature,
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
+    solve_radical_logarithmic_derivative,
     trager_algebraic_residue_polynomial,
 )
 
@@ -247,6 +248,27 @@ This works through recursively primitive lower towers. Coefficients with poles
 in the current primitive generator remain an explicit `NotImplementedError`
 boundary because they require weak normalization before denominator reduction.
 
+For example, adjoining `u = exp(x)` above `QQ(x)(t)`, where `t = log(x)`,
+exercises the lower-field cancellation branch:
+
+```python
+exp_x_over_log = log_x.extend(
+    MonomialExtension(
+        Poly(u, u, domain=log_x.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+field = exp_x_over_log.field()
+result = integrate_elementary(
+    field.from_sympy((t + 1/x)*u),
+    exp_x_over_log.derivation(),
+)
+
+assert result.is_elementary
+assert result.reconstructs
+assert result.antiderivative == t*u
+```
+
 ## Test a parametric logarithmic derivative
 
 Bronstein's parametric logarithmic-derivative problem asks whether, for a
@@ -346,6 +368,28 @@ satisfying `n*f = D(v)/v`, whether `derivation` is on `QQ(x)` or at the top of
 a recursively primitive tower. Its immutable certificate retains the rational
 result or complete primitive signature from the current level.
 
+For an additional primitive level with `Du = 1/(x*t)`, the same entry point
+combines residue denominators from every level:
+
+```python
+log_log_x = log_x.extend(
+    MonomialExtension(
+        Poly(1/(x*t), u, domain=log_x.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+radical = solve_radical_logarithmic_derivative(
+    1/(2*x) + 1/(3*x*t) + 1/(5*x*t*u),
+    log_log_x.derivation(),
+)
+
+assert radical.minimal_power == 30
+assert radical.argument == log_log_x.field().from_sympy(
+    x**15*t**10*u**6
+)
+assert radical.reconstructs
+```
+
 The public parametric solver consumes these coordinates recursively when its
 lower field is a primitive tower over `QQ(x)`. For example, the repeated pole
 in `eta` is not itself logarithmic, but it cancels at the uniquely determined
@@ -368,9 +412,9 @@ assert decision.argument == log_x.field().from_sympy(t)
 assert decision.reconstructs
 ```
 
-This decision is complete for one primitive level carrying a
-`PRESERVED` constant-field certificate. Deeper primitive lower towers remain
-unsupported.
+This decision is complete over recursively primitive towers when every
+primitive level carries a `PRESERVED` constant-field certificate. Other mixed
+transcendental lower towers still need the general structure-theorem solver.
 
 ## Compute finite residues of an algebraic differential
 
@@ -458,7 +502,7 @@ principal groups are:
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
-| Primitive logarithmic analysis | `primitive_logarithmic_derivative_signature` |
+| Primitive logarithmic analysis | `solve_radical_logarithmic_derivative`, `primitive_logarithmic_derivative_signature` |
 | Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative`; `solve_parametric_logarithmic_derivative_heuristic` exposes the Section 7.3 fast path |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |

@@ -23,9 +23,8 @@ It operates on a manually constructed differential tower and supports:
 - the standard rational base `QQ(x)` with `Dx = 1`;
 - recursively stacked primitive extensions;
 - one hyperexponential or hypertangent level directly over `QQ(x)`;
-- a hyperexponential level over a primitive lower field when its logarithmic
-  derivative is polynomial of positive degree in the top primitive
-  generator; and
+- a hyperexponential level over a recursively primitive lower tower when its
+  logarithmic derivative is polynomial in the top primitive generator; and
 - a nonlinear polynomial monomial over supported lower levels when absence of
   nonconstant special polynomials has been certified.
 
@@ -46,15 +45,17 @@ The lower-level library additionally implements:
 - generalized monomial Hermite and residue reduction;
 - primitive, hyperexponential, hypertangent, and nonlinear-no-special
   reducers;
-- radical logarithmic-derivative signatures over one primitive level above
-  `QQ(x)`, including complete repeated principal parts;
+- recursive radical logarithmic-derivative decisions over primitive towers,
+  including complete principal parts and exact minimal-power witnesses;
 - rational and polynomial Risch differential equations;
 - normal-denominator, SPDE, and polynomial RDE reduction over a primitive
-  field for positive-degree polynomial coefficients;
+  field for polynomial coefficients, including Bronstein's lower-field
+  cancellation recurrence;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
 - rational coupled RDEs for the real hypertangent case;
-- dependency tests for hyperexponential and hypertangent generators;
+- recursive dependency tests for hyperexponential generators over primitive
+  towers and rational dependency tests for hypertangent generators;
 - an exact result and verification contract for Bronstein's parametric
   logarithmic-derivative equation, distinguishing a proved negative result
   from an inconclusive heuristic and an unsupported field;
@@ -62,9 +63,9 @@ The lower-level library additionally implements:
   over `QQ(x)`, with exact radical-logarithmic verification;
 - a complete rational fallback that solves the heuristic's remaining constant
   and non-logarithmic residue constraints over `QQ`;
-- a complete parametric logarithmic-derivative decision over one primitive
-  level above `QQ(x)`, with local signature constraints and an independent
-  global linear-system oracle;
+- a complete parametric logarithmic-derivative decision over recursively
+  primitive towers, with local signature constraints and independent
+  one-level and nested global linear-system oracles;
 - validated finite algebraic extensions and implicit differentiation;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
   integral bases;
@@ -77,6 +78,11 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+bc763f1  Reconcile recursive primitive checkpoint
+889e4f6  Complete primitive RDE cancellation
+c3225a2  Generalize primitive parametric decisions recursively
+a9e62ff  Generalize primitive logarithmic signatures recursively
+71fe12e  Compute algebraic finite residues
 6e8e693  Complete primitive parametric logarithmic derivatives
 5556d95  Add primitive logarithmic signatures
 f47439e  Add independent parametric logarithmic oracle
@@ -131,6 +137,81 @@ Back-substitution and real branch presentation      planned
 The middle layer is deliberately useful without the two presentation layers.
 Manually constructed towers allow the mathematical algorithms to be tested
 without conflating them with generator discovery.
+
+### Implemented recursive kernel
+
+The current implementation is organized by mathematical responsibility:
+
+| Module | Responsibility |
+| --- | --- |
+| `tower.py` | Immutable extension metadata and level-bound derivations |
+| `exact.py` | Level-independent exact-derivative dispatch |
+| `monomial.py` | Primitive signatures, radical logarithmic decisions, and family reducers |
+| `dependency.py` | Parametric logarithmic decisions and generator-dependency certificates |
+| `rde.py` | Polynomial, rational, and primitive Risch differential equations |
+| `elementary.py` | Recursive elementary integration and obstruction propagation |
+
+These modules form a descending recursion, not a mutable solver context. Every
+recursive entry point receives a `Derivation` identifying the current tower
+level, constructs an immutable result, and calls the same decision at
+`derivation.lower()` when it reaches a lower-field coordinate. The currently
+complete recursive path is
+
+```text
+QQ(x) <- primitive <- primitive <- ...
+```
+
+with explicit `Const(K(t)) = Const(K)` evidence at every primitive level.
+Unsupported intervening families do not silently become negative decisions.
+
+The important consumer relationships are:
+
+```text
+radical logarithmic decision ----> hyperexponential dependency
+             |                                  |
+             v                                  v
+primitive RDE cancellation <-------- hyperexponential reduction
+             |
+             v
+     lower-field RDE or exact-derivative decision
+```
+
+In particular, dependency analysis rejects rational or algebraic proposed
+hyperexponential generators before integration. A genuine generator then
+reaches the family reducer, whose coefficient equations use the same
+recursive RDE and exact-derivative contracts.
+
+### Result and certificate contracts
+
+Public decisions keep construction, proof data, and unsupported scope
+separate:
+
+| Decision | Constructive witness | Negative or unsupported evidence |
+| --- | --- | --- |
+| Radical logarithmic derivative | least `n > 0` and `v` with `n*f = D(v)/v` | canonical rational result or nested primitive signature |
+| Parametric logarithmic derivative | normalized `(n, m, v)` with `n > 0` | explicit `PROVED_NO_SOLUTION`, `INCONCLUSIVE`, or `UNSUPPORTED` outcome |
+| Risch differential equation | `y` with `D(y) + a*y = b` | denominator, SPDE, polynomial, lower-field, or exact-derivative obstruction |
+| Elementary integration | exact part and logarithmic terms | terminal canonical remainder and obstruction kind |
+
+`RadicalLogarithmicDerivativeResult` contains either the rational base
+certificate or a `PrimitiveLogarithmicDerivativeSignature`. A primitive
+signature stores its lower-field result, so the certificate tree has the same
+shape as the tower. On success, `minimal_power` is minimal, not merely a
+clearing multiple, and `reconstructs` verifies the identity in the native
+field.
+
+`ParametricLogarithmicDerivativeResult` uses
+`PrimitiveParametricLogarithmicDerivativeCertificate` at recursive primitive
+levels. That certificate records the top-level linear constraints, a nested
+lower parametric result when the ratio is free, and the final radical
+signature for the chosen residual. Only `PROVED_NO_SOLUTION` is safe for a
+caller to consume as a mathematical negative answer.
+
+Primitive RDE results similarly retain the denominator bound, SPDE or
+polynomial result, every recursively solved leading-coefficient equation, and
+the logarithmic/exact decision used by the cancellation transform. Result
+objects validate constructive witnesses on creation or expose a
+`reconstructs` property; tests also differentiate them independently.
 
 ## Differential towers
 
@@ -298,25 +379,31 @@ cleared by their denominator least common multiple, a rational logarithmic
 argument is constructed, and the final witness is verified exactly.
 
 Consequently the public solver is total over `QQ(x)`: it returns either a
-verified solution or a proved negative result. Recursive primitive lower
-fields require additional structure.
+verified solution or a proved negative result.
 
-The first primitive structure fallback is implemented over
-`QQ(x)(t)`, with `Dt` in `QQ(x)`. It computes signatures for `f` and `eta`
-and compares:
+At each primitive level `K(t)`, the recursive structure fallback computes
+signatures for `f` and `eta` and compares:
 
 - every positive-degree coefficient in `t`;
 - every repeated principal numerator at each irreducible `p`;
 - every simple numerator modulo the rational-constant direction `QQ*Dp`; and
-- the remaining constant-in-`t` components through the complete rational
-  solver.
+- the remaining constant-in-`t` components through the same complete solver
+  over `K`.
 
 The top constraints either determine `m/n`, prove inconsistency, or impose no
-condition. In the last case, the lower rational problem chooses the ratio.
+condition. In the last case, the lower-field problem chooses the ratio
+recursively.
 The selected integer residual is passed back through the primitive signature
 solver, which constructs the logarithmic argument and verifies the complete
-identity. Thus the public solver is also total over one primitive level with
-certified preserved constants. Deeper primitive towers remain `UNSUPPORTED`.
+identity. Thus the public solver is total over recursively primitive towers
+whose levels all carry certified preserved constants. General mixed
+transcendental towers still require the Chapter 9 structure-theorem machinery.
+
+The word *total* here is deliberately scoped. It means that every valid input
+in the stated recursively primitive domain receives either a verified witness
+or a proved obstruction. It does not mean that an intervening
+hyperexponential, hypertangent, or algebraic level is coerced into this
+algorithm; the parametric result reports `UNSUPPORTED` for such a tower.
 
 ## Recursive elementary integration
 
@@ -381,22 +468,37 @@ equations of the form
 Dy + a*y = b.
 ```
 
-The end-to-end implementation solves these equations over the direct rational
-lower field `QQ(x)`. It also handles a primitive lower field when `eta` is
-polynomial of positive degree in the top primitive generator. In that case:
+The end-to-end implementation solves these equations over `QQ(x)` and over
+recursively primitive lower towers when `eta` is polynomial in the current
+primitive generator. Recursive radical-logarithmic and exact-derivative
+decisions first classify the proposed hyperexponential generator.
 
-1. positive degree certifies that no positive multiple of `eta` is a
-   logarithmic derivative in the primitive field;
-2. normal-denominator reduction bounds rational solutions;
-3. Rothstein SPDE reduces the numerator equation; and
-4. a leading recurrence solves or obstructs the polynomial RDE.
+For a positive-degree RDE coefficient, normal-denominator reduction, a degree
+bound, and Rothstein SPDE lead to the no-cancellation polynomial recurrence.
+For a coefficient in the next lower field, Bronstein's Section 6.6
+cancellation algorithm applies:
+
+1. if `a = D(z)/z`, transform `D(y) + a*y = b` into
+   `D(z*y) = z*b` and invoke the exact-derivative solver;
+2. otherwise solve `D(s) + a*s = lc(b)` recursively for each leading
+   coefficient and subtract `s*t**degree(b)`;
+3. stop with a certified lower-field obstruction when a coefficient equation
+   has no solution.
+
+The transformation in step 1 is taken only for an ordinary logarithmic
+derivative (`minimal_power == 1`). A merely radical relation
+`n*a = D(z)/z` does not justify replacing `D(y) + a*y` by an exact derivative
+inside the current field. In step 2, each returned lower-field RDE is retained
+in `lower_field_results`; this is both an audit trail and the recursive
+certificate for the constructed polynomial solution.
 
 The production recurrence is cross-checked with an independent bounded global
-matrix ansatz over one primitive level above `QQ(x)`.
-
-The cancellation case where the RDE coefficient lies in the lower field,
-coefficients with top-generator poles, and other general lower differential
-fields remain roadmap items.
+matrix ansatz, including generated success and nonsolution families. RDE
+coefficients with poles in the current primitive generator still require weak
+normalization and remain unsupported. This is the precise next boundary: the
+existing denominator theorem assumes that the RDE coefficient is polynomial
+in the current primitive generator, while weak normalization must first
+remove the normal finite-pole part of a general rational coefficient.
 
 ### Hypertangent levels
 
@@ -517,12 +619,14 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest completed checkpoint is the total parametric
-logarithmic-derivative decision over one primitive level above `QQ(x)`,
-followed by Trager's finite-residue polynomial for supported algebraic
-models. The current algebraic priority is branch-place handling before the
-residue-field and divisor stages. Remaining transcendental generalizations
-continue as a parallel track.
+The latest completed major checkpoint makes radical and parametric
+logarithmic-derivative decisions recursive over primitive towers and consumes
+them in primitive RDE cancellation and hyperexponential dependency
+validation. Trager's finite-residue polynomial is also implemented for
+supported algebraic models. The current algebraic priority is branch-place
+handling before the residue-field and divisor stages; the next transcendental
+priority is weak normalization for primitive RDE coefficients with
+top-generator poles.
 
 ### Completed foundation
 
@@ -536,16 +640,17 @@ continue as a parallel track.
 - [x] Generalized residue criterion and constructive logarithmic extraction.
 - [x] Nonlinear no-special reduction.
 - [x] Rational exact and logarithmic derivative decisions.
-- [x] Radical logarithmic-derivative signatures over one primitive level
-  above `QQ(x)`.
+- [x] Recursive radical logarithmic-derivative decisions over primitive
+  towers.
 - [x] Parametric logarithmic-derivative result and exact witness contract.
 - [x] Bronstein Section 7.3 parametric logarithmic-derivative fast path over
   `QQ(x)`.
 - [x] Complete rational parametric logarithmic-derivative fallback.
-- [x] Complete parametric logarithmic-derivative fallback over one primitive
-  level above `QQ(x)`.
+- [x] Complete recursive parametric logarithmic-derivative fallback over
+  primitive towers.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
+- [x] Primitive-field RDE cancellation for lower-field coefficients.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
 - [x] Recursive elementary dispatcher.
 - [x] Recursively stacked primitive integration.
@@ -554,10 +659,6 @@ continue as a parallel track.
 
 ### Next transcendental steps
 
-- [ ] Generalize the primitive parametric logarithmic-derivative fallback to
-  recursive primitive towers.
-- [ ] Implement primitive RDE cancellation when the coefficient belongs to
-  the next lower field.
 - [ ] Add weak normalization for primitive RDE coefficients with
   top-generator poles.
 - [ ] Generalize exact-derivative and RDE solving over further supported lower

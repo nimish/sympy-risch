@@ -109,21 +109,23 @@ These may be added later, but are not part of "full Risch":
 The current implementation already has a strong exact-arithmetic kernel:
 
 - `docs/design.md` records end-to-end rational, recursive primitive, direct
-  hyperexponential/hypertangent, one mixed hyperexponential branch,
+  hyperexponential/hypertangent, recursive primitive-lower
+  hyperexponential branches,
   generalized monomial reduction, RDE components, and algebraic Hermite
   reduction.
 - `src/sympy_risch/tower.py` classifies monomial families, records
   constant-field and special-polynomial evidence, represents finite
   algebraic extensions with SymPy's `FiniteExtension`, and differentiates
   algebraic generators implicitly.
-- `src/sympy_risch/dependency.py` provides a complete parametric
-  logarithmic-derivative decision over `QQ(x)` and over one primitive level
-  above it. The latter compares full primitive signatures and recursively
-  invokes the rational decision when the top constraints leave the ratio
-  free.
-- `src/sympy_risch/monomial.py` provides radical logarithmic signatures over
-  one primitive level, recursive primitive reduction, direct transcendental
-  family reducers, and the supported mixed hyperexponential branch.
+- `src/sympy_risch/dependency.py` provides complete parametric
+  logarithmic-derivative decisions over `QQ(x)` and recursively primitive
+  towers, plus recursive hyperexponential dependency classification.
+- `src/sympy_risch/monomial.py` provides recursive radical logarithmic
+  decisions, recursive primitive reduction, direct transcendental family
+  reducers, and the supported primitive-lower hyperexponential branches.
+- `src/sympy_risch/rde.py` implements rational and polynomial RDEs,
+  positive-degree primitive RDEs, and Bronstein's recursive primitive
+  cancellation case for lower-field coefficients.
 - `src/sympy_risch/exact.py` dispatches exact derivatives at rational and
   primitive levels.
 - `src/sympy_risch/elementary.py` recursively integrates the supported
@@ -131,8 +133,10 @@ The current implementation already has a strong exact-arithmetic kernel:
   incomplete special-polynomial branches.
 - `src/sympy_risch/algebraic.py` validates algebraic extensions and implements
   algebraic Hermite reduction over `QQ(x)` with explicit, simple-radical, or
-  lazily refined integral bases. It does not yet compute places, algebraic
-  residues, logarithmic reconstruction, or exactness on an algebraic curve.
+  lazily refined integral bases, plus Trager's finite-residue polynomial for
+  supported unbranched poles. It does not yet compute general branch places,
+  residue fields, logarithmic reconstruction, or exactness on an algebraic
+  curve.
 
 The implementation checkpoints since this roadmap was created are:
 
@@ -149,6 +153,7 @@ f47439e  Add independent parametric logarithmic oracle
 a9e62ff  Generalize primitive logarithmic signatures recursively
 c3225a2  Generalize primitive parametric decisions recursively
 889e4f6  Complete primitive RDE cancellation
+bc763f1  Reconcile recursive primitive checkpoint
 ```
 
 At the last reconciliation, the full test suite is:
@@ -181,8 +186,8 @@ The existing design conventions to preserve are:
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Partial: result outcomes and certificate conventions exist; a machine-readable accepted-input matrix is still missing. |
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist; general constant capabilities and canonical mixed algebraic towers remain. |
-| 2. Dependency and structure decisions | Partial: parametric logarithmic derivatives are total over `QQ(x)` and one primitive level; recursive Chapter 9 structure decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial: polynomial/rational RDEs, a primitive positive-degree branch, and the rational hypertangent coupled system exist. |
+| 2. Dependency and structure decisions | Partial: radical and parametric logarithmic derivatives are total over recursively primitive towers; general mixed Chapter 9 structure decisions remain. |
+| 3. Scalar, parametric, and coupled RDEs | Partial: polynomial/rational RDEs, positive-degree and cancellation branches over primitive towers, and the rational hypertangent coupled system exist. |
 | 4. Transcendental integration | Partial: several complete explicit tower shapes exist, but arbitrary family orderings and special branches do not. |
 | 5. Algebraic-function-field kernel | Partial: finite extensions, integral-basis Hermite reduction, and certified finite-residue resultants at unbranched poles exist; branch, residue-field, and divisor machinery remain. |
 | 6. Pure algebraic integration | Not started beyond its Hermite-reduction prerequisite. |
@@ -720,8 +725,9 @@ The dependency checkpoints completed since the roadmap was written are:
 3. [x] Add the complete rational structure fallback.
 4. [x] Make the Example 7.3.2 regression constructive and add generated
    rational-dependency families across the fallback branch.
-5. [x] Compute radical logarithmic signatures over one primitive level.
-6. [x] Consume those signatures in a complete one-level primitive parametric
+5. [x] Compute the initial radical logarithmic signatures over one primitive
+   level.
+6. [x] Consume those signatures in the initial one-level primitive parametric
    fallback, with generated and independent-oracle tests.
 7. [x] Generalize radical logarithmic decisions through recursive primitive
    towers.
