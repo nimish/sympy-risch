@@ -15,6 +15,34 @@ radical-logarithmic-derivative, Risch differential-equation, and recursive
 elementary-integration solvers may descend through any finite ordering of
 these three families.
 
+## Admission is not integrability
+
+`assess_elementary_admission` exposes this support boundary before a caller
+asks for an integral. It returns an immutable `TowerAdmission` whose
+`TowerAdmissionOutcome` is one of the following:
+
+| Outcome | Meaning |
+| --- | --- |
+| `TowerAdmissionOutcome.ACCEPTED` | The explicit tower satisfies the current base, constant-field, and P/E/T-family contract, including an exact hyperbolic Möbius normalization only at its active top level. |
+| `TowerAdmissionOutcome.UNSUPPORTED` | The tower is outside that contract. Its failed requirement is recorded as a `TowerAdmissionReason` when one applies. |
+
+Admission answers only whether the tower is a supported input shape. An
+accepted tower can still have either an elementary antiderivative or a proved
+Liouville/Risch obstruction for a particular integrand. Conversely, an
+unsupported admission is not a non-elementarity result and must never be
+reinterpreted as one. Call `integrate_elementary` only to obtain the
+mathematical integration result; use the admission result to choose supported
+control flow without treating `NotImplementedError` as a proof.
+
+The exact law `Dt = eta*(1 - t**2)` is admitted only when it is the active
+top level, because the dispatcher normalizes that level before its recursive
+descent; it cannot yet normalize a hyperbolic level below another extension.
+By contrast, the broader dispatcher has an
+experimental nonlinear branch when the caller supplies
+`SpecialPolynomialStatus.ABSENT`; it is not part of this total public
+admission contract. An admission result must reject arbitrary nonlinear
+monomials rather than treat that metadata as a completeness proof.
+
 ## Why tangent levels compose
 
 For a hypertangent level, the Cayley coordinate

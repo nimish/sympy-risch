@@ -191,7 +191,7 @@ The existing design conventions to preserve are:
 
 | Milestone | Current status |
 | --- | --- |
-| 0. Completeness contract and coverage ledger | Partial: result outcomes and certificate conventions exist; a machine-readable accepted-input matrix is still missing. |
+| 0. Completeness contract and coverage ledger | Complete for the declared `QQ(x)` P/E/T contract: the public admission result, declared-cell matrix, and CI gate distinguish unsupported towers from theorem-backed obstructions. |
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist; general constant capabilities and canonical mixed algebraic towers remain. |
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation and Gaussian fallbacks are complete over `QQ(x)`; general effective constants, fundamental signatures, and non-generator special factors remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
@@ -201,7 +201,7 @@ The existing design conventions to preserve are:
 | 7. Mixed algebraic/transcendental towers | Not started. |
 | 8. Automatic expression towers | Not started. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
-| 10. Completeness evidence | Partial testing conventions and independent oracles exist; the declared-cell matrix is missing. |
+| 10. Completeness evidence | Partial: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; algebraic, mixed, and automatic-tower coverage remains. |
 | 11. SymPy upstreaming | Not started. |
 
 ## Reference map
@@ -272,8 +272,17 @@ completion waits for both tracks.
   - parent-field families;
   - decision problems; and
   - result outcomes.
-- Define a single unsupported-input exception/result carrying the exact failed
-  admission requirement. Do not use it for a mathematical no-solution result.
+- Publish `assess_elementary_admission`, `TowerAdmission`,
+  `TowerAdmissionOutcome`, and `TowerAdmissionReason` for the declared
+  elementary-dispatch boundary. The result must carry the exact failed
+  admission requirement, where applicable, and must not be a mathematical
+  no-solution result.
+- Record the current certified P/E/T contract, including the exact hyperbolic
+  Möbius normalization exception at the active top level. Keep the
+  experimental nonlinear no-special-polynomial branch outside that total
+  public contract.
+  The user-facing boundary is documented in the
+  [mixed-tower admission contract](../docs/mixed-transcendental-towers.md).
 - Define certificate protocols for:
   - exact derivative;
   - logarithmic derivative and radical logarithmic derivative;
@@ -287,8 +296,11 @@ completion waits for both tracks.
 ### Exit gate
 
 It is possible to answer mechanically whether a tower belongs to the promised
-input class, and every negative result names the theorem and executable
-hypotheses that justify it.
+input class, every declared accepted cell reaches reconstruction or a
+structured obstruction rather than `NotImplementedError`, and every negative
+result names the theorem and executable hypotheses that justify it. Do not
+mark this milestone complete until the public admission result, cell matrix,
+documentation, and CI gate are all present.
 
 ## Milestone 1: Generalize the effective field and tower kernel
 
@@ -689,7 +701,8 @@ The test suite must cover the cross-product of:
 - algebraic placement;
 - denominator type: normal, special, mixed, and infinity;
 - RDE case: cancellation and every no-cancellation branch;
-- result: constructive, proved obstruction, and rejected admission; and
+- result: constructive, proved obstruction, and rejected admission with a
+  stable `TowerAdmissionReason`; and
 - complex versus real presentation.
 
 ### Required test layers
@@ -714,8 +727,11 @@ possible. Do not use `sympy.integrate` as the sole oracle.
 Add a public test corpus which:
 
 - constructs every supported explicit tower-shape cell;
+- checks each cell with `assess_elementary_admission` before dispatch;
 - runs every decision problem required by the integration dispatcher;
 - asserts that no cell raises `NotImplementedError`;
+- distinguishes `TowerAdmissionOutcome.UNSUPPORTED` from a mathematical
+  non-elementarity result;
 - verifies every positive certificate by exact differentiation;
 - verifies every negative certificate's hypotheses; and
 - exercises automatic construction and back-substitution for every expression
@@ -756,9 +772,11 @@ separate commit after focused and full-suite verification.
 
 ### Shared contract gate
 
-1. [ ] **Plan 002**: make the current `QQ(x)` P/E/T admission boundary and
-   coverage cells executable. This precedes every new public claim and should
-   also put the documented type/test gates in CI.
+1. [x] **Plan 002**: made the current `QQ(x)` P/E/T admission
+   boundary, including the exact hyperbolic Möbius normalization exception at
+   the active top level,
+   and coverage cells executable. The documented type/test gates are now in
+   CI.
 
 ### Parallel first mathematical gates
 
@@ -847,6 +865,8 @@ All conditions must hold:
       complex output.
 - [ ] Every constructive result reconstructs exactly.
 - [ ] Every negative result carries executable Liouville/structure hypotheses.
+- [ ] Every public admission result distinguishes unsupported towers from
+      theorem-backed non-elementarity, with stable reasons for rejected cells.
 - [ ] No accepted-input test reaches `NotImplementedError` or `unknown`.
 - [ ] The coverage matrix contains a test for every declared algorithmic cell.
 - [ ] User and developer documentation distinguish local differential

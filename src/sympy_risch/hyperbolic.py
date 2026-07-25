@@ -49,6 +49,29 @@ def _field_elements_equal(
     return is_field_zero(difference) or cancel(field.to_sympy(difference)) == 0
 
 
+def _hyperbolic_mobius_coefficient(
+    extension: MonomialExtension,
+) -> FieldElement | None:
+    """Return ``eta`` exactly when ``Dt = eta*(1-t**2)``."""
+    derivative = extension.generator_derivative
+    if derivative.degree() != 2:
+        return None
+    parent = extension.parent_field
+    eta = parent.convert(derivative.nth(0))
+    if (
+        is_field_zero(eta)
+        or not is_field_zero(parent.convert(derivative.nth(1)))
+        or not is_field_zero(parent.convert(derivative.nth(2)) + eta)
+    ):
+        return None
+    return eta
+
+
+def is_hyperbolic_mobius_law(extension: MonomialExtension) -> bool:
+    r"""Whether a monomial has the exact law ``Dt=eta*(1-t**2)``."""
+    return _hyperbolic_mobius_coefficient(extension) is not None
+
+
 @dataclass(frozen=True, slots=True)
 class HyperbolicMobiusNormalForm:
     r"""Immutable conjugacy from ``Dt=eta*(1-t**2)`` to ``Du=2*eta*u``.
@@ -149,18 +172,8 @@ def _validate_hyperbolic_source(
     if not isinstance(extension, MonomialExtension):
         raise ValueError(_HYPERBOLIC_LAW_MESSAGE)
 
-    derivative = extension.generator_derivative
-    parent = extension.parent_field
-    if derivative.degree() != 2:
-        raise ValueError(_HYPERBOLIC_LAW_MESSAGE)
-    eta = parent.convert(derivative.nth(0))
-    linear_coefficient = parent.convert(derivative.nth(1))
-    quadratic_coefficient = parent.convert(derivative.nth(2))
-    if (
-        is_field_zero(eta)
-        or not is_field_zero(linear_coefficient)
-        or not is_field_zero(quadratic_coefficient + eta)
-    ):
+    eta = _hyperbolic_mobius_coefficient(extension)
+    if eta is None:
         raise ValueError(_HYPERBOLIC_LAW_MESSAGE)
     return extension, eta
 

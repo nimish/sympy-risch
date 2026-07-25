@@ -31,6 +31,11 @@ Hypothesis supply many values dynamically. Ty checks `src` and therefore
 verifies the public implementation and all recursive solver paths without
 treating the untyped test harness as part of the library API.
 
+The `Quality` workflow runs these three static gates and the parallel pytest
+suite on every push and pull request. It first performs the same locked
+`uv sync --locked --all-groups` install, so CI and a checkpoint commit use one
+declared dependency set rather than separate package managers.
+
 Run every test before a checkpoint commit:
 
 ```console
@@ -48,6 +53,14 @@ uv run --no-sync pytest -q
 ```
 
 Focused files mirror the implementation modules. For example,
+`tests/test_admission.py` declares the certified elementary-dispatch cells.
+Every accepted primitive/hyperexponential/hypertangent cell, including the
+exact hyperbolic Möbius normalization exception at the active top level, must
+either reconstruct or return a structured mathematical obstruction; an unexpected
+`NotImplementedError` fails the cell. Rejected towers instead assert their
+stable `TowerAdmissionReason` and are never used as evidence of
+non-elementarity. General nonlinear no-special experiments remain outside
+that matrix.
 `tests/test_nested_primitive.py` exercises recursive primitive descent,
 `tests/test_primitive_rde.py` cross-checks the primitive-field recurrence
 against an independent bounded matrix oracle. Its cancellation tests cover
@@ -165,7 +178,12 @@ For each reduction or decision procedure, cover the applicable layers below.
    A non-elementarity certificate must require executable evidence for every
    hypothesis it uses. Include a concrete counterexample showing what becomes
    elementary when a hypothesis is removed.
-8. **Required arithmetic backend**
+8. **Admission contract**
+   Test public support classification separately from integration. Every
+   accepted cell must reach either exact reconstruction or a structured
+   obstruction, while every unsupported cell must have a stable
+   `TowerAdmissionReason` and must not be described as non-elementary.
+9. **Required arithmetic backend**
    Run the complete suite with `python-flint`. A backend guard test must fail
    if SymPy falls back to its pure-Python ground types; backend parity is not a
    project requirement.
@@ -183,6 +201,9 @@ For each reduction or decision procedure, cover the applicable layers below.
   counterexample and a generated family containing it.
 - Tests for partial algorithms must distinguish “proved impossible,”
   “successfully reduced,” and “not yet decided.”
+- Do not use an unsupported `TowerAdmission` as an integration oracle. The
+  admission matrix guards the dispatcher contract; it does not decide whether
+  an integral in an unadmitted tower is elementary.
 
 ## Checkpoint gate
 

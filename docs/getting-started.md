@@ -25,6 +25,10 @@ from sympy_risch import (
     IntegrationObstructionKind,
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
+    TowerAdmission,
+    TowerAdmissionOutcome,
+    TowerAdmissionReason,
+    assess_elementary_admission,
     certify_primitive_extension,
     integrate_elementary,
     primitive_logarithmic_derivative_signature,
@@ -66,6 +70,32 @@ assert result.antiderivative == 1 / (x - 1) + 3 * log(x)
 
 The rational reducer has separated the exact rational derivative from the
 simple-pole logarithmic part.
+
+## Check the admission boundary
+
+Before relying on the elementary dispatcher, ask whether the explicit tower
+belongs to its certified P/E/T contract:
+
+```python
+admission = assess_elementary_admission(base.derivation())
+
+assert isinstance(admission, TowerAdmission)
+assert admission.outcome is TowerAdmissionOutcome.ACCEPTED
+```
+
+`TowerAdmissionOutcome.ACCEPTED` says that the tower is supported, not that a
+particular integrand has an elementary antiderivative. If the outcome is
+`TowerAdmissionOutcome.UNSUPPORTED`, the failed assumption is represented by
+`TowerAdmissionReason`; that result also says nothing about integrability.
+The admitted family is primitive, hyperexponential, or hypertangent levels
+with preserved constants, together with an exact hyperbolic Möbius
+normalization at the active top level described below. General nonlinear
+monomials, including a dispatcher experiment with
+`SpecialPolynomialStatus.ABSENT`, are deliberately outside this total public
+contract.
+
+See the [mixed-tower admission contract](mixed-transcendental-towers.md) for
+the precise boundary and its relation to integration results.
 
 ## Add primitive levels
 
@@ -155,8 +185,11 @@ assert result.obstruction.kinds == (IntegrationObstructionKind.NONCONSTANT_RESID
 ```
 
 This is different from an unsupported input. A structured obstruction records
-a completed negative decision for the supported case. Unsupported tower
-shapes raise `NotImplementedError` instead.
+a completed negative decision for the supported case. Query
+`assess_elementary_admission` first when the caller needs that distinction:
+an unsupported `TowerAdmission` is a support-boundary result, not a negative
+mathematical conclusion. Direct calls outside the advertised boundary can
+still raise `NotImplementedError` from a lower-level implementation gap.
 
 ## Hyperexponential and hypertangent levels
 
@@ -771,6 +804,7 @@ boundary, not a mathematical claim about the integral.
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
 | Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)`, in any finite order | End-to-end |
+| Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
 | Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision in the explicit certified P/E/T contract |
 | Coupled RDE in the explicit certified P/E/T contract | Complete decision |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
@@ -799,6 +833,7 @@ principal groups are:
 | Rational reduction and integration | `hermite_reduce_rational`, `integrate_rational`, `integrate_rational_real` |
 | Rational logarithmic analysis | `lazard_rioboo_trager`, `rothstein_trager_residue_polynomial`, `solve_rational_logarithmic_derivative` |
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
+| Elementary-dispatch admission | `assess_elementary_admission`, `TowerAdmission`, `TowerAdmissionOutcome`, `TowerAdmissionReason` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
 | Primitive logarithmic analysis | `solve_radical_logarithmic_derivative`, `primitive_logarithmic_derivative_signature` |

@@ -1,5 +1,11 @@
 """Risch integration algorithms built directly on SymPy."""
 
+from .admission import (
+    TowerAdmission,
+    TowerAdmissionOutcome,
+    TowerAdmissionReason,
+    assess_elementary_admission,
+)
 from .algebraic import (
     AlgebraicFraction,
     AlgebraicPlaceResidue,
@@ -282,11 +288,15 @@ __all__ = [
     "SpecialPolynomialAnalysis",
     "SpecialPolynomialCertificate",
     "SpecialPolynomialStatus",
+    "TowerAdmission",
+    "TowerAdmissionOutcome",
+    "TowerAdmissionReason",
     "TragerAlgebraicResidueResult",
     "TranscendentalExactDerivativeCertificate",
     "analyze_hyperexponential_extension",
     "analyze_hypertangent_extension",
     "analyze_special_polynomials",
+    "assess_elementary_admission",
     "bronstein_residue_criterion",
     "build_hyperbolic_mobius_normal_form",
     "certify_primitive_extension",

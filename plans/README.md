@@ -14,7 +14,7 @@ plan with exact file scope, tests, and a separate commit.
 | Plan | Title | Priority | Effort | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
 | 001 | Make the Risch implementation complete over its declared input class | P1 | XL | - | IN PROGRESS |
-| 002 | Make the current P/E/T contract executable | P1 | M | 001 | TODO |
+| 002 | Make the current P/E/T contract executable | P1 | M | 001 | DONE |
 | 003 | Extract certified fundamental signatures | P1 | L | 002 | TODO |
 | 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | TODO |
 
@@ -56,11 +56,13 @@ complete transcendental cases       |
 
 The normalized P/E/T contract is complete over `QQ(x)`, and the algebraic
 track now has maximal orders, places, local expansions, and divisor arithmetic.
-The next checkpoint is not another reducer: it is an executable admission and
-coverage matrix (Plan 002). Plans 003 and 004 then run in parallel: one freezes
-the current structure-theorem logic as explicit fundamental signatures, while
-the other resolves the constant-field and all-place residue boundary required
-for pure algebraic integration.
+Plan 002 makes the narrow certified P/E/T admission
+boundary, including the exact hyperbolic Möbius normalization exception at
+the active top level, executable. Its public result vocabulary, declared-cell
+tests, documentation, and CI gate are now in place. Plans 003 and 004 can run
+in parallel: one freezes the current structure-theorem logic as explicit
+fundamental signatures, while the other resolves the constant-field and
+all-place residue boundary required for pure algebraic integration.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

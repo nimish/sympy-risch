@@ -28,14 +28,15 @@ from sympy.core.expr import Expr
 from sympy.core.function import Lambda
 from sympy.core.symbol import Symbol
 from sympy.functions.elementary.exponential import log
-from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 from sympy.polys.rootoftools import RootSum
 
 from ._typing import FieldElement, is_field_zero
+from .admission import is_standard_rational_base
 from .hyperbolic import (
     HyperbolicMobiusNormalForm,
     build_hyperbolic_mobius_normal_form,
+    is_hyperbolic_mobius_law,
 )
 from .monomial import (
     BronsteinResidueReduction,
@@ -248,13 +249,6 @@ class HyperbolicMobiusElementaryCertificate:
 
     normal_form: HyperbolicMobiusNormalForm
     target_result: ElementaryIntegralResult
-
-
-def _is_standard_rational_level(extension: MonomialExtension) -> bool:
-    """Whether ``extension`` is the standard base ``QQ(x)``, ``Dx = 1``."""
-    return extension.parent_field == QQ and extension.generator_derivative == Poly(
-        1, extension.generator, domain=QQ
-    )
 
 
 def _root_sum_logarithm(logand: Poly, residue_factor: Poly) -> Expr:
@@ -524,20 +518,6 @@ def _nonlinear_no_special_level(
     )
 
 
-def _is_hyperbolic_mobius_law(extension: MonomialExtension) -> bool:
-    r"""Whether ``Dt`` has the narrow normalizable law ``eta*(1-t**2)``."""
-    derivative = extension.generator_derivative
-    if derivative.degree() != 2:
-        return False
-    parent = extension.parent_field
-    eta = parent.convert(derivative.nth(0))
-    return (
-        not is_field_zero(eta)
-        and is_field_zero(parent.convert(derivative.nth(1)))
-        and is_field_zero(parent.convert(derivative.nth(2)) + eta)
-    )
-
-
 def _fresh_hyperbolic_target_generator(derivation: Derivation) -> Symbol:
     """Choose a fresh internal coordinate for a hyperbolic Möbius transform."""
     source_symbols = set(_domain_symbols(derivation.field))
@@ -686,7 +666,7 @@ def integrate_elementary(
     if not isinstance(extension, MonomialExtension):
         raise TypeError("elementary integration requires a differential extension")
 
-    if _is_standard_rational_level(extension):
+    if is_standard_rational_base(extension):
         return _rational_base(element, derivation, extension)
     if derivation.level == 0:
         raise NotImplementedError(
@@ -700,7 +680,7 @@ def integrate_elementary(
         level_data = _hyperexponential_level(element, derivation)
     elif extension.family is MonomialFamily.HYPERTANGENT:
         level_data = _hypertangent_level(element, derivation)
-    elif _is_hyperbolic_mobius_law(extension):
+    elif is_hyperbolic_mobius_law(extension):
         return _integrate_hyperbolic_mobius_level(element, derivation)
     elif (
         extension.generator_derivative.degree() >= 2

@@ -14,6 +14,7 @@
 
 ## Status
 
+- **Status**: DONE
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
@@ -31,20 +32,19 @@ boundary but currently callers infer it from a mixture of tower metadata and
 matrix make the claim reviewable, prevent accidental contract expansion, and
 give later front-end work one authoritative boundary.
 
-## Current state
+## Completed state
 
-- `src/sympy_risch/elementary.py:634-715` dispatches a supplied tower and
-  deliberately raises `NotImplementedError` for algebraic and unsupported
-  monomial shapes.
-- `src/sympy_risch/tower.py` stores immutable `ConstantFieldStatus` and
-  `SpecialPolynomialStatus`, but has no public admission decision object.
-- `docs/mixed-transcendental-towers.md:1-93` states the accepted P/E/T scope.
-- `plans/001-full-risch-roadmap.md:264-290` already defines the required
-  machine-checkable coverage gate.
-- Existing tests use exact native-field reconstruction and theorem-backed
-  obstruction objects; follow `tests/test_mixed_transcendental_integration.py`
-  and `tests/test_elementary.py` rather than using `sympy.integrate` as an
-  oracle.
+- `src/sympy_risch/admission.py` exposes immutable `TowerAdmission` results,
+  stable rejection reasons, and the solver-free
+  `assess_elementary_admission` boundary check.
+- `tests/test_admission.py` covers the rational base, all three top P/E/T
+  families, all nine directed two-level P/E/T arrows, exact and structured
+  obstruction cells, and every current rejection category.
+- The exact hyperbolic Möbius law is admitted only at the active top level,
+  matching the dispatcher’s one-level normalization capability.
+- The quality workflow now runs Ruff lint and formatting, ty, and the
+  parallel pytest suite; user and developer documentation distinguish
+  unsupported admission from non-elementarity.
 
 The design constraints are non-negotiable: keep native SymPy domain elements,
 immutable tower metadata, and the distinction between a proved obstruction and
@@ -91,7 +91,7 @@ an unsupported admission boundary.
 
 ## Steps
 
-### Step 1: Define an immutable admission vocabulary
+### Step 1: Define an immutable admission vocabulary — complete
 
 Create `src/sympy_risch/admission.py` with a small, typed result protocol:
 
@@ -114,7 +114,7 @@ failed solver into an admission result.
 hypertangent, and mixed P/E/T towers plus rejected unknown/enlarged constants,
 algebraic levels, and nonlinear unknown-special levels.
 
-### Step 2: Build the declared-cell matrix
+### Step 2: Build the declared-cell matrix — complete
 
 In `tests/test_admission.py`, declare the current support cells explicitly:
 
@@ -133,7 +133,7 @@ has an independent reconstruction check.
 **Verify**: `uv run --no-sync pytest -q tests/test_admission.py` exits 0 and
 its parametrization names every declared cell.
 
-### Step 3: Align public documentation and CI with the executable contract
+### Step 3: Align public documentation and CI with the executable contract — complete
 
 Add a concise support table to `docs/mixed-transcendental-towers.md` that
 identifies the admission API and says it guards support, not mathematical
@@ -147,7 +147,7 @@ locked install and avoid adding a separate package manager.
 **Verify**: documentation examples remain executable; inspect the workflow to
 confirm every documented required gate has a CI step.
 
-### Step 4: Reconcile the roadmap
+### Step 4: Reconcile the roadmap — complete
 
 Mark Milestone 0 as complete only if the admission table, cell test, and
 unsupported-vs-obstruction protocol are all present. Otherwise record exactly
@@ -168,14 +168,14 @@ checkpoint lands.
 
 ## Done criteria
 
-- [ ] The present P/E/T scope has one programmatic assessor and stable reason
+- [x] The present P/E/T scope has one programmatic assessor and stable reason
   codes.
-- [ ] Every declared accepted cell either reconstructs or returns a
+- [x] Every declared accepted cell either reconstructs or returns a
   theorem-backed obstruction; none raises `NotImplementedError`.
-- [ ] Rejected shapes have an explicit unsupported reason and are never
+- [x] Rejected shapes have an explicit unsupported reason and are never
   presented as non-elementary.
-- [ ] CI runs lint, format, type, and test gates.
-- [ ] Focused and full test suites, Ruff, ty, and `git diff --check` pass.
+- [x] CI runs lint, format, type, and test gates.
+- [x] Focused and full test suites, Ruff, ty, and `git diff --check` pass.
 
 ## STOP conditions
 
