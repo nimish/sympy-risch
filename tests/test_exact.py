@@ -10,15 +10,18 @@ from sympy_risch import (
     AlgebraicExtension,
     ConstantFieldStatus,
     DifferentialTower,
+    HyperexponentialMonomialReduction,
+    HypertangentMonomialReduction,
     MonomialExtension,
     PrimitiveExactDerivativeResult,
     RationalExactDerivativeResult,
+    TranscendentalExactDerivativeCertificate,
     reduce_primitive_monomial,
     solve_exact_derivative,
     solve_primitive_exact_derivative,
 )
 
-x, t, y = symbols("x t y")
+x, t, u, y = symbols("x t u y")
 
 
 def logarithmic_tower(
@@ -37,6 +40,38 @@ def logarithmic_tower(
         MonomialExtension(
             Poly(eta, t, domain=rational.field()),
             constant_field_status,
+        ),
+    )
+
+
+def hyperexponential_tower(eta=1) -> DifferentialTower:
+    """Return ``QQ(x)(t)``, with ``Dx = 1`` and ``Dt = eta*t``."""
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    return rational.extend(
+        MonomialExtension(
+            Poly(eta*t, t, domain=rational.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+
+def hypertangent_tower(eta=1) -> DifferentialTower:
+    """Return ``QQ(x)(t)``, with ``Dt = eta*(1 + t**2)``."""
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    return rational.extend(
+        MonomialExtension(
+            Poly(eta*(1 + t**2), t, domain=rational.field()),
+            ConstantFieldStatus.PRESERVED,
         ),
     )
 
@@ -344,6 +379,245 @@ def test_generic_dispatches_to_the_primitive_solver() -> None:
     assert obstructed.obstruction == field.from_sympy(1/(x*t))
 
 
+@pytest.mark.parametrize(
+    "antiderivative_expression",
+    [
+        t,
+        x*t,
+        1/t,
+        1/(t - 1)**2,
+        (x + 1)*t**2 + 1/x,
+    ],
+)
+def test_generic_dispatch_recovers_hyperexponential_derivatives(
+    antiderivative_expression,
+) -> None:
+    tower = hyperexponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy(antiderivative_expression)
+    integrand = derivation(planted)
+
+    result = solve_exact_derivative(integrand, derivation)
+
+    assert result.has_solution
+    assert result.obstruction == field.zero
+    assert derivation(result.exact_part) == integrand
+    assert isinstance(
+        result.certificate,
+        TranscendentalExactDerivativeCertificate,
+    )
+    assert isinstance(
+        result.certificate.reduction,
+        HyperexponentialMonomialReduction,
+    )
+
+
+@pytest.mark.parametrize(
+    "obstruction_expression",
+    [
+        t/x,
+        t/(t - 1),
+        1/(x*(t - 1)),
+        1/x,
+    ],
+)
+def test_generic_dispatch_preserves_hyperexponential_obstructions(
+    obstruction_expression,
+) -> None:
+    tower = hyperexponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy((x + 1)*t**2 + 1/(t - 2)**2)
+    obstruction = field.from_sympy(obstruction_expression)
+    integrand = derivation(planted) + obstruction
+
+    result = solve_exact_derivative(integrand, derivation)
+
+    assert not result.has_solution
+    assert result.antiderivative is None
+    assert result.obstruction == obstruction
+    assert derivation(result.exact_part) + result.obstruction == integrand
+    assert isinstance(
+        result.certificate,
+        TranscendentalExactDerivativeCertificate,
+    )
+    assert isinstance(
+        result.certificate.reduction,
+        HyperexponentialMonomialReduction,
+    )
+    second = solve_exact_derivative(result.obstruction, derivation)
+    assert second.exact_part == field.zero
+    assert second.obstruction == result.obstruction
+
+
+def test_hyperexponential_exact_dispatch_descends_a_primitive_lower_tower() -> None:
+    logarithmic = logarithmic_tower()
+    tower = logarithmic.extend(
+        MonomialExtension(
+            Poly(u, u, domain=logarithmic.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy((x*t + 1)*u + t**2)
+    integrand = derivation(planted)
+
+    result = solve_exact_derivative(integrand, derivation)
+
+    assert result.has_solution
+    assert derivation(result.exact_part) == integrand
+    assert isinstance(
+        result.certificate,
+        TranscendentalExactDerivativeCertificate,
+    )
+    assert result.certificate.lower_result is not None
+    assert result.certificate.lower_result.has_solution
+
+
+@pytest.mark.parametrize(
+    "antiderivative_expression",
+    [
+        t,
+        x*t,
+        1/(t - 1)**2,
+        t/(1 + t**2),
+        (x + 1)*t/(1 + t**2) + 1/x,
+    ],
+)
+def test_generic_dispatch_recovers_hypertangent_derivatives(
+    antiderivative_expression,
+) -> None:
+    tower = hypertangent_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy(antiderivative_expression)
+    integrand = derivation(planted)
+
+    result = solve_exact_derivative(integrand, derivation)
+
+    assert result.has_solution
+    assert result.obstruction == field.zero
+    assert derivation(result.exact_part) == integrand
+    assert isinstance(
+        result.certificate,
+        TranscendentalExactDerivativeCertificate,
+    )
+    assert isinstance(
+        result.certificate.reduction,
+        HypertangentMonomialReduction,
+    )
+
+
+@pytest.mark.parametrize(
+    "obstruction_expression",
+    [
+        2*t,
+        2*(1 - t**2)/(x*(1 + t**2)),
+        1/(x*t),
+        1/x,
+    ],
+)
+def test_generic_dispatch_preserves_hypertangent_obstructions(
+    obstruction_expression,
+) -> None:
+    tower = hypertangent_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy((x + 1)/(t - 2)**2)
+    obstruction = field.from_sympy(obstruction_expression)
+    integrand = derivation(planted) + obstruction
+
+    result = solve_exact_derivative(integrand, derivation)
+
+    assert not result.has_solution
+    assert result.antiderivative is None
+    assert result.obstruction == obstruction
+    assert derivation(result.exact_part) + result.obstruction == integrand
+    assert isinstance(
+        result.certificate,
+        TranscendentalExactDerivativeCertificate,
+    )
+    assert isinstance(
+        result.certificate.reduction,
+        HypertangentMonomialReduction,
+    )
+    second = solve_exact_derivative(result.obstruction, derivation)
+    assert second.exact_part == field.zero
+    assert second.obstruction == result.obstruction
+
+
+def test_transcendental_dispatch_separates_layered_obstructions() -> None:
+    cases = (
+        (
+            hyperexponential_tower(),
+            1/(x*(t - 1)) + t/(t - 2) + t/x + 1/x,
+        ),
+        (
+            hypertangent_tower(),
+            1/(x*t)
+            + 2*t
+            + 2*(1 - t**2)/(x*(1 + t**2))
+            + 1/x,
+        ),
+    )
+    for tower, obstruction_expression in cases:
+        field = tower.field()
+        derivation = tower.derivation()
+        planted = field.from_sympy(
+            (x + 1)*t**2 + 1/(t - 3)**2
+        )
+        obstruction = field.from_sympy(obstruction_expression)
+        integrand = derivation(planted) + obstruction
+
+        result = solve_exact_derivative(integrand, derivation)
+
+        assert not result.has_solution
+        assert derivation(result.exact_part) == derivation(planted)
+        assert result.obstruction == obstruction
+        assert isinstance(
+            result.certificate,
+            TranscendentalExactDerivativeCertificate,
+        )
+        assert result.certificate.residual_reduction is not None
+
+        second = solve_exact_derivative(result.obstruction, derivation)
+        assert second.exact_part == field.zero
+        assert second.obstruction == result.obstruction
+
+
+@given(
+    coefficient=st.integers(min_value=-4, max_value=4),
+    x_degree=st.integers(min_value=0, max_value=3),
+    t_power=st.integers(min_value=-3, max_value=3),
+    pole_shift=st.integers(min_value=1, max_value=4),
+    pole_power=st.integers(min_value=1, max_value=3),
+)
+@settings(max_examples=25, deadline=None)
+def test_generated_transcendental_derivatives_dispatch_exactly(
+    coefficient,
+    x_degree,
+    t_power,
+    pole_shift,
+    pole_power,
+) -> None:
+    for tower in (hyperexponential_tower(), hypertangent_tower()):
+        field = tower.field()
+        derivation = tower.derivation()
+        planted = field.from_sympy(
+            coefficient*x**x_degree*t**t_power
+            + 1/(t - pole_shift)**pole_power
+        )
+        integrand = derivation(planted)
+
+        result = solve_exact_derivative(integrand, derivation)
+
+        assert result.has_solution
+        assert result.obstruction == field.zero
+        assert derivation(result.exact_part) == integrand
+
+
 def test_generic_constant_level_has_only_the_zero_derivative() -> None:
     derivation = DifferentialTower(QQ).derivation()
 
@@ -359,13 +633,6 @@ def test_generic_constant_level_has_only_the_zero_derivative() -> None:
 
 
 def test_generic_dispatch_rejects_unimplemented_tower_families() -> None:
-    hyperexponential = logarithmic_tower(eta=t)
-    with pytest.raises(NotImplementedError, match="rational and primitive"):
-        solve_exact_derivative(
-            hyperexponential.field().one,
-            hyperexponential.derivation(),
-        )
-
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -389,8 +656,55 @@ def test_generic_dispatch_rejects_unimplemented_tower_families() -> None:
             ConstantFieldStatus.PRESERVED,
         ),
     )
-    with pytest.raises(NotImplementedError, match="rational and primitive"):
+    with pytest.raises(NotImplementedError, match="supports rational"):
         solve_exact_derivative(
             scaled_base.field().one,
             scaled_base.derivation(),
+        )
+
+
+def test_generic_dispatch_rejects_invalid_transcendental_metadata() -> None:
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    unknown = rational.extend(
+        MonomialExtension(
+            Poly(t, t, domain=rational.field()),
+        )
+    )
+    with pytest.raises(ValueError, match="status is unknown"):
+        solve_exact_derivative(
+            unknown.field().one,
+            unknown.derivation(),
+        )
+
+    dependent_exponential = rational.extend(
+        MonomialExtension(
+            Poly(t/x, t, domain=rational.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    with pytest.raises(ValueError, match="algebraically dependent"):
+        solve_exact_derivative(
+            dependent_exponential.field().one,
+            dependent_exponential.derivation(),
+        )
+
+    dependent_tangent = rational.extend(
+        MonomialExtension(
+            Poly(
+                (1 + t**2)/(x**2 + 1),
+                t,
+                domain=rational.field(),
+            ),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    with pytest.raises(ValueError, match="Cayley generator"):
+        solve_exact_derivative(
+            dependent_tangent.field().one,
+            dependent_tangent.derivation(),
         )

@@ -29,6 +29,7 @@ from sympy_risch import (
     primitive_logarithmic_derivative_signature,
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
+    solve_exact_derivative,
     solve_radical_logarithmic_derivative,
     trager_algebraic_residue_polynomial,
 )
@@ -194,6 +195,27 @@ result = integrate_elementary(
 
 assert result.antiderivative == log(t**2 + 1)
 assert result.reconstructs
+```
+
+Exactness is stricter than elementary integrability. The same dispatcher
+recovers derivatives in both families while retaining logarithmic residues or
+unsolved special modes as exactness obstructions:
+
+```python
+planted = exp_x.field().from_sympy(x*t)
+exact = solve_exact_derivative(
+    exp_x.derivation()(planted),
+    exp_x.derivation(),
+)
+logarithmic = solve_exact_derivative(
+    tan_x.field().from_sympy(2*t),
+    tan_x.derivation(),
+)
+
+assert exact.has_solution
+assert exp_x.derivation()(exact.exact_part) == exp_x.derivation()(planted)
+assert not logarithmic.has_solution
+assert logarithmic.obstruction == tan_x.field().from_sympy(2*t)
 ```
 
 The direct hypertangent dispatcher currently requires the standard rational
@@ -510,6 +532,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | One hyperexponential level over `QQ(x)` | End-to-end |
 | Hyperexponential over a recursive primitive tower, with rational logarithmic derivative | End-to-end |
 | One hypertangent level over `QQ(x)` | End-to-end |
+| Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
 | Parametric logarithmic derivative | Complete decision over `QQ(x)` and recursive primitive towers |
 | Primitive radical logarithmic signature | Recursive low-level API over primitive towers |

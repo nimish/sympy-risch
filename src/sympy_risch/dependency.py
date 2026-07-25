@@ -33,7 +33,10 @@ from .tower import (
 )
 
 if TYPE_CHECKING:
-    from .exact import ExactDerivativeResult
+    from .exact import (
+        ExactDerivativeResult,
+        TranscendentalExactDerivativeCertificate,
+    )
     from .monomial import (
         PrimitiveExactDerivativeResult,
         PrimitiveLogarithmicDerivativeSignature,
@@ -574,6 +577,7 @@ class HyperexponentialDependency:
     exact_result: (
         RationalExactDerivativeResult
         | PrimitiveExactDerivativeResult
+        | TranscendentalExactDerivativeCertificate
         | ExactDerivativeResult
         | None
     )

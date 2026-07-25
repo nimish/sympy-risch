@@ -179,6 +179,41 @@ def test_primitive_factory_requires_a_certified_lower_tower() -> None:
     assert "without certified constant preservation" in analysis.detail
 
 
+@pytest.mark.parametrize(
+    ("generator_derivative", "dependent_eta", "independent_eta"),
+    [
+        (t, t, t/(t - 1)),
+        (1 + t**2, 1 + t**2, 2*t),
+    ],
+)
+def test_primitive_factory_uses_supported_transcendental_exact_decisions(
+    generator_derivative,
+    dependent_eta,
+    independent_eta,
+) -> None:
+    base = rational_base()
+    transcendental = base.extend(
+        MonomialExtension(
+            Poly(generator_derivative, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+
+    dependent = certify_primitive_extension(
+        Poly(dependent_eta, z, domain=transcendental.field()),
+        transcendental.derivation(),
+    )
+    independent = certify_primitive_extension(
+        Poly(independent_eta, z, domain=transcendental.field()),
+        transcendental.derivation(),
+    )
+
+    assert dependent.status is ConstantFieldStatus.ENLARGED
+    assert dependent.dependency_witness == transcendental.field().from_sympy(t)
+    assert independent.status is ConstantFieldStatus.PRESERVED
+    assert independent.dependency_witness is None
+
+
 def test_primitive_factory_rejects_invalid_proposals() -> None:
     base = rational_base()
 

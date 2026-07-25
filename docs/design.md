@@ -460,6 +460,24 @@ The obstruction kinds currently distinguish:
 - an unsolvable Risch differential equation; and
 - a nonzero element left in the constant-field base case.
 
+### Exact-derivative dispatch
+
+`solve_exact_derivative` is complete for the supported rational, recursively
+primitive, hyperexponential, and hypertangent tower shapes. At a
+hyperexponential level it reduces every nonzero Laurent mode through
+`Dy + n*eta*y = b`; at a hypertangent level it uses the real coupled RDE for
+each conjugate Cayley pair. The power-zero mode is passed recursively to the
+lower exact-derivative decision.
+
+Constant normal residues and the hypertangent residue at infinity are
+logarithmic derivatives, not in-field derivatives, so they remain exactness
+obstructions even though elementary integration can remove them. A
+`TranscendentalExactDerivativeCertificate` retains the family reduction and
+the lower exact result. If a nonconstant normal residue already proves
+non-exactness, the dispatcher separately reduces the disjoint special and
+lower-field part; this keeps the exact part maximal and the final obstruction
+idempotent without discarding the residue certificate.
+
 ### Recursive primitive levels
 
 For a primitive extension `K(t)` with `Dt = eta`, polynomial reduction needs
@@ -653,13 +671,13 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest architecture checkpoint adds bottom-up certification of primitive
-constant preservation. It uses the lower exact-derivative decision to
-distinguish preserved constants, a dependent generator with a witnessed new
-constant, and unsupported scope. The next transcendental checkpoint extends
-exact-derivative dispatch to hyperexponential and hypertangent levels. The
-current algebraic priority remains branch-place handling before the
-residue-field and divisor stages.
+The latest transcendental checkpoint extends exact-derivative dispatch through
+the supported hyperexponential and hypertangent reducers, including recursive
+lower-field exactness and canonical finite-residue obstructions. Primitive
+constant preservation is now certified bottom-up by the same exact decision.
+The next transcendental checkpoint generalizes RDE solving to further lower
+tower families. The current algebraic priority remains branch-place handling
+before the residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -693,11 +711,11 @@ residue-field and divisor stages.
   branch.
 - [x] Checked primitive-extension construction with exact dependency
   witnesses and conservative unknown outcomes.
+- [x] Hyperexponential and hypertangent exact-derivative dispatch over the
+  supported lower towers.
 
 ### Next transcendental steps
 
-- [ ] Extend exact-derivative dispatch to hyperexponential and hypertangent
-  levels.
 - [ ] Generalize RDE solving over further supported lower tower families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.
 - [ ] Extend automatic dependence and constant-field checks to the remaining

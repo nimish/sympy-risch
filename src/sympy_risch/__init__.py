@@ -39,7 +39,11 @@ from .elementary import (
     RationalElementaryReduction,
     integrate_elementary,
 )
-from .exact import ExactDerivativeResult, solve_exact_derivative
+from .exact import (
+    ExactDerivativeResult,
+    TranscendentalExactDerivativeCertificate,
+    solve_exact_derivative,
+)
 from .lrt import lazard_rioboo_trager
 from .monomial import (
     BronsteinResidueCertificate,
@@ -200,6 +204,7 @@ __all__ = [
     "SimpleRadicalData",
     "SpecialPolynomialStatus",
     "TragerAlgebraicResidueResult",
+    "TranscendentalExactDerivativeCertificate",
     "analyze_hyperexponential_extension",
     "analyze_hypertangent_extension",
     "bronstein_residue_criterion",

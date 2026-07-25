@@ -74,6 +74,11 @@ inconclusive fast path, and an unsupported field.
 dependencies over both `QQ(x)` and primitive lower towers, including exact
 named-exponential presentations and exact reconstruction of the resulting
 constant relation.
+`tests/test_exact.py` checks family dispatch with planted derivatives,
+generated hyperexponential and hypertangent examples, normal and logarithmic
+residues, unsolved special-mode RDEs, recursive lower-field exactness, and
+idempotent obstructions. The family RDE decisions are independently covered
+by the bounded matrix-oracle comparisons in the corresponding reducer tests.
 `tests/test_primitive_logarithmic.py` checks recursive primitive signatures
 through three tower levels. It compares both one-level and nested decisions
 with separate global linear ansatzes. Generated inputs mix inherited
