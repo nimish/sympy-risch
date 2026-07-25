@@ -143,12 +143,18 @@ The implementation checkpoints since this roadmap was created are:
 f47439e  Add independent parametric logarithmic oracle
 5556d95  Add primitive logarithmic signatures
 6e8e693  Complete primitive parametric logarithmic derivatives
+90f2533  Reconcile the full Risch roadmap
+30f280d  Correct the algebraic residue roadmap
+71fe12e  Compute algebraic finite residues
+a9e62ff  Generalize primitive logarithmic signatures recursively
+c3225a2  Generalize primitive parametric decisions recursively
+889e4f6  Complete primitive RDE cancellation
 ```
 
 At the last reconciliation, the full test suite is:
 
 ```text
-903 passed in 148.00s
+934 passed in 164.87s
 ```
 
 using:
@@ -717,21 +723,27 @@ The dependency checkpoints completed since the roadmap was written are:
 5. [x] Compute radical logarithmic signatures over one primitive level.
 6. [x] Consume those signatures in a complete one-level primitive parametric
    fallback, with generated and independent-oracle tests.
+7. [x] Generalize radical logarithmic decisions through recursive primitive
+   towers.
+8. [x] Generalize the complete parametric fallback through recursive primitive
+   towers.
+9. [x] Consume the recursive decisions in primitive RDE cancellation,
+   degree bounds, and hyperexponential dependency validation.
 
 The selected next track is algebraic:
 
-7. [x] Compute Trager's nested-resultant residue polynomial for a square-free
+10. [x] Compute Trager's nested-resultant residue polynomial for a square-free
    Hermite remainder with certified simple, unbranched finite poles.
-8. [x] Cross-check its roots against explicit local residues on generated
+11. [x] Cross-check its roots against explicit local residues on generated
    simple-radical and nonradical examples, and reject uncertified branch
    cases.
-9. [ ] Handle branch places by proving their residues vanish in supported
+12. [ ] Handle branch places by proving their residues vanish in supported
    simple-radical models or by changing the algebraic model.
-10. [ ] Construct the minimal algebraic constant extension and a rational basis
+13. [ ] Construct the minimal algebraic constant extension and a rational basis
    for the residues.
-11. [ ] Build the divisor attached to each residue-basis coefficient and solve
+14. [ ] Build the divisor attached to each residue-basis coefficient and solve
     its principal/torsion problem.
-12. [ ] Add finite/infinite place operations and exactness of the remaining
+15. [ ] Add finite/infinite place operations and exactness of the remaining
     differential of the second kind.
 
 The parallel transcendental backlog remains:
