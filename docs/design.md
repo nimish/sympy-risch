@@ -23,8 +23,8 @@ It operates on a manually constructed differential tower and supports:
 - the standard rational base `QQ(x)` with `Dx = 1`;
 - recursively stacked primitive extensions;
 - one hyperexponential or hypertangent level directly over `QQ(x)`;
-- a hyperexponential level over a recursively primitive lower tower when its
-  logarithmic derivative is polynomial in the top primitive generator; and
+- a hyperexponential level over a recursively primitive lower tower with a
+  rational logarithmic derivative in the top primitive generator; and
 - a nonlinear polynomial monomial over supported lower levels when absence of
   nonconstant special polynomials has been certified.
 
@@ -48,9 +48,9 @@ The lower-level library additionally implements:
 - recursive radical logarithmic-derivative decisions over primitive towers,
   including complete principal parts and exact minimal-power witnesses;
 - rational and polynomial Risch differential equations;
-- normal-denominator, SPDE, and polynomial RDE reduction over a primitive
-  field for polynomial coefficients, including Bronstein's lower-field
-  cancellation recurrence;
+- weak normalization, normal-denominator, SPDE, and polynomial RDE reduction
+  over a primitive field for rational coefficients, including Bronstein's
+  lower-field cancellation recurrence;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
 - rational coupled RDEs for the real hypertangent case;
@@ -78,6 +78,7 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+4d732c6  Complete primitive RDE weak normalization
 bc763f1  Reconcile recursive primitive checkpoint
 889e4f6  Complete primitive RDE cancellation
 c3225a2  Generalize primitive parametric decisions recursively
@@ -207,11 +208,12 @@ lower parametric result when the ratio is free, and the final radical
 signature for the chosen residual. Only `PROVED_NO_SOLUTION` is safe for a
 caller to consume as a mathematical negative answer.
 
-Primitive RDE results similarly retain the denominator bound, SPDE or
-polynomial result, every recursively solved leading-coefficient equation, and
-the logarithmic/exact decision used by the cancellation transform. Result
-objects validate constructive witnesses on creation or expose a
-`reconstructs` property; tests also differentiate them independently.
+Primitive RDE results similarly retain the weak normalizer, normalized
+coefficient and right-hand side, denominator bound, SPDE or polynomial result,
+every recursively solved leading-coefficient equation, and the
+logarithmic/exact decision used by the cancellation transform. Result objects
+validate constructive witnesses on creation or expose a `reconstructs`
+property; tests also differentiate them independently.
 
 ## Differential towers
 
@@ -469,14 +471,29 @@ Dy + a*y = b.
 ```
 
 The end-to-end implementation solves these equations over `QQ(x)` and over
-recursively primitive lower towers when `eta` is polynomial in the current
+recursively primitive lower towers when `eta` is rational in the current
 primitive generator. Recursive radical-logarithmic and exact-derivative
 decisions first classify the proposed hyperexponential generator.
 
-For a positive-degree RDE coefficient, normal-denominator reduction, a degree
-bound, and Rothstein SPDE lead to the no-cancellation polynomial recurrence.
-For a coefficient in the next lower field, Bronstein's Section 6.6
-cancellation algorithm applies:
+For a rational RDE coefficient `a`, Bronstein weak normalization constructs
+`q` such that
+
+```text
+a_normal = a - D(q)/q
+```
+
+has no positive-integer residue at a normal finite factor. With `z = q*y`,
+the equation becomes
+
+```text
+D(z) + a_normal*z = q*b.
+```
+
+Normal-denominator reduction and Rothstein SPDE then produce a polynomial
+RDE. The full primitive degree bound includes both limited-integration
+cancellation tests from Section 6.3. A positive-degree polynomial coefficient
+uses the no-cancellation recurrence. For a coefficient in the next lower
+field, the Section 6.6 cancellation algorithm applies:
 
 1. if `a = D(z)/z`, transform `D(y) + a*y = b` into
    `D(z*y) = z*b` and invoke the exact-derivative solver;
@@ -493,12 +510,9 @@ in `lower_field_results`; this is both an audit trail and the recursive
 certificate for the constructed polynomial solution.
 
 The production recurrence is cross-checked with an independent bounded global
-matrix ansatz, including generated success and nonsolution families. RDE
-coefficients with poles in the current primitive generator still require weak
-normalization and remain unsupported. This is the precise next boundary: the
-existing denominator theorem assumes that the RDE coefficient is polynomial
-in the current primitive generator, while weak normalization must first
-remove the normal finite-pole part of a general rational coefficient.
+matrix ansatz, including generated success and nonsolution families. The
+oracle accepts a caller-supplied top denominator, so weak-normalization cases
+are checked without sharing the production normalizer or denominator theorem.
 
 ### Hypertangent levels
 
@@ -619,14 +633,14 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest completed major checkpoint makes radical and parametric
-logarithmic-derivative decisions recursive over primitive towers and consumes
-them in primitive RDE cancellation and hyperexponential dependency
-validation. Trager's finite-residue polynomial is also implemented for
-supported algebraic models. The current algebraic priority is branch-place
-handling before the residue-field and divisor stages; the next transcendental
-priority is weak normalization for primitive RDE coefficients with
-top-generator poles.
+The latest completed major checkpoint adds weak normalization and the full
+primitive degree bound for rational RDE coefficients. This makes
+hyperexponential reduction consume rational logarithmic derivatives over
+recursively primitive lower towers. Trager's finite-residue polynomial is
+also implemented for supported algebraic models. The current algebraic
+priority is branch-place handling before the residue-field and divisor
+stages; the next transcendental priority is extending scalar RDE and
+exact-derivative decisions to further lower tower families.
 
 ### Completed foundation
 
@@ -651,6 +665,8 @@ top-generator poles.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive-field RDE cancellation for lower-field coefficients.
+- [x] Primitive-field weak normalization and full degree bounds for rational
+  coefficients.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
 - [x] Recursive elementary dispatcher.
 - [x] Recursively stacked primitive integration.
@@ -659,8 +675,6 @@ top-generator poles.
 
 ### Next transcendental steps
 
-- [ ] Add weak normalization for primitive RDE coefficients with
-  top-generator poles.
 - [ ] Generalize exact-derivative and RDE solving over further supported lower
   tower families.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.

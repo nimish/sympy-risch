@@ -245,8 +245,36 @@ either:
    solving `D(s) + a*s = lc(b)` in the lower field.
 
 This works through recursively primitive lower towers. Coefficients with poles
-in the current primitive generator remain an explicit `NotImplementedError`
-boundary because they require weak normalization before denominator reduction.
+in the current primitive generator are weakly normalized before
+normal-denominator reduction. Positive-integer logarithmic residues are
+removed by an exact change of unknown; other residues remain in the normalized
+equation and are handled by the denominator, degree-bound, and SPDE stages.
+
+For example, let `t = log(x)` and adjoin a formal hyperexponential `u` with
+
+```text
+D(u)/u = 1/(t - 1).
+```
+
+The coefficient has a pole in `t`, but the complete primitive RDE now proves
+the following elementary integral:
+
+```python
+pole_exp_over_log = log_x.extend(
+    MonomialExtension(
+        Poly(u/(t - 1), u, domain=log_x.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+field = pole_exp_over_log.field()
+result = integrate_elementary(
+    field.from_sympy((1 + x/(t - 1))*u),
+    pole_exp_over_log.derivation(),
+)
+assert result.is_elementary
+assert result.antiderivative == x*u
+assert result.reconstructs
+```
 
 For example, adjoining `u = exp(x)` above `QQ(x)(t)`, where `t = log(x)`,
 exercises the lower-field cancellation branch:
@@ -477,7 +505,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
 | Recursively stacked primitive levels | End-to-end for the implemented reduction |
 | One hyperexponential level over `QQ(x)` | End-to-end |
-| Hyperexponential over a recursive primitive tower, with polynomial logarithmic derivative | End-to-end |
+| Hyperexponential over a recursive primitive tower, with rational logarithmic derivative | End-to-end |
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
 | Parametric logarithmic derivative | Complete decision over `QQ(x)` and recursive primitive towers |
@@ -485,7 +513,7 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic levels in `integrate_elementary` | Not implemented |
-| Hyperexponential coefficients with top-generator poles or nested hypertangent levels | Not implemented |
+| Nested hypertangent levels | Not implemented |
 | Automatic tower discovery and back-substitution | Not implemented |
 | Complete global real branch management | Not implemented |
 

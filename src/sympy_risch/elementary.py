@@ -517,8 +517,8 @@ def integrate_elementary(
     * the standard rational base ``QQ(x)`` with ``Dx = 1``;
     * recursively stacked primitive levels over that base;
     * a hyperexponential level directly over that base, or over a primitive
-      lower level when its logarithmic derivative has positive degree in the
-      primitive generator;
+      lower tower with a rational logarithmic derivative in the top primitive
+      generator;
     * one hypertangent level directly over the rational base;
     * a general nonlinear level when absence of special polynomials is
       recorded on its :class:`~sympy_risch.tower.MonomialExtension`.

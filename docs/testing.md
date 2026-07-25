@@ -30,8 +30,11 @@ Focused files mirror the implementation modules. For example,
 `tests/test_primitive_rde.py` cross-checks the primitive-field recurrence
 against an independent bounded matrix oracle. Its cancellation tests cover
 logarithmic-coefficient exact transformations, recursively solved leading
-coefficients, rational solution denominators, certified failures, nested
-primitive towers, and generated positive and negative oracle comparisons.
+coefficients, weak normalization of top-generator poles, rational solution
+denominators, certified failures, nested primitive towers, and generated
+positive and negative oracle comparisons. The oracle accepts an independent
+top-denominator ansatz, so it does not reuse the production normalizer or
+normal-denominator theorem.
 `tests/test_hypertangent.py` exercises the direct tangent reducer, and
 `tests/test_algebraic.py` exercises algebraic Hermite reduction and integral
 bases. `tests/test_parametric_logarithmic.py` checks Bronstein's equation

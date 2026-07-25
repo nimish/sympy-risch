@@ -124,8 +124,8 @@ The current implementation already has a strong exact-arithmetic kernel:
   decisions, recursive primitive reduction, direct transcendental family
   reducers, and the supported primitive-lower hyperexponential branches.
 - `src/sympy_risch/rde.py` implements rational and polynomial RDEs,
-  positive-degree primitive RDEs, and Bronstein's recursive primitive
-  cancellation case for lower-field coefficients.
+  weak normalization and full degree bounds for rational primitive RDE
+  coefficients, and Bronstein's recursive primitive cancellation case.
 - `src/sympy_risch/exact.py` dispatches exact derivatives at rational and
   primitive levels.
 - `src/sympy_risch/elementary.py` recursively integrates the supported
@@ -154,12 +154,13 @@ a9e62ff  Generalize primitive logarithmic signatures recursively
 c3225a2  Generalize primitive parametric decisions recursively
 889e4f6  Complete primitive RDE cancellation
 bc763f1  Reconcile recursive primitive checkpoint
+4d732c6  Complete primitive RDE weak normalization
 ```
 
 At the last reconciliation, the full test suite is:
 
 ```text
-934 passed in 164.87s
+949 passed in 166.10s
 ```
 
 using:
@@ -187,7 +188,7 @@ The existing design conventions to preserve are:
 | 0. Completeness contract and coverage ledger | Partial: result outcomes and certificate conventions exist; a machine-readable accepted-input matrix is still missing. |
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist; general constant capabilities and canonical mixed algebraic towers remain. |
 | 2. Dependency and structure decisions | Partial: radical and parametric logarithmic derivatives are total over recursively primitive towers; general mixed Chapter 9 structure decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial: polynomial/rational RDEs, positive-degree and cancellation branches over primitive towers, and the rational hypertangent coupled system exist. |
+| 3. Scalar, parametric, and coupled RDEs | Partial: polynomial/rational RDEs, rational-coefficient primitive RDEs, recursive primitive cancellation, and the rational hypertangent coupled system exist. |
 | 4. Transcendental integration | Partial: several complete explicit tower shapes exist, but arbitrary family orderings and special branches do not. |
 | 5. Algebraic-function-field kernel | Partial: finite extensions, integral-basis Hermite reduction, and certified finite-residue resultants at unbranched poles exist; branch, residue-field, and divisor machinery remain. |
 | 6. Pure algebraic integration | Not started beyond its Hermite-reduction prerequisite. |
@@ -758,8 +759,8 @@ The parallel transcendental backlog remains:
 - [x] generalize the primitive parametric fallback recursively;
 - [x] use the recursive logarithmic decision in primitive RDE cancellation
   and degree bounds;
-- add weak normalization for primitive coefficients with top-generator poles;
-  and
+- [x] add weak normalization for primitive coefficients with top-generator
+  poles; and
 - generalize the completed scalar RDE one lower-field family at a time.
 
 Each item is a separate commit after focused and full-suite verification.
