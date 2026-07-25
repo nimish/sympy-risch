@@ -65,6 +65,12 @@ class PrimitiveRDEObstruction(Enum):
     EXACT_DERIVATIVE = "exact_derivative"
 
 
+class HyperexponentialLaurentRDEObstruction(Enum):
+    """Why a Laurent RDE fails at a hyperexponential level."""
+
+    LOWER_FIELD = "lower_field"
+
+
 class CoupledRDEObstruction(Enum):
     r"""Why the real system ``Dp-lambda*q=u``, ``Dq+lambda*p=v`` fails."""
 
@@ -308,6 +314,76 @@ class PrimitiveRischDifferentialEquationResult:
 
 
 @dataclass(frozen=True, slots=True)
+class HyperexponentialLaurentRDEStep:
+    r"""One diagonal Laurent-mode equation over the lower field.
+
+    If ``Dt = eta*t``, the coefficient of ``t**j`` in
+
+    ``D(y) + a*y = b``
+
+    is decided by the lower-field equation
+
+    ``D(y_j) + (a + j*eta)*y_j = b_j``.
+    """
+
+    power: int
+    right_hand_side: FieldElement
+    shifted_coefficient: FieldElement
+    solution: FieldElement | None
+    lower_field_result: RischDifferentialEquationResult
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether this Laurent mode has a lower-field solution."""
+        return self.solution is not None
+
+
+@dataclass(frozen=True, slots=True)
+class HyperexponentialLaurentRischDifferentialEquationResult:
+    r"""Certified RDE result for the Laurent branch of ``K(t)``.
+
+    The coefficient must belong to ``K`` and the right-hand side to
+    ``K[t, t**-1]``.  With ``Dt = eta*t``, differentiation preserves each
+    Laurent mode, so the problem is exactly the finite collection of
+    lower-field equations retained in ``steps``.
+
+    These restrictions also make the decision complete for rational
+    solutions in ``K(t)``: a normal finite pole of a solution would acquire
+    one additional order under differentiation, while multiplication by the
+    lower-field coefficient would not.  It therefore could not cancel
+    against a Laurent right-hand side.  The only possible top-level poles are
+    powers of the special generator ``t``.
+    """
+
+    coefficient: FieldElement
+    right_hand_side: FieldElement
+    logarithmic_derivative: FieldElement
+    solution: FieldElement | None
+    obstruction: HyperexponentialLaurentRDEObstruction | None
+    partial_solution: FieldElement
+    residual: FieldElement
+    steps: tuple[HyperexponentialLaurentRDEStep, ...]
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the RDE has a rational solution in this branch."""
+        return self.solution is not None
+
+    @property
+    def has_lower_field_obstruction(self) -> bool:
+        """Whether at least one diagonal lower-field equation failed."""
+        return (
+            self.obstruction
+            is HyperexponentialLaurentRDEObstruction.LOWER_FIELD
+        )
+
+    @property
+    def obstructed_steps(self) -> tuple[HyperexponentialLaurentRDEStep, ...]:
+        """Return the Laurent modes with unsolved lower-field equations."""
+        return tuple(step for step in self.steps if not step.has_solution)
+
+
+@dataclass(frozen=True, slots=True)
 class RischDifferentialEquationResult:
     """Level-independent RDE result over an explicitly supplied tower."""
 
@@ -315,10 +391,16 @@ class RischDifferentialEquationResult:
     coefficient: FieldElement
     right_hand_side: FieldElement
     solution: FieldElement | None
-    obstruction: RationalRDEObstruction | PrimitiveRDEObstruction | None
+    obstruction: (
+        RationalRDEObstruction
+        | PrimitiveRDEObstruction
+        | HyperexponentialLaurentRDEObstruction
+        | None
+    )
     certificate: (
         RationalRischDifferentialEquationResult
         | PrimitiveRischDifferentialEquationResult
+        | HyperexponentialLaurentRischDifferentialEquationResult
     )
 
     @property
@@ -368,6 +450,24 @@ class BoundedPrimitiveRDEMatrixResult:
     @property
     def has_solution(self) -> bool:
         """Whether the bounded two-variable ansatz contains a solution."""
+        return self.solution is not None
+
+
+@dataclass(frozen=True, slots=True)
+class BoundedHyperexponentialLaurentRDEMatrixResult:
+    """Exact matrix oracle for a bounded hyperexponential Laurent ansatz."""
+
+    lower_denominator: Poly
+    lower_numerator_degree_bound: int
+    minimum_power: int
+    maximum_power: int
+    solution: FieldElement | None
+    coefficient_rank: int
+    augmented_rank: int
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether the bounded rectangular Laurent ansatz has a solution."""
         return self.solution is not None
 
 
@@ -2232,6 +2332,185 @@ def _is_standard_rational_derivation(derivation: Derivation) -> bool:
     )
 
 
+def _hyperexponential_laurent_rde_extension(
+    derivation: Derivation,
+) -> MonomialExtension:
+    """Validate a hyperexponential top level with unchanged constants."""
+    if derivation.level < 1:
+        raise TypeError(
+            "hyperexponential Laurent RDE solving requires a nonconstant "
+            "lower field"
+        )
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise NotImplementedError(
+            "hyperexponential Laurent RDE solving does not support "
+            "algebraic tower levels"
+        )
+    if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
+        raise ValueError(
+            "hyperexponential Laurent RDE solving requires Dt = eta*t"
+        )
+    extension.require_preserved_constants(
+        "hyperexponential Laurent RDE solving"
+    )
+    return extension
+
+
+def _lower_hyperexponential_rde_coefficient(
+    coefficient: object,
+    extension: MonomialExtension,
+) -> tuple[FieldElement, FieldElement]:
+    """Return a top-field coefficient and prove that it belongs to ``K``."""
+    element, numerator, denominator = _as_primitive_fraction(
+        coefficient,
+        extension,
+    )
+    if (
+        (not numerator.is_zero and numerator.degree() > 0)
+        or denominator.degree() > 0
+    ):
+        raise NotImplementedError(
+            "the hyperexponential Laurent RDE coefficient must belong to "
+            "the lower field"
+        )
+    parent = extension.parent_field
+    lower_coefficient = (
+        parent.convert(numerator.nth(0))
+        / parent.convert(denominator.nth(0))
+    )
+    if _coerce(extension.field, lower_coefficient) != element:
+        raise ValueError(
+            "hyperexponential lower-field coefficient normalization failed"
+        )
+    return element, lower_coefficient
+
+
+def _hyperexponential_laurent_coefficients(
+    right_hand_side: object,
+    extension: MonomialExtension,
+) -> tuple[FieldElement, dict[int, FieldElement]]:
+    """Return the finite Laurent expansion of a top-field element."""
+    element, numerator, denominator = _as_primitive_fraction(
+        right_hand_side,
+        extension,
+    )
+    denominator_terms = denominator.terms()
+    if len(denominator_terms) != 1:
+        raise NotImplementedError(
+            "the hyperexponential Laurent RDE right-hand side must be a "
+            "Laurent polynomial in the top generator"
+        )
+    (denominator_power,), denominator_coefficient = denominator_terms[0]
+    parent = extension.parent_field
+    scale = parent.one/parent.convert(denominator_coefficient)
+    coefficients = {
+        numerator_power - denominator_power: (
+            parent.convert(coefficient)*scale
+        )
+        for (numerator_power,), coefficient in numerator.terms()
+        if parent.convert(coefficient) != parent.zero
+    }
+    return element, coefficients
+
+
+def solve_hyperexponential_laurent_risch_differential_equation(
+    coefficient: object,
+    right_hand_side: object,
+    derivation: Derivation,
+) -> HyperexponentialLaurentRischDifferentialEquationResult:
+    r"""Decide ``D(y) + a*y = b`` in the Laurent branch of ``K(t)``.
+
+    This is Bronstein's diagonal special-polynomial recurrence for
+    ``Dt = eta*t``, restricted to ``a in K`` and
+    ``b in K[t, t**-1]``.  Writing ``y = sum(y_j*t**j)`` gives the independent
+    lower-field equations
+
+    ``D(y_j) + (a + j*eta)*y_j = b_j``.
+
+    The result retains every recursive lower-field certificate.  Successful
+    modes form ``partial_solution`` and failed modes form ``residual``, with
+
+    ``b = D(partial_solution) + a*partial_solution + residual``.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    field = extension.field
+    parent = extension.parent_field
+    generator = extension.generator
+    coefficient_element, lower_coefficient = (
+        _lower_hyperexponential_rde_coefficient(
+            coefficient,
+            extension,
+        )
+    )
+    rhs_element, coefficients = _hyperexponential_laurent_coefficients(
+        right_hand_side,
+        extension,
+    )
+    eta = parent.convert(extension.generator_derivative.nth(1))
+    lower_derivation = derivation.lower()
+    partial_solution = field.zero
+    residual = field.zero
+    steps: list[HyperexponentialLaurentRDEStep] = []
+
+    for power in sorted(coefficients):
+        rhs_coefficient = coefficients[power]
+        shifted_coefficient = (
+            lower_coefficient + parent.convert(power)*eta
+        )
+        lower_result = solve_risch_differential_equation(
+            shifted_coefficient,
+            rhs_coefficient,
+            lower_derivation,
+        )
+        solution_coefficient = lower_result.solution
+        term = _coerce(
+            field,
+            parent.to_sympy(rhs_coefficient)*generator**power,
+        )
+        if solution_coefficient is None:
+            residual += term
+        else:
+            partial_solution += _coerce(
+                field,
+                parent.to_sympy(solution_coefficient)*generator**power,
+            )
+        steps.append(
+            HyperexponentialLaurentRDEStep(
+                power,
+                rhs_coefficient,
+                shifted_coefficient,
+                solution_coefficient,
+                lower_result,
+            )
+        )
+
+    if (
+        derivation(partial_solution)
+        + coefficient_element*partial_solution
+        + residual
+        != rhs_element
+    ):
+        raise ValueError(
+            "hyperexponential Laurent RDE decomposition failed to reconstruct"
+        )
+    has_obstruction = residual != field.zero
+    return HyperexponentialLaurentRischDifferentialEquationResult(
+        coefficient_element,
+        rhs_element,
+        eta,
+        None if has_obstruction else partial_solution,
+        (
+            HyperexponentialLaurentRDEObstruction.LOWER_FIELD
+            if has_obstruction
+            else None
+        ),
+        partial_solution,
+        residual,
+        tuple(steps),
+    )
+
+
 def solve_risch_differential_equation(
     coefficient: object,
     right_hand_side: object,
@@ -2265,11 +2544,30 @@ def solve_risch_differential_equation(
             else None
         )
     else:
-        certificate = solve_primitive_risch_differential_equation(
-            coefficient_element,
-            rhs_element,
-            derivation,
-        )
+        extension = derivation.tower.levels[derivation.level]
+        if not isinstance(extension, MonomialExtension):
+            raise NotImplementedError(
+                "RDE dispatch does not yet support algebraic tower levels"
+            )
+        if extension.family is MonomialFamily.PRIMITIVE:
+            certificate = solve_primitive_risch_differential_equation(
+                coefficient_element,
+                rhs_element,
+                derivation,
+            )
+        elif extension.family is MonomialFamily.HYPEREXPONENTIAL:
+            certificate = (
+                solve_hyperexponential_laurent_risch_differential_equation(
+                    coefficient_element,
+                    rhs_element,
+                    derivation,
+                )
+            )
+        else:
+            raise NotImplementedError(
+                f"RDE dispatch does not yet support "
+                f"{extension.family.value} monomial levels"
+            )
         solution = certificate.solution
 
     result = RischDifferentialEquationResult(
@@ -2606,6 +2904,168 @@ def solve_bounded_primitive_rde_matrix(
         coefficient_rank,
         augmented_rank,
         top_denominator_polynomial,
+    )
+
+
+def solve_bounded_hyperexponential_laurent_rde_matrix(
+    coefficient: object,
+    right_hand_side: object,
+    derivation: Derivation,
+    lower_denominator: Expr | Poly,
+    lower_numerator_degree_bound: int,
+    minimum_power: int,
+    maximum_power: int,
+) -> BoundedHyperexponentialLaurentRDEMatrixResult:
+    r"""Solve a bounded Laurent RDE ansatz by exact global linear algebra.
+
+    This independent oracle is limited to one hyperexponential level over
+    ``QQ(x)``.  It searches
+
+    ``sum(c_ij*x**i*t**j/lower_denominator)``
+
+    for ``minimum_power <= j <= maximum_power``.  It deliberately does not
+    split Laurent modes or invoke lower-field RDE solvers.
+    """
+    extension = _hyperexponential_laurent_rde_extension(derivation)
+    lower_derivation = derivation.lower()
+    if not _is_standard_rational_derivation(lower_derivation):
+        raise NotImplementedError(
+            "the bounded hyperexponential Laurent matrix oracle requires "
+            "QQ(x) below the hyperexponential level"
+        )
+    if (
+        not isinstance(lower_numerator_degree_bound, int)
+        or isinstance(lower_numerator_degree_bound, bool)
+        or lower_numerator_degree_bound < 0
+    ):
+        raise ValueError(
+            "the lower numerator degree bound must be a nonnegative int"
+        )
+    for name, power in (
+        ("minimum", minimum_power),
+        ("maximum", maximum_power),
+    ):
+        if not isinstance(power, int) or isinstance(power, bool):
+            raise ValueError(f"the {name} power must be an int")
+    if minimum_power > maximum_power:
+        raise ValueError("the minimum power must not exceed the maximum power")
+
+    lower_extension = derivation.tower.levels[lower_derivation.level]
+    if not isinstance(lower_extension, MonomialExtension):
+        raise TypeError("the rational lower level is not monomial")
+    x = lower_extension.generator
+    t = extension.generator
+    denominator = Poly(lower_denominator, x, domain=QQ)
+    if denominator.is_zero:
+        raise ValueError("the lower ansatz denominator must be nonzero")
+    denominator = denominator.monic()
+
+    field = extension.field
+    coefficient_element = _coerce(
+        field,
+        coefficient.as_expr() if isinstance(coefficient, Poly) else coefficient,
+    )
+    rhs_element = _coerce(
+        field,
+        (
+            right_hand_side.as_expr()
+            if isinstance(right_hand_side, Poly)
+            else right_hand_side
+        ),
+    )
+    basis = [
+        _coerce(
+            field,
+            x**lower_degree*t**top_power/denominator.as_expr(),
+        )
+        for top_power in range(minimum_power, maximum_power + 1)
+        for lower_degree in range(lower_numerator_degree_bound + 1)
+    ]
+    columns = [
+        derivation(candidate) + coefficient_element*candidate
+        for candidate in basis
+    ]
+    fractions = [
+        _as_qq_bivariate_fraction(field.to_sympy(element), x, t)
+        for element in [*columns, rhs_element]
+    ]
+    common_denominator = Poly(1, x, t, domain=QQ)
+    for _, element_denominator in fractions:
+        common_denominator = common_denominator.lcm(element_denominator)
+    cleared = [
+        numerator*common_denominator.exquo(element_denominator)
+        for numerator, element_denominator in fractions
+    ]
+    column_polynomials = cleared[:-1]
+    rhs_polynomial = cleared[-1]
+    monomials = sorted(
+        {
+            monomial
+            for polynomial in cleared
+            for monomial, _ in polynomial.terms()
+        },
+        reverse=True,
+    )
+    if not monomials:
+        monomials = [(0, 0)]
+
+    unknown_count = len(basis)
+    coefficient_rows = [
+        [
+            QQ.convert(polynomial.nth(*monomial))
+            for polynomial in column_polynomials
+        ]
+        for monomial in monomials
+    ]
+    rhs_rows = [
+        [QQ.convert(rhs_polynomial.nth(*monomial))]
+        for monomial in monomials
+    ]
+    system = DomainMatrix(
+        coefficient_rows,
+        (len(coefficient_rows), unknown_count),
+        QQ,
+    )
+    rhs = DomainMatrix(
+        rhs_rows,
+        (len(rhs_rows), 1),
+        QQ,
+    )
+    coefficient_rank = system.rank()
+    augmented = system.hstack(rhs)
+    augmented_rank = augmented.rank()
+    if augmented_rank > coefficient_rank:
+        return BoundedHyperexponentialLaurentRDEMatrixResult(
+            denominator,
+            lower_numerator_degree_bound,
+            minimum_power,
+            maximum_power,
+            None,
+            coefficient_rank,
+            augmented_rank,
+        )
+
+    reduced_matrix, pivots = augmented.rref()
+    rows = reduced_matrix.to_list()
+    coefficients = [QQ.zero for _ in range(unknown_count)]
+    for row, pivot in enumerate(pivots):
+        if pivot < unknown_count:
+            coefficients[pivot] = rows[row][unknown_count]
+    solution = field.zero
+    for value, candidate in zip(coefficients, basis, strict=True):
+        solution += field.convert(value)*candidate
+    if derivation(solution) + coefficient_element*solution != rhs_element:
+        raise ValueError(
+            "bounded hyperexponential Laurent matrix RDE reconstruction failed"
+        )
+    return BoundedHyperexponentialLaurentRDEMatrixResult(
+        denominator,
+        lower_numerator_degree_bound,
+        minimum_power,
+        maximum_power,
+        solution,
+        coefficient_rank,
+        augmented_rank,
     )
 
 
