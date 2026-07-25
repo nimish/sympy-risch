@@ -94,10 +94,18 @@ lower fields, and generated rational solutions. Its matrix oracle accepts an
 independent top denominator and broad Laurent support, so it does not reuse
 the production normalizer, denominator theorem, valuation bound, or SPDE.
 `tests/test_recursive_coupled_rde.py` checks the Gaussian scalar construction
-over one and two primitive levels, denominator obstructions, and generated
-solution and arbitrary-right-hand-side families. Its oracle builds the two
-real equations directly as a block matrix over `QQ`, so it does not share the
-production tower rebasing or scalar RDE dispatcher.
+over one and two primitive levels, direct recursion into a hyperexponential
+level, denominator obstructions, and generated solution and
+arbitrary-right-hand-side families. Its oracle builds the two real equations
+directly as a block matrix over `QQ`, so it does not share the production
+tower rebasing or scalar RDE dispatcher.
+`tests/test_coupled_cancellation.py` reproduces Bronstein Example 8.4.1 and
+checks direct hyperexponential Laurent modes, hypertangent no-cancellation and
+`CoupledDECancelTan` branches, recursive lower-field obstructions, degree and
+shape errors, and noncanonical `QQ_I` fraction units. Generated arbitrary
+systems are compared with an independent global real block-matrix ansatz that
+does not split Laurent modes, evaluate at `i`, or divide through
+`t**2 + 1`.
 `tests/test_nested_hypertangent.py` checks Gaussian dependency analysis,
 dependent-generator rejection, special and full reductions, exact recursive
 coupled certificates, elementary dispatch, two primitive lower levels, and

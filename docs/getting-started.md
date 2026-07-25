@@ -30,6 +30,8 @@ from sympy_risch import (
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
     solve_exact_derivative,
+    solve_hyperexponential_coupled_laurent_rde,
+    solve_hypertangent_coupled_cancellation_rde,
     solve_radical_logarithmic_derivative,
     solve_risch_differential_equation,
     trager_algebraic_residue_polynomial,
@@ -424,6 +426,83 @@ assert result.reconstructs
 assert result.antiderivative == t*u
 ```
 
+## Solve direct coupled cancellation systems
+
+Chapter 8 coupled systems use the real matrix operator
+
+```text
+D(p) + a*p - lambda*q = r,
+D(q) + lambda*p + a*q = s.
+```
+
+At a hyperexponential level `K(u)` with `Du = eta*u`, lower-field `a` and
+`lambda` preserve every Laurent power. The direct solver handles each power
+through a lower coupled system with shifted diagonal `a + m*eta`:
+
+```python
+exp_x = base.extend(
+    MonomialExtension(
+        Poly(u, u, domain=base.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+field = exp_x.field()
+D = exp_x.derivation()
+p = field.from_sympy((x + 1)*u**2 + (x - 1)/u)
+q = field.from_sympy(x*u**2 + 2/u)
+a = field.from_sympy(x)
+rotation = field.from_sympy(x + 1)
+
+coupled = solve_hyperexponential_coupled_laurent_rde(
+    a,
+    rotation,
+    D(p) + a*p - rotation*q,
+    D(q) + rotation*p + a*q,
+    D,
+)
+assert coupled.real_solution == p
+assert coupled.imaginary_solution == q
+assert coupled.reconstructs
+```
+
+For a hypertangent generator `u` with `Du = 1 + u**2`, the exceptional
+polynomial cancellation has diagonal `b0 - n*u`. Bronstein's worked
+Example 8.4.1 is:
+
+```python
+tan_x = base.extend(
+    MonomialExtension(
+        Poly(1 + u**2, u, domain=base.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+coupled = solve_hypertangent_coupled_cancellation_rde(
+    0,
+    4*x,
+    -u**2 + 2*u - 8*x**2 + 1,
+    2*(1 - 2*x),
+    tan_x.derivation(),
+    2,
+)
+
+assert coupled.real_solution == Poly(
+    u - 1,
+    u,
+    domain=base.field(),
+)
+assert coupled.imaginary_solution == Poly(
+    2*x,
+    u,
+    domain=base.field(),
+)
+assert coupled.reconstructs
+```
+
+This is a complete decision for the stated Laurent and polynomial terminal
+shapes. General rational coupled systems over a hypertangent generator still
+need paired weak normalization, denominator reduction, degree bounds, and
+SPDE before they can terminate here.
+
 ## Test a parametric logarithmic derivative
 
 Bronstein's parametric logarithmic-derivative problem asks whether, for a
@@ -639,6 +718,9 @@ established that the level has no nonconstant irreducible polynomial `p` with
 | One hypertangent level over `QQ(x)` | End-to-end |
 | Hypertangent over a recursive primitive tower | End-to-end |
 | Coupled RDE over `QQ(x)` or a recursive primitive tower | Complete decision |
+| Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
+| Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |
+| General rational coupled RDE over a hypertangent level | Not implemented |
 | Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
 | Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
 | Parametric logarithmic derivative | Complete decision over `QQ(x)` and recursive primitive towers |

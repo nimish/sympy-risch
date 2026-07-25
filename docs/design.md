@@ -56,8 +56,9 @@ The lower-level library additionally implements:
   right-hand side are Laurent in the top generator;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
-- coupled RDEs over `QQ(x)` and recursively primitive towers for the real
-  hypertangent case;
+- coupled RDEs over `QQ(x)` and recursively primitive towers, direct
+  hyperexponential Laurent-mode cancellation, and direct hypertangent
+  polynomial cancellation;
 - recursive dependency tests for hyperexponential generators over primitive
   towers and rational dependency tests for hypertangent generators;
 - an exact result and verification contract for Bronstein's parametric
@@ -82,6 +83,7 @@ The required exact ground-type backend is `python-flint`.
 Recent implementation checkpoints, newest first, are:
 
 ```text
+300a76a  Add direct coupled cancellation recurrences
 7ad35a7  Solve coupled RDEs over primitive towers
 c77088e  Solve rational hyperexponential RDEs
 4ea759d  Document Laurent-coefficient RDEs
@@ -704,15 +706,60 @@ the real field. The scalar certificate retains weak normalization,
 denominator reduction, degree bounds, SPDE, and recursive lower-field
 decisions.
 
-The restriction to primitive lower levels is deliberate. Bronstein notes that
-adjoining `i` below an already-hypertangent monomial requires rewriting that
-generator as a complex hyperexponential. Supporting those lower families will
-instead use the direct coupled cancellation algorithms from Chapter 8.
+Adjoining `i` preserves primitive and hyperexponential derivative shapes, so
+the Gaussian scalar route remains a valid general fallback for the cases
+supported by the scalar lower-field decisions. It is not valid as a
+representation strategy below a hypertangent generator: that generator would
+have to be rewritten as a complex hyperexponential.
 
-A separate bounded oracle over one primitive level constructs the two real
-equations as one block matrix over `QQ`. It never adjoins `i` or calls the
-scalar solver, and generated solution and nonsolution families compare the two
-implementations. Global real branch correction remains unimplemented.
+The direct Chapter 8 terminal algorithms now avoid that rewrite. For
+`Ds = rho*s`, lower-field diagonal `a` and rotation `lambda`, a Laurent pair
+
+```text
+p = sum(p_m*s**m),       q = sum(q_m*s**m)
+```
+
+splits into independent lower coupled systems
+
+```text
+D(p_m) + (a + m*rho)*p_m - lambda*q_m = u_m,
+D(q_m) + lambda*p_m + (a + m*rho)*q_m = v_m.
+```
+
+This is the real-coordinate form of `CoupledDECancelExp`; each lower result is
+retained by its Laurent step certificate.
+
+For `Ds = rho*(1+s**2)`, lower-field matrix coefficients use the nonlinear
+no-cancellation recurrence: a term of degree `m > 0` has forced leading
+derivative coefficient `m*rho` at degree `m + 1`. The exceptional diagonal
+
+```text
+b0 - n*rho*s
+```
+
+cancels that leading derivative at the degree bound `n`. The implementation
+then follows `CoupledDECancelTan` exactly:
+
+1. evaluate `c1(i) + i*c2(i)` and solve the resulting lower coupled system;
+2. divide by `s - i`;
+3. represent that division over the real field through exact quotients by
+   `s**2 + 1`;
+4. recur with degree bound `n - 1` and rotation `b2 + rho`; and
+5. reconstruct the two real polynomial coordinates.
+
+Example 8.4.1 from Bronstein is a permanent regression test. Generated
+arbitrary right-hand sides for both tangent polynomial branches and
+hyperexponential modes are compared with an independent global real
+block-matrix ansatz. That oracle neither adjoins `i` nor shares mode splitting,
+evaluation at `i`, or the real `s**2 + 1` quotient recurrence.
+
+These are terminal polynomial/Laurent decisions, not yet the complete rational
+coupled frontend over a hypertangent level. Weak normalization, normal and
+special denominator bounds, degree bounds, and paired SPDE still have to
+reduce a general rational system to these terminal shapes. Dependency analysis
+must also be extended before the elementary integrator may construct arbitrary
+hypertangent-over-hyperexponential or hypertangent-over-hypertangent towers.
+Global real branch correction remains unimplemented.
 
 ### Nonlinear monomials without special polynomials
 
@@ -822,14 +869,16 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest transcendental checkpoint extends real coupled RDE solving and
-hypertangent integration through recursively primitive lower towers. It
-includes Gaussian dependency analysis, immutable `QQ_I` tower rebasing,
-recursive scalar certificates, and an independent direct real block-matrix
-oracle. The next transcendental checkpoint is Bronstein's direct coupled
-cancellation recurrence for lower hyperexponential and hypertangent families.
-The current algebraic priority remains branch-place handling before the
-residue-field and divisor stages.
+The latest transcendental checkpoint implements Bronstein's direct coupled
+cancellation algorithms for hyperexponential Laurent modes and hypertangent
+polynomials. It includes the nonlinear no-cancellation branch, the
+`CoupledDECancelTan` evaluation-and-division recurrence, recursive lower-field
+certificates, the worked Chapter 8 example, and independent generated
+block-matrix comparisons. The next transcendental checkpoint is the paired
+rational frontend over a hypertangent level: weak normalization, normal and
+special denominator bounds, degree bounds, and SPDE terminating in the new
+polynomial solver. The current algebraic priority remains branch-place
+handling before the residue-field and divisor stages.
 
 ### Completed foundation
 
@@ -874,13 +923,19 @@ residue-field and divisor stages.
   SPDE, and independent normal-denominator oracle checks.
 - [x] Coupled RDE solving over rational and recursively primitive towers,
   with a direct real block-matrix oracle.
+- [x] Direct Chapter 8 hyperexponential Laurent-mode and hypertangent
+  polynomial coupled cancellation, with independent global block-matrix
+  comparisons.
 - [x] Hypertangent dependency analysis, reduction, exact derivatives, and
   elementary integration over recursively primitive lower towers.
 
 ### Next transcendental steps
 
-- [ ] Implement Bronstein Chapter 8 direct coupled cancellation over lower
-  hyperexponential and hypertangent families.
+- [ ] Implement paired weak normalization, normal/special denominator bounds,
+  degree bounds, and SPDE for general rational coupled systems at a
+  hypertangent level.
+- [ ] Extend radical and parametric logarithmic-derivative decisions through
+  hyperexponential and hypertangent lower levels.
 - [ ] Enable the remaining nested hyperexponential and hypertangent levels.
 - [ ] Extend automatic dependence and constant-field checks to the remaining
   monomial families.

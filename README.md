@@ -17,7 +17,10 @@ algebraic models, generalized monomial residue reduction, family-aware
 exact-derivative decisions, and Risch differential-equation solvers.
 Hyperexponential RDEs include general weak normalization, normal and special
 denominator reduction, SPDE, and the Laurent recurrence core. Real coupled
-RDEs over primitive towers support the nested hypertangent branch.
+RDEs include Gaussian scalar certificates over primitive towers and direct
+Chapter 8 cancellation recurrences for hyperexponential Laurent modes and
+hypertangent polynomial systems. The latter terminal solvers are the
+foundation for the remaining nested-tangent rational frontend.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.
