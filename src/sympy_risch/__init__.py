@@ -54,6 +54,7 @@ from .monomial import (
     NonlinearNoSpecialStatus,
     PrimitiveLogarithmicDerivativeFactor,
     PrimitiveLogarithmicDerivativeSignature,
+    RadicalLogarithmicDerivativeResult,
     PrimitivePolynomialReduction,
     PrimitivePolynomialStep,
     PrimitiveMonomialReduction,
@@ -74,6 +75,7 @@ from .monomial import (
     reduce_hypertangent_monomial,
     reduce_hypertangent_special,
     residue_reduce_monomial,
+    solve_radical_logarithmic_derivative,
     split_normal_special,
 )
 from .polynomial import integrate_polynomial
@@ -167,6 +169,7 @@ __all__ = [
     "PrimitiveExactDerivativeResult",
     "PrimitiveLogarithmicDerivativeFactor",
     "PrimitiveLogarithmicDerivativeSignature",
+    "RadicalLogarithmicDerivativeResult",
     "PrimitiveParametricLogarithmicDerivativeCertificate",
     "PrimitiveParametricLogarithmicDerivativeFactor",
     "PolynomialRDEObstruction",
@@ -217,6 +220,7 @@ __all__ = [
     "reduce_primitive_monomial",
     "reduce_monomial_reduced_function",
     "residue_reduce_monomial",
+    "solve_radical_logarithmic_derivative",
     "rothstein_trager_residue_polynomial",
     "solve_rational_exact_derivative",
     "solve_rational_logarithmic_derivative",

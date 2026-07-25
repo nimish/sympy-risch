@@ -14,11 +14,13 @@ from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
     PrimitiveLogarithmicDerivativeSignature,
+    RadicalLogarithmicDerivativeResult,
     primitive_logarithmic_derivative_signature,
+    solve_radical_logarithmic_derivative,
 )
 
 
-x, t, u = symbols("x t u")
+x, t, u, v = symbols("x t u v")
 
 
 def logarithmic_tower(
@@ -37,6 +39,37 @@ def logarithmic_tower(
         MonomialExtension(
             Poly(eta, t, domain=rational.field()),
             constant_field_status,
+        ),
+    )
+
+
+def nested_logarithmic_tower(
+    *,
+    intermediate_status=ConstantFieldStatus.PRESERVED,
+    depth=2,
+) -> DifferentialTower:
+    r"""Return the initial levels of the iterated logarithm tower.
+
+    ``Dt = 1/x``, ``Du = 1/(x*t)``, and ``Dv = 1/(x*t*u)``.  Hence each
+    generator is formally the logarithm of the preceding one.
+    """
+    tower = logarithmic_tower(
+        constant_field_status=intermediate_status,
+    )
+    tower = tower.extend(
+        MonomialExtension(
+            Poly(1/(x*t), u, domain=tower.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    if depth == 2:
+        return tower
+    if depth != 3:
+        raise ValueError("nested logarithmic test towers have depth 2 or 3")
+    return tower.extend(
+        MonomialExtension(
+            Poly(1/(x*t*u), v, domain=tower.field()),
+            ConstantFieldStatus.PRESERVED,
         ),
     )
 
@@ -131,6 +164,38 @@ def _independent_radical_logarithmic_oracle(
     if not unknowns:
         return all(equation == 0 for equation in equations)
     return linsolve(equations, unknowns) is not EmptySet
+
+
+def _independent_nested_radical_logarithmic_oracle(
+    expression,
+    derivation,
+) -> bool:
+    r"""Solve a fixed global UFD ansatz over ``QQ(x,t,u)``.
+
+    This oracle deliberately avoids the production recursive decomposition.
+    Its test family uses only the listed irreducibles, so unique factorization
+    says every possible logarithmic argument is a product of their powers.
+    """
+    field = derivation.field
+    element_expression = field.to_sympy(field.from_sympy(expression))
+    factor_expressions = (x, x**2 + 1, t, u, u**2 + t)
+    residues = tuple(
+        Dummy(f"nested_residue_{index}")
+        for index in range(len(factor_expressions))
+    )
+    candidate = 0
+    for residue, factor_expression in zip(
+        residues,
+        factor_expressions,
+        strict=True,
+    ):
+        factor = field.from_sympy(factor_expression)
+        candidate += residue*(derivation(factor)/factor).as_expr()
+    identity_numerator = cancel(
+        element_expression - candidate,
+    ).as_numer_denom()[0]
+    equations = Poly(identity_numerator, x, t, u).coeffs()
+    return linsolve(equations, residues) is not EmptySet
 
 
 def test_signature_combines_lower_and_top_radical_residues() -> None:
@@ -333,23 +398,215 @@ def test_signature_rejects_nonprimitive_top_level() -> None:
         )
 
 
-def test_signature_rejects_unsupported_tower_depths() -> None:
+def test_signature_rejects_rational_base_level() -> None:
     rational_derivation = logarithmic_tower().derivation().lower()
-    primitive = logarithmic_tower()
-    nested = primitive.extend(
-        MonomialExtension(
-            Poly(1/(x*t), u, domain=primitive.field()),
-            ConstantFieldStatus.PRESERVED,
-        ),
+
+    with pytest.raises(NotImplementedError, match="primitive level"):
+        primitive_logarithmic_derivative_signature(1/x, rational_derivation)
+
+
+def test_recursive_radical_logarithmic_derivative_at_rational_base() -> None:
+    derivation = logarithmic_tower().derivation().lower()
+
+    result = solve_radical_logarithmic_derivative(
+        1/(2*x) + 1/(3*(x - 1)),
+        derivation,
     )
 
-    with pytest.raises(NotImplementedError, match="one primitive level"):
-        primitive_logarithmic_derivative_signature(1/x, rational_derivation)
-    with pytest.raises(NotImplementedError, match="one primitive level"):
+    assert isinstance(result, RadicalLogarithmicDerivativeResult)
+    assert result.has_solution
+    assert result.minimal_power == 6
+    assert result.argument == derivation.field.from_sympy(x**3*(x - 1)**2)
+    assert result.reconstructs
+
+
+def test_signature_descends_through_two_primitive_levels() -> None:
+    tower = nested_logarithmic_tower()
+    derivation = tower.derivation()
+
+    signature = primitive_logarithmic_derivative_signature(
+        1/(2*x) + 1/(3*x*t) + 1/(5*x*t*u),
+        derivation,
+    )
+
+    assert signature.has_solution
+    assert signature.minimal_power == 30
+    assert signature.relation_argument == tower.field().from_sympy(
+        x**15*t**10*u**6,
+    )
+    assert signature.lower_logarithmic_result.minimal_power == 6
+    assert signature.lower_logarithmic_result.reconstructs
+    assert signature.reconstructs_decomposition
+    assert signature.reconstructs_relation
+
+
+def test_recursive_decision_descends_through_three_primitive_levels() -> None:
+    tower = nested_logarithmic_tower(depth=3)
+    derivation = tower.derivation()
+
+    result = solve_radical_logarithmic_derivative(
+        (
+            1/(2*x)
+            + 1/(3*x*t)
+            + 1/(5*x*t*u)
+            + 1/(7*x*t*u*v)
+        ),
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.minimal_power == 210
+    assert result.argument == tower.field().from_sympy(
+        x**105*t**70*u**42*v**30,
+    )
+    assert result.reconstructs
+
+
+def test_recursive_signature_uses_nested_coefficient_derivatives() -> None:
+    tower = nested_logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    argument = field.from_sympy(u**2 + t)
+    integrand = derivation(argument)/(6*argument)
+
+    signature = primitive_logarithmic_derivative_signature(
+        integrand,
+        derivation,
+    )
+
+    assert signature.has_solution
+    assert signature.minimal_power == 6
+    assert signature.relation_argument == argument
+    assert signature.factors[0].factor_derivative == Poly(
+        2*u/(x*t) + 1/x,
+        u,
+        domain=tower.levels[2].parent_field,
+    )
+    assert signature.factors[0].logarithmic_multiplicity == QQ(1, 6)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        1/(x**2 + 1),
+        1/u**2,
+        1/u,
+        u + 1/(x*t*u),
+    ],
+)
+def test_recursive_signature_propagates_each_obstruction(expression) -> None:
+    signature = primitive_logarithmic_derivative_signature(
+        expression,
+        nested_logarithmic_tower().derivation(),
+    )
+
+    assert not signature.has_solution
+    assert signature.reconstructs_decomposition
+    assert (
+        signature.has_lower_field_obstruction
+        or signature.has_positive_degree_polynomial_obstruction
+        or signature.has_repeated_pole_obstruction
+        or signature.has_nonlogarithmic_residue_obstruction
+    )
+
+
+def test_recursive_signature_requires_preserved_constants_at_every_level() -> None:
+    derivation = nested_logarithmic_tower(
+        intermediate_status=ConstantFieldStatus.UNKNOWN,
+    ).derivation()
+
+    with pytest.raises(ValueError, match="requires Const"):
         primitive_logarithmic_derivative_signature(
-            1/u,
-            nested.derivation(),
+            1/(x*t*u),
+            derivation,
         )
+
+
+@settings(max_examples=40, deadline=None)
+@given(
+    power=st.integers(min_value=1, max_value=7),
+    x_power=st.integers(min_value=-3, max_value=3),
+    t_power=st.integers(min_value=-3, max_value=3),
+    u_power=st.integers(min_value=-3, max_value=3),
+    mixed_power=st.integers(min_value=-3, max_value=3),
+)
+def test_generated_nested_radical_logarithmic_derivatives(
+    power,
+    x_power,
+    t_power,
+    u_power,
+    mixed_power,
+) -> None:
+    tower = nested_logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    argument = field.from_sympy(
+        x**x_power
+        * t**t_power
+        * u**u_power
+        * (u**2 + t)**mixed_power
+    )
+    integrand = derivation(argument)/(power*argument)
+
+    result = solve_radical_logarithmic_derivative(
+        integrand,
+        derivation,
+    )
+
+    expected_power = 1
+    for exponent in (x_power, t_power, u_power, mixed_power):
+        expected_power = lcm(
+            expected_power,
+            int(QQ.denom(QQ(exponent, power))),
+        )
+    assert result.has_solution
+    assert result.minimal_power == expected_power
+    assert result.reconstructs
+
+
+@settings(max_examples=30, deadline=None)
+@given(
+    coefficients=st.lists(
+        st.integers(min_value=-2, max_value=2),
+        min_size=9,
+        max_size=9,
+    ).map(tuple),
+)
+def test_recursive_decision_matches_independent_nested_global_oracle(
+    coefficients,
+) -> None:
+    tower = nested_logarithmic_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    mixed = field.from_sympy(u**2 + t)
+    basis = (
+        1/x,
+        2*x/(x**2 + 1),
+        1/(x*t),
+        1/(x*t*u),
+        (derivation(mixed)/mixed).as_expr(),
+        u,
+        1/u**2,
+        1/u,
+        1/(u**2 + t),
+    )
+    expression = sum(
+        coefficient*term
+        for coefficient, term in zip(coefficients, basis, strict=True)
+    )
+
+    result = solve_radical_logarithmic_derivative(
+        expression,
+        derivation,
+    )
+    oracle_has_solution = _independent_nested_radical_logarithmic_oracle(
+        expression,
+        derivation,
+    )
+
+    assert result.has_solution is oracle_has_solution
+    if result.has_solution:
+        assert result.reconstructs
 
 
 @settings(max_examples=60, deadline=None)

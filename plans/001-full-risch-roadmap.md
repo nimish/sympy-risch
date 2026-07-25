@@ -736,7 +736,8 @@ The selected next track is algebraic:
 
 The parallel transcendental backlog remains:
 
-- generalize primitive signatures and the parametric fallback recursively;
+- [x] generalize primitive radical-logarithmic signatures recursively;
+- generalize the primitive parametric fallback recursively;
 - use that decision in primitive RDE cancellation and degree bounds;
 - add weak normalization for primitive coefficients with top-generator poles;
   and

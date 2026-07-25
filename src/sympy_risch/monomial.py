@@ -375,8 +375,44 @@ class PrimitiveLogarithmicDerivativeFactor:
 
 
 @dataclass(frozen=True, slots=True)
+class RadicalLogarithmicDerivativeResult:
+    r"""Recursive decision for ``n*f = D(v)/v`` in a primitive tower.
+
+    ``minimal_power`` is the least positive integer ``n`` for which such a
+    nonzero ``v`` exists.  The certificate is the complete rational result at
+    the base level or the primitive signature at the current level.
+    """
+
+    derivation: Derivation
+    integrand: Any
+    minimal_power: int | None
+    argument: Any | None
+    certificate: (
+        RationalLogDerivativeResult
+        | PrimitiveLogarithmicDerivativeSignature
+    )
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether some positive integer multiple is logarithmic."""
+        return self.minimal_power is not None
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether the returned radical-logarithmic identity is exact."""
+        if not self.has_solution or self.argument is None:
+            return False
+        field = self.derivation.field
+        argument = _coerce(field, self.argument)
+        return (
+            self.minimal_power*_coerce(field, self.integrand)
+            == self.derivation(argument)/argument
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class PrimitiveLogarithmicDerivativeSignature:
-    r"""Canonical radical-logarithmic data for one primitive level.
+    r"""Canonical radical-logarithmic data for one primitive tower level.
 
     The signature records the unique decomposition
 
@@ -384,12 +420,12 @@ class PrimitiveLogarithmicDerivativeSignature:
 
         f=P(t)+\sum_{p}\sum_{j=1}^{m_p} A_{p,j}/p^j
 
-    over monic irreducible ``p`` in ``K[t]``.  For the currently supported
-    field ``K = QQ(x)``, ``f`` is a rational multiple of a logarithmic
+    over monic irreducible ``p`` in ``K[t]``.  When ``K`` is a recursively
+    supported primitive tower, ``f`` is a rational multiple of a logarithmic
     derivative precisely when:
 
     * ``P`` is constant in ``t`` and its value is a radical logarithmic
-      derivative in ``QQ(x)``;
+      derivative in ``K``;
     * every higher principal part ``A[p, j]`` for ``j > 1`` vanishes; and
     * every simple numerator is a rational multiple of ``Dp`` modulo ``p``.
 
@@ -401,7 +437,7 @@ class PrimitiveLogarithmicDerivativeSignature:
     derivation: Derivation
     integrand: Any
     polynomial_part: Poly
-    lower_logarithmic_result: RationalLogDerivativeResult
+    lower_logarithmic_result: RadicalLogarithmicDerivativeResult
     factors: tuple[PrimitiveLogarithmicDerivativeFactor, ...]
     minimal_power: int | None
     relation_argument: Any | None
@@ -433,7 +469,7 @@ class PrimitiveLogarithmicDerivativeSignature:
     @property
     def has_lower_field_obstruction(self) -> bool:
         """Whether the constant polynomial part is not radical logarithmic."""
-        return self.lower_logarithmic_result.minimal_radical_power is None
+        return not self.lower_logarithmic_result.has_solution
 
     @property
     def has_solution(self) -> bool:
@@ -1933,8 +1969,14 @@ def reduce_primitive_monomial(
 def _qq_constant_polynomial_multiple(
     numerator: Poly,
     direction: Poly,
+    lower_derivation: Derivation,
 ) -> Any | None:
-    """Return ``c in QQ`` when ``numerator = c*direction``."""
+    r"""Return ``c in QQ`` when ``numerator = c*direction``.
+
+    The quotient first has to be a differential constant in the lower field.
+    Under the preserved-constants hypotheses of the recursive primitive
+    tower, that constant then belongs to ``QQ``.
+    """
     if numerator.is_zero:
         return QQ.zero
     if direction.is_zero or numerator.degree() != direction.degree():
@@ -1945,6 +1987,8 @@ def _qq_constant_polynomial_multiple(
         parent.convert(numerator.LC()),
         parent.convert(direction.LC()),
     )
+    if lower_derivation(candidate) != lower_derivation.field.zero:
+        return None
     try:
         constant = QQ.from_sympy(parent.to_sympy(candidate))
     except CoercionFailed:
@@ -1981,23 +2025,22 @@ def primitive_logarithmic_derivative_signature(
     integrand: Any,
     derivation: Derivation,
 ) -> PrimitiveLogarithmicDerivativeSignature:
-    r"""Compute the radical-logarithmic signature in ``QQ(x)(t)``.
+    r"""Compute a radical-logarithmic signature at a primitive tower level.
 
-    The top level must be primitive, with ``Dt`` in ``QQ(x)``, and must carry
-    explicit evidence that it introduces no constants.  This first
-    implementation deliberately supports one primitive level only.  The
-    resulting factor and principal-part data do not depend on a proposed
-    parametric ratio, so a later structure-theorem fallback can compare the
-    signatures of ``f`` and ``eta``.
+    The top level must be primitive, with ``Dt`` in the lower field, and must
+    carry explicit evidence that it introduces no constants.  The lower field
+    is decided recursively down to the standard rational base ``QQ(x)``.
+    Factor and principal-part data do not depend on a proposed parametric
+    ratio, so the parametric structure fallback can compare signatures.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError(
             "primitive logarithmic signatures require a Derivation"
         )
-    if derivation.level != 1:
+    if derivation.level < 1:
         raise NotImplementedError(
-            "primitive logarithmic signatures currently require one "
-            "primitive level over QQ(x)"
+            "primitive logarithmic signatures require a primitive level "
+            "above the rational base"
         )
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
@@ -2011,8 +2054,6 @@ def primitive_logarithmic_derivative_signature(
     extension.require_preserved_constants(
         "primitive logarithmic signatures"
     )
-    variable = _standard_rational_base_variable(derivation.lower())
-
     field = extension.field
     element = _coerce(field, integrand)
     polynomial_part, proper_numerator, denominator = (
@@ -2023,11 +2064,11 @@ def primitive_logarithmic_derivative_signature(
         if polynomial_part.is_zero
         else extension.parent_field.convert(polynomial_part.nth(0))
     )
-    lower_logarithmic_result = solve_rational_logarithmic_derivative(
-        extension.parent_field.to_sympy(lower_component),
-        variable,
+    lower_logarithmic_result = solve_radical_logarithmic_derivative(
+        lower_component,
+        derivation.lower(),
     )
-    lower_power = lower_logarithmic_result.minimal_radical_power
+    lower_power = lower_logarithmic_result.minimal_power
 
     factor_signatures = []
     for raw_factor, multiplicity in denominator.factor_list()[1]:
@@ -2047,6 +2088,7 @@ def primitive_logarithmic_derivative_signature(
         logarithmic_multiplicity = _qq_constant_polynomial_multiple(
             principal_numerators[0],
             factor_derivative,
+            derivation.lower(),
         )
         factor_signatures.append(
             PrimitiveLogarithmicDerivativeFactor(
@@ -2090,19 +2132,23 @@ def primitive_logarithmic_derivative_signature(
                 ),
             )
 
-        scaled_lower_result = solve_rational_logarithmic_derivative(
-            cancel(
-                minimal_power
-                * extension.parent_field.to_sympy(lower_component)
-            ),
-            variable,
+        scaled_lower_result = solve_radical_logarithmic_derivative(
+            minimal_power*lower_component,
+            derivation.lower(),
         )
-        if not scaled_lower_result.has_solution:
+        if (
+            not scaled_lower_result.has_solution
+            or scaled_lower_result.minimal_power != 1
+            or scaled_lower_result.argument is None
+        ):
             raise ValueError(
                 "clearing lower logarithmic residues did not produce "
                 "an argument"
             )
-        argument_expression = scaled_lower_result.argument
+        relation_argument = _coerce(
+            field,
+            scaled_lower_result.argument,
+        )
         for factor in factors:
             exponent = (
                 QQ.convert(minimal_power)
@@ -2113,10 +2159,10 @@ def primitive_logarithmic_derivative_signature(
                     "clearing primitive logarithmic residues left a "
                     "nonintegral valuation"
                 )
-            argument_expression *= (
-                factor.factor.as_expr()**int(QQ.numer(exponent))
+            relation_argument *= (
+                _coerce(field, factor.factor.as_expr())
+                ** int(QQ.numer(exponent))
             )
-        relation_argument = field.from_sympy(cancel(argument_expression))
 
     signature = PrimitiveLogarithmicDerivativeSignature(
         derivation,
@@ -2136,6 +2182,78 @@ def primitive_logarithmic_derivative_signature(
             "primitive logarithmic signature witness did not reconstruct"
         )
     return signature
+
+
+def solve_radical_logarithmic_derivative(
+    integrand: Any,
+    derivation: Derivation,
+) -> RadicalLogarithmicDerivativeResult:
+    r"""Decide ``n*f = D(v)/v`` recursively in a primitive tower.
+
+    The base case is the complete rational logarithmic-derivative decision in
+    ``QQ(x)``.  Every higher supported level applies the primitive structure
+    theorem and descends on its constant polynomial coordinate.
+    """
+    if not isinstance(derivation, Derivation):
+        raise TypeError(
+            "radical logarithmic derivatives require a Derivation"
+        )
+
+    field = derivation.field
+    element = _coerce(field, integrand)
+    if derivation.level == 0:
+        variable = _standard_rational_base_variable(derivation)
+        rational_result = solve_rational_logarithmic_derivative(
+            field.to_sympy(element),
+            variable,
+        )
+        minimal_power = rational_result.minimal_radical_power
+        argument = None
+        if minimal_power is not None:
+            scaled_result = solve_rational_logarithmic_derivative(
+                cancel(minimal_power*field.to_sympy(element)),
+                variable,
+            )
+            if not scaled_result.has_solution:
+                raise ValueError(
+                    "clearing rational logarithmic residues did not "
+                    "produce an argument"
+                )
+            argument = field.from_sympy(scaled_result.argument)
+        result = RadicalLogarithmicDerivativeResult(
+            derivation,
+            element,
+            minimal_power,
+            argument,
+            rational_result,
+        )
+    else:
+        extension = derivation.tower.levels[derivation.level]
+        if (
+            not isinstance(extension, MonomialExtension)
+            or extension.family is not MonomialFamily.PRIMITIVE
+        ):
+            raise NotImplementedError(
+                "radical logarithmic derivatives currently support only "
+                "the rational base and primitive tower levels"
+            )
+        signature = primitive_logarithmic_derivative_signature(
+            element,
+            derivation,
+        )
+        result = RadicalLogarithmicDerivativeResult(
+            derivation,
+            element,
+            signature.minimal_power,
+            signature.relation_argument,
+            signature,
+        )
+
+    if result.has_solution and not result.reconstructs:
+        raise ValueError(
+            "radical logarithmic derivative witness did not reconstruct"
+        )
+    return result
 
 
 def solve_primitive_exact_derivative(

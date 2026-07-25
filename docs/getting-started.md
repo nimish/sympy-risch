@@ -306,10 +306,11 @@ Thus the complete `QQ(x)` entry point has no inconclusive result.
 
 ## Inspect a primitive logarithmic signature
 
-The primitive structure-theorem building block is available over one level
-`QQ(x)(t)`. It decomposes an element into its polynomial part and every
-principal part at each irreducible polynomial in `t`. It then tests whether
-some positive integer multiple is a logarithmic derivative:
+The primitive structure-theorem building block works recursively over stacks
+of primitive levels. At each level `K(t)`, it decomposes an element into its
+polynomial part and every principal part at each irreducible polynomial in
+`t`. It then descends into `K` to test whether some positive integer multiple
+is a logarithmic derivative:
 
 ```python
 signature = primitive_logarithmic_derivative_signature(
@@ -329,6 +330,12 @@ top-level residue `1/3` at `t`. On failure, the immutable signature
 distinguishes a positive-degree polynomial part, a repeated pole, a simple
 residue not proportional to `Dp`, and an obstruction inherited from
 `QQ(x)`.
+
+`solve_radical_logarithmic_derivative(f, derivation)` is the uniform entry
+point. It returns the minimal positive integer `n` and an argument `v`
+satisfying `n*f = D(v)/v`, whether `derivation` is on `QQ(x)` or at the top of
+a recursively primitive tower. Its immutable certificate retains the rational
+result or complete primitive signature from the current level.
 
 The public parametric solver consumes these coordinates when its lower field
 is `QQ(x)(t)`. For example, the repeated pole in `eta` is not itself

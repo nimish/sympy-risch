@@ -41,11 +41,12 @@ repeated poles, and irreducible factors of degrees two and three. The oracle
 does not consume the solver's certificate or locally constructed constraints.
 The tests enforce the distinction between a proved obstruction, an
 inconclusive fast path, and an unsupported field.
-`tests/test_primitive_logarithmic.py` checks the one-level primitive signature
-against a separate global linear ansatz. Its generated inputs mix lower-field
-obstructions, positive-degree polynomial parts, repeated top poles, and
-logarithmic and nonlogarithmic residues at coefficient-dependent irreducible
-factors.
+`tests/test_primitive_logarithmic.py` checks recursive primitive signatures
+through three tower levels. It compares both one-level and nested decisions
+with separate global linear ansatzes. Generated inputs mix inherited
+lower-field obstructions, positive-degree polynomial parts, repeated top
+poles, and logarithmic and nonlogarithmic residues at
+coefficient-dependent irreducible factors.
 `tests/test_primitive_parametric_logarithmic.py` compares the local
 structure-theorem recurrence with a separate global parametric ansatz. It
 includes cancellations that occur only after selecting `m/n`, conflicting
