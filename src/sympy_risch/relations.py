@@ -29,6 +29,10 @@ from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polytools import Poly, cancel
 
 from ._typing import FieldElement
+from .constant_fields import (
+    is_supported_finite_constant_field,
+    rational_constant_coordinates,
+)
 from .tower import (
     AlgebraicExtension,
     ConstantFieldStatus,
@@ -56,6 +60,7 @@ class FundamentalSignatureReason(Enum):
     UNSUPPORTED_EXTENSION = "unsupported_extension"
     CONSTANT_FIELD_UNKNOWN = "constant_field_unknown"
     CONSTANT_FIELD_ENLARGED = "constant_field_enlarged"
+    CONSTANT_FIELD_PROVENANCE = "constant_field_provenance"
     UNSUPPORTED_MONOMIAL_FAMILY = "unsupported_monomial_family"
 
 
@@ -229,7 +234,17 @@ class FundamentalSignature:
                 base, MonomialExtension
             ) or not _is_standard_relation_base(base):
                 raise ValueError(
-                    "a supported signature requires QQ(x) or QQ_I(x) with Dx = 1"
+                    "a supported signature requires C(x) with Dx = 1 over an "
+                    "effective finite constant field C"
+                )
+            if base.parent_field not in {QQ, QQ_I} and self.hypertangent_directions:
+                raise ValueError(
+                    "hypertangent directions currently require QQ or QQ_I constants"
+                )
+            if base.parent_field not in {QQ, QQ_I} and self.derivation.level > 0:
+                raise ValueError(
+                    "finite algebraic constant signatures currently certify only "
+                    "the standard rational base"
                 )
             for direction in self.directions:
                 extension = self.derivation.tower.levels[direction.level]
@@ -308,11 +323,10 @@ def _unsupported_fundamental_signature(
 
 
 def _is_standard_relation_base(extension: MonomialExtension) -> bool:
-    """Whether ``extension`` is the supported ``QQ(x)`` or ``QQ_I(x)`` base."""
-    return extension.parent_field in {
-        QQ,
-        QQ_I,
-    } and extension.generator_derivative == Poly(
+    """Whether ``extension`` is a supported standard ``C(x)`` base."""
+    return is_supported_finite_constant_field(
+        extension.parent_field,
+    ) and extension.generator_derivative == Poly(
         1, extension.generator, domain=extension.parent_field
     )
 
@@ -345,11 +359,12 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
             ),
             "level 0 is not a monomial standard rational base",
         )
-    if base.parent_field not in {QQ, QQ_I}:
+    if not is_supported_finite_constant_field(base.parent_field):
         return _unsupported_fundamental_signature(
             derivation,
             FundamentalSignatureReason.BASE_FIELD,
-            "the supported relation base must be over QQ or QQ_I",
+            "the supported relation base must be over an effective finite "
+            "constant field over QQ",
         )
     if not _is_standard_relation_base(base):
         return _unsupported_fundamental_signature(
@@ -390,6 +405,21 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
                 derivation,
                 FundamentalSignatureReason.CONSTANT_FIELD_ENLARGED,
                 f"level {level} enlarges the constant field",
+            )
+        if base.parent_field not in {QQ, QQ_I}:
+            if extension.family is MonomialFamily.HYPERTANGENT:
+                return _unsupported_fundamental_signature(
+                    derivation,
+                    FundamentalSignatureReason.UNSUPPORTED_MONOMIAL_FAMILY,
+                    "hypertangent fundamental directions over finite algebraic "
+                    "constant fields are not yet supported",
+                )
+            return _unsupported_fundamental_signature(
+                derivation,
+                FundamentalSignatureReason.CONSTANT_FIELD_PROVENANCE,
+                "finite algebraic constant towers need proof-carrying "
+                "no-new-constants evidence before recursive P/E signatures "
+                "can be certified",
             )
         if extension.family is MonomialFamily.PRIMITIVE:
             primitive_directions.append(
@@ -607,22 +637,24 @@ def _field_zero_constraints(
     r"""Compile ``sum(q_i*columns[i])=0`` into rational-coordinate rows."""
     field = derivation.field
     if derivation.level == -1:
-        if field == QQ:
-            row = tuple(QQ.convert(column) for column in columns)
-            return (row,) if any(value != QQ.zero for value in row) else ()
-        if field == QQ_I:
-            gaussian_columns = tuple(QQ_I.convert(column) for column in columns)
-            real_row = tuple(QQ.convert(value.x) for value in gaussian_columns)
-            imaginary_row = tuple(QQ.convert(value.y) for value in gaussian_columns)
-            rows = []
-            if any(value != QQ.zero for value in real_row):
-                rows.append(real_row)
-            if any(value != QQ.zero for value in imaginary_row):
-                rows.append(imaginary_row)
-            return tuple(rows)
-        raise NotImplementedError(
-            "logarithmic relation systems require QQ or QQ_I constants"
+        coordinate_columns = tuple(
+            rational_constant_coordinates(field, column) for column in columns
         )
+        if not coordinate_columns:
+            return ()
+        coordinate_count = len(coordinate_columns[0])
+        if any(
+            len(coordinates) != coordinate_count for coordinates in coordinate_columns
+        ):
+            raise ValueError("constant coordinates have inconsistent dimensions")
+        rows: list[tuple[FieldElement, ...]] = []
+        for coordinate_index in range(coordinate_count):
+            row = tuple(
+                coordinates[coordinate_index] for coordinates in coordinate_columns
+            )
+            if any(value != QQ.zero for value in row):
+                rows.append(row)
+        return tuple(rows)
 
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
@@ -774,17 +806,11 @@ class _RelationSystemCompiler:
         if derivation.level == 0:
             if (
                 extension.family is not MonomialFamily.PRIMITIVE
-                or extension.parent_field not in {QQ, QQ_I}
-                or extension.generator_derivative
-                != Poly(
-                    1,
-                    extension.generator,
-                    domain=extension.parent_field,
-                )
+                or not _is_standard_relation_base(extension)
             ):
                 raise NotImplementedError(
-                    "logarithmic relation systems require QQ(x) or QQ_I(x) "
-                    "with Dx = 1 as their base"
+                    "logarithmic relation systems require C(x) with Dx = 1 "
+                    "over an effective finite constant field C"
                 )
         else:
             extension.require_preserved_constants("logarithmic relation systems")
@@ -935,6 +961,11 @@ def solve_logarithmic_relation_system(
     field = derivation.field
     source_terms = tuple(_coerce(field, term) for term in terms)
     fundamental_signature = build_fundamental_signature(derivation)
+    if fundamental_signature.unsupported and derivation.tower.constants not in {
+        QQ,
+        QQ_I,
+    }:
+        raise NotImplementedError(fundamental_signature.detail)
     compiler = _RelationSystemCompiler(
         source_terms,
         derivation,

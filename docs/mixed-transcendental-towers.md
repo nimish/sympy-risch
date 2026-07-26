@@ -94,6 +94,13 @@ hyperexponential special direction in one rational linear system. A kernel
 vector supplies an integer witness; lack of a vector with nonzero `f`
 coordinate is a negative certificate in the supported tower scope.
 
+At the standard base `C(x)`, `Dx = 1`, the same relation kernel also accepts
+native finite algebraic number fields `C/QQ`. It expands every constant in
+SymPy's fixed primitive power basis over `QQ`, so valuations and source
+relations remain rational rather than accidentally becoming `C`-linear. This
+finite-constant support currently stops at the base: recursive general-`C`
+P/E signatures wait for proof-carrying no-new-constants evidence.
+
 Tangent lower levels enter this same calculation through the Gaussian normal
 form. The integer valuation lattice remains over `QQ`, not `QQ(i)`.
 
@@ -109,8 +116,11 @@ directions are ordered by tower level and retain native parent-field elements:
 | hyperexponential | `Dt/t` |
 | hypertangent | `eta` in `Dt = eta*(1 + t**2)` |
 
-The signature is supported only for the standard rational base and when every
-non-base active level has certified preserved constants.  An unsupported
+The signature is supported for the standard `QQ(x)` or `QQ_I(x)` P/E/T base,
+and also for a native finite-algebraic `C(x)` base with `C/QQ`. The latter
+currently covers only that base and direct factory proposals: a non-base
+general-`C` signature reports `CONSTANT_FIELD_PROVENANCE` until its
+no-new-constants proof is carried by the tower itself. An unsupported
 signature records why the narrow representation is unavailable; it is not a
 negative theorem about a relation or an integral.
 
@@ -136,9 +146,13 @@ non-generator special factors.
 The dependency module provides immutable checked factories:
 
 ```python
+from sympy import Poly
+
+from sympy_risch import DifferentialTower
 from sympy_risch.dependency import (
     certify_hyperexponential_extension,
     certify_hypertangent_extension,
+    certify_primitive_extension,
 )
 ```
 
@@ -148,6 +162,12 @@ lower tower is outside the implemented scope. A logarithmic dependency sets
 the returned extension status to `ENLARGED`; otherwise the relevant structure
 theorem certifies `PRESERVED`. They deliberately return `UNKNOWN` rather than
 misclassifying an unsupported lower family as independent.
+
+For a native finite algebraic constant field, construct the standard rational
+base through `certify_primitive_extension(Poly(1, x, domain=C),
+DifferentialTower(C).derivation())`. The direct primitive and
+hyperexponential factories then use the exact `C(x)` decisions; recursive
+general-`C` lower towers remain explicitly unsupported for now.
 
 ## Boundaries
 

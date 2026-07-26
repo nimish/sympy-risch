@@ -22,8 +22,8 @@
 - **Planned at**: commit `bf9a424`, 2026-07-24
 - **Last implementation reconciliation**: Plans 006 finite algebraic
   valuation constraints, 007 narrow P/E/T expression frontend, 008 certified
-  Riccati Möbius normalization, and 009 local linear-special-pole reduction
-  complete, 2026-07-26
+  Riccati Möbius normalization, 009 local linear-special-pole reduction, and
+  010 finite algebraic constant bases complete, 2026-07-26
 
 ## Why this matters
 
@@ -202,8 +202,8 @@ The existing design conventions to preserve are:
 | Milestone | Current status |
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Complete for the declared `QQ(x)` P/E/T contract: the public admission result, declared-cell matrix, and CI gate distinguish unsupported towers from theorem-backed obstructions. |
-| 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist, and a checked feasibility result maps the current mixed-prefix backend boundary; general constant capabilities and canonical mixed algebraic towers remain. |
-| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`; general effective constants and automatic non-generator special-factor decisions remain. |
+| 1. Effective field and tower kernel | Partial: exact `QQ` towers, native finite algebraic number-field constants at a standard rational base, and finite extensions exist; a checked feasibility result maps the current mixed-prefix backend boundary, while general constant capabilities and canonical mixed algebraic towers remain. |
+| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`. Native finite `QQ`-algebraic constants now support the base relation kernel and direct P/E factory proposals; proof-carrying recursive constant evidence, general effective constants, and automatic non-generator special-factor decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete, as is a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, and exact finite valuation kernels now exist; constant normalization, general global-space/principal-divisor decisions remain. |
@@ -353,9 +353,11 @@ the integration algorithms.
 ## Milestone 2: Complete dependency and structure-theorem decisions
 
 This transcendental track is active. The normalized P/E/T relation system is
-complete over `QQ(x)`; this milestone extends that theorem machinery to the
-remaining effective fields and general polynomial monomials. It can proceed
-in parallel with the algebraic-function-field kernel.
+complete over `QQ(x)`, and its rational base kernel now admits native finite
+algebraic constant fields over `QQ`; this milestone extends that theorem
+machinery to proof-carrying recursive effective fields and general polynomial
+monomials. It can proceed in parallel with the algebraic-function-field
+kernel.
 
 ### 2.1 Parametric logarithmic derivative over current towers
 
@@ -370,9 +372,10 @@ rational and recursive primitive paths, mixed relation-system fallback,
 hypertangent Gaussian normalization, integer normalization, exact witness
 reconstruction, generated planted witnesses, and independent global
 linear-system oracles. Plan 003 exposes those already-certified P/E/T
-directions as immutable signatures. The remaining work is to extend that
-representation to non-generator special factors and general effective
-constant fields.
+directions as immutable signatures. Plan 010 also gives a standard
+`C(x)` base for native finite algebraic `C/QQ`, but deliberately does not
+trust caller metadata to recurse through such towers. The remaining work is
+proof-carrying general-constant recursion and non-generator special factors.
 
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.
@@ -386,7 +389,9 @@ constant fields.
 
 Status: the P/E/T relation compiler supplies the specialized implementation;
 Plan 003 exposes its certified source directions as immutable signatures
-rather than duplicating its P/E/T logic. The signature is deliberately not a
+rather than duplicating its P/E/T logic. Plan 010 expands a finite algebraic
+constant at its standard base into exact `QQ` power-basis coordinates, so the
+valuation lattice remains rational. The signature is deliberately not a
 general Darboux-polynomial decision.
 
 - Compute and retain the ordered logarithmic and exponential index sets for
@@ -825,6 +830,12 @@ separate commit after focused and full-suite verification.
    non-elementarity result.
 7. [ ] Extend fundamental signatures to the declared effective constant fields
    and use them for automatic no-new-constants/dependency certification.
+   - [x] **Plan 010**: admit native finite algebraic `C/QQ` at the standard
+     `C(x)` base, retain rational-coordinate relation constraints, and enable
+     direct checked primitive/hyperexponential proposals.
+   - [ ] Replace caller metadata with replayed or proof-carrying
+     no-new-constants evidence before recursively certifying a general-`C`
+     P/E tower.
 8. [ ] Solve the complete special-polynomial/Darboux decision for each
    explicitly admitted general-monomial family. In particular, a linear factor
    `t-a` requires the Riccati equation `D(a) = Dt|_(t=a)`; failed search is

@@ -721,7 +721,7 @@ def test_dependency_analysis_rejects_nonstandard_rational_bases() -> None:
     base = rational_base(generator_derivative=2)
     _, extension = proposed_hyperexponential(1 / x, base=base)
 
-    with pytest.raises(NotImplementedError, match=r"QQ\(x\) with Dx = 1"):
+    with pytest.raises(NotImplementedError, match=r"C\(x\) with Dx = 1"):
         analyze_hyperexponential_extension(
             extension,
             base.derivation(),

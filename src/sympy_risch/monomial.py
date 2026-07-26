@@ -19,6 +19,7 @@ from sympy.simplify.radsimp import fraction
 
 from ._typing import FieldElement, is_field_zero
 from .admission import assess_scalar_rde_admission
+from .constant_fields import is_supported_finite_constant_field
 from .dependency import (
     analyze_hyperexponential_extension,
     analyze_hypertangent_extension,
@@ -3058,9 +3059,9 @@ def solve_radical_logarithmic_derivative(
         extension = derivation.tower.levels[0]
         if not isinstance(extension, MonomialExtension):
             raise TypeError("the rational logarithmic base must be monomial")
-        if extension.parent_field == QQ:
-            variable = _standard_rational_base_variable(derivation)
-        elif extension.parent_field == QQ_I and extension.generator_derivative == Poly(
+        if is_supported_finite_constant_field(
+            extension.parent_field
+        ) and extension.generator_derivative == Poly(
             1,
             extension.generator,
             domain=extension.parent_field,
@@ -3069,7 +3070,7 @@ def solve_radical_logarithmic_derivative(
         else:
             raise NotImplementedError(
                 "radical logarithmic derivatives require C(x) with Dx = 1 "
-                "for C = QQ or QQ_I"
+                "over an effective finite constant field C"
             )
         rational_result = _solve_rational_logarithmic_derivative_over_domain(
             field.to_sympy(element),

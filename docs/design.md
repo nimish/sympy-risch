@@ -69,6 +69,10 @@ The lower-level library additionally implements:
   cancellation;
 - checked dependency and logarithmic-relation decisions for the certified
   P/E/T tower contract;
+- exact rational-coordinate relation, exact-derivative, and direct checked
+  primitive/hyperexponential decisions at a native finite-algebraic
+  `C(x)` base with `C/QQ`; recursive general-`C` towers remain outside the
+  proof-carrying admission contract;
 - an exact result and verification contract for Bronstein's parametric
   logarithmic-derivative equation, distinguishing a proved negative result
   from an inconclusive heuristic and an unsupported field;
@@ -571,10 +575,14 @@ monomial lower levels remain `UNSUPPORTED`, never negative decisions.
 ### Certified fundamental signatures
 
 `relations.build_fundamental_signature` makes the certified part of that
-Chapter 9 route inspectable.  For one active P/E/T prefix over the standard
-`QQ(x)` or `QQ_I(x)` base, it records immutable native-field directions in
-tower order: `Dt` for primitive levels, `Dt/t` for hyperexponential levels,
-and the real `eta` in `Dt = eta*(1 + t**2)` for hypertangent levels.  The
+Chapter 9 route inspectable. For the standard `QQ(x)` or `QQ_I(x)` base, it
+records P/E/T immutable native-field directions in tower order: `Dt` for
+primitive levels, `Dt/t` for hyperexponential levels, and the real `eta` in
+`Dt = eta*(1 + t**2)` for hypertangent levels. A native finite-algebraic
+`C(x)` base with `C/QQ` is also represented, with constants expanded into
+exact `QQ` power-basis coordinates for relation constraints; its recursive
+P/E signature remains unsupported until no-new-constants evidence is
+proof-carrying. The
 rational base variable is the initial primitive direction.  A supported
 signature requires `ConstantFieldStatus.PRESERVED` for every non-base active
 level; otherwise it returns an explicit `UNSUPPORTED` boundary result rather

@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly
 
 from ._typing import FieldElement, is_field_zero
+from .constant_fields import is_supported_finite_constant_field
 from .monomial import (
     HyperexponentialMonomialReduction,
     HypertangentMonomialReduction,
@@ -85,7 +85,7 @@ def _standard_rational_constant_field(
 ) -> Domain | None:
     """Return ``C`` for a supported standard rational base ``C(x)``."""
     constant_field = extension.parent_field
-    if constant_field not in {QQ, QQ_I}:
+    if not is_supported_finite_constant_field(constant_field):
         return None
     if extension.generator_derivative != Poly(
         1,

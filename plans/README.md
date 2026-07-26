@@ -22,6 +22,7 @@ plan with exact file scope, tests, and a separate commit.
 | 007 | Add a certified narrow P/E/T expression frontend | P1 | M | 002, 003 | DONE |
 | 008 | Add certified Riccati Möbius normalization | P1 | M | 002, special-factor certificates | DONE |
 | 009 | Consume a certified linear special factor locally | P1 | S | 002, special-factor certificates, scalar RDEs | DONE |
+| 010 | Admit finite algebraic constants at the rational P/E boundary | P1 | S | 003, native AlgebraicField arithmetic | DONE |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -86,6 +87,10 @@ Plan 009 is a deliberately narrower consumer: it removes locally exact
 principal parts at one supplied linear special factor by solving lower-field
 RDEs. An unsolved local equation remains an explicit boundary rather than an
 elementary-integration or non-elementarity conclusion.
+Plan 010 adds exact `QQ`-coordinate expansion for native finite algebraic
+constant fields at the standard rational base. It deliberately stops before
+recursive general-constant towers, whose no-new-constants evidence must be
+made proof-carrying rather than inherited from caller metadata.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

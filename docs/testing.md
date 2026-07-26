@@ -138,6 +138,11 @@ inconclusive fast path, and an unsupported field.
 dependencies over both `QQ(x)` and primitive lower towers, including exact
 named-exponential presentations and exact reconstruction of the resulting
 constant relation.
+`tests/test_finite_algebraic_constants.py` checks the finite-algebraic
+constant boundary: exact degree-two and degree-four native power-basis
+coordinates, rational (not algebraic-scalar) relation kernels, generated
+residue cancellations, direct checked P/E proposals over `QQ(sqrt(2))(x)`,
+and explicit provenance, hypertangent, and nonconstant-field boundaries.
 `tests/test_expression.py` is the public frontend contract. It checks source
 round trips, native and source-tree derivatives, nested primitive and tangent
 levels, positive and negative integration results, and constructor resistance
