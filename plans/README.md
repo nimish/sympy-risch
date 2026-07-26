@@ -17,6 +17,7 @@ plan with exact file scope, tests, and a separate commit.
 | 002 | Make the current P/E/T contract executable | P1 | M | 001 | DONE |
 | 003 | Extract certified fundamental signatures | P1 | L | 002 | DONE |
 | 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | DONE |
+| 005 | Establish certified algebraic global spaces | P1 | L | 004 | DONE |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -64,7 +65,9 @@ current certified P/E/T source directions as explicit fundamental signatures
 while keeping the Gaussian conversion as an independent check. Plan 004 now
 provides a narrow constant-field decision and complete all-place data for its
 admitted preserved presentations; an actual function-field presentation
-rebase remains a later normalization task.
+rebase remains a later normalization task. Plan 005 adds only the global
+Riemann--Roch spaces proved complete by a direct theorem; a general
+finite/infinite lattice-intersection algorithm remains open.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

@@ -91,6 +91,11 @@ checks that an exact Hermite result bypasses constant-field/global-geometry
 work, that enlarged or unproved constant fields return no partial place list,
 that each local residue belongs to its own residue field, and that the
 collector reuses its already verified divisor and local-residue computations.
+`tests/test_riemann_roch.py` checks the first certified global-space cases,
+including a genus-zero parameter basis, a genus-one nonspecial basis, an exact
+algebraic constant field, degree-zero principal witnesses, and forged or
+dependent candidates. Positive-genus low-degree and rebasing-required cases
+must return an empty `UNSUPPORTED` result rather than a partial basis.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

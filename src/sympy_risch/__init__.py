@@ -189,6 +189,12 @@ from .relations import (
     PrimitiveFundamentalDirection,
     build_fundamental_signature,
 )
+from .riemann_roch import (
+    RiemannRochCertificate,
+    RiemannRochSpace,
+    RiemannRochSpaceStatus,
+    compute_riemann_roch_space,
+)
 from .special import (
     PrimitiveNoSpecialPolynomialCertificate,
     SpecialPolynomialAnalysis,
@@ -320,6 +326,9 @@ __all__ = [
     "RationalRDEObstruction",
     "RationalRischDifferentialEquationResult",
     "ReducedFunctionReduction",
+    "RiemannRochCertificate",
+    "RiemannRochSpace",
+    "RiemannRochSpaceStatus",
     "RischDifferentialEquationResult",
     "SimpleRadicalData",
     "SpecialPolynomialAnalysis",
@@ -347,6 +356,7 @@ __all__ = [
     "certify_primitive_no_special_polynomials",
     "certify_special_polynomial",
     "collect_algebraic_all_place_residues",
+    "compute_riemann_roch_space",
     "hermite_reduce_algebraic",
     "hermite_reduce_monomial",
     "hermite_reduce_rational",

@@ -948,6 +948,14 @@ second-kind differentials and the Risch equation on an algebraic curve.
 Recursive composition with transcendental levels comes after those field-level
 decisions and an exact backend representation for the mixed tower.
 
+The first global-space service is intentionally theorem-limited.
+`compute_riemann_roch_space` certifies `L(D)` only for negative and zero
+divisors, a degree-zero principal witness, a verified nonspecial candidate
+basis, or powers of a degree-one-pole rational parameter. It rechecks full
+principal divisors and constant-field linear independence, and otherwise
+returns no basis. General finite/infinite lattice intersection, principal and
+torsion divisor solving, and second-kind exactness remain separate decisions.
+
 The proposed real algebraic-over-tangent direction is kept in the
 [algebraic-hypertangent research note](algebraic-hypertangent.md).
 

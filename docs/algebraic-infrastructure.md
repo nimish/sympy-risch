@@ -144,6 +144,34 @@ belong to its record's exact residue field. It is a residue collection
 boundary, not an integrator: it neither reconstructs logarithms from residues
 nor decides whether a nonzero zero-residue differential is exact.
 
+## Certified first global spaces
+
+`compute_riemann_roch_space(model, divisor, constant_field_analysis)` is a
+small theorem-backed Riemann--Roch kernel, not yet a general basis algorithm.
+It first requires the same `PRESERVED` constant-field certificate used by the
+all-place collector. A successful `RiemannRochSpace` is immutable and checks
+every supplied basis element through its full principal divisor, so its finite,
+ramified, and infinite valuation bounds are all exact.
+
+The current complete cases are deliberately narrow:
+
+- `deg(D) < 0`, where `L(D)` is zero;
+- `D = 0`, where `L(D)` is the constant span of `1`;
+- a degree-zero divisor supplied with a principal witness `f`, where
+  `div(f) + D = 0` and `L(D) = C*f`;
+- a caller-supplied basis in the nonspecial range
+  `deg(D) > 2*g - 2`, whose exact membership, constant-field independence,
+  and Riemann--Roch dimension prove completeness; and
+- `D = m*(u)_infinity` for a supplied rational parameter `u` with a
+  degree-one pole divisor, where the certified basis is
+  `1, u, ..., u**m`.
+
+All other cases return an empty `UNSUPPORTED` result rather than a partial
+basis. In particular, the kernel does not yet perform the general
+finite/infinite lattice intersection needed for arbitrary divisors, nor does
+it solve principal or torsion divisor problems. Those remain the global
+inputs for algebraic logarithmic reconstruction and second-kind exactness.
+
 ## Public API
 
 | Structure | Purpose |
@@ -162,6 +190,8 @@ nor decides whether a nonzero zero-residue differential is exact.
 | `AlgebraicLocalDifferentialResidue` | One pole, uniformizer, and local residue |
 | `AlgebraicAllPlaceResidueResult` | Hermite result plus complete all-place data |
 | `collect_algebraic_all_place_residues` | Guarded global residue collector |
+| `RiemannRochSpace` | Immutable complete basis with its proving theorem |
+| `compute_riemann_roch_space` | Certified first-scope global-space service |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from
@@ -509,6 +539,7 @@ The next algebraic Risch implementation may assume all of the following:
 6. principal and canonical divisor construction; and
 7. finite divisor/fractional-ideal conversion.
 
-It must still implement its own mathematical decision algorithms for residue
-descent, divisor-class solving, logarithmic reconstruction, and algebraic
-RDEs. Those are intentionally not infrastructure methods.
+It now also has a small set of certified global Riemann--Roch spaces. It must
+still implement general finite/infinite lattice intersection, residue descent,
+divisor-class solving, logarithmic reconstruction, second-kind exactness, and
+algebraic RDEs. Those are intentionally not infrastructure methods.

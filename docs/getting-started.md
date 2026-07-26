@@ -773,6 +773,41 @@ low-level prerequisites for future algebraic Risch algorithms; they do not
 perform logarithmic reconstruction, principal-divisor solving, or an
 algebraic RDE.
 
+## Certify a first global algebraic space
+
+The global-space kernel deliberately certifies only cases with a direct
+completeness theorem. For the same rational curve `y**2 = x`, the generator
+`y` has one pole of degree one, so its powers form a complete basis of each
+corresponding Riemann--Roch space:
+
+```python
+from sympy_risch import (
+    analyze_algebraic_constant_field,
+    compute_riemann_roch_space,
+)
+
+parameter = sqrt_x_extension.field.generator
+constant_field = analyze_algebraic_constant_field(
+    sqrt_x_extension,
+    sqrt_x.derivation(),
+)
+pole_divisor = curve.principal_divisor(parameter).negative_part
+space = compute_riemann_roch_space(
+    curve,
+    pole_divisor.scale(3),
+    constant_field,
+    parameter=parameter,
+)
+
+assert space.complete
+assert space.dimension == 4
+assert space.basis == tuple(parameter**power for power in range(4))
+```
+
+For arbitrary divisors, the function returns an empty `UNSUPPORTED` result
+until the finite/infinite lattice-intersection algorithm is implemented. It
+does not mistake a bounded candidate search for a complete basis.
+
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
@@ -819,6 +854,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
+| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, and degree-one-pole rational parameters; arbitrary divisors return `UNSUPPORTED` |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end in the explicit certified P/E/T contract |
@@ -846,6 +882,7 @@ principal groups are:
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
 | Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |
+| Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |
 | Mixed-prefix backend feasibility | `TowerRepresentationProposal`, `analyze_tower_representation`, `TowerRepresentationOutcome` |
 
