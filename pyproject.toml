@@ -13,13 +13,14 @@ dependencies = [
 dev = [
     "hypothesis>=6.0",
     "pytest>=8.0",
+    "pytest-cov>=7.1,<8",
     "pytest-xdist>=3.8",
     "ruff>=0.15.22",
     "ty>=0.0.63",
 ]
 
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=77,<84"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -35,6 +36,9 @@ version = { attr = "sympy_risch._version.__version__" }
 filterwarnings = ["error"]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.coverage.report]
+precision = 2
 
 [tool.ruff]
 target-version = "py313"

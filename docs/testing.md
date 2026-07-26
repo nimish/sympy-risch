@@ -32,9 +32,13 @@ verifies the public implementation and all recursive solver paths without
 treating the untyped test harness as part of the library API.
 
 The `Quality` workflow runs these three static gates and the parallel pytest
-suite on every push and pull request. It first performs the same locked
+suite on pull requests and pushes to `master`. Python 3.13 measures statement
+and branch coverage with an 84% ratchet, while Python 3.14 checks compatibility
+without duplicating coverage collection. It first performs the same locked
 `uv sync --locked --all-groups` install, so CI and a checkpoint commit use one
-declared dependency set rather than separate package managers.
+declared dependency set rather than separate package managers. Separate
+packaging jobs smoke-test an installed wheel on Ubuntu, macOS, and Windows;
+only Ubuntu also checks the source distribution.
 
 Run every test before a checkpoint commit:
 
@@ -51,6 +55,18 @@ tracebacks, or a single failing example:
 ```console
 uv run --no-sync pytest -q
 ```
+
+Run the Python 3.13 CI coverage gate locally with:
+
+```console
+uv run --no-sync pytest -q -n auto --dist worksteal \
+  --cov=sympy_risch --cov-branch --cov-report=term:skip-covered \
+  --cov-fail-under=84
+```
+
+The floor is deliberately below the measured baseline so small
+platform-dependent branch differences do not make the gate flaky, while a
+material regression still fails CI.
 
 Focused files mirror the implementation modules. For example,
 `tests/test_admission.py` declares the certified elementary-dispatch cells and
