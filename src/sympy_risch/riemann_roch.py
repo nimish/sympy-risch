@@ -44,14 +44,16 @@ from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.fields import FracElement
 from sympy.polys.matrices import DomainMatrix
 
-from .algebraic import (
-    AlgebraicConstantFieldAnalysis,
-    AlgebraicConstantFieldStatus,
+from .algebraic._field import (
     _base_polynomial_ring,
     _common_denominator,
     _extension_element,
     _parent_element_polynomial,
     _polynomial_parent_element,
+)
+from .algebraic.constant_analysis import (
+    AlgebraicConstantFieldAnalysis,
+    AlgebraicConstantFieldStatus,
 )
 from .algebraic_geometry import AlgebraicDivisor, AlgebraicFunctionField
 

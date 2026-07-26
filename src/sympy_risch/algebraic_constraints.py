@@ -44,12 +44,14 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polytools import Poly
 
-from .algebraic import (
-    AlgebraicConstantFieldAnalysis,
-    AlgebraicConstantFieldStatus,
+from .algebraic._field import (
     _base_polynomial_ring,
     _embed_parent,
     _extension_element,
+)
+from .algebraic.constant_analysis import (
+    AlgebraicConstantFieldAnalysis,
+    AlgebraicConstantFieldStatus,
 )
 from .algebraic_geometry import (
     AlgebraicDivisor,

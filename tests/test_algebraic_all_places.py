@@ -7,7 +7,7 @@ import pytest
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
-import sympy_risch.algebraic as algebraic_module
+import sympy_risch.algebraic.all_places as algebraic_all_places_module
 from sympy_risch import (
     AlgebraicAllPlaceResidueStatus,
     AlgebraicConstantFieldStatus,
@@ -158,7 +158,7 @@ def test_all_place_collector_reports_exactness_without_global_analysis(
         raise AssertionError("exact Hermite reduction must not analyze constants")
 
     monkeypatch.setattr(
-        algebraic_module,
+        algebraic_all_places_module,
         "analyze_algebraic_constant_field",
         unexpected_analysis,
     )

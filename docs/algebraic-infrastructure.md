@@ -226,7 +226,7 @@ Refinement-step, maximality-certificate, reciprocal-chart, and union-type
 records are implementation-facing details in
 `sympy_risch.algebraic_geometry`; they are deliberately not re-exported from
 the package root. Likewise, the plane-model-only
-`sympy_risch.algebraic.unramified_finite_places` helper remains available to
+`sympy_risch.algebraic.trager.unramified_finite_places` helper remains available to
 the Trager resultant implementation, but it is not the canonical place API.
 New code should use `AlgebraicFunctionField.finite_places`, which handles
 ramification and singular displayed models after normalization.

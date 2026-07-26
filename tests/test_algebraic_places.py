@@ -13,7 +13,7 @@ from sympy_risch import (
     trager_algebraic_place_residues,
     trager_algebraic_residue_polynomial,
 )
-from sympy_risch.algebraic import unramified_finite_places
+from sympy_risch.algebraic.trager import unramified_finite_places
 
 x, y, z = symbols("x y z")
 

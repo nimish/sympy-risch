@@ -42,8 +42,7 @@ from sympy.polys.matrices.normalforms import smith_normal_decomp
 from sympy.polys.polytools import Poly
 
 from ._typing import FieldElement
-from .algebraic import (
-    IntegralBasis,
+from .algebraic._field import (
     _algebraic_constant_domain,
     _base_polynomial_ring,
     _common_denominator,
@@ -52,6 +51,7 @@ from .algebraic import (
     _parent_element_polynomial,
     _polynomial_parent_element,
 )
+from .algebraic.basis import IntegralBasis
 from .tower import AlgebraicExtension
 
 
