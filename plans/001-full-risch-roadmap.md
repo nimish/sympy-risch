@@ -20,8 +20,9 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
-- **Last implementation reconciliation**: Plan 006 finite algebraic
-  valuation-constraint checkpoint complete, 2026-07-25
+- **Last implementation reconciliation**: Plans 006 finite algebraic
+  valuation constraints and 007 narrow P/E/T expression frontend complete,
+  2026-07-25
 
 ## Why this matters
 
@@ -137,6 +138,11 @@ The current implementation already has a strong exact-arithmetic kernel:
   P/E/T ordering with certified preserved constants. It deliberately rejects
   algebraic levels and general polynomial monomials whose special structure
   has not been decided.
+- `src/sympy_risch/expression.py` compiles a conservative one-variable
+  `QQ`-constant grammar of rational arithmetic and nested P/E/T calls into
+  that certified explicit tower, returning either a local presented answer, a
+  native obstruction, or a structured compiler boundary. It intentionally
+  does not minimize general expression generators or resolve global branches.
 - `src/sympy_risch/algebraic.py` validates algebraic extensions and implements
   algebraic Hermite reduction over `QQ(x)` with explicit, simple-radical, or
   lazily refined integral bases, plus Trager's finite-residue polynomial for
@@ -169,13 +175,7 @@ bc763f1  Reconcile recursive primitive checkpoint
 4d732c6  Complete primitive RDE weak normalization
 ```
 
-At the last reconciliation, the full parallel test suite is:
-
-```text
-1274 passed in 45.83s
-```
-
-using:
+At the last reconciliation, the full parallel suite passed using:
 
 ```console
 uv run --no-sync pytest -q
@@ -201,11 +201,11 @@ The existing design conventions to preserve are:
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist, and a checked feasibility result maps the current mixed-prefix backend boundary; general constant capabilities and canonical mixed algebraic towers remain. |
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation and Gaussian fallbacks are complete over `QQ(x)`; general effective constants, fundamental signatures, and non-generator special factors remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
-| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete; general polynomial special branches and expression-to-tower construction are not. |
+| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete, as is a narrow checked one-variable P/E/T expression grammar; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, and exact finite valuation kernels now exist; constant normalization, general global-space/principal-divisor decisions remain. |
 | 6. Pure algebraic integration | Partial prerequisites exist; no end-to-end elementary integration decision yet. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
-| 8. Automatic expression towers | Not started. |
+| 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
 | 10. Completeness evidence | Partial: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; algebraic, mixed, and automatic-tower coverage remains. |
 | 11. SymPy upstreaming | Not started. |
@@ -839,12 +839,17 @@ separate commit after focused and full-suite verification.
 
 ### User-facing and upstream path
 
-12. [ ] Build a narrow reversible P/E/T expression compiler after the shared
-    contract and signature work; expand it to algebraic/mixed expressions only
+12. [x] **Plan 007**: build a narrow reversible P/E/T expression compiler for
+    one `QQ`-constant symbol, rational arithmetic, integer powers, and nested
+    `log`/`exp`/`tan`. It replays checked extension factories and returns only
+    local back-substituted presentations; dependent and branch-sensitive
+    forms are structured boundaries rather than rewrites.
+13. [ ] Expand expression construction to algebraic/mixed expressions only
     after the corresponding mathematical cells are total.
-13. [ ] Add back-substitution, complex-local versus assumption-scoped-real
-    presentation, branch metadata, and a small stable SymPy-facing facade.
-14. [ ] Expand the coverage matrix to every declared mixed-tower and expression
+14. [ ] Broaden back-substitution to complex-local versus
+    assumption-scoped-real presentation, branch metadata, and a small stable
+    SymPy-facing facade.
+15. [ ] Expand the coverage matrix to every declared mixed-tower and expression
     cell, then upstream independently mature domain, reduction, RDE, and
     frontend components.
 

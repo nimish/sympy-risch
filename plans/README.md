@@ -19,6 +19,7 @@ plan with exact file scope, tests, and a separate commit.
 | 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | DONE |
 | 005 | Establish certified algebraic global spaces | P1 | L | 004 | DONE |
 | 006 | Add exact finite algebraic valuation constraints | P1 | M | 005 | DONE |
+| 007 | Add a certified narrow P/E/T expression frontend | P1 | M | 002, 003 | DONE |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -71,6 +72,10 @@ Riemann--Roch spaces proved complete by a direct theorem; a general
 finite/infinite lattice-intersection algorithm remains open.
 Plan 006 provides the first exact finite-dimensional intersection kernel and
 a bounded nonspecial search; it does not remove that general boundary.
+Plan 007 adds a deliberately conservative one-variable expression compiler
+for rational arithmetic and nested P/E/T calls. It reuses the certified tower
+factories and returns local back-substituted presentations, while leaving
+general algebraic/mixed discovery and branch-aware normalization open.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

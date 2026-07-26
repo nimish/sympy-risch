@@ -83,6 +83,15 @@ from .exact import (
     TranscendentalExactDerivativeCertificate,
     solve_exact_derivative,
 )
+from .expression import (
+    ExpressionCompilation,
+    ExpressionCompilationOutcome,
+    ExpressionIntegralResult,
+    ExpressionIntegrationOutcome,
+    ExpressionUnsupportedReason,
+    compile_expression,
+    integrate_expression,
+)
 from .hyperbolic import (
     HyperbolicMobiusNormalForm,
     build_hyperbolic_mobius_normal_form,
@@ -272,6 +281,11 @@ __all__ = [
     "DifferentialTower",
     "ElementaryIntegralResult",
     "ExactDerivativeResult",
+    "ExpressionCompilation",
+    "ExpressionCompilationOutcome",
+    "ExpressionIntegralResult",
+    "ExpressionIntegrationOutcome",
+    "ExpressionUnsupportedReason",
     "FiniteAlgebraicPlace",
     "FundamentalSignature",
     "FundamentalSignatureOutcome",
@@ -369,6 +383,7 @@ __all__ = [
     "certify_primitive_no_special_polynomials",
     "certify_special_polynomial",
     "collect_algebraic_all_place_residues",
+    "compile_expression",
     "compute_riemann_roch_space",
     "finite_lattice_slice",
     "hermite_reduce_algebraic",
@@ -377,6 +392,7 @@ __all__ = [
     "hermite_reduce_rational_recursive",
     "integral_closure",
     "integrate_elementary",
+    "integrate_expression",
     "integrate_polynomial",
     "integrate_rational",
     "integrate_rational_real",

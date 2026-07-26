@@ -2,8 +2,10 @@
 
 `sympy-risch` is an experimental, upstream-oriented implementation of the
 Risch algorithm built directly on SymPy's exact domains. It is not yet a
-drop-in replacement for `sympy.integrate`: callers currently construct the
-differential tower explicitly.
+drop-in replacement for `sympy.integrate`. The narrow one-variable grammar of
+rational arithmetic, integer powers, and nested `log`/`exp`/`tan` calls can
+use `integrate_expression`; other callers construct the differential tower
+explicitly.
 
 The implemented end-to-end dispatcher handles rational functions and explicit
 finite towers of primitive, hyperexponential, and hypertangent extensions
@@ -23,9 +25,11 @@ denominator reduction, SPDE, and the Laurent recurrence core. Real coupled
 RDEs include Gaussian scalar certificates over primitive towers and direct
 Chapter 8 cancellation recurrences for hyperexponential Laurent modes and
 hypertangent polynomial systems. Together with the immutable Gaussian Cayley
-normal form, those solvers close the declared explicit P/E/T tower contract;
-general polynomial monomials with nonconstant special factors and automatic
-expression-to-tower construction remain future work.
+normal form, those solvers close the declared explicit P/E/T tower contract.
+The expression frontend reuses its checked extension factories and returns
+only local, branch-preserving presentations. General polynomial monomials with
+nonconstant special factors, algebraic/mixed expression discovery, and global
+branch-aware expression normalization remain future work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.
@@ -84,7 +88,8 @@ assert result.antiderivative == 1 / (x - 1) + 3 * log(x)
 ```
 
 See the [getting-started guide](docs/getting-started.md) for nested logarithms,
-non-elementarity obstructions, and the supported tower shapes.
+non-elementarity obstructions, the narrow automatic frontend, and the
+supported tower shapes.
 
 ## Documentation
 

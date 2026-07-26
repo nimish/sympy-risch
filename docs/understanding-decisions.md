@@ -25,6 +25,14 @@ lower-level tools—especially parametric logarithmic-derivative solvers—also
 expose an explicit `UNSUPPORTED` or `INCONCLUSIVE` outcome so callers can
 preserve the fourth distinction.
 
+`integrate_expression` adds the same distinction before dispatching to the
+native tower API. Its `UNSUPPORTED` result means either that the narrow
+one-variable P/E/T grammar declined the source expression or that it could
+not certify the proposed tower. In particular, a dependent `log`, `exp`, or
+`tan` call is not rewritten through a branch-sensitive identity. Its
+`NON_ELEMENTARY` result is only produced after successful compilation and is
+backed by the contained `ElementaryIntegralResult` obstruction.
+
 ## Reading a top-level integration result
 
 `integrate_elementary` returns an immutable `ElementaryIntegralResult`.

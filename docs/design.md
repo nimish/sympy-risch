@@ -968,7 +968,25 @@ The proposed real algebraic-over-tangent direction is kept in the
 
 ## Automatic tower construction
 
-A future expression front end must:
+`expression.py` now provides the first narrow expression frontend. It accepts
+one `Symbol`, rational constants, addition, multiplication, integer powers,
+and nested `log`, `exp`, and `tan` calls. It constructs the certified `QQ(x)`
+base and adjoins each syntactic function call through the same checked
+primitive, hyperexponential, or hypertangent factory used by the explicit
+tower API. A call that would introduce a new constant is rejected as a
+structured dependency boundary rather than represented by a redundant formal
+generator.
+
+The frontend deliberately preserves source syntax. Its substitutions are
+simultaneous mappings from fresh internal generators to source calls, and a
+returned antiderivative is only a local differential presentation. It does not
+simplify logarithms, exponentials, or inverse trigonometric functions across
+branches. Its immutable public results replay the extension certificates and
+verify native/source derivative agreement, so callers cannot turn an arbitrary
+manually labelled tower into a frontend certificate.
+
+This is not yet general automatic tower construction. The complete frontend
+must additionally:
 
 1. collect transcendental and algebraic generator candidates;
 2. construct their dependency graph;
@@ -988,7 +1006,9 @@ tan(log(x))               primitive level before hypertangent level
 ```
 
 The builder must prove constant-field and special-polynomial hypotheses rather
-than silently setting their status flags.
+than silently setting their status flags. It must also normalize equivalent
+presentations only when the required constant and branch data are available;
+the narrow frontend intentionally declines such normalization today.
 
 ## Real presentation
 
@@ -1107,8 +1127,11 @@ P/E/T core:
   reconstruction.
 - [ ] Add parametric RDE and limited-integration procedures needed by that
   general branch.
-- [ ] Build, order, and rewrite towers from SymPy expressions, beginning with
-  verified Möbius normalization of hyperbolic functions.
+- [x] Build a conservative reversible P/E/T expression frontend for one
+  `QQ`-constant variable, with checked extension replay and local
+  back-substitution.
+- [ ] Generalize expression discovery, ordering, and normalization to
+  algebraic/mixed towers and effective constant fields.
 - [ ] Complete exact real/branch-aware presentation after back-substitution.
 
 ### Algebraic integration
@@ -1173,7 +1196,9 @@ implicit genericity assumption.
 
 ### Front end and upstreaming
 
-- [ ] Build and order towers from SymPy expressions.
+- [x] Compile the narrow one-variable P/E/T expression grammar into checked
+  towers and present local back-substituted answers.
+- [ ] Build and minimize general towers from SymPy expressions.
 - [ ] Preserve named presentations and branch assumptions.
 - [ ] Complete general real logarithm and angle presentation.
 - [ ] Stabilize public APIs around SymPy conventions.

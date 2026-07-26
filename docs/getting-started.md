@@ -5,8 +5,44 @@ tower. The library works with native SymPy domain elements: the tower records
 what each formal generator means to the derivation, while ordinary field
 arithmetic remains SymPy arithmetic.
 
-This is a research API. It does not yet inspect an arbitrary SymPy expression,
-discover all of its generators, or choose a presentation automatically.
+For a deliberately narrow, checked fragment, it can also start from a SymPy
+expression and construct that tower for you. General expression discovery,
+algebraic extensions, and global branch-aware presentation remain future work.
+
+## Start from a SymPy expression
+
+`integrate_expression` is the smallest user-facing entry point. It accepts one
+integration symbol, rational constants, addition, multiplication, integer
+powers, and nested `log`, `exp`, and `tan` calls. Every function call is made
+into a new formal P/E/T level only after the existing checked extension factory
+certifies that it preserves constants.
+
+```python
+from sympy import log, symbols
+
+from sympy_risch import ExpressionIntegrationOutcome, integrate_expression
+
+x = symbols("x")
+result = integrate_expression(1 / (x * log(x)), x)
+
+assert result.outcome is ExpressionIntegrationOutcome.ELEMENTARY
+assert result.antiderivative == log(log(x))
+assert result.elementary_result is not None
+assert result.elementary_result.reconstructs
+```
+
+The returned antiderivative is a *local differential presentation*: ordinary
+SymPy differentiation verifies it for this example, but the frontend never
+uses identities such as `log(a*b) = log(a) + log(b)` or `atan(tan(a)) = a`.
+Those identities require branch or interval assumptions. If a new syntactic
+call is already dependent on the lower tower, such as `log(exp(x))` after
+`exp(x)` or a second related tangent, the compiler returns `UNSUPPORTED` with
+`DEPENDENT_EXTENSION` rather than silently rewrite it.
+
+`ExpressionIntegrationOutcome.NON_ELEMENTARY` is a certified Liouville
+obstruction in the compiled P/E/T tower. `UNSUPPORTED` instead means that the
+expression grammar, constant field, dependency decision, or dispatcher does
+not yet cover the request; it is never a non-elementarity claim.
 
 ## Construct the rational base
 
@@ -841,6 +877,7 @@ boundary, not a mathematical claim about the integral.
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
 | Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)`, in any finite order | End-to-end |
+| Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
 | Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision in the explicit certified P/E/T contract |
 | Coupled RDE in the explicit certified P/E/T contract | Complete decision |
@@ -859,7 +896,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end in the explicit certified P/E/T contract |
-| Automatic tower discovery and back-substitution | Not implemented |
+| General automatic tower discovery and canonical back-substitution | Not implemented; algebraic, arbitrary constants/functions, dependency minimization, and branch-aware normalization remain outside the narrow expression frontend |
 | Complete global real branch management | Not implemented |
 
 ## Low-level entry points

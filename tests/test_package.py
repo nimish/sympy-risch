@@ -20,3 +20,17 @@ def test_admission_exports_are_public() -> None:
     }
 
     assert expected <= set(sympy_risch.__all__)
+
+
+def test_expression_frontend_exports_are_public() -> None:
+    expected = {
+        "ExpressionCompilation",
+        "ExpressionCompilationOutcome",
+        "ExpressionIntegrationOutcome",
+        "ExpressionIntegralResult",
+        "ExpressionUnsupportedReason",
+        "compile_expression",
+        "integrate_expression",
+    }
+
+    assert expected <= set(sympy_risch.__all__)
