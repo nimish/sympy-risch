@@ -21,7 +21,7 @@ from sympy.polys.polytools import Poly
 
 from .constant_proofs import replay_constant_field
 from .hyperbolic import is_hyperbolic_mobius_law
-from .tower import (
+from .tower.core import (
     AlgebraicExtension,
     ConstantFieldStatus,
     Derivation,

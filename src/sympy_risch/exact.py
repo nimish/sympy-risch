@@ -23,7 +23,7 @@ from .rational import (
     RationalExactDerivativeResult,
     _solve_rational_exact_derivative_over_domain,
 )
-from .tower import Derivation, MonomialExtension, MonomialFamily, _coerce
+from .tower.core import Derivation, MonomialExtension, MonomialFamily, _coerce
 
 if TYPE_CHECKING:
     from .rde import RischDifferentialEquationResult

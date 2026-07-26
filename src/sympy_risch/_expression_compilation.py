@@ -39,7 +39,7 @@ from .dependency import (
     certify_hypertangent_extension,
     certify_primitive_extension,
 )
-from .tower import ConstantFieldStatus, DifferentialTower, MonomialExtension
+from .tower.core import ConstantFieldStatus, DifferentialTower, MonomialExtension
 
 
 class ExpressionCompilationOutcome(Enum):

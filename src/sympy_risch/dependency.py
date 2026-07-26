@@ -24,13 +24,12 @@ from .rational import (
     RationalLogDerivativeResult,
     _solve_rational_logarithmic_derivative_over_domain,
 )
-from .relations import (
-    FundamentalSignature,
+from .relations.linear import (
     LogarithmicRelationSystemResult,
-    build_fundamental_signature,
     solve_logarithmic_relation_system,
 )
-from .tower import (
+from .relations.signature import FundamentalSignature, build_fundamental_signature
+from .tower.core import (
     ConstantFieldStatus,
     Derivation,
     MonomialExtension,

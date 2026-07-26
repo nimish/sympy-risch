@@ -50,7 +50,7 @@ from .monomial import (
     reduce_primitive_monomial,
 )
 from .rational import hermite_reduce_rational, integrate_rational
-from .tower import (
+from .tower.core import (
     AlgebraicExtension,
     Derivation,
     MonomialExtension,

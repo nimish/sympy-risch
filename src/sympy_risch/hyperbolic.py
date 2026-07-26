@@ -34,7 +34,7 @@ from sympy.polys.polytools import Poly, cancel
 from ._typing import FieldElement, is_field_zero
 from .constant_proofs import require_preserved_constant_field
 from .special import SpecialPolynomialCertificate, certify_special_polynomial
-from .tower import (
+from .tower.core import (
     Derivation,
     DifferentialTower,
     MonomialExtension,

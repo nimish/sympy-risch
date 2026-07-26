@@ -24,7 +24,7 @@ from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly
 
-from .tower import (
+from .tower.core import (
     ConstantFieldStatus,
     Derivation,
     DifferentialTower,

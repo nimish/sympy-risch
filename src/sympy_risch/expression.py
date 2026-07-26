@@ -24,7 +24,7 @@ from ._expression_compilation import (
     compile_expression,
 )
 from .elementary import ElementaryIntegralResult, integrate_elementary
-from .tower import MonomialExtension
+from .tower.core import MonomialExtension
 
 
 class ExpressionIntegrationOutcome(Enum):

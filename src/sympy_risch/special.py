@@ -29,7 +29,7 @@ from sympy.polys.polyerrors import PolynomialError
 from sympy.polys.polytools import Poly
 
 from .constant_proofs import require_preserved_constant_field
-from .tower import (
+from .tower.core import (
     Derivation,
     MonomialExtension,
     MonomialFamily,

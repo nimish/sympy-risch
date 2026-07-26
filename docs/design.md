@@ -575,8 +575,9 @@ monomial lower levels remain `UNSUPPORTED`, never negative decisions.
 
 ### Certified fundamental signatures
 
-`relations.build_fundamental_signature` makes the certified part of that
-Chapter 9 route inspectable. For the standard `QQ(x)` or `QQ_I(x)` base, it
+`relations.signature.build_fundamental_signature` owns the certified part of
+that Chapter 9 route; the `relations` facade keeps the public import stable.
+For the standard `QQ(x)` or `QQ_I(x)` base, it
 records P/E/T immutable native-field directions in tower order: `Dt` for
 primitive levels, `Dt/t` for hyperexponential levels, and the real `eta` in
 `Dt = eta*(1 + t**2)` for hypertangent levels. A native finite-algebraic

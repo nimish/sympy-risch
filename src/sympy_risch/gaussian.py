@@ -25,13 +25,13 @@ from sympy.polys.polytools import Poly, cancel
 
 from ._typing import FieldElement
 from .constant_proofs import require_preserved_constant_field
-from .relations import (
+from .relations.signature import (
     FundamentalSignature,
     HyperexponentialFundamentalDirection,
     HypertangentFundamentalDirection,
     build_fundamental_signature,
 )
-from .tower import (
+from .tower.core import (
     Derivation,
     DifferentialTower,
     MonomialExtension,

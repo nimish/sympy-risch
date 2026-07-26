@@ -91,7 +91,7 @@ n*f = D(v)/v + m*eta
 ```
 
 cannot safely be reduced to one recursive ratio. The relation compiler in
-`sympy_risch.relations` collects all normal-factor valuations and every
+`sympy_risch.relations.linear` collects all normal-factor valuations and every
 hyperexponential special direction in one rational linear system. A kernel
 vector supplies an integer witness; lack of a vector with nonzero `f`
 coordinate is a negative certificate in the supported tower scope.
@@ -126,8 +126,11 @@ no-new-constants criterion can be replayed at that tower position. An unsupporte
 signature records why the narrow representation is unavailable; it is not a
 negative theorem about a relation or an integral.
 
-The public entry point is `build_fundamental_signature(derivation)`.  Its
-`directions` property is ordered by active tower level, while the three
+The owner entry point is
+`sympy_risch.relations.signature.build_fundamental_signature`; the
+`sympy_risch.relations` facade preserves the public
+`build_fundamental_signature(derivation)` import. Its `directions` property is
+ordered by active tower level, while the three
 family-specific tuples retain the native field element needed by each
 structure theorem.  Checked primitive, hyperexponential, and hypertangent
 factory results expose the lower signature as

@@ -40,7 +40,7 @@ from .rde import (
     solve_risch_differential_equation,
 )
 from .special import SpecialPolynomialCertificate
-from .tower import (
+from .tower.core import (
     Derivation,
     MonomialExtension,
     MonomialFamily,

@@ -4,6 +4,8 @@ from typing import get_type_hints
 import sympy_risch
 import sympy_risch.algebraic as algebraic
 import sympy_risch.algebraic_geometry as algebraic_geometry
+import sympy_risch.relations as relations
+import sympy_risch.tower as tower
 from sympy_risch import __version__
 
 
@@ -67,6 +69,57 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
 def test_algebraic_geometry_public_annotations_are_runtime_resolvable() -> None:
     for name in algebraic_geometry.__all__:
         value = getattr(algebraic_geometry, name)
+        if isinstance(value, type):
+            get_type_hints(value)
+
+
+def test_tower_facade_has_an_intentional_advanced_surface() -> None:
+    assert set(tower.__all__) == {
+        "AlgebraicExtension",
+        "CoefficientDerivation",
+        "ConstantFieldStatus",
+        "Derivation",
+        "DifferentialExtension",
+        "DifferentialTower",
+        "MonomialExtension",
+        "MonomialFamily",
+        "TowerRepresentationAnalysis",
+        "TowerRepresentationOutcome",
+        "TowerRepresentationProposal",
+        "TowerRepresentationReason",
+        "analyze_tower_representation",
+        "rebase_derivation_constants",
+    }
+    assert all(hasattr(tower, name) for name in tower.__all__)
+
+
+def test_tower_public_annotations_are_runtime_resolvable() -> None:
+    for name in tower.__all__:
+        value = getattr(tower, name)
+        if isinstance(value, type):
+            get_type_hints(value)
+
+
+def test_relations_facade_has_an_intentional_advanced_surface() -> None:
+    assert set(relations.__all__) == {
+        "FundamentalDirection",
+        "FundamentalSignature",
+        "FundamentalSignatureOutcome",
+        "FundamentalSignatureReason",
+        "HyperexponentialFundamentalDirection",
+        "HypertangentFundamentalDirection",
+        "LogarithmicRelationSystemResult",
+        "LogarithmicRelationWitness",
+        "PrimitiveFundamentalDirection",
+        "build_fundamental_signature",
+        "solve_logarithmic_relation_system",
+    }
+    assert all(hasattr(relations, name) for name in relations.__all__)
+
+
+def test_relations_public_annotations_are_runtime_resolvable() -> None:
+    for name in relations.__all__:
+        value = getattr(relations, name)
         if isinstance(value, type):
             get_type_hints(value)
 
