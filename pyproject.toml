@@ -1,12 +1,12 @@
 [project]
 name = "sympy-risch"
-version = "0.1.0"
+dynamic = ["version"]
 description = "An upstream-oriented implementation of the Risch algorithm built directly on SymPy"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
-    "python-flint>=0.9.0",
-    "sympy>=1.14",
+    "python-flint>=0.9.0,<0.10",
+    "sympy>=1.14,<1.15",
 ]
 
 [dependency-groups]
@@ -28,12 +28,16 @@ where = ["src"]
 [tool.setuptools.package-data]
 sympy_risch = ["py.typed"]
 
+[tool.setuptools.dynamic]
+version = { attr = "sympy_risch._version.__version__" }
+
 [tool.pytest.ini_options]
+filterwarnings = ["error"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = [
@@ -53,4 +57,4 @@ select = [
 "tests/**" = ["ANN"]
 
 [tool.ty.src]
-include = ["src"]
+include = ["src", "typecheck"]

@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from sympy.core.symbol import Dummy
 from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.polytools import Poly
 
@@ -150,6 +151,95 @@ def _unsupported(
     )
 
 
+def _independently_certify_constant_field(
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> tuple[ConstantFieldStatus, str | None]:
+    """Recompute the no-new-constants decision for an admitted family."""
+    from .dependency import (
+        certify_hyperexponential_extension,
+        certify_hypertangent_extension,
+        certify_primitive_extension,
+    )
+
+    derivative = extension.generator_derivative
+    if extension.family is MonomialFamily.PRIMITIVE:
+        analysis = certify_primitive_extension(derivative, lower_derivation)
+    elif extension.family is MonomialFamily.HYPEREXPONENTIAL:
+        analysis = certify_hyperexponential_extension(derivative, lower_derivation)
+    elif extension.family is MonomialFamily.HYPERTANGENT:
+        analysis = certify_hypertangent_extension(derivative, lower_derivation)
+    elif is_hyperbolic_mobius_law(extension):
+        # The exact Möbius coordinate u=(t+1)/(t-1) satisfies
+        # Du/u=2*eta when Dt=eta*(1-t**2).  Since this is a rational
+        # differential-field isomorphism, its independently checked
+        # hyperexponential status is also the source extension's status.
+        probe = Dummy("constant_field_probe")
+        eta = extension.parent_field.convert(derivative.nth(0))
+        probe_derivative = Poly(
+            2 * extension.parent_field.to_sympy(eta) * probe,
+            probe,
+            domain=extension.parent_field,
+        )
+        analysis = certify_hyperexponential_extension(
+            probe_derivative,
+            lower_derivation,
+        )
+    else:
+        raise ValueError(
+            "constant-field certification requires a supported P/E/T "
+            "or hyperbolic family"
+        )
+    return analysis.status, analysis.detail
+
+
+def _constant_field_rejection(
+    derivation: Derivation,
+    index: int,
+    extension: MonomialExtension,
+    *,
+    problem: str,
+) -> TowerAdmission | None:
+    """Reject absent, contradicted, or independently unverified evidence."""
+    if extension.constant_field_status is ConstantFieldStatus.UNKNOWN:
+        return _unsupported(
+            derivation,
+            TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
+            f"level {index} has no certified preserved constant field",
+            problem=problem,
+        )
+    if extension.constant_field_status is ConstantFieldStatus.ENLARGED:
+        return _unsupported(
+            derivation,
+            TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
+            f"level {index} is known to enlarge the constant field",
+            problem=problem,
+        )
+
+    status, detail = _independently_certify_constant_field(
+        extension,
+        Derivation(derivation.tower, index - 1),
+    )
+    if status is ConstantFieldStatus.ENLARGED:
+        return _unsupported(
+            derivation,
+            TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
+            f"level {index} declares preserved constants, but independent "
+            "certification proves that it enlarges the constant field",
+            problem=problem,
+        )
+    if status is ConstantFieldStatus.UNKNOWN:
+        suffix = f": {detail}" if detail else ""
+        return _unsupported(
+            derivation,
+            TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
+            f"level {index} declares preserved constants, but independent "
+            f"certification is unavailable{suffix}",
+            problem=problem,
+        )
+    return None
+
+
 def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
     r"""Classify an active tower for certified recursive P/E/T integration.
 
@@ -216,25 +306,29 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
                 TowerAdmissionReason.UNSUPPORTED_EXTENSION,
                 f"level {index} is not a monomial extension",
             )
-        if extension.constant_field_status is ConstantFieldStatus.UNKNOWN:
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
-                f"level {index} has no certified preserved-constants status",
-            )
-        if extension.constant_field_status is ConstantFieldStatus.ENLARGED:
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
-                f"level {index} is known to enlarge the constant field",
-            )
         if extension.family in {
             MonomialFamily.PRIMITIVE,
             MonomialFamily.HYPEREXPONENTIAL,
             MonomialFamily.HYPERTANGENT,
         }:
+            rejection = _constant_field_rejection(
+                derivation,
+                index,
+                extension,
+                problem=_ELEMENTARY_INTEGRATION_PROBLEM,
+            )
+            if rejection is not None:
+                return rejection
             continue
         if is_hyperbolic_mobius_law(extension):
+            rejection = _constant_field_rejection(
+                derivation,
+                index,
+                extension,
+                problem=_ELEMENTARY_INTEGRATION_PROBLEM,
+            )
+            if rejection is not None:
+                return rejection
             if extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT:
                 return _unsupported(
                     derivation,
@@ -347,22 +441,6 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
                 f"level {index} is not a monomial extension",
                 problem=_SCALAR_RDE_PROBLEM,
             )
-        if extension.constant_field_status is ConstantFieldStatus.UNKNOWN:
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
-                "scalar RDE solving requires a preserved constant field; "
-                f"level {index} has no certified preserved-constants status",
-                problem=_SCALAR_RDE_PROBLEM,
-            )
-        if extension.constant_field_status is ConstantFieldStatus.ENLARGED:
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
-                "scalar RDE solving requires a preserved constant field; "
-                f"level {index} is known to enlarge the constant field",
-                problem=_SCALAR_RDE_PROBLEM,
-            )
         if extension.family not in {
             MonomialFamily.PRIMITIVE,
             MonomialFamily.HYPEREXPONENTIAL,
@@ -386,6 +464,14 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
                 "normalizes hypertangent levels only over QQ(x)",
                 problem=_SCALAR_RDE_PROBLEM,
             )
+        rejection = _constant_field_rejection(
+            derivation,
+            index,
+            extension,
+            problem=_SCALAR_RDE_PROBLEM,
+        )
+        if rejection is not None:
+            return rejection
 
     return _accepted(
         derivation,

@@ -1,5 +1,6 @@
 """Risch integration algorithms built directly on SymPy."""
 
+from ._version import __version__
 from .admission import (
     TowerAdmission,
     TowerAdmissionOutcome,
@@ -247,8 +248,6 @@ from .tower import (
     rebase_derivation_constants,
 )
 
-__version__ = "0.1.0"
-
 __all__ = [
     "AlgebraicAllPlaceResidueResult",
     "AlgebraicAllPlaceResidueStatus",
@@ -384,6 +383,7 @@ __all__ = [
     "TowerRepresentationReason",
     "TragerAlgebraicResidueResult",
     "TranscendentalExactDerivativeCertificate",
+    "__version__",
     "analyze_algebraic_constant_field",
     "analyze_hyperexponential_extension",
     "analyze_hypertangent_extension",

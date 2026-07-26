@@ -16,7 +16,7 @@ from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.polytools import Poly, cancel, invert, resultant
 
-from ._typing import FieldElement
+from ._typing import ExactInput, FieldElement
 from .admission import assess_scalar_rde_admission
 from .polynomial import integrate_polynomial
 from .rational import (
@@ -128,6 +128,69 @@ def _field_elements_equal(
     return _field_element_is_zero(left - right, field)
 
 
+def _validate_decided_outcome(
+    solution: object | None,
+    obstruction: object | None,
+    *,
+    label: str,
+) -> None:
+    """Require exactly one of a solution and a proved obstruction."""
+    if solution is not None and obstruction is not None:
+        raise ValueError(f"{label} cannot contain both a solution and an obstruction")
+    if solution is None and obstruction is None:
+        raise ValueError(f"{label} needs either a solution or an obstruction")
+
+
+def _validate_paired_outcome(
+    real_solution: object | None,
+    imaginary_solution: object | None,
+    obstruction: object | None,
+    *,
+    label: str,
+) -> None:
+    """Require a complete real solution pair or one proved obstruction."""
+    if (real_solution is None) != (imaginary_solution is None):
+        raise ValueError(f"{label} must contain both solution coordinates or neither")
+    _validate_decided_outcome(real_solution, obstruction, label=label)
+
+
+def _validate_matrix_ranks(
+    *,
+    has_solution: bool,
+    coefficient_rank: int,
+    augmented_rank: int,
+    label: str,
+) -> None:
+    """Validate the exact rank certificate for a complete bounded search."""
+    for value in (coefficient_rank, augmented_rank):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(f"{label} ranks must be nonnegative integers")
+    if augmented_rank < coefficient_rank:
+        raise ValueError(f"{label} augmented rank cannot be smaller")
+    if has_solution and augmented_rank != coefficient_rank:
+        raise ValueError(f"{label} solved system must have equal ranks")
+    if not has_solution and augmented_rank <= coefficient_rank:
+        raise ValueError(
+            f"{label} unsolved system needs augmented rank greater than coefficient rank"
+        )
+
+
+def _validate_failed_division(
+    polynomial: Poly | None,
+    remainder: Poly | None,
+    *,
+    required: bool,
+    label: str,
+) -> None:
+    """Validate optional exact-division obstruction data."""
+    if (polynomial is None) != (remainder is None):
+        raise ValueError(f"{label} needs both obstruction polynomial and remainder")
+    if required and polynomial is None:
+        raise ValueError(f"{label} needs a failed exact-division certificate")
+    if remainder is not None and remainder.is_zero:
+        raise ValueError(f"{label} obstruction remainder must be nonzero")
+
+
 @dataclass(frozen=True, slots=True)
 class PolynomialRischDifferentialEquationResult:
     r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``QQ[x]``.
@@ -164,6 +227,108 @@ class PolynomialRischDifferentialEquationResult:
     augmented_rank: int | None = None
     partial_solution: Poly | None = None
     residual: Poly | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the complete polynomial decision certificate."""
+        if not isinstance(self.a, Poly) or not isinstance(self.b, Poly):
+            raise TypeError("polynomial RDE certificates require Poly inputs")
+        if self.a.gens != self.b.gens or self.a.domain != QQ or self.b.domain != QQ:
+            raise ValueError("polynomial RDE certificate inputs must share QQ[x]")
+        if (
+            not isinstance(self.degree_bound, int)
+            or isinstance(self.degree_bound, bool)
+            or self.degree_bound < -1
+        ):
+            raise ValueError("a polynomial RDE degree bound must be an integer >= -1")
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            PolynomialRDEObstruction,
+        ):
+            raise TypeError("invalid polynomial RDE obstruction")
+
+        if self.solution is not None:
+            self._validate_polynomial(self.solution, role="solution")
+            if self.obstruction is not None:
+                raise ValueError(
+                    "a polynomial RDE certificate cannot contain both a solution "
+                    "and an obstruction"
+                )
+            if self.solution.diff() + self.a * self.solution != self.b:
+                raise ValueError(
+                    "the stored polynomial RDE solution does not reconstruct"
+                )
+        elif self.obstruction is None:
+            raise ValueError(
+                "a polynomial RDE certificate needs a solution or an obstruction"
+            )
+
+        if (self.partial_solution is None) != (self.residual is None):
+            raise ValueError(
+                "a polynomial RDE reduction needs both partial solution and residual"
+            )
+        if self.partial_solution is not None and self.residual is not None:
+            self._validate_polynomial(
+                self.partial_solution,
+                role="partial solution",
+            )
+            self._validate_polynomial(self.residual, role="residual")
+            if (
+                self.partial_solution.diff()
+                + self.a * self.partial_solution
+                + self.residual
+                != self.b
+            ):
+                raise ValueError(
+                    "the polynomial RDE partial reduction does not reconstruct"
+                )
+
+        if (self.coefficient_rank is None) != (self.augmented_rank is None):
+            raise ValueError(
+                "a matrix certificate needs both coefficient and augmented ranks"
+            )
+        if self.coefficient_rank is not None and self.augmented_rank is not None:
+            if (
+                not isinstance(self.coefficient_rank, int)
+                or isinstance(self.coefficient_rank, bool)
+                or not isinstance(self.augmented_rank, int)
+                or isinstance(self.augmented_rank, bool)
+                or self.coefficient_rank < 0
+                or self.augmented_rank < 0
+            ):
+                raise ValueError("matrix ranks must be nonnegative integers")
+            if (
+                self.obstruction is PolynomialRDEObstruction.INCONSISTENT_SYSTEM
+                and self.augmented_rank <= self.coefficient_rank
+            ):
+                raise ValueError(
+                    "an inconsistent-system obstruction needs augmented rank "
+                    "greater than coefficient rank"
+                )
+            if self.solution is not None and (
+                self.coefficient_rank != self.augmented_rank
+            ):
+                raise ValueError("a solved matrix system must have equal ranks")
+
+        if (
+            self.obstruction is PolynomialRDEObstruction.DEGREE
+            and self.degree_bound != -1
+        ):
+            raise ValueError("a degree obstruction requires degree bound -1")
+        if self.obstruction is PolynomialRDEObstruction.NONZERO_REMAINDER and (
+            self.residual is None or self.residual.is_zero
+        ):
+            raise ValueError("a remainder obstruction requires a nonzero residual")
+        if (
+            self.obstruction is PolynomialRDEObstruction.INCONSISTENT_SYSTEM
+            and self.coefficient_rank is None
+        ):
+            raise ValueError("an inconsistent-system obstruction needs matrix ranks")
+
+    def _validate_polynomial(self, polynomial: Poly, *, role: str) -> None:
+        if not isinstance(polynomial, Poly):
+            raise TypeError(f"polynomial RDE {role} must be a Poly")
+        if polynomial.gens != self.a.gens or polynomial.domain != QQ:
+            raise ValueError(f"polynomial RDE {role} must belong to QQ[x]")
 
     @property
     def has_solution(self) -> bool:
@@ -224,6 +389,57 @@ class RationalRischDifferentialEquationResult:
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
 
+    def __post_init__(self) -> None:
+        """Validate the scalar rational decision certificate."""
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            RationalRDEObstruction,
+        ):
+            raise TypeError("invalid rational RDE obstruction")
+        _validate_decided_outcome(
+            self.solution,
+            self.obstruction,
+            label="rational RDE certificate",
+        )
+        variable = cast(Symbol, self.normalization_factor.gens[0])
+        solution_expression = (
+            cancel(self.solution) if self.solution is not None else None
+        )
+        if solution_expression is not None and (
+            cancel(
+                solution_expression.diff(variable)
+                + self.coefficient * solution_expression
+                - self.right_hand_side
+            )
+            != 0
+        ):
+            raise ValueError("the stored rational RDE solution does not reconstruct")
+
+        division_obstruction = self.obstruction in {
+            RationalRDEObstruction.DENOMINATOR,
+            RationalRDEObstruction.SPDE_DIVISIBILITY,
+        }
+        _validate_failed_division(
+            self.obstruction_polynomial,
+            self.obstruction_remainder,
+            required=division_obstruction,
+            label="rational RDE",
+        )
+        if self.obstruction is RationalRDEObstruction.POLYNOMIAL and (
+            self.polynomial_result is None or self.polynomial_result.has_solution
+        ):
+            raise ValueError(
+                "a polynomial obstruction needs an obstructed polynomial result"
+            )
+        if (
+            self.solution is not None
+            and self.polynomial_result is not None
+            and not self.polynomial_result.has_solution
+        ):
+            raise ValueError(
+                "a solved rational RDE cannot retain an obstructed polynomial result"
+            )
+
     @property
     def has_solution(self) -> bool:
         """Whether the Risch differential equation has a rational solution."""
@@ -270,6 +486,61 @@ class PrimitivePolynomialRischDifferentialEquationResult:
     lower_field_results: tuple[RischDifferentialEquationResult, ...] = ()
     logarithmic_derivative_result: RadicalLogarithmicDerivativeResult | None = None
     exact_derivative_result: ExactDerivativeResult | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the primitive polynomial decision state."""
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            PrimitivePolynomialRDEObstruction,
+        ):
+            raise TypeError("invalid primitive polynomial RDE obstruction")
+        _validate_decided_outcome(
+            self.solution,
+            self.obstruction,
+            label="primitive polynomial RDE certificate",
+        )
+        if self.solution is not None and (
+            self.partial_solution != self.solution or not self.residual.is_zero
+        ):
+            raise ValueError(
+                "a solved primitive polynomial RDE needs its solution as the "
+                "complete reduction"
+            )
+        if (
+            self.obstruction is PrimitivePolynomialRDEObstruction.DEGREE
+            and self.degree_bound != -1
+        ):
+            raise ValueError("a primitive polynomial degree obstruction needs bound -1")
+        if (
+            self.obstruction is PrimitivePolynomialRDEObstruction.NONZERO_REMAINDER
+            and self.residual.is_zero
+        ):
+            raise ValueError(
+                "a primitive polynomial remainder obstruction must be nonzero"
+            )
+        if self.obstruction is PrimitivePolynomialRDEObstruction.LOWER_FIELD and (
+            not self.lower_field_results
+            or all(result.has_solution for result in self.lower_field_results)
+        ):
+            raise ValueError(
+                "a lower-field obstruction needs an obstructed lower-field result"
+            )
+        if self.obstruction is PrimitivePolynomialRDEObstruction.EXACT_DERIVATIVE and (
+            self.exact_derivative_result is None
+            or self.exact_derivative_result.has_solution
+        ):
+            raise ValueError(
+                "an exact-derivative obstruction needs an obstructed exact result"
+            )
+        if (
+            self.solution is not None
+            and self.exact_derivative_result is not None
+            and not self.exact_derivative_result.has_solution
+        ):
+            raise ValueError(
+                "a solved primitive polynomial RDE cannot retain an obstructed "
+                "exact-derivative result"
+            )
 
     @property
     def has_solution(self) -> bool:
@@ -321,6 +592,60 @@ class PrimitiveRischDifferentialEquationResult:
     logarithmic_derivative_result: RadicalLogarithmicDerivativeResult | None = None
     exact_derivative_result: ExactDerivativeResult | None = None
 
+    def __post_init__(self) -> None:
+        """Validate the primitive-field decision state and subcertificates."""
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            PrimitiveRDEObstruction,
+        ):
+            raise TypeError("invalid primitive RDE obstruction")
+        _validate_decided_outcome(
+            self.solution,
+            self.obstruction,
+            label="primitive RDE certificate",
+        )
+        division_obstruction = self.obstruction in {
+            PrimitiveRDEObstruction.DENOMINATOR,
+            PrimitiveRDEObstruction.SPDE_DIVISIBILITY,
+        }
+        _validate_failed_division(
+            self.obstruction_polynomial,
+            self.obstruction_remainder,
+            required=division_obstruction,
+            label="primitive RDE",
+        )
+        if self.obstruction is PrimitiveRDEObstruction.POLYNOMIAL and (
+            self.polynomial_result is None or self.polynomial_result.has_solution
+        ):
+            raise ValueError(
+                "a primitive polynomial obstruction needs an obstructed "
+                "polynomial result"
+            )
+        if self.obstruction is PrimitiveRDEObstruction.EXACT_DERIVATIVE and (
+            self.exact_derivative_result is None
+            or self.exact_derivative_result.has_solution
+        ):
+            raise ValueError(
+                "a primitive exact-derivative obstruction needs an obstructed "
+                "exact result"
+            )
+        if self.solution is not None:
+            if (
+                self.polynomial_result is not None
+                and not self.polynomial_result.has_solution
+            ):
+                raise ValueError(
+                    "a solved primitive RDE cannot retain an obstructed polynomial "
+                    "result"
+                )
+            if (
+                self.exact_derivative_result is not None
+                and not self.exact_derivative_result.has_solution
+            ):
+                raise ValueError(
+                    "a solved primitive RDE cannot retain an obstructed exact result"
+                )
+
     @property
     def has_solution(self) -> bool:
         """Whether the equation has a solution in the primitive field."""
@@ -368,6 +693,28 @@ class HyperexponentialLaurentRDEStep:
     shifted_coefficient: FieldElement
     solution: FieldElement | None
     lower_field_result: RischDifferentialEquationResult
+
+    def __post_init__(self) -> None:
+        """Validate the retained lower-field mode decision."""
+        if not isinstance(self.power, int) or isinstance(self.power, bool):
+            raise ValueError("a Laurent RDE mode power must be an integer")
+        lower_solution = self.lower_field_result.solution
+        if (self.solution is None) != (lower_solution is None):
+            raise ValueError(
+                "a Laurent RDE mode solution must match its lower-field result"
+            )
+        if (
+            self.solution is not None
+            and lower_solution is not None
+            and not _field_elements_equal(
+                self.solution,
+                lower_solution,
+                self.lower_field_result.derivation.field,
+            )
+        ):
+            raise ValueError(
+                "a Laurent RDE mode solution differs from its lower-field result"
+            )
 
     @property
     def has_solution(self) -> bool:
@@ -426,6 +773,31 @@ class HyperexponentialLaurentRischDifferentialEquationResult:
     corrections: tuple[HyperexponentialLaurentRDECorrection, ...] = ()
     boundary_logarithmic_result: ParametricLogarithmicDerivativeResult | None = None
     exceptional_power: int | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the complete Laurent-branch decision state."""
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            HyperexponentialLaurentRDEObstruction,
+        ):
+            raise TypeError("invalid hyperexponential Laurent RDE obstruction")
+        _validate_decided_outcome(
+            self.solution,
+            self.obstruction,
+            label="hyperexponential Laurent RDE certificate",
+        )
+        if self.obstruction is HyperexponentialLaurentRDEObstruction.LOWER_FIELD and (
+            not self.steps or all(step.has_solution for step in self.steps)
+        ):
+            raise ValueError(
+                "a Laurent lower-field obstruction needs an obstructed mode"
+            )
+        if self.solution is not None and any(
+            not step.has_solution for step in self.steps
+        ):
+            raise ValueError(
+                "a solved Laurent RDE cannot retain an obstructed lower-field mode"
+            )
 
     @property
     def has_solution(self) -> bool:
@@ -489,6 +861,44 @@ class HyperexponentialRischDifferentialEquationResult:
     degree_boundary_result: ParametricLogarithmicDerivativeResult | None = None
     degree_exceptional_power: int | None = None
 
+    def __post_init__(self) -> None:
+        """Validate the hyperexponential decision state and terminal result."""
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            HyperexponentialRDEObstruction,
+        ):
+            raise TypeError("invalid hyperexponential RDE obstruction")
+        _validate_decided_outcome(
+            self.solution,
+            self.obstruction,
+            label="hyperexponential RDE certificate",
+        )
+        division_obstruction = self.obstruction in {
+            HyperexponentialRDEObstruction.DENOMINATOR,
+            HyperexponentialRDEObstruction.SPDE_DIVISIBILITY,
+        }
+        _validate_failed_division(
+            self.obstruction_polynomial,
+            self.obstruction_remainder,
+            required=division_obstruction,
+            label="hyperexponential RDE",
+        )
+        if self.obstruction is HyperexponentialRDEObstruction.LAURENT and (
+            self.laurent_result is None or self.laurent_result.has_solution
+        ):
+            raise ValueError(
+                "a Laurent obstruction needs an obstructed terminal result"
+            )
+        if (
+            self.solution is not None
+            and self.laurent_result is not None
+            and not self.laurent_result.has_solution
+        ):
+            raise ValueError(
+                "a solved hyperexponential RDE cannot retain an obstructed "
+                "Laurent result"
+            )
+
     @property
     def has_solution(self) -> bool:
         """Whether the RDE has a rational solution in this field."""
@@ -535,6 +945,24 @@ class RischDifferentialEquationResult:
         | HyperexponentialLaurentRischDifferentialEquationResult
         | HypertangentGaussianRischDifferentialEquationResult
     )
+
+    def __post_init__(self) -> None:
+        """Validate dispatch consistency and exact reconstruction."""
+        _validate_decided_outcome(
+            self.solution,
+            self.obstruction,
+            label="recursive RDE result",
+        )
+        if self.certificate.has_solution != (self.solution is not None):
+            raise ValueError(
+                "the recursive RDE outcome disagrees with its level certificate"
+            )
+        if self.certificate.obstruction is not self.obstruction:
+            raise ValueError(
+                "the recursive RDE obstruction disagrees with its level certificate"
+            )
+        if self.solution is not None and not self.reconstructs:
+            raise ValueError("the recursive RDE solution does not reconstruct")
 
     @property
     def has_solution(self) -> bool:
@@ -588,6 +1016,15 @@ class BoundedRationalRDEMatrixResult:
     coefficient_rank: int
     augmented_rank: int
 
+    def __post_init__(self) -> None:
+        """Validate the bounded exact-linear-algebra outcome."""
+        _validate_matrix_ranks(
+            has_solution=self.solution is not None,
+            coefficient_rank=self.coefficient_rank,
+            augmented_rank=self.augmented_rank,
+            label="bounded rational RDE",
+        )
+
     @property
     def has_solution(self) -> bool:
         """Whether the bounded rational ansatz contains a solution."""
@@ -605,6 +1042,15 @@ class BoundedPrimitiveRDEMatrixResult:
     coefficient_rank: int
     augmented_rank: int
     top_denominator: Poly | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the bounded primitive matrix outcome."""
+        _validate_matrix_ranks(
+            has_solution=self.solution is not None,
+            coefficient_rank=self.coefficient_rank,
+            augmented_rank=self.augmented_rank,
+            label="bounded primitive RDE",
+        )
 
     @property
     def has_solution(self) -> bool:
@@ -625,6 +1071,19 @@ class BoundedPrimitiveCoupledRDEMatrixResult:
     augmented_rank: int
     top_denominator: Poly
 
+    def __post_init__(self) -> None:
+        """Validate the bounded primitive coupled matrix outcome."""
+        if (self.real_solution is None) != (self.imaginary_solution is None):
+            raise ValueError(
+                "a bounded primitive coupled RDE needs both solution coordinates"
+            )
+        _validate_matrix_ranks(
+            has_solution=self.real_solution is not None,
+            coefficient_rank=self.coefficient_rank,
+            augmented_rank=self.augmented_rank,
+            label="bounded primitive coupled RDE",
+        )
+
     @property
     def has_solution(self) -> bool:
         """Whether the bounded real-pair ansatz contains a solution."""
@@ -643,6 +1102,15 @@ class BoundedHyperexponentialLaurentRDEMatrixResult:
     coefficient_rank: int
     augmented_rank: int
     top_denominator: Poly | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the bounded Laurent matrix outcome."""
+        _validate_matrix_ranks(
+            has_solution=self.solution is not None,
+            coefficient_rank=self.coefficient_rank,
+            augmented_rank=self.augmented_rank,
+            label="bounded Laurent RDE",
+        )
 
     @property
     def has_solution(self) -> bool:
@@ -693,6 +1161,48 @@ class CoupledHyperexponentialLaurentRDEResult:
     imaginary_residual: FieldElement
     steps: tuple[CoupledHyperexponentialLaurentRDEStep, ...]
     obstruction: CoupledRDEObstruction | None
+
+    def __post_init__(self) -> None:
+        """Validate the direct Laurent decomposition and outcome."""
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            CoupledRDEObstruction,
+        ):
+            raise TypeError("invalid coupled Laurent RDE obstruction")
+        _validate_paired_outcome(
+            self.real_solution,
+            self.imaginary_solution,
+            self.obstruction,
+            label="coupled Laurent RDE certificate",
+        )
+        if not self.reconstructs:
+            raise ValueError(
+                "the coupled Laurent partial reduction does not reconstruct"
+            )
+        if self.obstruction is CoupledRDEObstruction.LOWER_FIELD and (
+            not self.steps or all(step.has_solution for step in self.steps)
+        ):
+            raise ValueError(
+                "a coupled Laurent lower-field obstruction needs an obstructed mode"
+            )
+        if self.real_solution is not None and self.imaginary_solution is not None:
+            field = self.derivation.field
+            if not _field_elements_equal(
+                self.derivation(self.real_solution)
+                + self.diagonal_coefficient * self.real_solution
+                - self.rotation_coefficient * self.imaginary_solution,
+                self.real_right_hand_side,
+                field,
+            ) or not _field_elements_equal(
+                self.derivation(self.imaginary_solution)
+                + self.rotation_coefficient * self.real_solution
+                + self.diagonal_coefficient * self.imaginary_solution,
+                self.imaginary_right_hand_side,
+                field,
+            ):
+                raise ValueError(
+                    "the stored coupled Laurent solution does not reconstruct"
+                )
 
     @property
     def has_solution(self) -> bool:
@@ -755,6 +1265,54 @@ class CoupledHypertangentPolynomialRDEResult:
     corrections: tuple[CoupledHypertangentPolynomialRDECorrection, ...] = ()
     boundary_result: CoupledRischDifferentialEquationResult | None = None
     recursive_result: CoupledHypertangentPolynomialRDEResult | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the direct hypertangent polynomial certificate."""
+        _validate_paired_outcome(
+            self.real_solution,
+            self.imaginary_solution,
+            self.obstruction,
+            label="coupled hypertangent polynomial RDE certificate",
+        )
+        if not self.reconstructs:
+            raise ValueError(
+                "the coupled hypertangent polynomial reduction does not reconstruct"
+            )
+        subordinate_results = tuple(
+            result
+            for result in (self.boundary_result, self.recursive_result)
+            if result is not None
+        )
+        if self.obstruction is CoupledRDEObstruction.LOWER_FIELD and (
+            not subordinate_results
+            or all(result.has_solution for result in subordinate_results)
+        ):
+            raise ValueError(
+                "a coupled hypertangent lower-field obstruction needs an "
+                "obstructed subordinate result"
+            )
+        if self.real_solution is not None and self.imaginary_solution is not None:
+            if any(not result.has_solution for result in subordinate_results):
+                raise ValueError(
+                    "a solved coupled hypertangent RDE cannot retain an obstructed "
+                    "subordinate result"
+                )
+            rotation = self.diagonal_coefficient.domain.convert(
+                self.rotation_coefficient
+            )
+            if (
+                self.derivation.polynomial(self.real_solution)
+                + self.diagonal_coefficient * self.real_solution
+                - self.imaginary_solution.mul_ground(rotation)
+                != self.real_right_hand_side
+                or self.derivation.polynomial(self.imaginary_solution)
+                + self.real_solution.mul_ground(rotation)
+                + self.diagonal_coefficient * self.imaginary_solution
+                != self.imaginary_right_hand_side
+            ):
+                raise ValueError(
+                    "the stored coupled hypertangent solution does not reconstruct"
+                )
 
     @property
     def has_solution(self) -> bool:
@@ -820,6 +1378,100 @@ class CoupledRationalRDEResult:
     gaussian_obstruction_polynomial: Poly | None = None
     gaussian_obstruction_remainder: Poly | None = None
 
+    def __post_init__(self) -> None:
+        """Validate the real rational pair and Gaussian subcertificate."""
+        _validate_paired_outcome(
+            self.real_solution,
+            self.imaginary_solution,
+            self.obstruction,
+            label="coupled rational RDE certificate",
+        )
+        _validate_failed_division(
+            self.obstruction_polynomial,
+            self.obstruction_remainder,
+            required=(
+                self.obstruction is CoupledRDEObstruction.DENOMINATOR
+                and self.gaussian_obstruction is None
+            ),
+            label="coupled rational RDE",
+        )
+
+        reduction_fields = (
+            self.partial_real_numerator,
+            self.partial_imaginary_numerator,
+            self.real_residual,
+            self.imaginary_residual,
+        )
+        if any(value is None for value in reduction_fields) and not all(
+            value is None for value in reduction_fields
+        ):
+            raise ValueError(
+                "a coupled rational reduction needs both partial numerators "
+                "and both residuals"
+            )
+
+        _validate_failed_division(
+            self.gaussian_obstruction_polynomial,
+            self.gaussian_obstruction_remainder,
+            required=self.gaussian_obstruction
+            in {
+                RationalRDEObstruction.DENOMINATOR,
+                RationalRDEObstruction.SPDE_DIVISIBILITY,
+            },
+            label="Gaussian scalar RDE",
+        )
+        if self.gaussian_obstruction is not None:
+            expected_obstruction = {
+                RationalRDEObstruction.DENOMINATOR: (CoupledRDEObstruction.DENOMINATOR),
+                RationalRDEObstruction.SPDE_DEGREE: CoupledRDEObstruction.DEGREE,
+                RationalRDEObstruction.SPDE_DIVISIBILITY: (
+                    CoupledRDEObstruction.NONZERO_REMAINDER
+                ),
+                RationalRDEObstruction.POLYNOMIAL: (
+                    CoupledRDEObstruction.NONZERO_REMAINDER
+                ),
+            }[self.gaussian_obstruction]
+            if self.obstruction is not expected_obstruction:
+                raise ValueError(
+                    "the coupled obstruction disagrees with its Gaussian certificate"
+                )
+        if self.obstruction is CoupledRDEObstruction.NONZERO_REMAINDER and (
+            all(value is None for value in reduction_fields)
+            and self.gaussian_obstruction is None
+        ):
+            raise ValueError(
+                "a coupled remainder obstruction needs a recurrence or Gaussian "
+                "subcertificate"
+            )
+        if self.real_solution is not None and self.imaginary_solution is not None:
+            if self.denominator_bound is None:
+                raise ValueError("a solved coupled rational RDE needs a denominator")
+            variable = cast(Symbol, self.denominator_bound.gens[0])
+            real_solution = cancel(self.real_solution)
+            imaginary_solution = cancel(self.imaginary_solution)
+            lambda_expression = (
+                self.lambda_coefficient.as_expr()
+                if isinstance(self.lambda_coefficient, Poly)
+                else self.lambda_coefficient
+            )
+            if (
+                cancel(
+                    real_solution.diff(variable)
+                    - lambda_expression * imaginary_solution
+                    - self.real_right_hand_side
+                )
+                != 0
+                or cancel(
+                    imaginary_solution.diff(variable)
+                    + lambda_expression * real_solution
+                    - self.imaginary_right_hand_side
+                )
+                != 0
+            ):
+                raise ValueError(
+                    "the stored coupled rational solution does not reconstruct"
+                )
+
     @property
     def has_solution(self) -> bool:
         """Whether both coupled equations have a rational solution."""
@@ -876,6 +1528,41 @@ class CoupledRischDifferentialEquationResult:
     ) = None
     gaussian_normal_form: HypertangentGaussianNormalForm | None = None
 
+    def __post_init__(self) -> None:
+        """Validate the recursive coupled outcome and exact solution."""
+        if self.obstruction is not None and not isinstance(
+            self.obstruction,
+            CoupledRDEObstruction,
+        ):
+            raise TypeError("invalid coupled RDE obstruction")
+        _validate_paired_outcome(
+            self.real_solution,
+            self.imaginary_solution,
+            self.obstruction,
+            label="recursive coupled RDE certificate",
+        )
+        if (self.scalar_result is None) == (self.direct_result is None):
+            raise ValueError(
+                "a recursive coupled RDE needs exactly one scalar or direct result"
+            )
+        subordinate = self.scalar_result or self.direct_result
+        if subordinate is None:
+            raise ValueError("a recursive coupled RDE lacks its subordinate result")
+        if subordinate.has_solution != self.has_solution:
+            raise ValueError(
+                "the recursive coupled outcome disagrees with its subordinate result"
+            )
+        if self.direct_result is not None and (
+            self.direct_result.obstruction is not self.obstruction
+        ):
+            raise ValueError(
+                "the recursive coupled obstruction disagrees with its direct result"
+            )
+        if self.gaussian_normal_form is not None and self.scalar_result is None:
+            raise ValueError("a Gaussian normal form requires a scalar RDE result")
+        if self.has_solution and not self.reconstructs:
+            raise ValueError("the recursive coupled RDE solution does not reconstruct")
+
     @property
     def has_solution(self) -> bool:
         """Whether both coupled equations have a solution."""
@@ -911,6 +1598,19 @@ class BoundedCoupledRDEMatrixResult:
     imaginary_solution: Expr | None
     coefficient_rank: int
     augmented_rank: int
+
+    def __post_init__(self) -> None:
+        """Validate the bounded real block-matrix outcome."""
+        if (self.real_solution is None) != (self.imaginary_solution is None):
+            raise ValueError(
+                "a bounded coupled RDE needs both solution coordinates or neither"
+            )
+        _validate_matrix_ranks(
+            has_solution=self.real_solution is not None,
+            coefficient_rank=self.coefficient_rank,
+            augmented_rank=self.augmented_rank,
+            label="bounded coupled RDE",
+        )
 
     @property
     def has_solution(self) -> bool:
@@ -1166,7 +1866,7 @@ def solve_polynomial_risch_differential_equation_matrix(
 
 
 def _as_qq_rational(
-    value: Expr | Poly,
+    value: ExactInput,
     x: Symbol,
 ) -> tuple[Expr, Poly, Poly]:
     """Return an expression and coprime numerator/denominator in ``QQ[x]``."""
@@ -1442,8 +2142,8 @@ def _solve_special_polynomial_differential_equation(
 
 
 def solve_rational_risch_differential_equation(
-    coefficient: Expr | Poly,
-    right_hand_side: Expr | Poly,
+    coefficient: ExactInput,
+    right_hand_side: ExactInput,
     x: Symbol,
 ) -> RationalRischDifferentialEquationResult:
     r"""Decide ``Dy + coefficient*y = right_hand_side`` in ``QQ(x)``.
@@ -3601,6 +4301,19 @@ def solve_risch_differential_equation(
             "scalar RDE dispatch is unsupported for this tower prefix: "
             f"{admission.reason.value}: {admission.detail}"
         )
+    return _solve_admitted_risch_differential_equation(
+        coefficient,
+        right_hand_side,
+        derivation,
+    )
+
+
+def _solve_admitted_risch_differential_equation(
+    coefficient: object,
+    right_hand_side: object,
+    derivation: Derivation,
+) -> RischDifferentialEquationResult:
+    """Solve after admission, including exact certified coordinate changes."""
     field = derivation.field
     coefficient_element = _coerce(
         field,
@@ -3700,7 +4413,7 @@ def solve_risch_differential_equation(
             normal_form = build_hypertangent_gaussian_normal_form(
                 derivation,
             )
-            target_result = solve_risch_differential_equation(
+            target_result = _solve_admitted_risch_differential_equation(
                 normal_form.forward(coefficient_element),
                 normal_form.forward(rhs_element),
                 normal_form.target_derivation,
@@ -5943,23 +6656,15 @@ def _coupled_obstruction_from_scalar(
 def _require_supported_coupled_tower(
     derivation: Derivation,
 ) -> None:
-    """Validate the monomial families understood by coupled recursion."""
-    if not _is_standard_rational_derivation(Derivation(derivation.tower, 0)):
+    """Replay scalar admission before transporting to Gaussian coordinates."""
+    admission = assess_scalar_rde_admission(derivation)
+    if not admission.accepted:
+        if admission.reason is None:
+            raise RuntimeError("unsupported coupled RDE admission omitted its reason")
         raise NotImplementedError(
-            "recursive coupled RDEs require the standard QQ(x) base"
+            "recursive coupled RDEs require an admitted scalar tower prefix: "
+            f"{admission.reason.value}: {admission.detail}"
         )
-    for level in range(1, derivation.level + 1):
-        extension = derivation.tower.levels[level]
-        if not isinstance(extension, MonomialExtension) or extension.family not in {
-            MonomialFamily.PRIMITIVE,
-            MonomialFamily.HYPEREXPONENTIAL,
-            MonomialFamily.HYPERTANGENT,
-        }:
-            raise NotImplementedError(
-                "recursive coupled RDEs currently support primitive, "
-                "hyperexponential, and hypertangent monomial levels"
-            )
-        extension.require_preserved_constants("recursive coupled RDE solving")
 
 
 def _coupled_tower_is_gaussian_safe(derivation: Derivation) -> bool:
@@ -6170,7 +6875,13 @@ def _solve_general_coupled_risch_differential_equation(
         ) + gaussian_field.from_sympy(I) * gaussian_normal_form.forward(
             imaginary_rhs,
         )
-    scalar_result = solve_risch_differential_equation(
+    # `_require_supported_coupled_tower` independently replayed the source
+    # tower's no-new-constants evidence.  The Gaussian target is an exact
+    # algebraic extension of constants (or a checked Cayley isomorphism), so
+    # re-running proposal admission on the transported metadata would discard
+    # that proof at recursive levels.  Solve inside the already admitted
+    # coordinate change instead.
+    scalar_result = _solve_admitted_risch_differential_equation(
         gaussian_diagonal + gaussian_field.from_sympy(I) * gaussian_rotation,
         gaussian_rhs,
         gaussian_derivation,

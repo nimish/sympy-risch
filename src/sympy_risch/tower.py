@@ -66,11 +66,15 @@ def _coerce(domain: Domain, element: object) -> FieldElement:
         )
     try:
         return cast(FieldElement, domain.convert(element))
-    except (CoercionFailed, ValueError):
+    except (CoercionFailed, ValueError) as exc:
         if isinstance(element, Expr):
             expression = element
+        elif isinstance(element, SupportsAsExpr):
+            expression = element.as_expr()
         else:
-            expression = cast(SupportsAsExpr, element).as_expr()
+            raise TypeError(
+                f"cannot coerce {type(element).__name__} into {domain}"
+            ) from exc
         return cast(FieldElement, domain.from_sympy(expression))
 
 

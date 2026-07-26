@@ -5,7 +5,51 @@ from __future__ import annotations
 from sympy.core.expr import Expr
 from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.polyerrors import CoercionFailed, DomainError, UnificationFailed
 from sympy.polys.polytools import Poly, resultant
+
+
+def _normalize_lrt_inputs(
+    numerator: Expr | Poly,
+    denominator: Expr | Poly,
+    x: Symbol,
+) -> tuple[Poly, Poly]:
+    """Coerce public LRT inputs into one exact characteristic-zero field."""
+    numerator_polynomial = Poly(numerator, x)
+    denominator_polynomial = Poly(denominator, x)
+
+    for domain in (
+        numerator_polynomial.domain,
+        denominator_polynomial.domain,
+    ):
+        if not domain.is_Exact:
+            raise ValueError("LRT requires exact coefficient domains")
+        if domain.characteristic() != 0:
+            raise ValueError("LRT requires characteristic-zero coefficient domains")
+
+    try:
+        numerator_polynomial, denominator_polynomial = numerator_polynomial.unify(
+            denominator_polynomial
+        )
+    except UnificationFailed as exc:
+        raise ValueError("LRT requires compatible coefficient domains") from exc
+
+    domain = numerator_polynomial.domain
+    try:
+        coefficient_field = domain if domain.is_Field else domain.get_field()
+        numerator_polynomial = numerator_polynomial.set_domain(coefficient_field)
+        denominator_polynomial = denominator_polynomial.set_domain(coefficient_field)
+    except (CoercionFailed, DomainError, NotImplementedError) as exc:
+        raise ValueError(
+            "LRT requires coefficient domains supporting exact field arithmetic"
+        ) from exc
+
+    if not coefficient_field.is_Field:
+        raise ValueError(
+            "LRT requires coefficient domains supporting exact field arithmetic"
+        )
+
+    return numerator_polynomial, denominator_polynomial
 
 
 def _remove_vanishing_leading_factors(
@@ -147,8 +191,7 @@ def lazard_rioboo_trager(
     residues and the polynomial remainder sequence to recover the pole factors
     belonging to each residue.
     """
-    numerator = Poly(numerator, x)
-    denominator = Poly(denominator, x)
+    numerator, denominator = _normalize_lrt_inputs(numerator, denominator, x)
 
     if denominator.is_zero:
         raise ZeroDivisionError("the denominator polynomial cannot be zero")

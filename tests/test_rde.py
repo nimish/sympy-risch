@@ -15,12 +15,36 @@ from sympy_risch import (
     HyperexponentialDependencyKind,
     MonomialExtension,
     PolynomialRDEObstruction,
+    PolynomialRischDifferentialEquationResult,
     analyze_hyperexponential_extension,
     solve_polynomial_risch_differential_equation,
     solve_polynomial_risch_differential_equation_matrix,
 )
 
 x, t = symbols("x t")
+
+
+def test_polynomial_rde_certificate_rejects_contradictory_states() -> None:
+    a = Poly(1, x, domain=QQ)
+    b = Poly(1, x, domain=QQ)
+
+    with pytest.raises(ValueError, match="both a solution and an obstruction"):
+        PolynomialRischDifferentialEquationResult(
+            a,
+            b,
+            0,
+            Poly(0, x, domain=QQ),
+            PolynomialRDEObstruction.DEGREE,
+        )
+
+    with pytest.raises(ValueError, match="does not reconstruct"):
+        PolynomialRischDifferentialEquationResult(
+            a,
+            b,
+            0,
+            Poly(0, x, domain=QQ),
+            None,
+        )
 
 
 @pytest.mark.parametrize(

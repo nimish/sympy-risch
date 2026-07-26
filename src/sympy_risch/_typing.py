@@ -22,6 +22,10 @@ class SupportsAsExpr(Protocol):
     def as_expr(self) -> Expr: ...
 
 
+type ExactInput = Expr | int | SupportsAsExpr
+"""Public exact input accepted by SymPy conversion boundaries."""
+
+
 class FieldElement(Protocol):
     """Native element of one exact field in a differential tower."""
 

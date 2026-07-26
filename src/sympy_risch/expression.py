@@ -615,14 +615,13 @@ def _validate_compiled_extension_sources(
 def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
     """Validate public certificate invariants independently of the builder."""
     tower, element = compilation._require_compiled()
+    substitutions = dict(compilation.generator_substitutions)
+    _validate_compiled_extension_sources(compilation, substitutions)
     admission = assess_elementary_admission(tower.derivation())
     if not admission.accepted:
         raise ValueError(
             "a compiled expression needs an admitted certified P/E/T tower"
         )
-
-    substitutions = dict(compilation.generator_substitutions)
-    _validate_compiled_extension_sources(compilation, substitutions)
     normalized_element = _embed_native_element(tower, element)
     source_generators = {
         source: generator for generator, source in substitutions.items()

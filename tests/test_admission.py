@@ -388,6 +388,24 @@ def test_base_metadata_is_not_a_nonbase_constant_field_requirement() -> None:
     assert assess_elementary_admission(tower.derivation()).accepted
 
 
+def test_admission_rechecks_a_claimed_constant_field_certificate() -> None:
+    base = _rational_tower()
+    forged = base.extend(
+        MonomialExtension(
+            Poly(1, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+    elementary = assess_elementary_admission(forged.derivation())
+    scalar_rde = assess_scalar_rde_admission(forged.derivation())
+
+    for admission in (elementary, scalar_rde):
+        assert admission.unsupported
+        assert admission.reason is TowerAdmissionReason.CONSTANT_FIELD_ENLARGED
+        assert "independent certification proves" in admission.detail
+
+
 def test_scalar_rde_admission_accepts_a_gaussian_rational_base() -> None:
     tower = DifferentialTower(QQ_I).extend(
         MonomialExtension(Poly(1, x, domain=QQ_I), ConstantFieldStatus.UNKNOWN),

@@ -128,6 +128,13 @@ def test_monomial_constant_field_status_is_explicit_and_immutable() -> None:
         preserved.constant_field_status = ConstantFieldStatus.ENLARGED  # type: ignore[misc]
 
 
+def test_derivation_rejects_an_object_without_an_exact_conversion() -> None:
+    derivation = rational_tower().derivation()
+
+    with pytest.raises(TypeError, match="cannot coerce object into"):
+        derivation(object())
+
+
 def test_monomial_special_polynomial_status_is_explicit_and_immutable() -> None:
     unknown = MonomialExtension(Poly(1, x, domain=QQ))
     absent = MonomialExtension(

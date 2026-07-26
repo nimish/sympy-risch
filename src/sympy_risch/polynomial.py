@@ -7,10 +7,10 @@ from sympy.core.symbol import Symbol
 from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
-from ._typing import FieldElement
+from ._typing import ExactInput, FieldElement
 
 
-def integrate_polynomial(f: Expr | Poly, x: Symbol) -> Expr:
+def integrate_polynomial(f: ExactInput, x: Symbol) -> Expr:
     r"""Integrate a polynomial in ``QQ[x]`` coefficient by coefficient.
 
     The returned antiderivative has integration constant zero. Inputs outside

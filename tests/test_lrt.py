@@ -1,7 +1,7 @@
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-from sympy import Poly, Rational, cancel, prod, symbols
+from sympy import CC, GF, QQ, RR, Poly, Rational, cancel, prod, sqrt, symbols
 
 from sympy_risch import (
     integrate_rational,
@@ -62,6 +62,41 @@ def test_lrt_requires_a_residue_symbol_new_over_the_coefficients() -> None:
         lazard_rioboo_trager(z, x + 1, x, z)
     with pytest.raises(TypeError, match="must be a Symbol"):
         lazard_rioboo_trager(1, x + 1, x, 0)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("domain", [RR, CC])
+def test_lrt_rejects_inexact_coefficient_domains(domain) -> None:
+    numerator = Poly(1, x, domain=domain)
+    denominator = Poly(x**2 + 1, x, domain=domain)
+
+    with pytest.raises(ValueError, match="exact coefficient domains"):
+        lazard_rioboo_trager(numerator, denominator, x, z)
+
+
+def test_lrt_rejects_positive_characteristic_coefficient_domains() -> None:
+    finite_field = GF(5)
+    numerator = Poly(1, x, domain=finite_field)
+    denominator = Poly(x**2 + 1, x, domain=finite_field)
+
+    with pytest.raises(ValueError, match="characteristic-zero coefficient domains"):
+        lazard_rioboo_trager(numerator, denominator, x, z)
+
+
+def test_lrt_unifies_exact_algebraic_coefficient_fields() -> None:
+    algebraic_field = QQ.algebraic_field(sqrt(2))
+    numerator = Poly(1, x, domain=QQ)
+    denominator = Poly(
+        x**2 + sqrt(2) * x + 1,
+        x,
+        domain=algebraic_field,
+    )
+
+    parts = lazard_rioboo_trager(numerator, denominator, x, z)
+
+    assert len(parts) == 1
+    logand, residue_factor = parts[0]
+    assert logand.as_expr() == x + z + sqrt(2) / 2
+    assert residue_factor == Poly(2 * z**2 + 1, z)
 
 
 @st.composite

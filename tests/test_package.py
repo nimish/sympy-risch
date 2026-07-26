@@ -1,9 +1,11 @@
+from importlib.metadata import version
+
 import sympy_risch
 from sympy_risch import __version__
 
 
 def test_package_import() -> None:
-    assert __version__ == "0.1.0"
+    assert __version__ == version("sympy-risch")
 
 
 def test_public_exports_are_defined_once() -> None:
