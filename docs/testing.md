@@ -71,6 +71,10 @@ positive and negative oracle comparisons. The oracle accepts an independent
 top-denominator ansatz, so it does not reuse the production normalizer or
 normal-denominator theorem.
 `tests/test_hypertangent.py` exercises the direct tangent reducer, and
+`tests/test_special.py` verifies concrete Darboux certificates together with
+the primitive no-special theorem: a primitive level can certify absence only
+after its constant field is certified preserved; unknown and enlarged cases
+remain nonnegative evidence only.
 `tests/test_algebraic.py` exercises algebraic Hermite reduction and integral
 bases. `tests/test_algebraic_geometry.py` exercises certified maximal orders,
 fractional ideals, ramified and infinite places, exact valuations and local

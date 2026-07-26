@@ -376,7 +376,10 @@ polynomial part for the family-specific algorithm.
 
 For general nonlinear monomials, `SpecialPolynomialStatus.ABSENT` is explicit
 evidence for the structure-theorem case with no nonconstant irreducible
-special polynomials.
+special polynomials. The primitive family now obtains that evidence
+automatically when its no-new-constants premise is certified: a nonconstant
+primitive special polynomial would normalize to a new constant. General
+polynomial monomials still require their own Darboux decision.
 
 ## Parametric logarithmic derivatives
 
@@ -982,8 +985,10 @@ matrix-oracle comparisons.
 The most recent normalization checkpoint adds the verified Möbius law
 `Dt = eta*(1 - t**2) -> Du = 2*eta*u`, so a formal hyperbolic tangent level
 can use the established hyperexponential integrator without mutating the
-source tower. The structure-theorem track now has conservative certificates
-for concrete special factors: they can prove `PRESENT`, never infer `ABSENT`.
+source tower. The structure-theorem track now has certificates for concrete
+special factors: they can prove `PRESENT` in every family and `ABSENT` for a
+primitive level with certified preserved constants. General polynomial
+monomials still have no exhaustive Darboux decision.
 The signature checkpoint exposes the certified P/E/T directions without
 widening their theorem domain.  The next transcendental work after it
 is complete special-factor decisions and expression-to-tower construction.

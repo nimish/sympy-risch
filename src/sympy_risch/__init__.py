@@ -190,9 +190,11 @@ from .relations import (
     build_fundamental_signature,
 )
 from .special import (
+    PrimitiveNoSpecialPolynomialCertificate,
     SpecialPolynomialAnalysis,
     SpecialPolynomialCertificate,
     analyze_special_polynomials,
+    certify_primitive_no_special_polynomials,
     certify_special_polynomial,
 )
 from .tower import (
@@ -294,6 +296,7 @@ __all__ = [
     "PrimitiveLogarithmicDerivativeFactor",
     "PrimitiveLogarithmicDerivativeSignature",
     "PrimitiveMonomialReduction",
+    "PrimitiveNoSpecialPolynomialCertificate",
     "PrimitiveParametricLogarithmicDerivativeCertificate",
     "PrimitiveParametricLogarithmicDerivativeFactor",
     "PrimitivePolynomialRDEObstruction",
@@ -331,6 +334,7 @@ __all__ = [
     "build_fundamental_signature",
     "build_hyperbolic_mobius_normal_form",
     "certify_primitive_extension",
+    "certify_primitive_no_special_polynomials",
     "certify_special_polynomial",
     "collect_algebraic_all_place_residues",
     "hermite_reduce_algebraic",

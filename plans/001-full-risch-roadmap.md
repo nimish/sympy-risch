@@ -414,9 +414,10 @@ public presentation remain future work.
 
 ### 2.4 Special-polynomial decision
 
-Status: primitive, hyperexponential, and hypertangent special behavior is
-handled by family-specific theorems. General polynomial monomials still rely
-on manually supplied `SpecialPolynomialStatus` metadata.
+Status: primitive levels with certified preserved constants now have a
+complete no-special theorem; hyperexponential and hypertangent special
+behavior has family-specific positive evidence. General polynomial monomials
+still rely on manually supplied `SpecialPolynomialStatus` metadata.
 
 - Replace caller assertions of `SpecialPolynomialStatus` with an algorithmic
   decision wherever the structure theorems make it effective.

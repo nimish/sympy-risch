@@ -786,10 +786,12 @@ Other monomial families still use explicitly supplied
 dependency analysis. Algorithms that need the hypothesis reject `UNKNOWN`
 and `ENLARGED` rather than issuing an unsound certificate.
 
-General nonlinear monomial reduction has a similar explicit
-`SpecialPolynomialStatus.ABSENT` precondition. It means the caller has
-established that the level has no nonconstant irreducible polynomial `p` with
-`p` dividing `Dp`.
+General nonlinear monomial reduction has a similar
+`SpecialPolynomialStatus.ABSENT` precondition. It means the level has no
+nonconstant irreducible polynomial `p` with `p` dividing `Dp`. For a primitive
+level with a certified preserved constant field, the special-polynomial
+analyzer proves that fact automatically; other monomial families still need
+their family theorem or explicit evidence.
 
 The current SymPy domain backend cannot yet represent a monomial extension
 above a function-field `AlgebraicExtension`, or a nested
@@ -840,7 +842,7 @@ principal groups are:
 | Primitive logarithmic analysis | `solve_radical_logarithmic_derivative`, `primitive_logarithmic_derivative_signature` |
 | Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative`; `solve_parametric_logarithmic_derivative_heuristic` exposes the Section 7.3 fast path |
 | Hyperbolic normal form | `build_hyperbolic_mobius_normal_form` for the exact law `Dt = eta*(1 - t**2)` |
-| Concrete special-factor evidence | `certify_special_polynomial`, `analyze_special_polynomials` (positive evidence only; not an absence decision) |
+| Special-polynomial evidence | `certify_special_polynomial`, `analyze_special_polynomials`, `certify_primitive_no_special_polynomials` (primitive preserved-constant levels have a complete absence theorem; other families are positive-evidence-only) |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
 | Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |
