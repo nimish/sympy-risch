@@ -91,6 +91,11 @@ checks that an exact Hermite result bypasses constant-field/global-geometry
 work, that enlarged or unproved constant fields return no partial place list,
 that each local residue belongs to its own residue field, and that the
 collector reuses its already verified divisor and local-residue computations.
+`tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
+result: a native monomial prefix plus a terminal algebraic extension must
+coerce and differentiate at its top, while monomial-over-algebraic and nested
+algebraic orderings remain structured backend limitations rather than partial
+towers.
 `tests/test_parametric_logarithmic.py` checks Bronstein's equation
 (7.37), the Section 7.3 rational fast path, and exact witnesses over rational
 and primitive lower fields. It exercises both coefficient-comparison

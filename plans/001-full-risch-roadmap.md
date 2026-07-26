@@ -116,7 +116,8 @@ The current implementation already has a strong exact-arithmetic kernel:
 - `src/sympy_risch/tower.py` classifies monomial families, records
   constant-field and special-polynomial evidence, represents finite
   algebraic extensions with SymPy's `FiniteExtension`, and differentiates
-  algebraic generators implicitly.
+  algebraic generators implicitly, and classifies which algebraic/monomial
+  prefixes the current native backend can actually represent.
 - `src/sympy_risch/dependency.py` provides complete parametric
   logarithmic-derivative decisions for the normalized P/E/T tower contract:
   rational and primitive fast paths, mixed relation-system fallbacks, and
@@ -195,7 +196,7 @@ The existing design conventions to preserve are:
 | Milestone | Current status |
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Complete for the declared `QQ(x)` P/E/T contract: the public admission result, declared-cell matrix, and CI gate distinguish unsupported towers from theorem-backed obstructions. |
-| 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist; general constant capabilities and canonical mixed algebraic towers remain. |
+| 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist, and a checked feasibility result maps the current mixed-prefix backend boundary; general constant capabilities and canonical mixed algebraic towers remain. |
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation and Gaussian fallbacks are complete over `QQ(x)`; general effective constants, fundamental signatures, and non-generator special factors remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete; general polynomial special branches and expression-to-tower construction are not. |
@@ -796,9 +797,12 @@ separate commit after focused and full-suite verification.
    enlargement, then bridge nonzero admitted Hermite remainders to canonical
    all-place residue data. Exact Hermite successes do not need global geometry.
    Do not extend the unramified plane-model shortcut by guess.
-4. [ ] Design a minimal native-SymPy representation for algebraic-over-
-   monomial, monomial-over-algebraic, and nested algebraic tower prefixes.
-   This is a narrow feasibility spike, not a broad element-hierarchy rewrite.
+4. [x] Add a minimal native-SymPy mixed-prefix feasibility analyzer. It
+   certifies a monomial prefix with an optional terminal algebraic level by
+   exercising native coercion and differentiation, and reports
+   monomial-over-algebraic and nested algebraic orderings as explicit backend
+   limitations. It is a narrow boundary map, not a broad element-hierarchy
+   rewrite.
 
 ### Transcendental completion path
 

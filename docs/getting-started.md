@@ -820,7 +820,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
 | Algebraic levels in `integrate_elementary` | Not implemented |
-| Monomial above a function-field algebraic level, or nested algebraic level | Explicitly rejected by the current SymPy domain backend |
+| Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level; monomial-over-algebraic and nested algebraic orderings return a structured backend limitation |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end in the explicit certified P/E/T contract |
 | Automatic tower discovery and back-substitution | Not implemented |
 | Complete global real branch management | Not implemented |
@@ -847,6 +847,7 @@ principal groups are:
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
 | Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |
 | Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |
+| Mixed-prefix backend feasibility | `TowerRepresentationProposal`, `analyze_tower_representation`, `TowerRepresentationOutcome` |
 
 These functions return structured immutable results rather than only a printed
 antiderivative. Their dataclass fields are the executable reduction

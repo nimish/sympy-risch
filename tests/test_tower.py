@@ -14,6 +14,11 @@ from sympy_risch import (
     MonomialExtension,
     MonomialFamily,
     SpecialPolynomialStatus,
+    TowerRepresentationAnalysis,
+    TowerRepresentationOutcome,
+    TowerRepresentationProposal,
+    TowerRepresentationReason,
+    analyze_tower_representation,
     rebase_derivation_constants,
 )
 
@@ -174,6 +179,123 @@ def test_algebraic_parent_compositions_fail_at_the_documented_boundary() -> None
                 nested_generator,
                 domain=algebraic.field(),
             ),
+        )
+
+
+def test_representation_proposal_is_immutable_and_copies_levels() -> None:
+    source = [MonomialExtension(Poly(1, x, domain=QQ))]
+
+    proposal = TowerRepresentationProposal(QQ, source)  # type: ignore[arg-type]
+    source.clear()
+
+    assert proposal.levels == (MonomialExtension(Poly(1, x, domain=QQ)),)
+    with pytest.raises(FrozenInstanceError):
+        proposal.levels = ()  # type: ignore[misc]
+
+
+def test_representation_analysis_exercises_terminal_algebraic_native_path() -> None:
+    first = MonomialExtension(Poly(1, x, domain=QQ))
+    lower = DifferentialTower(QQ).extend(first)
+    second = MonomialExtension(Poly(x * t, t, domain=lower.field()))
+    monomial_prefix = lower.extend(second)
+    algebraic = AlgebraicExtension(
+        Poly(y**2 - x - t, y, domain=monomial_prefix.field()),
+    )
+    source = monomial_prefix.extend(algebraic)
+
+    proposal = TowerRepresentationProposal.from_tower(source)
+    analysis = analyze_tower_representation(proposal)
+
+    assert analysis.outcome is TowerRepresentationOutcome.REPRESENTABLE
+    assert analysis.representable
+    assert not analysis.backend_limited
+    assert not analysis.unsupported
+    assert analysis.reason is None
+    assert analysis.failed_level is None
+    assert analysis.native_tower is not None
+    assert analysis.native_tower.levels == proposal.levels
+
+    field = analysis.native_tower.field()
+    result = analysis.native_tower.derivation()(field.from_sympy(y))
+    expected = field.from_sympy(1 + x * t) / (2 * field.generator)
+
+    assert result == expected
+
+
+def test_representation_analysis_accepts_monomial_over_algebraic_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    extension = MonomialExtension(Poly(1, t, domain=constants))
+
+    analysis = analyze_tower_representation(
+        TowerRepresentationProposal(constants, (extension,)),
+    )
+
+    assert analysis.representable
+    assert analysis.native_tower is not None
+    field = analysis.native_tower.field()
+    assert analysis.native_tower.derivation()(field.from_sympy(t)) == field.one
+
+
+def test_representation_analysis_reports_monomial_over_algebraic_backend_limit() -> (
+    None
+):
+    base = rational_tower()
+    algebraic = AlgebraicExtension(Poly(y**2 - x, y, domain=base.field()))
+    monomial = MonomialExtension(Poly(y * t, t, domain=algebraic.field))
+    proposal = TowerRepresentationProposal(QQ, (*base.levels, algebraic, monomial))
+
+    analysis = analyze_tower_representation(proposal)
+
+    assert analysis.outcome is TowerRepresentationOutcome.BACKEND_LIMITED
+    assert analysis.backend_limited
+    assert not analysis.representable
+    assert not analysis.unsupported
+    assert analysis.reason is TowerRepresentationReason.MONOMIAL_OVER_ALGEBRAIC
+    assert analysis.failed_level == 2
+    assert analysis.native_tower is None
+
+
+def test_representation_analysis_checks_each_expected_parent() -> None:
+    base = MonomialExtension(Poly(1, x, domain=QQ))
+    wrong_parent = MonomialExtension(Poly(1, t, domain=QQ))
+    proposal = TowerRepresentationProposal(QQ, (base, wrong_parent))
+
+    analysis = analyze_tower_representation(proposal)
+
+    assert analysis.outcome is TowerRepresentationOutcome.UNSUPPORTED
+    assert analysis.reason is TowerRepresentationReason.PARENT_FIELD_MISMATCH
+    assert analysis.failed_level == 1
+    assert analysis.native_tower is None
+
+
+def test_representation_analysis_distinguishes_unsupported_shape_from_backend_limit() -> (
+    None
+):
+    proposal = TowerRepresentationProposal(QQ, (object(),))  # type: ignore[arg-type]
+
+    analysis = analyze_tower_representation(proposal)
+
+    assert analysis.outcome is TowerRepresentationOutcome.UNSUPPORTED
+    assert analysis.unsupported
+    assert not analysis.representable
+    assert not analysis.backend_limited
+    assert analysis.reason is TowerRepresentationReason.UNSUPPORTED_EXTENSION
+    assert analysis.failed_level == 0
+    assert analysis.native_tower is None
+
+
+def test_representation_analysis_rejects_a_forged_partial_native_tower() -> None:
+    proposal = TowerRepresentationProposal(QQ, ())
+    native_tower = DifferentialTower(QQ)
+
+    with pytest.raises(ValueError, match="must not carry a partial tower"):
+        TowerRepresentationAnalysis(
+            proposal,
+            TowerRepresentationOutcome.BACKEND_LIMITED,
+            TowerRepresentationReason.NATIVE_OPERATION,
+            "test-only forged result",
+            0,
+            native_tower,
         )
 
 

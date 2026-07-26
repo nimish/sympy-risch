@@ -286,6 +286,26 @@ currently exist. A future builder may provide named constructors or
 presentation metadata, but the reducers should continue to dispatch on the
 mathematical family.
 
+### Mixed algebraic-prefix feasibility
+
+`analyze_tower_representation` is the narrow backend boundary for a proposed
+algebraic/monomial prefix. It returns an immutable result with one of three
+meanings:
+
+- `REPRESENTABLE`: native SymPy domains can build the whole prefix, and the
+  top generator can be coerced and differentiated exactly;
+- `BACKEND_LIMITED`: the ordering is mathematically meaningful but the
+  current native-domain backend cannot form it; or
+- `UNSUPPORTED`: the proposal is malformed or outside the small native
+  algebraic/monomial shape.
+
+At present a finite monomial prefix, optionally followed by one algebraic
+extension, is representable. A monomial above a function-field algebraic
+extension and a nested algebraic extension are reported as backend limits,
+not as integration or elementary-function decisions. The proposal deliberately
+stores only the existing immutable extension metadata: it does not introduce a
+parallel element hierarchy merely to emulate unsupported fields.
+
 ### Derivation
 
 For
