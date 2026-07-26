@@ -12,14 +12,16 @@ from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
     RationalRDEObstruction,
-    solve_bounded_coupled_rde_matrix,
-    solve_bounded_rational_rde_matrix,
     solve_coupled_rational_rde,
     solve_coupled_risch_differential_equation,
     solve_hyperexponential_laurent_risch_differential_equation,
     solve_primitive_risch_differential_equation,
     solve_rational_risch_differential_equation,
     solve_risch_differential_equation,
+)
+from tests.oracles.rde import (
+    solve_bounded_coupled_rde_matrix,
+    solve_bounded_rational_rde_matrix,
 )
 
 x, t = symbols("x t")

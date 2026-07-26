@@ -7,7 +7,6 @@ from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
-    BoundedHyperexponentialLaurentRDEMatrixResult,
     ConstantFieldStatus,
     DifferentialTower,
     HyperexponentialLaurentRDEDirection,
@@ -15,9 +14,12 @@ from sympy_risch import (
     HyperexponentialLaurentRischDifferentialEquationResult,
     MonomialExtension,
     RationalRischDifferentialEquationResult,
-    solve_bounded_hyperexponential_laurent_rde_matrix,
     solve_hyperexponential_laurent_risch_differential_equation,
     solve_risch_differential_equation,
+)
+from tests.oracles.rde import (
+    BoundedHyperexponentialLaurentRDEMatrixResult,
+    solve_bounded_hyperexponential_laurent_rde_matrix,
 )
 
 x, t, u = symbols("x t u")

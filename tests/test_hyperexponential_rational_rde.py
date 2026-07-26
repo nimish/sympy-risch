@@ -12,9 +12,11 @@ from sympy_risch import (
     HyperexponentialRDEObstruction,
     HyperexponentialRischDifferentialEquationResult,
     MonomialExtension,
-    solve_bounded_hyperexponential_laurent_rde_matrix,
     solve_hyperexponential_risch_differential_equation,
     solve_risch_differential_equation,
+)
+from tests.oracles.rde import (
+    solve_bounded_hyperexponential_laurent_rde_matrix,
 )
 
 x, s, t = symbols("x s t")

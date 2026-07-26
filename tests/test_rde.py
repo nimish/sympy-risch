@@ -18,8 +18,8 @@ from sympy_risch import (
     PolynomialRischDifferentialEquationResult,
     analyze_hyperexponential_extension,
     solve_polynomial_risch_differential_equation,
-    solve_polynomial_risch_differential_equation_matrix,
 )
+from tests.oracles.rde import solve_polynomial_risch_differential_equation_matrix
 
 x, t = symbols("x t")
 

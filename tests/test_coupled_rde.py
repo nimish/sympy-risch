@@ -11,9 +11,9 @@ from sympy.polys.domains import QQ, QQ_I
 from sympy_risch import (
     CoupledRDEObstruction,
     RationalRDEObstruction,
-    solve_bounded_coupled_rde_matrix,
     solve_coupled_rational_rde,
 )
+from tests.oracles.rde import solve_bounded_coupled_rde_matrix
 
 x = symbols("x")
 

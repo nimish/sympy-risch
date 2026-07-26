@@ -7,7 +7,6 @@ from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
-    BoundedPrimitiveRDEMatrixResult,
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
@@ -15,9 +14,12 @@ from sympy_risch import (
     PrimitiveRDEObstruction,
     PrimitiveRischDifferentialEquationResult,
     RationalRischDifferentialEquationResult,
-    solve_bounded_primitive_rde_matrix,
     solve_primitive_risch_differential_equation,
     solve_risch_differential_equation,
+)
+from tests.oracles.rde import (
+    BoundedPrimitiveRDEMatrixResult,
+    solve_bounded_primitive_rde_matrix,
 )
 
 x, t, u = symbols("x t u")

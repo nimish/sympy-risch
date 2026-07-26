@@ -16,8 +16,8 @@ from sympy_risch import (
     integrate_elementary,
     reduce_hyperexponential_laurent,
     reduce_hyperexponential_monomial,
-    solve_bounded_rational_rde_matrix,
 )
+from tests.oracles.rde import solve_bounded_rational_rde_matrix
 
 x, t, u = symbols("x t u")
 

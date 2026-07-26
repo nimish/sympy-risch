@@ -13,9 +13,9 @@ from sympy_risch import (
     MonomialExtension,
     PolynomialRDEObstruction,
     RationalRDEObstruction,
-    solve_bounded_rational_rde_matrix,
     solve_rational_risch_differential_equation,
 )
+from tests.oracles.rde import solve_bounded_rational_rde_matrix
 
 x, t = symbols("x t")
 

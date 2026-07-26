@@ -13,8 +13,8 @@ from sympy_risch import (
     MonomialExtension,
     reduce_hypertangent_monomial,
     reduce_hypertangent_special,
-    solve_bounded_coupled_rde_matrix,
 )
+from tests.oracles.rde import solve_bounded_coupled_rde_matrix
 
 x, t = symbols("x t")
 
