@@ -858,9 +858,12 @@ D(N(f))/N(f) = Tr(Df/f).
 ```
 
 `rebase_derivation_constants` reconstructs a tower prefix over a larger exact
-constant field while preserving monomial proof metadata and algebraic
-defining polynomials. This is the coercion boundary needed before adjoining
-algebraic residue constants.
+constant field while preserving monomial proof metadata and copying algebraic
+defining polynomials. It is usable only when each existing algebraic level
+continues to describe the intended field over the larger constants. It is not
+general function-field constant normalization: if an old minimal polynomial
+factors or drops degree, a correct rebase needs a new presentation and explicit
+two-way maps.
 
 The implemented algebraic Hermite reducer currently assumes a one-variable
 rational parent field and an integral basis. It can:
@@ -906,14 +909,19 @@ The current embedding deliberately stops before constructing a new
 function-field presentation, since the old minimal polynomial can factor over
 the enlarged constants.
 
-The next missing algebraic gate is all-place residue collection after Hermite
-reduction. The logarithmic branch then needs branch-place residue descent, a
-residue basis over the minimal algebraic constant extension, and
+The all-place residue gate now consumes that analysis after algebraic Hermite
+reduction. For every admitted `PRESERVED` presentation, it uses the
+maximal-order geometry API to enumerate every finite and infinite pole with
+its true uniformizer and exact local residue; an unproved or rebasing-required
+constant field yields no partial place list. A zero Hermite remainder instead
+returns an `EXACT` certificate without needing a constant analysis or global
+model. The next algebraic decisions are global: branch-place residue descent,
+a residue basis over the minimal algebraic constant extension, and
 principal/torsion divisor-class solving for logarithmic reconstruction. In
-parallel, the zero-residue branch needs exactness decisions for second-kind
-differentials and the Risch equation on an algebraic curve. Recursive
-composition with transcendental levels comes after those field-level decisions
-and an exact backend representation for the mixed tower.
+parallel, the nonzero zero-residue branch needs exactness decisions for
+second-kind differentials and the Risch equation on an algebraic curve.
+Recursive composition with transcendental levels comes after those field-level
+decisions and an exact backend representation for the mixed tower.
 
 The proposed real algebraic-over-tangent direction is kept in the
 [algebraic-hypertangent research note](algebraic-hypertangent.md).
@@ -1105,9 +1113,11 @@ implicit genericity assumption.
   expansions.
 - [x] Implement principal and canonical divisors, differents, general divisor
   arithmetic, local differential residues, and genus.
-- [ ] Handle branch places at the poles by proving that their residues vanish
-  where applicable or by changing/extending the model before residue
-  extraction.
+- [x] Certify displayed constants for the admitted simple-radical cases and
+  bridge Hermite remainders in every admitted `PRESERVED` presentation to
+  every ramified, unramified, and infinite pole through the canonical global
+  model. The old plane-model route remains an independent unramified finite
+  oracle.
 - [ ] Compute a rational basis for the algebraic residues in their minimal
   constant extension.
 - [ ] Construct the divisor associated with each residue-basis coefficient

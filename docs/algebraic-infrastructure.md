@@ -97,10 +97,52 @@ Once the new constants contain `w`, the old algebraic minimal polynomial can
 factor or its degree can drop. A correct rebase must construct a new
 function-field presentation and explicit two-way maps; that is a later
 constant-normalization checkpoint. The current certificate is enough to
-let an algebraic integration entry point reject or rebase the presentation
-before it invokes the place and divisor layer. Low-level
+let an algebraic integration entry point reject the presentation or hand it
+off to a future rebaser before it invokes the place and divisor layer.
+Low-level
 `AlgebraicFunctionField` construction remains intentionally neutral and does
 not inspect this analysis itself.
+
+## Post-Hermite all-place residues
+
+`collect_algebraic_all_place_residues(integrand, derivation, basis)` is the
+integration-facing bridge from algebraic Hermite reduction to the global
+place API. It first returns the exact decomposition
+
+```text
+integrand = D(exact_part) + remainder,
+```
+
+using the supplied basis (or its lazily refined replacement). It then runs
+the constant-field analysis for a nonzero remainder. A zero remainder is an
+`EXACT` result immediately: it is a complete exactness certificate with empty
+pole support, so it needs neither a constant-field decision nor a global
+model. Only a nonzero `PRESERVED` result reaches
+`AlgebraicFunctionField`; `REBASING_REQUIRED` and `UNSUPPORTED` results keep
+the verified Hermite data but return no model and no partial list of places.
+
+For a nonzero collected remainder, the collector computes the complete
+divisor of `remainder dx` and takes its negative support. Every record is an
+`AlgebraicLocalDifferentialResidue` containing:
+
+- the canonical finite or infinite place;
+- its positive pole order;
+- the place's valuation-one uniformizer; and
+- the exact local residue in that place's residue field.
+
+This route naturally includes ramified finite places and infinity. In
+particular, it does not substitute a base polynomial for a branch-place
+uniformizer. A pole with zero local residue is retained: later second-kind
+exactness and Riemann--Roch algorithms need to distinguish it from the
+absence of a pole.
+
+`AlgebraicAllPlaceResidueResult` checks reconstruction and square-freeness of
+the Hermite remainder in its retained basis. For a nonzero `COLLECTED` result,
+it also checks the full differential divisor and the one-to-one correspondence
+between negative divisor support and local records; each residue value must
+belong to its record's exact residue field. It is a residue collection
+boundary, not an integrator: it neither reconstructs logarithms from residues
+nor decides whether a nonzero zero-residue differential is exact.
 
 ## Public API
 
@@ -117,6 +159,9 @@ not inspect this analysis itself.
 | `AlgebraicFunctionField` | Cached global owner for orders and places |
 | `AlgebraicConstantFieldAnalysis` | Narrow, witnessed constant-field decision |
 | `AlgebraicConstantEmbedding` | Exact proposed constant subfield map into `L` |
+| `AlgebraicLocalDifferentialResidue` | One pole, uniformizer, and local residue |
+| `AlgebraicAllPlaceResidueResult` | Hermite result plus complete all-place data |
+| `collect_algebraic_all_place_residues` | Guarded global residue collector |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from

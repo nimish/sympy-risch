@@ -21,7 +21,7 @@
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
 - **Last implementation reconciliation**: Plan 004 algebraic constant-field
-  checkpoint underway, 2026-07-25
+  and all-place residue checkpoint complete, 2026-07-25
 
 ## Why this matters
 
@@ -141,9 +141,11 @@ The current implementation already has a strong exact-arithmetic kernel:
   lazily refined integral bases, plus Trager's finite-residue polynomial for
   supported unbranched poles. `src/sympy_risch/algebraic_geometry.py` now adds
   certified maximal orders, ramified and infinite places, residue fields,
-  local expansions, divisors, and differential residues. Constant-field
-  normalization, all-place integration residue collection, logarithmic
-  reconstruction, and second-kind exactness remain open.
+  local expansions, divisors, and differential residues. A narrow
+  constant-field analyzer and all-place collector are implemented for admitted
+  direct `C(x)` simple-radical presentations. Exact presentation
+  normalization, logarithmic reconstruction, and second-kind exactness remain
+  open.
 
 The implementation checkpoints since this roadmap was created are:
 
@@ -534,9 +536,10 @@ lazy refinement, algebraic Hermite reduction over `QQ(x)`, and Trager's
 nested-resultant finite-residue polynomial are implemented. Certified maximal
 orders, ramified/infinite places, exact residue fields, uniformizers,
 valuations, local expansions, differents, and divisor arithmetic now exist in
-`algebraic_geometry.py`. The immediate gate is therefore not more place
-primitives: it is constant-field normalization followed by a complete
-all-place residue collector that consumes the canonical geometry API.
+`algebraic_geometry.py`. A narrow constant-field gate and an all-place residue
+collector already consume that canonical geometry API for admitted preserved
+presentations. The immediate gate is now global divisor/cohomology work, plus
+actual presentation normalization when constants enlarge.
 
 ### 5.1 Integral closure and bases
 
@@ -788,9 +791,10 @@ separate commit after focused and full-suite verification.
 2. [x] **Plan 003**: extracted the current P/E/T relation logic into
    immutable complex and real fundamental signatures. The existing compiler
    and Gaussian normal form remain behavioral oracles.
-3. [ ] **Plan 004**: decide or explicitly reject algebraic constant-field
-   enlargement, then bridge Hermite remainders to canonical all-place
-   residue data. Do not extend the unramified plane-model shortcut by guess.
+3. [x] **Plan 004**: decide or explicitly reject algebraic constant-field
+   enlargement, then bridge nonzero admitted Hermite remainders to canonical
+   all-place residue data. Exact Hermite successes do not need global geometry.
+   Do not extend the unramified plane-model shortcut by guess.
 4. [ ] Design a minimal native-SymPy representation for algebraic-over-
    monomial, monomial-over-algebraic, and nested algebraic tower prefixes.
    This is a narrow feasibility spike, not a broad element-hierarchy rewrite.
@@ -811,7 +815,8 @@ separate commit after focused and full-suite verification.
 ### Algebraic completion path
 
 8. [ ] Build the shared Riemann--Roch/effective-global-space service on top of
-   normalized constants and all-place residues.
+   certified preserved presentations, future normalized constants, and
+   all-place residues.
 9. [ ] Use it for residue-basis descent and principal/torsion divisor solving
    (algebraic logarithmic reconstruction) and, in parallel, exactness of
    second-kind differentials. Test genus-zero and positive-genus cases.

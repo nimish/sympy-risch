@@ -816,6 +816,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
+| Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Monomial above a function-field algebraic level, or nested algebraic level | Explicitly rejected by the current SymPy domain backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end in the explicit certified P/E/T contract |
@@ -842,6 +843,7 @@ principal groups are:
 | Concrete special-factor evidence | `certify_special_polynomial`, `analyze_special_polynomials` (positive evidence only; not an absence decision) |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
+| Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |
 | Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |
 
 These functions return structured immutable results rather than only a printed

@@ -78,6 +78,15 @@ expansions, differents, divisors, and differential residues. Its adversarial
 families include singular plane models with hidden normalization, deep
 quadratic/cubic/quartic index factors, closed points with algebraic residue
 fields, and generated finite/infinite valuation identities.
+`tests/test_algebraic_all_places.py` connects that global geometry layer to
+algebraic Hermite reduction. It checks a ramified branch pole and infinity,
+an unramified finite cross-check against Trager's independent resultant
+route, a singular displayed model after normalization, and a genus-one
+zero-residue differential that is intentionally not treated as exact. It also
+checks that an exact Hermite result bypasses constant-field/global-geometry
+work, that enlarged or unproved constant fields return no partial place list,
+that each local residue belongs to its own residue field, and that the
+collector reuses its already verified divisor and local-residue computations.
 `tests/test_parametric_logarithmic.py` checks Bronstein's equation
 (7.37), the Section 7.3 rational fast path, and exact witnesses over rational
 and primitive lower fields. It exercises both coefficient-comparison

@@ -2349,10 +2349,30 @@ class AlgebraicDivisor:
 
 @dataclass(frozen=True, slots=True)
 class AlgebraicDifferential:
-    r"""A differential represented globally as ``coefficient*dx``."""
+    r"""A differential represented globally as ``coefficient*dx``.
+
+    The private caches memoize exact divisor and local-residue computations.
+    They are not part of the mathematical value or equality; they let a
+    collector validate the data it just computed without repeating expensive
+    global and local algebra.
+    """
 
     model: AlgebraicFunctionField
     coefficient: object
+    _divisor_cache: AlgebraicDivisor | None = dataclass_field(
+        init=False,
+        default=None,
+        repr=False,
+        compare=False,
+    )
+    _residue_cache: tuple[tuple[AlgebraicPlace, ExtensionElement], ...] = (
+        dataclass_field(
+            init=False,
+            default=(),
+            repr=False,
+            compare=False,
+        )
+    )
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -2380,13 +2400,26 @@ class AlgebraicDifferential:
         """Exact local residue in the place's residue field."""
         if place.extension != self.model.extension:
             raise ValueError("the place belongs to another function field")
-        return place.differential_residue(self.coefficient)
+        for cached_place, cached_value in self._residue_cache:
+            if place is cached_place:
+                return cached_value
+        value = place.differential_residue(self.coefficient)
+        object.__setattr__(
+            self,
+            "_residue_cache",
+            (*self._residue_cache, (place, value)),
+        )
+        return value
 
     def divisor(self) -> AlgebraicDivisor:
         """Complete divisor of this nonzero differential."""
         if self.coefficient == self.model.extension.field.zero:
             raise ValueError("the zero differential has no finite divisor")
-        return (
+        if self._divisor_cache is not None:
+            return self._divisor_cache
+        divisor = (
             self.model.principal_divisor(self.coefficient)
             + self.model.canonical_divisor()
         )
+        object.__setattr__(self, "_divisor_cache", divisor)
+        return divisor

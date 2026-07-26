@@ -7,15 +7,19 @@ from .admission import (
     assess_elementary_admission,
 )
 from .algebraic import (
+    AlgebraicAllPlaceResidueResult,
+    AlgebraicAllPlaceResidueStatus,
     AlgebraicConstantEmbedding,
     AlgebraicConstantFieldAnalysis,
     AlgebraicConstantFieldStatus,
     AlgebraicFraction,
+    AlgebraicLocalDifferentialResidue,
     AlgebraicPlaceResidue,
     IntegralBasis,
     SimpleRadicalData,
     TragerAlgebraicResidueResult,
     analyze_algebraic_constant_field,
+    collect_algebraic_all_place_residues,
     hermite_reduce_algebraic,
     lazy_hermite_reduce_algebraic,
     recognize_simple_radical,
@@ -206,6 +210,8 @@ from .tower import (
 __version__ = "0.1.0"
 
 __all__ = [
+    "AlgebraicAllPlaceResidueResult",
+    "AlgebraicAllPlaceResidueStatus",
     "AlgebraicConstantEmbedding",
     "AlgebraicConstantFieldAnalysis",
     "AlgebraicConstantFieldStatus",
@@ -215,6 +221,7 @@ __all__ = [
     "AlgebraicFraction",
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",
+    "AlgebraicLocalDifferentialResidue",
     "AlgebraicOrder",
     "AlgebraicPlaceResidue",
     "BoundedCoupledRDEMatrixResult",
@@ -325,6 +332,7 @@ __all__ = [
     "build_hyperbolic_mobius_normal_form",
     "certify_primitive_extension",
     "certify_special_polynomial",
+    "collect_algebraic_all_place_residues",
     "hermite_reduce_algebraic",
     "hermite_reduce_monomial",
     "hermite_reduce_rational",

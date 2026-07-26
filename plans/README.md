@@ -16,7 +16,7 @@ plan with exact file scope, tests, and a separate commit.
 | 001 | Make the Risch implementation complete over its declared input class | P1 | XL | - | IN PROGRESS |
 | 002 | Make the current P/E/T contract executable | P1 | M | 001 | DONE |
 | 003 | Extract certified fundamental signatures | P1 | L | 002 | DONE |
-| 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | IN PROGRESS |
+| 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | DONE |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -61,9 +61,10 @@ boundary, including the exact hyperbolic Möbius normalization exception at
 the active top level, executable. Its public result vocabulary, declared-cell
 tests, documentation, and CI gate are now in place. Plan 003 freezes the
 current certified P/E/T source directions as explicit fundamental signatures
-while keeping the Gaussian conversion as an independent check. Plan 004 can
-proceed to resolve the constant-field and
-all-place residue boundary required for pure algebraic integration.
+while keeping the Gaussian conversion as an independent check. Plan 004 now
+provides a narrow constant-field decision and complete all-place data for its
+admitted preserved presentations; an actual function-field presentation
+rebase remains a later normalization task.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

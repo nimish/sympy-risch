@@ -19,10 +19,12 @@
 - **Depends on**: `plans/002-executable-admission-matrix.md`
 - **Category**: direction / correctness / tests
 - **Planned at**: commit `97fccfc`, 2026-07-25
-- **Progress**: Step 1 is implemented: the narrow analyzer certifies or
-  explicitly rejects algebraic constants before a future residue collector
-  consumes the result. Exact function-field rebasing and all-place collection
-  remain in this plan.
+- **Progress**: Steps 1--4 are implemented for the admitted direct
+  `C(x)`, `Dx = 1`, simple-radical presentations. The collector proves
+  exact Hermite successes without global geometry and otherwise either
+  enumerates every pole of a certified `PRESERVED` presentation or returns
+  no partial data. Exact function-field presentation rebasing remains a
+  later normalization checkpoint.
 
 ## Why this matters
 
@@ -57,7 +59,7 @@ Trager oracle on its certified unbranched subcase.
 
 | Purpose | Command | Expected on success |
 | --- | --- | --- |
-| Focused tests | `uv run --no-sync pytest -q tests/test_algebraic.py tests/test_algebraic_geometry.py tests/test_algebraic_places.py tests/test_algebraic_residues.py` | all pass |
+| Focused tests | `uv run --no-sync pytest -q tests/test_algebraic.py tests/test_algebraic_all_places.py tests/test_algebraic_geometry.py tests/test_algebraic_places.py tests/test_algebraic_residues.py` | all pass |
 | Lint | `uv run --no-sync ruff check .` | exit 0 |
 | Format | `uv run --no-sync ruff format --check .` | exit 0 |
 | Types | `uv run --no-sync ty check` | exit 0 |
@@ -72,6 +74,7 @@ Trager oracle on its certified unbranched subcase.
 - `src/sympy_risch/algebraic.py`
 - `src/sympy_risch/algebraic_geometry.py`
 - `tests/test_algebraic.py`
+- `tests/test_algebraic_all_places.py`
 - `tests/test_algebraic_geometry.py`
 - `tests/test_algebraic_places.py`
 - `tests/test_algebraic_residues.py`
@@ -86,9 +89,8 @@ Trager oracle on its certified unbranched subcase.
 
 ## Git workflow
 
-- Branch: `codex/004-algebraic-constants-and-residues`.
-- Commit the characterization/specification and any certified narrow code path
-  separately from a later full all-place collector.
+- Commit the characterization/specification and the all-place collector
+  separately, so the constant-field contract remains independently reviewable.
 - Do not push or open a pull request unless instructed.
 
 ## Steps
@@ -123,8 +125,10 @@ Specify an immutable post-Hermite result containing:
   residue; and
 - exact reconstruction and no-double-counting invariants.
 
-The result may be `UNSUPPORTED` until the chosen constant-field analysis
-supports a field, but it must not omit a branch or infinity place silently.
+An exact zero remainder is a complete `EXACT` result without a constant-field
+decision or global model. A nonzero result may be `UNSUPPORTED` until the
+chosen constant-field analysis supports a field, but it must not omit a branch
+or infinity place silently.
 
 **Verify**: unit tests enumerate the collector's place support and assert the
 unramified finite subset agrees with `trager_algebraic_place_residues` and its
@@ -166,15 +170,18 @@ global integration decisions.
 - Ramified finite and infinity residue examples using local uniformizers.
 - A zero-residue, non-exact positive-genus differential retained as a
   regression for the later second-kind decision.
+- An exact derivative in an otherwise unsupported algebraic presentation,
+  which must succeed without attempting constant-field or global-model work.
 
 ## Done criteria
 
-- [ ] The constant-field status for every admitted algebraic residue case is
+- [x] The constant-field status for every admitted nonzero algebraic residue case is
   explicit and witnessed.
-- [ ] A collector cannot silently omit branch or infinity poles.
-- [ ] The old unramified resultant route remains an independent oracle.
-- [ ] Documentation names the next global divisor/cohomology gate exactly.
-- [ ] Focused and full quality gates pass.
+- [x] A collector cannot silently omit branch or infinity poles in a
+  certified `PRESERVED` presentation.
+- [x] The old unramified resultant route remains an independent oracle.
+- [x] Documentation names the next global divisor/cohomology gate exactly.
+- [x] Focused and full quality gates pass.
 
 ## STOP conditions
 
@@ -194,3 +201,6 @@ This plan intentionally stops before logarithmic reconstruction. Reviewers
 should require exact field embeddings, explicit constant provenance, and an
 all-place support proof. The subsequent global Riemann--Roch service should
 consume this result rather than rediscover places from a plane-model shortcut.
+Actual presentation rebasing after `REBASING_REQUIRED` remains outside this
+checkpoint: copying the old defining polynomial is not enough once it factors
+or drops degree over the enlarged constants.
