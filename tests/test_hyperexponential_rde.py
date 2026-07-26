@@ -403,17 +403,20 @@ def test_laurent_coefficient_recurs_through_an_outer_exponential_level() -> None
     )
 
 
-def test_solver_requires_no_new_constants_evidence() -> None:
+def test_solver_replays_no_new_constants_evidence() -> None:
     tower = exponential_tower(
         constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        solve_hyperexponential_laurent_risch_differential_equation(
-            1,
-            1,
-            tower.derivation(),
-        )
+    result = solve_hyperexponential_laurent_risch_differential_equation(
+        1,
+        1,
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution is not None
+    assert tower.derivation()(result.solution) + result.solution == tower.field().one
 
 
 def test_matrix_oracle_agrees_on_a_mixed_laurent_solution() -> None:

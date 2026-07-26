@@ -10,7 +10,6 @@ from sympy_risch import (
     MonomialExtension,
     RiccatiMobiusElementaryCertificate,
     RiccatiMobiusNormalForm,
-    SpecialPolynomialStatus,
     build_riccati_mobius_normal_form,
     certify_special_polynomial,
     integrate_elementary,
@@ -26,14 +25,12 @@ def _riccati_tower() -> DifferentialTower:
         MonomialExtension(
             Poly(1, x, domain=QQ),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
     return base.extend(
         MonomialExtension(
             Poly(t**2 + (1 / x - x) * t, t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
 
@@ -124,26 +121,23 @@ def test_explicit_riccati_normal_form_pulls_back_logarithmic_terms() -> None:
     assert len(result.certificate.target_result.all_logarithmic_terms) == 1
 
 
-def test_riccati_normal_form_integration_requires_an_admitted_target() -> None:
+def test_riccati_normal_form_requires_a_replayable_target() -> None:
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
     unsupported_lower = base.extend(
         MonomialExtension(
             Poly(s**2, s, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
     tower = unsupported_lower.extend(
         MonomialExtension(
             Poly(t**2 - t, t, domain=unsupported_lower.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
     derivation = tower.derivation()
@@ -156,12 +150,13 @@ def test_riccati_normal_form_integration_requires_an_admitted_target() -> None:
         Poly(t - 1, t, domain=parent),
         derivation,
     )
-    normal_form = build_riccati_mobius_normal_form(
-        derivation,
-        u,
-        numerator,
-        denominator,
-    )
-
-    with pytest.raises(NotImplementedError, match="admitted hyperexponential target"):
-        integrate_riccati_mobius_normal_form(tower.field().one, normal_form)
+    with pytest.raises(
+        NotImplementedError,
+        match="independent constant-field replay is unavailable",
+    ):
+        build_riccati_mobius_normal_form(
+            derivation,
+            u,
+            numerator,
+            denominator,
+        )

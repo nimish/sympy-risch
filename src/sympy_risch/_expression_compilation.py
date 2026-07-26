@@ -390,7 +390,12 @@ def _validate_compiled_extension_sources(
         Poly(1, compilation.variable, domain=QQ),
         constants.derivation(),
     )
-    if tower.levels[0] != base_analysis.extension:
+    base_extension = tower.levels[0]
+    if (
+        not isinstance(base_extension, MonomialExtension)
+        or base_extension.generator_derivative
+        != base_analysis.extension.generator_derivative
+    ):
         raise ValueError("the compiled base is not the certified standard QQ(x) tower")
 
     level_indices = {
@@ -476,7 +481,7 @@ def _validate_compiled_extension_sources(
             )
         if (
             analysis.status is not ConstantFieldStatus.PRESERVED
-            or analysis.extension != extension
+            or analysis.extension.generator_derivative != extension.generator_derivative
         ):
             raise ValueError(
                 "a source extension is not independently certified with "

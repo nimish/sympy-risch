@@ -9,7 +9,6 @@ from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
     integrate_elementary,
 )
 from sympy_risch.elementary import HyperbolicMobiusElementaryCertificate
@@ -17,10 +16,7 @@ from sympy_risch.elementary import HyperbolicMobiusElementaryCertificate
 x, t, e = symbols("x t e")
 
 
-def hyperbolic_tower(
-    eta,
-    special_status: SpecialPolynomialStatus = SpecialPolynomialStatus.UNKNOWN,
-) -> DifferentialTower:
+def hyperbolic_tower(eta) -> DifferentialTower:
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -31,7 +27,6 @@ def hyperbolic_tower(
         MonomialExtension(
             Poly(eta * (1 - t**2), t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            special_status,
         )
     )
 
@@ -85,15 +80,17 @@ def test_hyperbolic_mobius_dispatch_preserves_a_non_elementary_obstruction() -> 
 def test_hyperbolic_mobius_dispatch_rejects_a_false_constant_field_claim() -> None:
     tower = hyperbolic_tower(1 / x)
 
-    with pytest.raises(ValueError, match="algebraically dependent"):
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         integrate_elementary(tower.field().one, tower.derivation())
 
 
-def test_hyperbolic_mobius_dispatch_rejects_contradictory_absent_metadata() -> None:
-    tower = hyperbolic_tower(1, SpecialPolynomialStatus.ABSENT)
+def test_hyperbolic_mobius_dispatch_uses_its_constructed_special_factors() -> None:
+    tower = hyperbolic_tower(1)
 
-    with pytest.raises(ValueError, match="contradicts"):
-        integrate_elementary(tower.field().one, tower.derivation())
+    result = integrate_elementary(tower.field().one, tower.derivation())
+
+    assert result.is_elementary
+    assert result.reconstructs
 
 
 def test_hyperbolic_mobius_dispatch_composes_over_a_hyperexponential_lower_level() -> (

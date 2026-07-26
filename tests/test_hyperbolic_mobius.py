@@ -11,7 +11,6 @@ from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
 )
 from sympy_risch.admission import assess_elementary_admission
 from sympy_risch.hyperbolic import (
@@ -23,22 +22,17 @@ from sympy_risch.special import certify_special_polynomial
 x, t, u, v = symbols("x t u v")
 
 
-def hyperbolic_tower(
-    eta,
-    special_status: SpecialPolynomialStatus = SpecialPolynomialStatus.PRESENT,
-) -> DifferentialTower:
+def hyperbolic_tower(eta) -> DifferentialTower:
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
     return base.extend(
         MonomialExtension(
             Poly(eta * (1 - t**2), t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            special_status,
         ),
     )
 
@@ -46,7 +40,6 @@ def hyperbolic_tower(
 def riccati_tower(
     *,
     constant_status: ConstantFieldStatus = ConstantFieldStatus.PRESERVED,
-    special_status: SpecialPolynomialStatus = SpecialPolynomialStatus.PRESENT,
 ) -> DifferentialTower:
     """Return a non-hyperbolic Riccati level with two linear specials.
 
@@ -59,14 +52,12 @@ def riccati_tower(
         MonomialExtension(
             Poly(1, x, domain=QQ),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
     return base.extend(
         MonomialExtension(
             Poly(t**2 + (1 / x - x) * t, t, domain=base.field()),
             constant_status,
-            special_status,
         ),
     )
 
@@ -107,7 +98,6 @@ def test_riccati_normal_form_builds_an_admitted_hyperexponential_target() -> Non
         domain=QQ.frac_field(x),
     )
     assert target_extension.constant_field_status is ConstantFieldStatus.PRESERVED
-    assert target_extension.special_polynomial_status is SpecialPolynomialStatus.PRESENT
     assert normal_form.numerator_certificate is numerator
     assert normal_form.denominator_certificate is denominator
     assert normal_form.numerator_factor == numerator.factor
@@ -190,14 +180,12 @@ def test_generated_riccati_special_pairs_normalize_exactly(
         MonomialExtension(
             Poly(1, x, domain=QQ),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
     tower = base.extend(
         MonomialExtension(
             Poly(derivative, t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
     derivation = tower.derivation()
@@ -256,21 +244,18 @@ def test_riccati_normal_form_reuses_a_nontrivial_lower_monomial_prefix() -> None
         MonomialExtension(
             Poly(1, x, domain=QQ),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
     lower = base.extend(
         MonomialExtension(
             Poly(x * v, v, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
     tower = lower.extend(
         MonomialExtension(
             Poly((x + 1) * t**2 / v - t, t, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
     derivation = tower.derivation()
@@ -304,21 +289,8 @@ def test_riccati_normal_form_reuses_a_nontrivial_lower_monomial_prefix() -> None
     assert assess_elementary_admission(normal_form.target_derivation).accepted
 
 
-def test_riccati_normal_form_requires_preserved_constants() -> None:
+def test_riccati_normal_form_replays_preservation_from_checked_coordinate() -> None:
     tower = riccati_tower(constant_status=ConstantFieldStatus.UNKNOWN)
-    numerator, denominator = riccati_special_certificates(tower)
-
-    with pytest.raises(ValueError, match=r"Const\(K\(t\)\) = Const\(K\)"):
-        build_riccati_mobius_normal_form(
-            tower.derivation(),
-            u,
-            numerator,
-            denominator,
-        )
-
-
-def test_riccati_normal_form_accepts_unknown_special_status_with_certificates() -> None:
-    tower = riccati_tower(special_status=SpecialPolynomialStatus.UNKNOWN)
     numerator, denominator = riccati_special_certificates(tower)
 
     normal_form = build_riccati_mobius_normal_form(
@@ -328,21 +300,7 @@ def test_riccati_normal_form_accepts_unknown_special_status_with_certificates() 
         denominator,
     )
 
-    assert normal_form.verifies_isomorphism()
     assert normal_form.verifies_derivation()
-
-
-def test_riccati_normal_form_rejects_an_absent_special_status() -> None:
-    tower = riccati_tower(special_status=SpecialPolynomialStatus.ABSENT)
-    numerator, denominator = riccati_special_certificates(tower)
-
-    with pytest.raises(ValueError, match="contradicts"):
-        build_riccati_mobius_normal_form(
-            tower.derivation(),
-            u,
-            numerator,
-            denominator,
-        )
 
 
 def test_riccati_normal_form_rejects_invalid_factor_pairs_and_targets() -> None:
@@ -388,19 +346,33 @@ def test_riccati_normal_form_rejects_invalid_factor_pairs_and_targets() -> None:
         )
 
 
+def test_riccati_normal_form_rejects_certificates_from_an_equal_tower() -> None:
+    first = riccati_tower()
+    second = riccati_tower()
+    numerator, denominator = riccati_special_certificates(first)
+
+    assert first == second
+    assert first is not second
+    with pytest.raises(ValueError, match="another derivation"):
+        build_riccati_mobius_normal_form(
+            second.derivation(),
+            u,
+            numerator,
+            denominator,
+        )
+
+
 def test_riccati_normal_form_rejects_a_nonquadratic_source() -> None:
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
     cubic_tower = base.extend(
         MonomialExtension(
             Poly(t * (t - 1) * (t - 2), t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
     cubic_derivation = cubic_tower.derivation()
@@ -440,7 +412,6 @@ def test_mobius_normal_form_builds_a_fresh_hyperexponential_tower() -> None:
         domain=QQ.frac_field(x),
     )
     assert target_extension.constant_field_status is ConstantFieldStatus.PRESERVED
-    assert target_extension.special_polynomial_status is SpecialPolynomialStatus.PRESENT
     assert normal_form.verifies_derivation()
 
 
@@ -532,7 +503,7 @@ def test_mobius_normal_form_requires_a_fresh_target_generator() -> None:
         build_hyperbolic_mobius_normal_form(tower.derivation(), x)
 
 
-def test_mobius_normal_form_keeps_unknown_constant_metadata() -> None:
+def test_mobius_normal_form_replays_unknown_constant_metadata() -> None:
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -549,17 +520,36 @@ def test_mobius_normal_form_keeps_unknown_constant_metadata() -> None:
 
     target_extension = normal_form.target_derivation.tower.levels[-1]
     assert isinstance(target_extension, MonomialExtension)
-    assert target_extension.constant_field_status is ConstantFieldStatus.UNKNOWN
+    assert target_extension.constant_field_status is ConstantFieldStatus.PRESERVED
     assert normal_form.verifies_derivation()
 
 
-def test_hyperbolic_normal_form_rejects_contradictory_absent_special_metadata() -> None:
-    tower = hyperbolic_tower(1, SpecialPolynomialStatus.ABSENT)
+def test_hyperbolic_normal_form_constructs_its_checked_special_factors() -> None:
+    tower = hyperbolic_tower(1)
 
-    assert not assess_elementary_admission(tower.derivation()).accepted
+    assert assess_elementary_admission(tower.derivation()).accepted
+    normal_form = build_hyperbolic_mobius_normal_form(tower.derivation(), u)
+    assert normal_form.verifies_derivation()
 
-    with pytest.raises(ValueError, match="contradicts"):
-        build_hyperbolic_mobius_normal_form(tower.derivation(), u)
+
+def test_riccati_normal_form_rejects_a_replayed_new_constant() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(1, x, domain=QQ), ConstantFieldStatus.PRESERVED)
+    )
+    tower = base.extend(
+        MonomialExtension(
+            Poly(t * (1 - t) / x, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    derivation = tower.derivation()
+    numerator = certify_special_polynomial(Poly(t, t, domain=base.field()), derivation)
+    denominator = certify_special_polynomial(
+        Poly(t - 1, t, domain=base.field()), derivation
+    )
+
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
+        build_riccati_mobius_normal_form(derivation, u, numerator, denominator)
 
 
 def test_mobius_normal_form_can_normalize_a_top_level_of_a_longer_tower() -> None:
@@ -579,7 +569,6 @@ def test_mobius_normal_form_can_normalize_a_top_level_of_a_longer_tower() -> Non
         MonomialExtension(
             Poly((t + 1) * (1 - v**2), v, domain=lower.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.PRESENT,
         ),
     )
 

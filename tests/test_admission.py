@@ -13,7 +13,6 @@ from sympy_risch import (
     DifferentialTower,
     IntegrationObstructionKind,
     MonomialExtension,
-    SpecialPolynomialStatus,
     TowerAdmissionOutcome,
     TowerAdmissionReason,
     assess_elementary_admission,
@@ -198,20 +197,18 @@ def test_exact_hyperbolic_mobius_normalization_is_admitted() -> None:
     assert result.reconstructs
 
 
-def test_hyperbolic_mobius_normalization_rejects_contradictory_absence() -> None:
+def test_hyperbolic_mobius_normalization_ignores_stale_absence_metadata() -> None:
     base = _rational_tower()
     tower = base.extend(
         MonomialExtension(
             Poly(1 - t**2, t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
         ),
     )
 
     admission = assess_elementary_admission(tower.derivation())
 
-    assert admission.unsupported
-    assert admission.reason is TowerAdmissionReason.SPECIAL_POLYNOMIAL_STATUS
+    assert admission.accepted
 
 
 def test_hyperbolic_mobius_normalization_is_not_admitted_below_the_top() -> None:
@@ -258,7 +255,7 @@ def _enlarged_constant_tower() -> DifferentialTower:
     base = _rational_tower()
     return base.extend(
         MonomialExtension(
-            Poly(1 / x, t, domain=base.field()),
+            Poly(1, t, domain=base.field()),
             ConstantFieldStatus.ENLARGED,
         ),
     )
@@ -279,15 +276,12 @@ def _linear_polynomial_tower() -> DifferentialTower:
     )
 
 
-def _nonlinear_tower(
-    special_status: SpecialPolynomialStatus,
-) -> DifferentialTower:
+def _nonlinear_tower() -> DifferentialTower:
     base = _rational_tower()
     return base.extend(
         MonomialExtension(
             Poly(t**2 + x, t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            special_status,
         ),
     )
 
@@ -313,10 +307,6 @@ def _nonlinear_tower(
             TowerAdmissionReason.BASE_FIELD,
         ),
         (
-            _unknown_constant_tower,
-            TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
-        ),
-        (
             _enlarged_constant_tower,
             TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
         ),
@@ -329,15 +319,7 @@ def _nonlinear_tower(
             TowerAdmissionReason.UNSUPPORTED_MONOMIAL_FAMILY,
         ),
         (
-            lambda: _nonlinear_tower(SpecialPolynomialStatus.UNKNOWN),
-            TowerAdmissionReason.SPECIAL_POLYNOMIAL_STATUS,
-        ),
-        (
-            lambda: _nonlinear_tower(SpecialPolynomialStatus.PRESENT),
-            TowerAdmissionReason.SPECIAL_POLYNOMIAL_STATUS,
-        ),
-        (
-            lambda: _nonlinear_tower(SpecialPolynomialStatus.ABSENT),
+            _nonlinear_tower,
             TowerAdmissionReason.UNSUPPORTED_MONOMIAL_FAMILY,
         ),
     ),
@@ -345,13 +327,10 @@ def _nonlinear_tower(
         "constant-field-only",
         "nonstandard-base",
         "non-rational-base-field",
-        "unknown-constants",
         "enlarged-constants",
         "algebraic",
         "linear-polynomial",
-        "nonlinear-special-unknown",
-        "nonlinear-special-present",
-        "nonlinear-special-absent-is-outside-pet",
+        "nonlinear-polynomial",
     ),
 )
 def test_rejected_towers_have_explicit_admission_reasons(
@@ -386,6 +365,13 @@ def test_base_metadata_is_not_a_nonbase_constant_field_requirement() -> None:
     tower = _rational_tower(ConstantFieldStatus.UNKNOWN)
 
     assert assess_elementary_admission(tower.derivation()).accepted
+
+
+def test_replay_accepts_an_independent_manual_unknown_level() -> None:
+    tower = _unknown_constant_tower()
+
+    assert assess_elementary_admission(tower.derivation()).accepted
+    assert assess_scalar_rde_admission(tower.derivation()).accepted
 
 
 def test_admission_rechecks_a_claimed_constant_field_certificate() -> None:
@@ -439,7 +425,7 @@ def test_scalar_rde_admission_checks_the_entire_active_prefix() -> None:
     base = _rational_tower()
     primitive = base.extend(
         MonomialExtension(
-            Poly(1 / x, y, domain=base.field()),
+            Poly(1, y, domain=base.field()),
             ConstantFieldStatus.UNKNOWN,
         ),
     )
@@ -460,9 +446,9 @@ def test_scalar_rde_admission_checks_the_entire_active_prefix() -> None:
     admission = assess_scalar_rde_admission(derivation)
 
     assert admission.unsupported
-    assert admission.reason is TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN
+    assert admission.reason is TowerAdmissionReason.CONSTANT_FIELD_ENLARGED
     assert "level 1" in admission.detail
-    with pytest.raises(NotImplementedError, match="constant_field_unknown"):
+    with pytest.raises(NotImplementedError, match="constant_field_enlarged"):
         solve_risch_differential_equation(
             tower.field().zero,
             tower.field().zero,

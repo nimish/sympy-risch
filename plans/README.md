@@ -60,14 +60,15 @@ complete transcendental cases       |
              completeness and upstream gates
 ```
 
-The normalized P/E/T contract is complete over `QQ(x)`, and the algebraic
+The normalized P/E/T structural contract is implemented over `QQ(x)`, while
+some recursive solver orderings retain explicit boundaries. The algebraic
 track now has maximal orders, places, local expansions, and divisor arithmetic.
-Plan 002 makes the narrow certified P/E/T admission
-boundary, including the exact hyperbolic Möbius normalization exception at
-the active top level, executable. Its public result vocabulary, declared-cell
-tests, documentation, and CI gate are now in place. Plan 003 freezes the
-current certified P/E/T source directions as explicit fundamental signatures
-while keeping the Gaussian conversion as an independent check. Plan 004 now
+Plan 002 makes the narrow certified P/E/T admission boundary, including the
+exact hyperbolic Möbius normalization exception at the active top level,
+executable. Its public result vocabulary, declared-cell tests, documentation,
+and CI gate are now in place. Plan 003 freezes the current certified P/E/T
+source directions as explicit fundamental signatures while keeping the
+Gaussian conversion as an independent check. Plan 004 now
 provides a narrow constant-field decision and complete all-place data for its
 admitted preserved presentations; an actual function-field presentation
 rebase remains a later normalization task. Plan 005 adds only the global

@@ -417,17 +417,20 @@ def test_certified_obstructions_agree_with_broad_matrix_searches(
     assert oracle.augmented_rank > oracle.coefficient_rank
 
 
-def test_full_solver_requires_no_new_constants_evidence() -> None:
+def test_full_solver_replays_no_new_constants_evidence() -> None:
     tower = exponential_tower(
         constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        solve_hyperexponential_risch_differential_equation(
-            1,
-            1,
-            tower.derivation(),
-        )
+    result = solve_hyperexponential_risch_differential_equation(
+        1,
+        1,
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution is not None
+    assert tower.derivation()(result.solution) + result.solution == tower.field().one
 
 
 @given(

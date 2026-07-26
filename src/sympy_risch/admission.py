@@ -3,10 +3,12 @@ r"""Admission boundary for the certified elementary P/E/T contract.
 The elementary dispatcher is intentionally broader than this boundary in a
 few isolated, separately documented cases.  This module answers a different
 question: whether an explicit active tower belongs to the finite
-primitive/hyperexponential/hypertangent (P/E/T) class for which the library
-currently makes its complete recursive elementary-integration claim.  It
-never runs a reduction, so an unsupported answer is not a statement about
-whether a particular integrand is elementary.
+primitive/hyperexponential/hypertangent (P/E/T) class satisfying the
+library's structural theorem preconditions.  It does not promise that every
+recursive solver branch has been implemented, nor does it run an integrand
+reduction.  It replays the structural constant-field criterion; an
+unsupported answer is not a statement about whether a particular integrand
+is elementary.
 """
 
 from __future__ import annotations
@@ -14,10 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from sympy.core.symbol import Dummy
 from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.polytools import Poly
 
+from .constant_proofs import replay_constant_field
 from .hyperbolic import is_hyperbolic_mobius_law
 from .tower import (
     AlgebraicExtension,
@@ -26,7 +28,6 @@ from .tower import (
     DifferentialTower,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
 )
 
 _ELEMENTARY_INTEGRATION_PROBLEM = "elementary_integration"
@@ -51,14 +52,13 @@ class TowerAdmissionReason(Enum):
     CONSTANT_FIELD_ENLARGED = "constant_field_enlarged"
     HYPERBOLIC_LOWER_LEVEL = "hyperbolic_lower_level"
     HYPERTANGENT_RDE_BASE = "hypertangent_rde_base"
-    SPECIAL_POLYNOMIAL_STATUS = "special_polynomial_status"
     UNSUPPORTED_MONOMIAL_FAMILY = "unsupported_monomial_family"
     UNSUPPORTED_EXTENSION = "unsupported_extension"
 
 
 @dataclass(frozen=True, slots=True)
 class TowerAdmission:
-    r"""A solver-free classification of one active tower prefix.
+    r"""A structural classification of one active tower prefix.
 
     ``tower`` and ``level`` describe the derivation on which an elementary
     integration request would operate.  Levels above ``level`` are inactive
@@ -120,7 +120,7 @@ def _accepted(
     *,
     problem: str = _ELEMENTARY_INTEGRATION_PROBLEM,
     detail: str = (
-        "the active tower is a certified finite P/E/T tower over QQ(x), "
+        "the active tower has a replay-certified finite P/E/T structural shape over QQ(x), "
         "possibly with a hyperbolic Möbius normalization at its top level"
     ),
 ) -> TowerAdmission:
@@ -151,90 +151,28 @@ def _unsupported(
     )
 
 
-def _independently_certify_constant_field(
-    extension: MonomialExtension,
-    lower_derivation: Derivation,
-) -> tuple[ConstantFieldStatus, str | None]:
-    """Recompute the no-new-constants decision for an admitted family."""
-    from .dependency import (
-        certify_hyperexponential_extension,
-        certify_hypertangent_extension,
-        certify_primitive_extension,
-    )
-
-    derivative = extension.generator_derivative
-    if extension.family is MonomialFamily.PRIMITIVE:
-        analysis = certify_primitive_extension(derivative, lower_derivation)
-    elif extension.family is MonomialFamily.HYPEREXPONENTIAL:
-        analysis = certify_hyperexponential_extension(derivative, lower_derivation)
-    elif extension.family is MonomialFamily.HYPERTANGENT:
-        analysis = certify_hypertangent_extension(derivative, lower_derivation)
-    elif is_hyperbolic_mobius_law(extension):
-        # The exact Möbius coordinate u=(t+1)/(t-1) satisfies
-        # Du/u=2*eta when Dt=eta*(1-t**2).  Since this is a rational
-        # differential-field isomorphism, its independently checked
-        # hyperexponential status is also the source extension's status.
-        probe = Dummy("constant_field_probe")
-        eta = extension.parent_field.convert(derivative.nth(0))
-        probe_derivative = Poly(
-            2 * extension.parent_field.to_sympy(eta) * probe,
-            probe,
-            domain=extension.parent_field,
-        )
-        analysis = certify_hyperexponential_extension(
-            probe_derivative,
-            lower_derivation,
-        )
-    else:
-        raise ValueError(
-            "constant-field certification requires a supported P/E/T "
-            "or hyperbolic family"
-        )
-    return analysis.status, analysis.detail
-
-
 def _constant_field_rejection(
     derivation: Derivation,
     index: int,
-    extension: MonomialExtension,
     *,
     problem: str,
 ) -> TowerAdmission | None:
-    """Reject absent, contradicted, or independently unverified evidence."""
-    if extension.constant_field_status is ConstantFieldStatus.UNKNOWN:
-        return _unsupported(
-            derivation,
-            TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
-            f"level {index} has no certified preserved constant field",
-            problem=problem,
-        )
-    if extension.constant_field_status is ConstantFieldStatus.ENLARGED:
+    """Reject a level whose independent replay is not preserved."""
+    evidence = replay_constant_field(Derivation(derivation.tower, index))
+    if evidence.status is ConstantFieldStatus.ENLARGED:
         return _unsupported(
             derivation,
             TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
-            f"level {index} is known to enlarge the constant field",
+            f"independent certification proves that level {index} enlarges "
+            "the constant field",
             problem=problem,
         )
-
-    status, detail = _independently_certify_constant_field(
-        extension,
-        Derivation(derivation.tower, index - 1),
-    )
-    if status is ConstantFieldStatus.ENLARGED:
-        return _unsupported(
-            derivation,
-            TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
-            f"level {index} declares preserved constants, but independent "
-            "certification proves that it enlarges the constant field",
-            problem=problem,
-        )
-    if status is ConstantFieldStatus.UNKNOWN:
-        suffix = f": {detail}" if detail else ""
+    if evidence.status is ConstantFieldStatus.UNKNOWN:
+        suffix = f": {evidence.detail}" if evidence.detail else ""
         return _unsupported(
             derivation,
             TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
-            f"level {index} declares preserved constants, but independent "
-            f"certification is unavailable{suffix}",
+            f"independent certification is unavailable for level {index}{suffix}",
             problem=problem,
         )
     return None
@@ -244,17 +182,19 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
     r"""Classify an active tower for certified recursive P/E/T integration.
 
     The admitted class has the standard rational base ``QQ(x)``, ``Dx=1`` and
-    any finite number of primitive, hyperexponential, or hypertangent levels
-    with certified preserved constants.  The exact hyperbolic law
+    finite primitive, hyperexponential, or hypertangent prefixes with
+    certified preserved constants.  This classifies structural theorem
+    preconditions, not completion of every current recursive solver branch:
+    primitive logarithmic-derivative recursion still requires a ``QQ(x)``
+    lower field.  The exact hyperbolic law
     ``Dt=eta*(1-t**2)`` is also admitted when it is the active top level,
     because the dispatcher normalizes that level immutably to a
-    hyperexponential coordinate. Its metadata may be unknown or present, but
-    cannot contradict the known linear special factors by claiming absence.
+    hyperexponential coordinate.
 
-    This is an admission check, not an integration decision: it reads only
-    exact tower metadata and never calls a solver.  In particular,
-    ``UNSUPPORTED`` does not mean that an integrand has no elementary
-    antiderivative.
+    This is an admission check, not an integration decision: it replays the
+    structural constant-field criteria but never reduces an integrand.  In
+    particular, ``UNSUPPORTED`` does not mean that an integrand has no
+    elementary antiderivative.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("elementary admission requires a Derivation")
@@ -314,7 +254,6 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
             rejection = _constant_field_rejection(
                 derivation,
                 index,
-                extension,
                 problem=_ELEMENTARY_INTEGRATION_PROBLEM,
             )
             if rejection is not None:
@@ -324,18 +263,10 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
             rejection = _constant_field_rejection(
                 derivation,
                 index,
-                extension,
                 problem=_ELEMENTARY_INTEGRATION_PROBLEM,
             )
             if rejection is not None:
                 return rejection
-            if extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT:
-                return _unsupported(
-                    derivation,
-                    TowerAdmissionReason.SPECIAL_POLYNOMIAL_STATUS,
-                    f"level {index} claims no special polynomials, but the "
-                    "hyperbolic law has its two linear Möbius factors",
-                )
             if index == derivation.level:
                 continue
             return _unsupported(
@@ -344,21 +275,11 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
                 f"level {index} is hyperbolic, but Möbius normalization is "
                 "implemented only for the active top level",
             )
-        if (
-            extension.generator_derivative.degree() >= 2
-            and extension.special_polynomial_status
-            is not SpecialPolynomialStatus.ABSENT
-        ):
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.SPECIAL_POLYNOMIAL_STATUS,
-                f"level {index} has an undecided or present special-polynomial "
-                "hypothesis",
-            )
         return _unsupported(
             derivation,
             TowerAdmissionReason.UNSUPPORTED_MONOMIAL_FAMILY,
-            f"level {index} has unsupported monomial family {extension.family.value}",
+            f"level {index} has unsupported monomial family {extension.family.value}; "
+            "a caller-supplied no-special status is not a certificate",
         )
 
     return _accepted(derivation)
@@ -368,17 +289,19 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
     r"""Classify a tower prefix for recursive scalar RDE dispatch.
 
     The current dispatcher supports ``QQ(x)`` and ``QQ(i)(x)`` bases with
-    ``Dx=1``, followed by any finite sequence of primitive and
-    hyperexponential monomial levels whose constants are certified preserved.
+    ``Dx=1``, followed by finite sequences of primitive and hyperexponential
+    monomial levels whose constants are certified preserved.
     A ``QQ(x)`` base additionally supports hypertangent levels through the
     Gaussian normal form; ``QQ(i)(x)`` does not yet.  Unlike elementary
     integration admission, this narrower solver contract neither needs a
     special-polynomial hypothesis nor normalizes hyperbolic/Riccati
     polynomial levels.
 
-    This check is solver-free.  An ``UNSUPPORTED`` result says only that the
-    current scalar RDE dispatcher cannot be called safely on the prefix; it
-    says nothing about solvability of a particular equation.
+    This check replays structural constant-field criteria, but neither solves
+    a requested RDE nor promises that every recursive solver branch is
+    implemented. An ``UNSUPPORTED`` result says only that the current scalar
+    RDE dispatcher cannot be called safely on the prefix; it says nothing
+    about solvability of a particular equation.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("scalar RDE admission requires a Derivation")
@@ -467,7 +390,6 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
         rejection = _constant_field_rejection(
             derivation,
             index,
-            extension,
             problem=_SCALAR_RDE_PROBLEM,
         )
         if rejection is not None:

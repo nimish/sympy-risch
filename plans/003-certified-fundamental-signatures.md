@@ -1,7 +1,7 @@
 # Plan 003: Extract certified fundamental signatures from the P/E/T relation engine
 
 > **Executor instructions**: Implement only the first structure-theorem
-> checkpoint: make the existing complete certified P/E/T relation information
+> checkpoint: make the existing certified P/E/T relation information
 > explicit and independently testable. Do not claim general effective
 > constants, a Darboux decision, or a real branch presentation in this plan.
 > Preserve every current constructive and negative result exactly.
@@ -30,7 +30,7 @@ contains exactly one native-field direction for every active level, in tower
 order: `Dt` for primitive levels, `Dt/t` for hyperexponential levels, and the
 real coefficient `eta` for hypertangent levels.  The rational base variable
 is retained as the initial primitive direction.  Every non-base direction
-requires certified `ConstantFieldStatus.PRESERVED` evidence.
+requires derivation-bound replay evidence of constant preservation.
 
 For a hypertangent source level, the signature deliberately retains the real
 law `Dt = eta*(1 + t**2)`.  Its Cayley image, whose logarithmic derivative is
@@ -48,8 +48,8 @@ only when it is already available; lack of a signature must remain
 
 ## Why this matters
 
-The current P/E/T relation system is complete within its declared `QQ(x)`
-contract, but its Chapter 9 information is embedded in specialized relation
+The current P/E/T relation system has implemented certified directions within
+its declared `QQ(x)` inputs, but its Chapter 9 information is embedded in specialized relation
 compilation and Gaussian fallback paths. A full Risch implementation needs an
 explicit, immutable fundamental signature—ordered logarithmic, exponential,
 and real tangent directions—before it can safely generalize constants,
@@ -127,7 +127,7 @@ module if that prevents a dependency cycle). The signature must retain:
 - ordered primitive/logarithmic, hyperexponential, and hypertangent/Cayley
   directions;
 - the exact native field elements representing their logarithmic derivatives;
-- proof metadata that each active level has certified preserved constants; and
+- replay evidence that each active level preserves constants; and
 - a status that is `UNSUPPORTED`, not negative, outside the current P/E/T
   domain.
 
@@ -170,7 +170,7 @@ Add generated small P/E/T towers with planted integer relations. Compare:
 - the existing direct relation-system path; and
 - Gaussian-coordinate calculations for hypertangent cases.
 
-Add adversarial tests for unknown constant metadata, non-generator special
+Add adversarial tests for forged or unknown constant metadata, non-generator special
 factor attempts, and coerced/mismatched parent fields.
 
 **Verify**: all three descriptions agree on a normalized witness or on the
@@ -182,8 +182,8 @@ Document that the next follow-up adds a capability protocol for algebraic
 number constants and a complete non-generator special-factor decision. Do not
 relax `relations.py` guards until that protocol and proof obligations exist.
 
-**Verify**: docs continue to say P/E/T is complete only over its declared
-constant field and do not claim a full Chapter 9 implementation.
+**Verify**: docs describe the implemented P/E/T relation scope without
+claiming every recursive solver ordering or a full Chapter 9 implementation.
 
 ## Test plan
 

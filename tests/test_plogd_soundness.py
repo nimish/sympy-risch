@@ -51,7 +51,7 @@ def _nested_hyperexponential_tower(
 
 
 def _adversarial_hyperexponential_tower() -> DifferentialTower:
-    """Return ``QQ(x)(s)(t)(u)`` to force a recursive relation query."""
+    """Return an independent P/E prefix that forces a recursive relation query."""
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -66,13 +66,13 @@ def _adversarial_hyperexponential_tower() -> DifferentialTower:
     )
     second = first.extend(
         MonomialExtension(
-            Poly(t, t, domain=first.field()),
+            Poly(x * t, t, domain=first.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )
     return second.extend(
         MonomialExtension(
-            Poly(x * u, u, domain=second.field()),
+            Poly(s * u, u, domain=second.field()),
             ConstantFieldStatus.PRESERVED,
         ),
     )

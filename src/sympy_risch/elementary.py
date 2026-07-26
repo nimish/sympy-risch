@@ -43,13 +43,10 @@ from .monomial import (
     BronsteinResidueReduction,
     HyperexponentialMonomialReduction,
     HypertangentMonomialReduction,
-    NonlinearNoSpecialReduction,
-    NonlinearNoSpecialStatus,
     PrimitiveMonomialReduction,
     ReducedFunctionReduction,
     reduce_hyperexponential_monomial,
     reduce_hypertangent_monomial,
-    reduce_nonlinear_no_special,
     reduce_primitive_monomial,
 )
 from .rational import hermite_reduce_rational, integrate_rational
@@ -58,7 +55,6 @@ from .tower import (
     Derivation,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
     _coerce,
     _domain_symbols,
 )
@@ -67,7 +63,6 @@ MonomialLevelCertificate = (
     PrimitiveMonomialReduction
     | HyperexponentialMonomialReduction
     | HypertangentMonomialReduction
-    | NonlinearNoSpecialReduction
 )
 
 MobiusNormalForm = HyperbolicMobiusNormalForm | RiccatiMobiusNormalForm
@@ -261,7 +256,7 @@ class RiccatiMobiusElementaryCertificate:
 
     The source's two supplied special-factor certificates identify an exact
     isomorphism to the recorded hyperexponential target.  The target result
-    remains intact so callers can inspect the complete P/E/T decision that
+    remains intact so callers can inspect the P/E/T decision that
     was transported back to the original quadratic coordinate.
     """
 
@@ -496,46 +491,6 @@ def _hypertangent_level(
     )
 
 
-def _nonlinear_no_special_level(
-    element: FieldElement,
-    derivation: Derivation,
-) -> _LevelReduction:
-    reduction = reduce_nonlinear_no_special(element, derivation)
-    common = reduction.common_reduction
-    terms = _monomial_logarithmic_terms(
-        common.residue_reduction,
-        common.logarithmic_derivative,
-        derivation.level,
-        common.reduced_function_reduction,
-    )
-    kind_by_status = {
-        NonlinearNoSpecialStatus.FINITE_RESIDUE_OBSTRUCTION: (
-            IntegrationObstructionKind.NONCONSTANT_RESIDUE
-        ),
-        NonlinearNoSpecialStatus.INFINITY_RESIDUE_OBSTRUCTION: (
-            IntegrationObstructionKind.INFINITY_RESIDUE
-        ),
-        NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL: (
-            IntegrationObstructionKind.REDUCED_POLYNOMIAL
-        ),
-    }
-    kind = kind_by_status.get(reduction.status)
-    obstruction = (
-        _obstruction(derivation, [kind], common.remainder, reduction)
-        if kind is not None
-        else None
-    )
-    return _LevelReduction(
-        reduction,
-        common.exact_part,
-        common.logarithmic_derivative,
-        terms,
-        common.remainder,
-        reduction.lower_remainder,
-        obstruction,
-    )
-
-
 def _fresh_hyperbolic_target_generator(derivation: Derivation) -> Symbol:
     """Choose a fresh internal coordinate for a hyperbolic Möbius transform."""
     source_symbols = set(_domain_symbols(derivation.field))
@@ -599,7 +554,7 @@ def _integrate_through_mobius_normal_form(
     normal_form: MobiusNormalForm,
 ) -> ElementaryIntegralResult:
     """Integrate through one checked source-to-hyperexponential isomorphism."""
-    if derivation != normal_form.source_derivation:
+    if not derivation.has_same_position(normal_form.source_derivation):
         raise ValueError("the Möbius normal form belongs to another derivation")
 
     target_result = integrate_elementary(
@@ -688,13 +643,15 @@ def integrate_elementary(
     r"""Integrate ``integrand`` recursively in an explicit differential tower.
 
     Implemented tower levels are the standard rational base ``QQ(x)`` with
-    ``Dx = 1`` and any finite ordering of primitive, hyperexponential, and
-    hypertangent levels above it, provided every non-base level carries a
-    certified preserved-constants status. The exact hyperbolic law
+    ``Dx = 1`` and the documented recursive primitive, hyperexponential, and
+    hypertangent shapes above it, provided replay proves constant preservation
+    at every non-base level. Structural admission recognizes finite P/E/T
+    prefixes, but primitive logarithmic-derivative recursion currently
+    requires a ``QQ(x)`` lower field, so some mixed orderings remain an
+    explicit unsupported boundary. The exact hyperbolic law
     ``Dt = eta*(1 - t**2)`` is normalized immutably to a hyperexponential
-    coordinate. The nonlinear no-special branch is additionally available
-    when its required absence-of-special-polynomials certificate is recorded
-    on the :class:`~sympy_risch.tower.MonomialExtension`.
+    coordinate. General nonlinear no-special reduction remains unavailable:
+    a bare special-polynomial status is not an absence certificate.
 
     Algebraic levels, generalized monomials without the needed structure
     theorem, and automatic tower discovery remain deliberately unsupported.
@@ -752,16 +709,11 @@ def integrate_elementary(
         level_data = _hypertangent_level(element, derivation)
     elif is_hyperbolic_mobius_law(extension):
         return _integrate_hyperbolic_mobius_level(element, derivation)
-    elif (
-        extension.generator_derivative.degree() >= 2
-        and extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT
-    ):
-        level_data = _nonlinear_no_special_level(element, derivation)
     else:
         raise NotImplementedError(
             "elementary integration has no complete reduction for this "
-            "monomial family; a general polynomial level requires certified "
-            "absence of nonconstant special polynomials"
+            "monomial family; a general polynomial level requires a "
+            "library-derived complete no-special-polynomial certificate"
         )
 
     lower_result = None

@@ -9,11 +9,16 @@ over the standard rational base `QQ(x)`, `Dx = 1`. The supported families are
 | hyperexponential | `Dt = eta*t` |
 | hypertangent | `Dt = eta*(1 + t**2)` |
 
-Every non-base level must carry a certified
-`ConstantFieldStatus.PRESERVED`. Within that scope, the exact-derivative,
+Every non-base level must admit a derivation-bound replay proof that it
+preserves constants. `ConstantFieldStatus` is only diagnostic metadata;
+within the replay-certified scope, the exact-derivative,
 radical-logarithmic-derivative, Risch differential-equation, and recursive
-elementary-integration solvers may descend through any finite ordering of
-these three families.
+elementary-integration solvers descend through the documented P/E/T shapes.
+Structural admission accepts finite orderings of these three families, but it
+does not turn every recursive solver path into a completed algorithm: the
+current primitive logarithmic-derivative recursion requires a `QQ(x)` lower
+field. Thus some PTE examples return a structured `NotImplementedError` at
+that boundary instead of an incorrect integration verdict.
 
 ## Admission is not integrability
 
@@ -26,30 +31,27 @@ asks for an integral. It returns an immutable `TowerAdmission` whose
 | `TowerAdmissionOutcome.ACCEPTED` | The explicit tower satisfies the current base, constant-field, and P/E/T-family contract, including an exact hyperbolic Möbius normalization only at its active top level. |
 | `TowerAdmissionOutcome.UNSUPPORTED` | The tower is outside that contract. Its failed requirement is recorded as a `TowerAdmissionReason` when one applies. |
 
-Admission answers only whether the tower is a supported input shape. An
-accepted tower can still have either an elementary antiderivative or a proved
-Liouville/Risch obstruction for a particular integrand. Conversely, an
-unsupported admission is not a non-elementarity result and must never be
-reinterpreted as one. Call `integrate_elementary` only to obtain the
-mathematical integration result; use the admission result to choose supported
-control flow without treating `NotImplementedError` as a proof.
+Admission answers only whether the tower has a recognized structural shape. It
+is not a per-algorithm solver matrix: an accepted tower can still reach a
+documented `NotImplementedError` in an unavailable recursive branch. Neither
+that boundary nor an unsupported admission is a non-elementarity result. Call
+`integrate_elementary` to obtain the mathematical result; never treat
+`NotImplementedError` as a proof.
 
 The exact law `Dt = eta*(1 - t**2)` is admitted only when it is the active
 top level, because the dispatcher normalizes that level before its recursive
 descent; it cannot yet normalize a hyperbolic level below another extension.
-Its special-polynomial metadata may be `UNKNOWN` or `PRESENT`, but `ABSENT`
-is rejected because the law itself exhibits two linear special factors.
+The law itself constructs and checks its two linear special factors.
 An active quadratic/Riccati level with two caller-supplied checked linear
 special factors has a separate explicit route:
 `build_riccati_mobius_normal_form` constructs its hyperexponential coordinate,
 and `integrate_riccati_mobius_normal_form` checks admission of that *target*.
 This does not make the source tower accepted by `assess_elementary_admission`,
 and it does not search for the factors.
-By contrast, the broader dispatcher has an
-experimental nonlinear branch when the caller supplies
-`SpecialPolynomialStatus.ABSENT`; it is not part of this total public
-admission contract. An admission result must reject arbitrary nonlinear
-monomials rather than treat that metadata as a completeness proof.
+The broader dispatcher does not currently implement general nonlinear
+no-special reduction. An admission result rejects arbitrary nonlinear
+monomials rather than treating an incomplete factor search as a completeness
+proof.
 
 ## Why tangent levels compose
 
@@ -76,8 +78,8 @@ Du = (t + 1)*(1 + u**2).
 ```
 
 The direct real tangent reducer remains the normal production path. The
-Gaussian form supplies its all-level coupled-RDE fallback and a proof object
-for the coordinate change.
+Gaussian form supplies its coupled-RDE fallback for the implemented lower
+shapes and a proof object for the coordinate change.
 
 ## Hyperexponential relations
 
@@ -120,7 +122,7 @@ The signature is supported for the standard `QQ(x)` or `QQ_I(x)` P/E/T base,
 and also for a native finite-algebraic `C(x)` base with `C/QQ`. The latter
 currently covers only that base and direct factory proposals: a non-base
 general-`C` signature reports `CONSTANT_FIELD_PROVENANCE` until its
-no-new-constants proof is carried by the tower itself. An unsupported
+no-new-constants criterion can be replayed at that tower position. An unsupported
 signature records why the narrow representation is unavailable; it is not a
 negative theorem about a relation or an integral.
 

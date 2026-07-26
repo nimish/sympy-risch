@@ -21,13 +21,15 @@ integrate_elementary(integrand, derivation) -> ElementaryIntegralResult
 It operates on a manually constructed differential tower and supports:
 
 - the standard rational base `QQ(x)` with `Dx = 1`;
-- any finite ordering of primitive, hyperexponential, and hypertangent
-  extensions over that base when every non-base level has certified preserved
-  constants; and
+- the explicitly implemented primitive, hyperexponential, and hypertangent
+  tower shapes over that base when every non-base level has replay-proved
+  preserved constants.  Structural admission accepts finite P/E/T prefixes,
+  but a few recursive logarithmic-derivative branches remain deliberately
+  unavailable; and
 - the exact hyperbolic top-level law `Dt = eta*(1-t**2)` through an automatic
   immutable Möbius normalization; and
-- a nonlinear polynomial monomial over supported lower levels when absence of
-  nonconstant special polynomials has been certified.
+- local certified linear special-factor reductions over supported lower
+  levels; general nonlinear polynomial monomials remain unsupported.
 
 The separately explicit
 `integrate_riccati_mobius_normal_form(integrand, normal_form)` entry point
@@ -52,8 +54,7 @@ The lower-level library additionally implements:
 - immutable differential towers over native SymPy domains;
 - monomial classification and normal/special denominator decomposition;
 - generalized monomial Hermite and residue reduction;
-- primitive, hyperexponential, hypertangent, and nonlinear-no-special
-  reducers;
+- primitive, hyperexponential, and hypertangent reducers;
 - recursive radical logarithmic-derivative decisions over primitive towers,
   including complete principal parts and exact minimal-power witnesses;
 - rational and polynomial Risch differential equations;
@@ -64,9 +65,9 @@ The lower-level library additionally implements:
   right-hand side are Laurent in the top generator;
 - a recurrence implementation for polynomial RDEs and an independent matrix
   implementation used as a test oracle;
-- coupled RDEs throughout the certified P/E/T tower contract, including direct
-  hyperexponential Laurent-mode cancellation and hypertangent polynomial
-  cancellation;
+- coupled RDEs for the currently implemented certified P/E/T shapes,
+  including direct hyperexponential Laurent-mode cancellation and
+  hypertangent polynomial cancellation;
 - checked dependency and logarithmic-relation decisions for the certified
   P/E/T tower contract;
 - exact rational-coordinate relation, exact-derivative, and direct checked
@@ -383,9 +384,10 @@ Liouville and Risch structure theorems generally require
 Const(K(t)) = Const(K).
 ```
 
-`ConstantFieldStatus` records whether that condition is `PRESERVED`,
-`ENLARGED`, or `UNKNOWN`. Manual towers currently supply the evidence.
-Algorithms that rely on the condition reject unproved cases.
+`ConstantFieldStatus` records whether a factory observed `PRESERVED`,
+`ENLARGED`, or `UNKNOWN`, but it is advisory metadata. Algorithms that rely
+on the condition replay the supported criterion at the active immutable tower
+position and reject only when that replay is enlarged or unavailable.
 
 For a primitive proposal `K(t)` with `Dt = eta` in `K`, this condition is
 decidable using machinery already present in the lower tower. If
@@ -410,10 +412,10 @@ lowers repeated normal factors, applies the generalized residue criterion to
 the remaining square-free normal part, and leaves special factors and the
 polynomial part for the family-specific algorithm.
 
-For general nonlinear monomials, `SpecialPolynomialStatus.ABSENT` is explicit
-evidence for the structure-theorem case with no nonconstant irreducible
-special polynomials. The primitive family now obtains that evidence
-automatically when its no-new-constants premise is certified: a nonconstant
+For general nonlinear monomials, a complete no-special-polynomial proof is
+not implemented, so the corresponding negative Risch corollary is not
+exposed. The primitive family obtains absence evidence automatically when its
+no-new-constants premise is replayed: a nonconstant
 primitive special polynomial would normalize to a new constant. General
 polynomial monomials still require their own Darboux decision.
 
@@ -486,10 +488,9 @@ form.
 `integrate_elementary`. It first transports the input to the hyperexponential
 target, requires the target to pass the existing P/E/T admission boundary,
 then transports exact parts, logarithmic terms, and any obstruction back to
-the source. A `SpecialPolynomialStatus.PRESENT` value alone cannot trigger
-this path: it neither identifies the two factors nor proves their order. The
-normalizer does not solve the Riccati equation or search for factors, and a
-missing certificate is never negative evidence.
+the source. The normalizer requires two checked factor certificates; it does
+not solve the Riccati equation or search for factors, and a missing
+certificate is never negative evidence.
 
 The exact hyperbolic law `Dt = eta*(1-t**2)` remains the automatic top-level
 special case. Its known factors provide the same coordinate change internally.
@@ -561,7 +562,7 @@ recursively.
 The selected integer residual is passed back through the primitive signature
 solver, which constructs the logarithmic argument and verifies the complete
 identity. This specialized route is total over recursively primitive towers
-whose levels all carry certified preserved constants.
+whose levels all have replay-proved preserved constants.
 
 For a lower tower containing a hyperexponential or hypertangent level, the
 dispatcher switches to the Chapter 9 relation-system route instead of
@@ -581,12 +582,11 @@ primitive levels, `Dt/t` for hyperexponential levels, and the real `eta` in
 `Dt = eta*(1 + t**2)` for hypertangent levels. A native finite-algebraic
 `C(x)` base with `C/QQ` is also represented, with constants expanded into
 exact `QQ` power-basis coordinates for relation constraints; its recursive
-P/E signature remains unsupported until no-new-constants evidence is
-proof-carrying. The
-rational base variable is the initial primitive direction.  A supported
-signature requires `ConstantFieldStatus.PRESERVED` for every non-base active
-level; otherwise it returns an explicit `UNSUPPORTED` boundary result rather
-than a mathematical negative.
+P/E signature remains unsupported until no-new-constants evidence can be
+replayed. The rational base variable is the initial primitive direction. A
+supported signature requires replayed constant preservation for every
+non-base active level; otherwise it returns an explicit `UNSUPPORTED` boundary
+result rather than a mathematical negative.
 
 The relation compiler consults the signature for the active family and the
 canonical hyperexponential direction, but it still performs normal-factor
@@ -684,9 +684,11 @@ Dy + a*y = b.
 The scalar recurrence directly handles `QQ(x)` and recursively primitive
 lower towers when `eta` is rational in the current primitive generator. The
 end-to-end P/E/T dispatcher additionally composes it with the mixed-tower
-relation and coupled-RDE fallbacks when a lower level is hyperexponential or
-hypertangent. Recursive logarithmic and exact-derivative decisions first
-classify the proposed hyperexponential generator.
+relation and coupled-RDE fallbacks for its documented lower-field shapes.
+Recursive logarithmic and exact-derivative decisions first classify the
+proposed hyperexponential generator. A recursive primitive
+logarithmic-derivative call with a non-`QQ(x)` lower field is currently an
+explicit unsupported boundary, rather than a negative decision.
 
 For a rational RDE coefficient `a`, Bronstein weak normalization constructs
 `q` such that
@@ -914,22 +916,23 @@ These terminal recurrences now sit behind the rational coupled-RDE frontend:
 weak normalization, normal and special denominator bounds, degree bounds, and
 paired SPDE reduce a general rational system to the terminal shapes. The same
 immutable Cayley normalization lets hypertangent-over-hyperexponential and
-hypertangent-over-hypertangent towers use the all-level lower solver without
-changing the public real representation. The remaining boundary is algebraic
-or generalized-monomial lower fields, not nested P/E/T towers.
+hypertangent-over-hypertangent towers use the documented lower solver without
+changing the public real representation. The remaining boundaries include
+algebraic or generalized-monomial lower fields and recursive primitive
+logarithmic-derivative calls below `QQ(x)`.
 
 ### Nonlinear monomials without special polynomials
 
-When `deg_t(Dt) >= 2` and absence of special polynomials is certified, the
-reducer combines:
+When `deg_t(Dt) >= 2`, the eventual general branch will require a complete,
+derivation-bound absence proof before it can combine:
 
 1. normal Hermite reduction;
 2. generalized Rothstein--Trager residue reduction;
 3. residue-at-infinity reduction; and
 4. Bronstein's polynomial degree reduction.
 
-A nonzero canonical remainder is a Liouville obstruction under the recorded
-hypotheses.
+That branch is not implemented yet, so no generic no-special remainder is
+currently presented as a Liouville obstruction.
 
 ## Rational and RDE foundations
 
@@ -978,8 +981,8 @@ D(N(f))/N(f) = Tr(Df/f).
 ```
 
 `rebase_derivation_constants` reconstructs a tower prefix over a larger exact
-constant field while preserving monomial proof metadata and copying algebraic
-defining polynomials. It is usable only when each existing algebraic level
+constant field while resetting monomial diagnostic metadata and copying
+algebraic defining polynomials. It is usable only when each existing algebraic level
 continues to describe the intended field over the larger constants. It is not
 general function-field constant normalization: if an old minimal polynomial
 factors or drops degree, a correct rebase needs a new presentation and explicit
@@ -1126,13 +1129,15 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
-The latest transcendental checkpoints close the declared explicit P/E/T
-contract: arbitrary finite orderings of primitive, hyperexponential, and
-hypertangent levels over `QQ(x)` with certified preserved constants. They
-include general rational scalar and coupled RDE frontends, direct Chapter 8
+The latest transcendental checkpoints establish the declared explicit P/E/T
+*structural* contract: finite primitive, hyperexponential, and hypertangent
+prefixes over `QQ(x)` with replay-proved preserved constants.  They include
+general rational scalar and coupled RDE frontends, direct Chapter 8
 cancellation recurrences, immutable Gaussian Cayley fallbacks, recursive
 lower-field certificates, worked examples, and independent generated
-matrix-oracle comparisons.
+matrix-oracle comparisons.  This is not yet a claim that every ordering
+reaches every recursive solver: primitive logarithmic-derivative recursion is
+currently implemented only over `QQ(x)`.
 
 The normalization layer now includes the verified hyperbolic law
 `Dt = eta*(1 - t**2) -> Du = 2*eta*u` and an explicit quadratic/Riccati
@@ -1166,7 +1171,8 @@ residue-field and divisor stages.
 - [x] Algebraic Hermite reduction with simple-radical and lazy integral bases.
 - [x] Normal/special splitting and generalized monomial Hermite reduction.
 - [x] Generalized residue criterion and constructive logarithmic extraction.
-- [x] Nonlinear no-special reduction.
+- [ ] General nonlinear no-special reduction (requires a complete
+  derivation-bound absence proof).
 - [x] Rational exact and logarithmic derivative decisions.
 - [x] Recursive radical logarithmic-derivative decisions over primitive
   towers.
@@ -1184,8 +1190,8 @@ residue-field and divisor stages.
 - [x] Primitive, hyperexponential, and hypertangent family reducers.
 - [x] Recursive elementary dispatcher.
 - [x] Recursively stacked primitive integration.
-- [x] Hyperexponential integration throughout the certified P/E/T tower
-  contract.
+- [x] Hyperexponential integration for the documented certified P/E/T tower
+  shapes.
 - [x] Checked primitive-extension construction with exact dependency
   witnesses and conservative unknown outcomes.
 - [x] Hyperexponential and hypertangent exact-derivative dispatch over the
@@ -1197,21 +1203,24 @@ residue-field and divisor stages.
 - [x] General rational hyperexponential RDEs with resultant weak
   normalization, normal and special denominator reduction, degree bounds,
   SPDE, and independent normal-denominator oracle checks.
-- [x] Coupled RDE solving throughout the certified P/E/T tower contract,
+- [x] Coupled RDE solving for the documented certified P/E/T tower shapes,
   with a direct real block-matrix oracle.
 - [x] Direct Chapter 8 hyperexponential Laurent-mode and hypertangent
   polynomial coupled cancellation, with independent global block-matrix
   comparisons.
 - [x] Hypertangent dependency analysis, reduction, exact derivatives, and
-  elementary integration throughout the certified P/E/T tower contract.
+  elementary integration for the documented certified P/E/T tower shapes.
 
 ### Transcendental boundary
 
-The explicit P/E/T core now supports any finite ordering of primitive,
-hyperexponential, and hypertangent levels over `QQ(x)`, provided every
-non-base level has certified preserved constants. Hypertangent levels use an
-immutable Gaussian Cayley normal form internally while preserving a real
-public representation. See [mixed transcendental towers](mixed-transcendental-towers.md)
+The explicit P/E/T core admits finite primitive, hyperexponential, and
+hypertangent prefixes over `QQ(x)` when every non-base level has replay-proved
+preserved constants.  Its end-to-end solvers cover the documented recursive
+shapes, but not every family ordering: some PTE recursive
+logarithmic-derivative paths still reach the current `QQ(x)`-only primitive
+logarithmic-derivative boundary. Hypertangent levels
+use an immutable Gaussian Cayley normal form internally while preserving a
+real public representation. See [mixed transcendental towers](mixed-transcendental-towers.md)
 for the precise contract and its deliberate boundaries.
 
 The remaining transcendental work is outside that normalized elementary

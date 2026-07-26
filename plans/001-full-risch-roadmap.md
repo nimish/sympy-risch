@@ -120,28 +120,29 @@ The current implementation already has a strong exact-arithmetic kernel:
   algebraic extensions with SymPy's `FiniteExtension`, and differentiates
   algebraic generators implicitly, and classifies which algebraic/monomial
   prefixes the current native backend can actually represent.
-- `src/sympy_risch/dependency.py` provides complete parametric
-  logarithmic-derivative decisions for the normalized P/E/T tower contract:
-  rational and primitive fast paths, mixed relation-system fallbacks, and
-  hypertangent Gaussian normalization.
+- `src/sympy_risch/dependency.py` provides parametric
+  logarithmic-derivative decisions for rational and recursive primitive paths,
+  plus implemented mixed relation-system and hypertangent Gaussian fallbacks.
+  Some P/E/T orderings still reach the `QQ(x)`-only primitive-PLogD boundary.
 - `src/sympy_risch/monomial.py` provides recursive radical logarithmic
   decisions, primitive reduction, and direct P/E/T family reducers. Its
   nonlinear reducer is complete only under a certified absence-of-special
   hypothesis; a separate positive-evidence API now cancels a currently
   exposed principal part at one supplied linear special factor when its lower
   RDE is solvable, without widening that theorem.
-- `src/sympy_risch/rde.py` implements scalar and coupled RDEs throughout the
-  normalized P/E/T contract, including rational frontends, weak
+- `src/sympy_risch/rde.py` implements scalar and coupled RDEs for documented
+  normalized P/E/T solver shapes, including rational frontends, weak
   normalization, denominator/degree bounds, SPDE, and direct Chapter 8
   cancellation recurrences. Its shared scalar admission checks the complete
   recursive prefix before a local linear-special-pole consumer invokes it;
   general polynomial special-factor RDEs and parametric RDEs remain open.
 - `src/sympy_risch/exact.py` dispatches exact derivatives at rational and
   normalized P/E/T levels.
-- `src/sympy_risch/elementary.py` recursively integrates any finite explicit
-  P/E/T ordering with certified preserved constants. It deliberately rejects
-  algebraic levels and general polynomial monomials whose special structure
-  has not been decided.
+- `src/sympy_risch/elementary.py` recursively integrates documented explicit
+  P/E/T shapes with certified preserved constants. Structurally admitted
+  Some PTE primitive-PLogD examples retain the explicit boundary. It
+  deliberately rejects algebraic levels and
+  general polynomial monomials whose special structure has not been decided.
 - `src/sympy_risch/expression.py` compiles a conservative one-variable
   `QQ`-constant grammar of rational arithmetic and nested P/E/T calls into
   that certified explicit tower, returning either a local presented answer, a
@@ -201,11 +202,11 @@ The existing design conventions to preserve are:
 
 | Milestone | Current status |
 | --- | --- |
-| 0. Completeness contract and coverage ledger | Complete for the declared `QQ(x)` P/E/T contract: the public admission result, declared-cell matrix, and CI gate distinguish unsupported towers from theorem-backed obstructions. |
+| 0. Completeness contract and coverage ledger | Structural P/E/T admission and coverage ledger complete: the public admission result and declared-cell matrix distinguish unsupported towers from theorem-backed obstructions without claiming every admitted solver path is implemented. |
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers, native finite algebraic number-field constants at a standard rational base, and finite extensions exist; a checked feasibility result maps the current mixed-prefix backend boundary, while general constant capabilities and canonical mixed algebraic towers remain. |
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`. Native finite `QQ`-algebraic constants now support the base relation kernel and direct P/E factory proposals; proof-carrying recursive constant evidence, general effective constants, and automatic non-generator special-factor decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
-| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete, as is a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
+| 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
+| 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, and exact finite valuation kernels now exist; constant normalization, general global-space/principal-divisor decisions remain. |
 | 6. Pure algebraic integration | Partial prerequisites exist; no end-to-end elementary integration decision yet. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
@@ -352,8 +353,8 @@ the integration algorithms.
 
 ## Milestone 2: Complete dependency and structure-theorem decisions
 
-This transcendental track is active. The normalized P/E/T relation system is
-complete over `QQ(x)`, and its rational base kernel now admits native finite
+This transcendental track is active. The normalized P/E/T relation system has
+implemented certified directions over `QQ(x)`, and its rational base kernel now admits native finite
 algebraic constant fields over `QQ`; this milestone extends that theorem
 machinery to proof-carrying recursive effective fields and general polynomial
 monomials. It can proceed in parallel with the algebraic-function-field
@@ -367,8 +368,8 @@ Implement Bronstein §7.3 for the existing rational and primitive towers:
 n*f = D(v)/v + m*D(theta)/theta
 ```
 
-Status: complete throughout the normalized P/E/T contract, including the fast
-rational and recursive primitive paths, mixed relation-system fallback,
+Status: complete for the rational and recursive primitive paths plus the
+implemented mixed relation-system and Gaussian fallback shapes, including the fast
 hypertangent Gaussian normalization, integer normalization, exact witness
 reconstruction, generated planted witnesses, and independent global
 linear-system oracles. Plan 003 exposes those already-certified P/E/T
@@ -430,12 +431,11 @@ Status: primitive levels with certified preserved constants now have a
 complete no-special theorem; hyperexponential and hypertangent special
 behavior has family-specific positive evidence. A caller-supplied monic
 linear certificate can now drive local special-pole reduction through a
-scalar lower RDE, but general polynomial monomials still rely on manually
-supplied `SpecialPolynomialStatus` metadata and lack an automatic Darboux
-decision.
+scalar lower RDE, but general polynomial monomials still lack a complete
+automatic Darboux/no-special decision.
 
-- Replace caller assertions of `SpecialPolynomialStatus` with an algorithmic
-  decision wherever the structure theorems make it effective.
+- Extend derivation-bound special-factor analysis wherever the structure
+  theorems make it effective.
 - Return explicit special factors and their multiplicative relations, not only
   `PRESENT`.
 - Feed those factors into the general nonlinear and RDE special-denominator
@@ -443,15 +443,16 @@ decision.
 
 ### Exit gate
 
-For every currently supported explicit transcendental tower, dependency,
-radical logarithmic derivative, no-new-constants, and special-polynomial
-questions are total decisions. `UNKNOWN` is possible only when a declared
-effective-field prerequisite is absent.
+For every explicitly listed current solver cell, dependency,
+radical logarithmic derivative, and no-new-constants questions reach a
+decision or documented boundary. General special-polynomial absence remains a
+future algorithmic decision; `UNKNOWN` is possible when a declared
+effective-field prerequisite or that future decision is absent.
 
 ## Milestone 3: Complete scalar, parametric, and coupled RDEs
 
-Status: scalar and coupled RDE dispatch is complete over the normalized P/E/T
-contract. The work below applies to general special polynomial monomials and
+Status: scalar and coupled RDE dispatch is implemented for documented
+normalized P/E/T solver shapes. The work below applies to general special polynomial monomials and
 to the public parametric/limited-integration layer; it must not reopen or
 replace the P/E/T production recurrences.
 

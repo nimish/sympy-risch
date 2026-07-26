@@ -639,17 +639,22 @@ def test_primitive_degree_bound_includes_limited_integration_cancellation(
     assert result.degree_bound == 3
 
 
-def test_primitive_rde_requires_no_new_constants_evidence() -> None:
+def test_primitive_rde_replays_no_new_constants_evidence() -> None:
     tower = logarithmic_tower(
         constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        solve_primitive_risch_differential_equation(
-            tower.field().from_sympy(t),
-            tower.field().from_sympy(t),
-            tower.derivation(),
-        )
+    result = solve_primitive_risch_differential_equation(
+        tower.field().from_sympy(t),
+        tower.field().from_sympy(t),
+        tower.derivation(),
+    )
+
+    assert result.has_solution
+    assert result.solution is not None
+    assert tower.derivation()(result.solution) + tower.field().from_sympy(
+        t
+    ) * result.solution == tower.field().from_sympy(t)
 
 
 def test_bounded_matrix_oracle_agrees_on_success_and_failure() -> None:

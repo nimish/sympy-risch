@@ -205,7 +205,7 @@ def test_recursive_reduction_rejects_an_exact_top_generator_derivative() -> None
 
     with pytest.raises(
         ValueError,
-        match="Dt is exact in the lower field",
+        match="constant-field replay is enlarged",
     ):
         polynomial_reduce_primitive(
             Poly(0, u, domain=parent),
@@ -213,17 +213,18 @@ def test_recursive_reduction_rejects_an_exact_top_generator_derivative() -> None
         )
 
 
-def test_recursive_reduction_checks_lower_constant_field_evidence() -> None:
+def test_recursive_reduction_replays_lower_constant_field_evidence() -> None:
     tower = stacked_logarithmic_tower(
         lower_constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
     parent = tower.field(1)
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        polynomial_reduce_primitive(
-            Poly(u, u, domain=parent),
-            tower.derivation(),
-        )
+    result = polynomial_reduce_primitive(
+        Poly(u, u, domain=parent),
+        tower.derivation(),
+    )
+
+    assert result.has_obstruction
 
 
 def test_elementary_dispatch_integrates_a_full_stacked_log_example() -> None:

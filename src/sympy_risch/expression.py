@@ -139,7 +139,7 @@ def _validate_native_integration_result(result: ExpressionIntegralResult) -> Non
     native_result = result.elementary_result
     if native_result is None:
         raise ValueError("a native integration validation needs an elementary result")
-    if native_result.derivation != tower.derivation():
+    if not native_result.derivation.has_same_position(tower.derivation()):
         raise ValueError("the elementary result belongs to a different tower")
     if native_result.integrand != _embed_native_element(tower, element):
         raise ValueError("the elementary result has a different native integrand")

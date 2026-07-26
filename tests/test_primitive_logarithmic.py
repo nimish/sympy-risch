@@ -342,19 +342,20 @@ def test_signature_is_immutable() -> None:
         ConstantFieldStatus.ENLARGED,
     ],
 )
-def test_signature_rejects_unproved_constant_field_hypothesis(status) -> None:
+def test_signature_replays_advisory_constant_field_metadata(status) -> None:
     derivation = logarithmic_tower(
         constant_field_status=status,
     ).derivation()
 
-    with pytest.raises(ValueError, match="requires Const"):
-        primitive_logarithmic_derivative_signature(1 / t, derivation)
+    signature = primitive_logarithmic_derivative_signature(1 / t, derivation)
+
+    assert signature.reconstructs_decomposition
 
 
 def test_signature_detects_inconsistent_special_factor_hypothesis() -> None:
     derivation = logarithmic_tower(eta=1).derivation()
 
-    with pytest.raises(ValueError, match="special factor"):
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         primitive_logarithmic_derivative_signature(
             1 / (t - x),
             derivation,
@@ -489,16 +490,17 @@ def test_recursive_signature_propagates_each_obstruction(expression) -> None:
     )
 
 
-def test_recursive_signature_requires_preserved_constants_at_every_level() -> None:
+def test_recursive_signature_replays_constants_at_every_level() -> None:
     derivation = nested_logarithmic_tower(
         intermediate_status=ConstantFieldStatus.UNKNOWN,
     ).derivation()
 
-    with pytest.raises(ValueError, match="requires Const"):
-        primitive_logarithmic_derivative_signature(
-            1 / (x * t * u),
-            derivation,
-        )
+    signature = primitive_logarithmic_derivative_signature(
+        1 / (x * t * u),
+        derivation,
+    )
+
+    assert signature.reconstructs_decomposition
 
 
 @settings(max_examples=40, deadline=None)

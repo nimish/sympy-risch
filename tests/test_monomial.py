@@ -9,9 +9,7 @@ from sympy_risch import (
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
-    NonlinearNoSpecialStatus,
     ReducedFunctionReduction,
-    SpecialPolynomialStatus,
     bronstein_residue_criterion,
     hermite_reduce_monomial,
     hermite_reduce_rational_recursive,
@@ -20,7 +18,6 @@ from sympy_risch import (
     polynomial_reduce_primitive,
     reduce_monomial_reduced_function,
     reduce_nonlinear_monomial,
-    reduce_nonlinear_no_special,
     reduce_primitive_monomial,
     residue_reduce_monomial,
     split_normal_special,
@@ -31,8 +28,6 @@ x, t, y = symbols("x t y")
 
 def monomial_tower(
     generator_derivative,
-    *,
-    special_polynomial_status=SpecialPolynomialStatus.UNKNOWN,
 ) -> DifferentialTower:
     rational = DifferentialTower(QQ).extend(
         MonomialExtension(
@@ -44,7 +39,6 @@ def monomial_tower(
         MonomialExtension(
             Poly(generator_derivative, t, domain=rational.field()),
             ConstantFieldStatus.PRESERVED,
-            special_polynomial_status,
         ),
     )
 
@@ -546,7 +540,7 @@ def test_primitive_polynomial_reduction_rejects_an_exact_Dt(eta) -> None:
 
     with pytest.raises(
         ValueError,
-        match="Dt is exact in the lower field",
+        match="independent constant-field replay is enlarged",
     ):
         polynomial_reduce_primitive(
             Poly(t, t, domain=tower.field(0)),
@@ -554,7 +548,7 @@ def test_primitive_polynomial_reduction_rejects_an_exact_Dt(eta) -> None:
         )
 
 
-def test_primitive_polynomial_reduction_requires_constant_field_evidence() -> None:
+def test_primitive_polynomial_reduction_replays_manual_unknown_evidence() -> None:
     rational = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -567,11 +561,12 @@ def test_primitive_polynomial_reduction_requires_constant_field_evidence() -> No
         ),
     )
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        polynomial_reduce_primitive(
-            Poly(t, t, domain=rational.field()),
-            unknown.derivation(),
-        )
+    result = polynomial_reduce_primitive(
+        Poly(t, t, domain=rational.field()),
+        unknown.derivation(),
+    )
+
+    assert result.remainder.gens == (t,)
 
 
 def test_primitive_polynomial_reduction_validates_family_and_base() -> None:
@@ -871,14 +866,22 @@ def test_primitive_pipeline_enforces_public_preconditions() -> None:
             Poly(1 / x, t, domain=rational.field()),
         ),
     )
-    with pytest.raises(ValueError, match="status is unknown"):
-        reduce_primitive_monomial(
-            unknown.field().from_sympy(t),
-            unknown.derivation(),
-        )
+    replayed = reduce_primitive_monomial(
+        unknown.field().from_sympy(t),
+        unknown.derivation(),
+    )
+    assert (
+        unknown.derivation()(replayed.exact_part)
+        + replayed.logarithmic_derivative
+        + replayed.remainder
+        == unknown.field().from_sympy(t)
+    )
 
     exact_eta = monomial_tower(1)
-    with pytest.raises(ValueError, match="Dt is exact in the lower field"):
+    with pytest.raises(
+        ValueError,
+        match="independent constant-field replay is enlarged",
+    ):
         reduce_primitive_monomial(
             exact_eta.field().from_sympy(1),
             exact_eta.derivation(),
@@ -1093,9 +1096,18 @@ def test_structure_theorems_reject_new_constant_counterexamples(
         - field.from_sympy(Rational(1, exponent))
         == integrand
     )
-    with pytest.raises(ValueError, match=r"Const\(K\(t\)\) = Const\(K\)"):
+    # The nonlinear law is deliberately outside the implemented replay
+    # criteria.  Its forged ENLARGED metadata must not decide the result;
+    # rejecting it as unsupported is the sound conservative outcome.
+    with pytest.raises(
+        NotImplementedError,
+        match="independent constant-field replay is unavailable",
+    ):
         reduce_monomial_reduced_function(integrand, derivation)
-    with pytest.raises(ValueError, match=r"Const\(K\(t\)\) = Const\(K\)"):
+    with pytest.raises(
+        NotImplementedError,
+        match="independent constant-field replay is unavailable",
+    ):
         bronstein_residue_criterion(logarithmic_integrand, derivation)
 
 
@@ -1120,9 +1132,9 @@ def test_reduced_function_certifies_a_nonconstant_infinity_residue() -> None:
 
 
 def test_reduced_function_uses_its_special_denominator() -> None:
-    tower = monomial_tower(t**3)
+    tower = monomial_tower(1 + t**2)
     field = tower.field()
-    integrand = field.from_sympy(2 * t**2 + 1 / t)
+    integrand = field.from_sympy(2 * t + 1 / (1 + t**2))
 
     reduction = reduce_monomial_reduced_function(
         integrand,
@@ -1135,22 +1147,23 @@ def test_reduced_function_uses_its_special_denominator() -> None:
         domain=tower.field(0),
     )
     assert reduction.special_denominator == Poly(
-        t,
+        1 + t**2,
         t,
         domain=tower.field(0),
     )
-    assert reduction.logarithmic_coefficient == 2
+    assert reduction.logarithmic_coefficient == 1
     assert reduction.logarithmic_argument == reduction.special_denominator
-    assert reduction.logarithmic_derivative == field.from_sympy(2 * t**2)
-    assert reduction.remainder == field.from_sympy(1 / t)
+    assert reduction.logarithmic_derivative == field.from_sympy(2 * t)
+    assert reduction.remainder == field.from_sympy(1 / (1 + t**2))
 
 
 def test_reduced_function_can_use_a_supplied_special_polynomial() -> None:
-    # q = t - x is special because Dq = t*q, but it is not a factor of Dt.
-    tower = monomial_tower(t**2 - x * t + 1)
+    # q=t-1 is a checked special factor for the replay-certified hyperbolic
+    # law; passing it explicitly selects that logarithmic coordinate.
+    tower = monomial_tower(1 - t**2)
     parent = tower.field(0)
     field = tower.field()
-    special = Poly(t - x, t, domain=parent)
+    special = Poly(t - 1, t, domain=parent)
 
     reduction = reduce_monomial_reduced_function(
         field.from_sympy(t),
@@ -1158,10 +1171,10 @@ def test_reduced_function_can_use_a_supplied_special_polynomial() -> None:
         special,
     )
 
-    assert reduction.logarithmic_coefficient == 1
+    assert reduction.logarithmic_coefficient == -1
     assert reduction.logarithmic_argument == special
-    assert reduction.logarithmic_derivative == field.from_sympy(t)
-    assert reduction.remainder == field.zero
+    assert reduction.logarithmic_derivative == field.from_sympy(t + 1)
+    assert reduction.remainder == field.from_sympy(-1)
 
 
 def test_reduced_function_defers_when_no_special_polynomial_is_known() -> None:
@@ -1169,17 +1182,10 @@ def test_reduced_function_defers_when_no_special_polynomial_is_known() -> None:
     field = tower.field()
     integrand = field.from_sympy(t)
 
-    reduction = reduce_monomial_reduced_function(
-        integrand,
-        tower.derivation(),
-    )
-
-    assert reduction.infinity_residue == 1
-    assert reduction.infinity_residue_derivative == 0
-    assert reduction.logarithmic_argument is None
-    assert reduction.remainder == integrand
-    assert not reduction.has_infinity_obstruction
-    assert reduction.needs_special_polynomial
+    with pytest.raises(
+        NotImplementedError, match="constant-field replay is unavailable"
+    ):
+        reduce_monomial_reduced_function(integrand, tower.derivation())
 
 
 def test_reduced_function_leaves_lower_degree_and_special_parts() -> None:
@@ -1220,11 +1226,7 @@ def test_reduced_function_requires_the_previous_reductions() -> None:
 
 @given(
     example=st.sampled_from(
-        (
-            (1 + t**2, 1 + t**2),
-            (t**3, t),
-            (t**3, t**2),
-        ),
+        ((1 + t**2, 1 + t**2),),
     ),
     logarithmic_coefficient=st.integers(min_value=-4, max_value=4),
     background=st.integers(min_value=-4, max_value=4),
@@ -1359,26 +1361,22 @@ def test_nonlinear_pipeline_reports_the_infinity_obstruction() -> None:
     assert reduction.remainder == integrand
 
 
-def test_nonlinear_pipeline_records_an_unknown_special_polynomial() -> None:
+def test_nonlinear_pipeline_rejects_an_unreplayable_polynomial_level() -> None:
     tower = monomial_tower(t**2 + x)
     field = tower.field()
     integrand = field.from_sympy(t)
 
-    reduction = reduce_nonlinear_monomial(
-        integrand,
-        tower.derivation(),
-    )
-
-    assert not reduction.has_obstruction
-    assert reduction.needs_special_polynomial
-    assert reduction.remainder == integrand
+    with pytest.raises(
+        NotImplementedError, match="constant-field replay is unavailable"
+    ):
+        reduce_nonlinear_monomial(integrand, tower.derivation())
 
 
 def test_nonlinear_pipeline_accepts_a_supplied_special_polynomial() -> None:
-    tower = monomial_tower(t**2 - x * t + 1)
+    tower = monomial_tower(1 - t**2)
     parent = tower.field(0)
     field = tower.field()
-    special = Poly(t - x, t, domain=parent)
+    special = Poly(t - 1, t, domain=parent)
     integrand = field.from_sympy(t)
 
     reduction = reduce_nonlinear_monomial(
@@ -1389,8 +1387,8 @@ def test_nonlinear_pipeline_accepts_a_supplied_special_polynomial() -> None:
 
     assert reduction.reduced_function_reduction is not None
     assert reduction.reduced_function_reduction.logarithmic_argument == special
-    assert reduction.logarithmic_derivative == integrand
-    assert reduction.remainder == field.zero
+    assert reduction.logarithmic_derivative == field.from_sympy(t + 1)
+    assert reduction.remainder == field.from_sympy(-1)
     assert not reduction.needs_special_polynomial
 
 
@@ -1413,241 +1411,17 @@ def test_nonlinear_pipeline_enforces_its_family_and_constant_hypotheses() -> Non
             Poly(1 + t**2, t, domain=rational.field()),
         ),
     )
-    with pytest.raises(ValueError, match="status is unknown"):
-        reduce_nonlinear_monomial(
-            unknown.field().from_sympy(t),
-            unknown.derivation(),
-        )
-
-
-def test_nonlinear_no_special_reduces_recursively_to_the_lower_field() -> None:
-    # The no-special status is an explicit structure-theorem assumption here;
-    # automatically proving it from Dt = t**2 + x belongs to the tower builder.
-    tower = monomial_tower(
-        t**2 + x,
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
+    replayed = reduce_nonlinear_monomial(
+        unknown.field().from_sympy(t),
+        unknown.derivation(),
     )
-    field = tower.field()
-    derivation = tower.derivation()
-    repeated_pole_exact = field.from_sympy((x + 1) / (t - 2) ** 2)
-    polynomial_exact = field.from_sympy(t**5)
-    normal_factor = field.from_sympy(t - 1)
-    logarithmic_derivative = 3 * derivation(normal_factor) / normal_factor
-    lower_remainder = tower.field(0).from_sympy((x**2 + 1) / (x + 1))
-    integrand = (
-        derivation(repeated_pole_exact + polynomial_exact)
-        + logarithmic_derivative
-        + field.convert(lower_remainder)
-    )
-
-    result = reduce_nonlinear_no_special(integrand, derivation)
-    common = result.common_reduction
-
-    assert result.status is NonlinearNoSpecialStatus.REDUCED_TO_LOWER_FIELD
-    assert result.reduced_to_lower_field
-    assert not result.is_non_elementary
-    assert result.lower_remainder == lower_remainder
-    assert common.remainder == field.convert(lower_remainder)
-    assert (
-        derivation(common.exact_part) + common.logarithmic_derivative + common.remainder
-        == integrand
-    )
-
-
-def test_nonlinear_no_special_proves_a_reduced_t_term_non_elementary() -> None:
-    tower = monomial_tower(
-        t**2 + x,
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-    field = tower.field()
-
-    result = reduce_nonlinear_no_special(
-        field.from_sympy(t),
-        tower.derivation(),
-    )
-
-    assert result.status is NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL
-    assert result.is_non_elementary
-    assert not result.reduced_to_lower_field
-    assert result.lower_remainder is None
-    assert result.common_reduction.remainder == field.from_sympy(t)
-
-
-def test_nonlinear_no_special_preserves_the_infinity_certificate() -> None:
-    tower = monomial_tower(
-        t**2 + x,
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-    field = tower.field()
-
-    result = reduce_nonlinear_no_special(
-        field.from_sympy(x * t),
-        tower.derivation(),
-    )
-
-    assert result.status is NonlinearNoSpecialStatus.INFINITY_RESIDUE_OBSTRUCTION
-    assert result.is_non_elementary
-    reduced = result.common_reduction.reduced_function_reduction
-    assert reduced is not None
-    assert reduced.infinity_residue == tower.field(0).from_sympy(x)
-    assert reduced.infinity_residue_derivative == tower.field(0).one
-
-
-def test_nonlinear_no_special_preserves_the_finite_residue_certificate() -> None:
-    tower = monomial_tower(
-        t**2 + x,
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-    field = tower.field()
-    derivation = tower.derivation()
-    normal_factor = field.from_sympy(t - 1)
-    integrand = field.from_sympy(x) * derivation(normal_factor) / normal_factor
-
-    result = reduce_nonlinear_no_special(integrand, derivation)
-
-    assert result.status is NonlinearNoSpecialStatus.FINITE_RESIDUE_OBSTRUCTION
-    assert result.is_non_elementary
-    assert result.common_reduction.has_finite_residue_obstruction
-    assert (
-        not result.common_reduction.residue_reduction.certificate.all_residues_constant
-    )
-
-
-@pytest.mark.parametrize(
-    "status",
-    (SpecialPolynomialStatus.UNKNOWN, SpecialPolynomialStatus.PRESENT),
-)
-def test_nonlinear_no_special_requires_structure_theorem_evidence(
-    status: SpecialPolynomialStatus,
-) -> None:
-    tower = monomial_tower(t**2 + x, special_polynomial_status=status)
-
-    with pytest.raises(
-        ValueError,
-        match=f"special-polynomial status is {status.value}",
-    ):
-        reduce_nonlinear_no_special(
-            tower.field().from_sympy(t),
-            tower.derivation(),
-        )
-
-
-def test_nonlinear_no_special_rejects_an_obvious_metadata_contradiction() -> None:
-    tower = monomial_tower(
-        t * (1 + t**2),
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-
-    with pytest.raises(ValueError, match="Dt has a nonconstant special factor"):
-        reduce_nonlinear_no_special(
-            tower.field().from_sympy(1),
-            tower.derivation(),
-        )
-
-
-def test_nonlinear_no_special_rejects_a_hidden_special_denominator() -> None:
-    # For Dt = t**2 - x*t + 1, D(t - x) = t*(t - x), although
-    # t - x is not a factor of Dt.  This exercises the second consistency
-    # check rather than the inexpensive factor check above.
-    tower = monomial_tower(
-        t**2 - x * t + 1,
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="reduced remainder has a nonconstant special denominator",
-    ):
-        reduce_nonlinear_no_special(
-            tower.field().from_sympy(1 / (t - x)),
-            tower.derivation(),
-        )
-
-
-@given(
-    fraction_coefficient=st.integers(min_value=-3, max_value=3),
-    fraction_power=st.integers(min_value=2, max_value=4),
-    polynomial_coefficient=st.integers(min_value=-3, max_value=3),
-    polynomial_power=st.integers(min_value=1, max_value=6),
-    residue_value=st.integers(min_value=-3, max_value=3),
-    lower_numerator_x=st.integers(min_value=-3, max_value=3),
-    lower_numerator_constant=st.integers(min_value=-3, max_value=3),
-)
-@settings(max_examples=25, deadline=None)
-def test_generated_nonlinear_no_special_inputs_reduce_to_the_lower_field(
-    fraction_coefficient,
-    fraction_power,
-    polynomial_coefficient,
-    polynomial_power,
-    residue_value,
-    lower_numerator_x,
-    lower_numerator_constant,
-) -> None:
-    tower = monomial_tower(
-        t**2 + x,
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-    field = tower.field()
-    derivation = tower.derivation()
-    exact = field.from_sympy(
-        fraction_coefficient / (t - 2) ** fraction_power
-        + polynomial_coefficient * t**polynomial_power
-    )
-    normal_factor = field.from_sympy(t - 1)
-    lower_remainder = tower.field(0).from_sympy(
-        (lower_numerator_x * x + lower_numerator_constant) / (x + 1)
-    )
-    integrand = (
-        derivation(exact)
-        + residue_value * derivation(normal_factor) / normal_factor
-        + field.convert(lower_remainder)
-    )
-
-    result = reduce_nonlinear_no_special(integrand, derivation)
-    common = result.common_reduction
-
-    assert result.status is NonlinearNoSpecialStatus.REDUCED_TO_LOWER_FIELD
-    assert result.lower_remainder == lower_remainder
-    assert (
-        derivation(common.exact_part) + common.logarithmic_derivative + common.remainder
-        == integrand
-    )
-
-
-@given(
-    top_coefficient=st.integers(min_value=-5, max_value=5).filter(bool),
-    lower_constant=st.integers(min_value=-5, max_value=5),
-)
-@settings(max_examples=20, deadline=None)
-def test_generated_nonconstant_reduced_polynomials_are_certified(
-    top_coefficient,
-    lower_constant,
-) -> None:
-    tower = monomial_tower(
-        t**2 + x,
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-
-    result = reduce_nonlinear_no_special(
-        tower.field().from_sympy(top_coefficient * t + lower_constant),
-        tower.derivation(),
-    )
-
-    assert result.status is NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL
-    assert result.is_non_elementary
-    assert result.common_reduction.remainder == tower.field().from_sympy(
-        top_coefficient * t + lower_constant
-    )
-    assert result.common_reduction.needs_special_polynomial
+    assert replayed.logarithmic_derivative == unknown.field().from_sympy(t)
+    assert replayed.remainder == unknown.field().zero
 
 
 @given(
     example=st.sampled_from(
-        (
-            (1 + t**2, t - 1),
-            (t + t**3, t - 1),
-            (t**2 + x, t - 1),
-        ),
+        ((1 + t**2, t - 1),),
     ),
     fraction_coefficient=st.integers(min_value=-3, max_value=3),
     fraction_power=st.integers(min_value=2, max_value=4),
@@ -1954,7 +1728,7 @@ def test_monomial_hermite_reduces_nonlinear_normal_factors(
     assert derivation(exact) + remainder == integrand
 
 
-def test_residue_algorithms_require_preserved_constants() -> None:
+def test_residue_algorithms_replay_manual_unknown_constants() -> None:
     rational = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -1968,10 +1742,11 @@ def test_residue_algorithms_require_preserved_constants() -> None:
     )
     integrand = tower.field().from_sympy(1 / t)
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        bronstein_residue_criterion(integrand, tower.derivation())
-    with pytest.raises(ValueError, match="status is unknown"):
-        residue_reduce_monomial(integrand, tower.derivation())
+    certificate = bronstein_residue_criterion(integrand, tower.derivation())
+    reduction = residue_reduce_monomial(integrand, tower.derivation())
+
+    assert certificate.factors
+    assert reduction.remainder == integrand
 
 
 def test_bronstein_criterion_requires_a_symbolic_residue_indeterminate() -> None:
@@ -2129,7 +1904,6 @@ def test_bronstein_criterion_requires_prior_hermite_reduction() -> None:
         (1 / x, t),
         (t, t - 1),
         (1 + t**2, t),
-        (t**3 + x, t - 1),
     ],
 )
 def test_bronstein_criterion_across_monomial_families(
@@ -2317,7 +2091,6 @@ def test_residue_reduction_leaves_only_exponential_special_terms() -> None:
             (1 / x, t**2 + 1),
             (t, t**2 - 1),
             (1 + t**2, t),
-            (t**3 + x, t - 1),
         ),
     ),
     residue_value=st.integers(min_value=-4, max_value=4),

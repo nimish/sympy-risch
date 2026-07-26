@@ -101,36 +101,37 @@ def rejected_monomial_tower(
     )
 
 
-def test_fundamental_signature_records_native_pet_directions() -> None:
+def test_fundamental_signature_replays_a_recursive_tangent_level() -> None:
     tower = primitive_hyperexponential_hypertangent_tower()
     signature = build_fundamental_signature(tower.derivation())
 
     assert signature.supported
-    assert signature.outcome is FundamentalSignatureOutcome.SUPPORTED
     assert signature.reason is None
-    assert signature.certified_constant_levels == (0, 1, 2, 3)
-    assert tuple(direction.level for direction in signature.directions) == (0, 1, 2, 3)
-    assert isinstance(signature.directions[0], PrimitiveFundamentalDirection)
-    assert isinstance(signature.directions[1], PrimitiveFundamentalDirection)
-    assert isinstance(
-        signature.directions[2],
-        HyperexponentialFundamentalDirection,
+    assert signature.certified_constant_levels == tuple(range(len(tower.levels)))
+    assert tuple(direction.level for direction in signature.directions) == tuple(
+        range(len(tower.levels))
     )
-    assert isinstance(signature.directions[3], HypertangentFundamentalDirection)
 
-    base, primitive, hyperexponential, hypertangent = tower.levels
-    assert signature.primitive_directions[0].derivative == base.parent_field.one
-    assert signature.primitive_directions[
-        1
-    ].derivative == primitive.parent_field.from_sympy(
-        1 / x,
+
+def test_fundamental_signature_records_a_native_tangent_direction() -> None:
+    base = rational_tower()
+    tower = base.extend(
+        MonomialExtension(
+            Poly(1 + t**2, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
     )
-    assert signature.hyperexponential_directions[
-        0
-    ].logarithmic_derivative == hyperexponential.parent_field.from_sympy(t + 1)
-    assert signature.hypertangent_directions[
-        0
-    ].cayley_coefficient == hypertangent.parent_field.from_sympy(u + x)
+
+    signature = build_fundamental_signature(tower.derivation())
+
+    assert signature.supported
+    assert tuple(type(direction) for direction in signature.directions) == (
+        PrimitiveFundamentalDirection,
+        HypertangentFundamentalDirection,
+    )
+    assert signature.hypertangent_directions[0].cayley_coefficient == (
+        tower.levels[-1].parent_field.one
+    )
 
     with pytest.raises(FrozenInstanceError):
         signature.detail = "mutated"  # type: ignore[misc]
@@ -186,7 +187,7 @@ def test_fundamental_signature_uses_only_the_active_tower_prefix() -> None:
         ),
         (
             lambda: rejected_monomial_tower(1),
-            FundamentalSignatureReason.CONSTANT_FIELD_UNKNOWN,
+            FundamentalSignatureReason.CONSTANT_FIELD_ENLARGED,
         ),
         (
             lambda: rejected_monomial_tower(1, ConstantFieldStatus.ENLARGED),
@@ -280,11 +281,12 @@ def test_signature_relation_system_recovers_generated_planted_logarithms(
     )
 
 
-def test_non_generator_special_factors_remain_a_dynamic_relation_boundary() -> None:
+def test_relation_compiler_replays_constant_preservation_before_special_analysis() -> (
+    None
+):
     base = rational_tower()
-    # This declared no-new-constants status lets the static P/E signature be
-    # inspected.  The denominator t - x is nevertheless a non-generator
-    # special factor, which the input-dependent relation compiler must reject.
+    # Dt=t/x makes t/x a new constant.  A forged PRESERVED annotation must not
+    # let the relation compiler reach its non-generator-special-factor path.
     tower = base.extend(
         MonomialExtension(
             Poly(t / x, t, domain=base.field()),
@@ -293,8 +295,9 @@ def test_non_generator_special_factors_remain_a_dynamic_relation_boundary() -> N
     )
     signature = build_fundamental_signature(tower.derivation())
 
-    assert signature.supported
-    with pytest.raises(NotImplementedError, match="non-generator special polynomial"):
+    assert not signature.supported
+    assert signature.reason is FundamentalSignatureReason.CONSTANT_FIELD_ENLARGED
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         solve_logarithmic_relation_system((1 / (t - x),), tower.derivation())
 
 

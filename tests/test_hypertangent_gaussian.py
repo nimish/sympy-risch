@@ -170,7 +170,7 @@ def test_cayley_signature_adapter_rejects_a_mismatched_source() -> None:
         )
 
 
-def test_cayley_normal_form_requires_certified_constants() -> None:
+def test_cayley_normal_form_replays_unannotated_constants() -> None:
     tower = (
         DifferentialTower(QQ)
         .extend(
@@ -186,8 +186,9 @@ def test_cayley_normal_form_requires_certified_constants() -> None:
         )
     )
 
-    with pytest.raises(ValueError, match=r"Const\(K\(t\)\)"):
-        build_hypertangent_gaussian_normal_form(tower.derivation())
+    normal_form = build_hypertangent_gaussian_normal_form(tower.derivation())
+
+    assert normal_form.verifies_derivation()
 
 
 def test_coupled_rational_hypertangent_frontend_uses_cayley_normal_form() -> None:

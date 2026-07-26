@@ -15,7 +15,6 @@ from sympy_risch import (
     MonomialExtension,
     MonomialFamily,
     RationalElementaryReduction,
-    SpecialPolynomialStatus,
     integrate_elementary,
 )
 
@@ -33,15 +32,12 @@ def rational_tower() -> DifferentialTower:
 
 def monomial_tower(
     generator_derivative,
-    *,
-    special_polynomial_status=SpecialPolynomialStatus.UNKNOWN,
 ) -> DifferentialTower:
     base = rational_tower()
     return base.extend(
         MonomialExtension(
             Poly(generator_derivative, t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            special_polynomial_status,
         )
     )
 
@@ -254,57 +250,11 @@ def test_direct_tan_log_x_field_reaches_the_rational_base() -> None:
     assert result.lower_result.integrand == lower
 
 
-def test_nonlinear_no_special_level_recurses_through_a_primitive_level() -> None:
-    primitive = monomial_tower(1 / x)
-    tower = primitive.extend(
-        MonomialExtension(
-            Poly(u**2 + x, u, domain=primitive.field()),
-            ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
-        )
-    )
-    field = tower.field()
-    integrand = field.from_sympy(1 / (x * t))
+def test_general_polynomial_level_requires_a_library_no_special_proof() -> None:
+    tower = monomial_tower(t**2 + x)
 
-    result = integrate_elementary(integrand, tower.derivation())
-
-    assert result.is_elementary
-    assert result.reconstructs
-    assert result.lower_result is not None
-    assert result.lower_result.derivation.level == 1
-    assert result.lower_result.lower_result is not None
-    assert result.lower_result.lower_result.derivation.level == 0
-    assert tuple(term.level for term in result.all_logarithmic_terms) == (1,)
-    assert result.antiderivative == log(t)
-
-
-def test_lower_level_obstruction_is_propagated_unchanged() -> None:
-    primitive = monomial_tower(1 / x)
-    tower = primitive.extend(
-        MonomialExtension(
-            Poly(u**2 + x, u, domain=primitive.field()),
-            ConstantFieldStatus.PRESERVED,
-            SpecialPolynomialStatus.ABSENT,
-        )
-    )
-    field = tower.field()
-
-    result = integrate_elementary(
-        field.from_sympy(1 / t),
-        tower.derivation(),
-    )
-
-    assert not result.is_elementary
-    assert result.reconstructs
-    assert result.antiderivative is None
-    assert result.lower_result is not None
-    assert result.obstruction is result.lower_result.obstruction
-    assert result.obstruction is not None
-    assert result.obstruction.level == 1
-    assert result.obstruction.generator == t
-    assert result.obstruction.family is MonomialFamily.PRIMITIVE
-    assert result.obstruction.kinds == (IntegrationObstructionKind.NONCONSTANT_RESIDUE,)
-    assert result.unintegrated_remainder == field.from_sympy(1 / t)
+    with pytest.raises(NotImplementedError, match="library-derived complete"):
+        integrate_elementary(tower.field().from_sympy(t), tower.derivation())
 
 
 @pytest.mark.parametrize(
@@ -324,22 +274,6 @@ def test_lower_level_obstruction_is_propagated_unchanged() -> None:
             monomial_tower(1 + t**2),
             2 * (1 - t**2) / (x * (1 + t**2)),
             IntegrationObstructionKind.UNSOLVABLE_RISCH_DIFFERENTIAL_EQUATION,
-        ),
-        (
-            monomial_tower(
-                t**2 + x,
-                special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-            ),
-            x * t,
-            IntegrationObstructionKind.INFINITY_RESIDUE,
-        ),
-        (
-            monomial_tower(
-                t**2 + x,
-                special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-            ),
-            t,
-            IntegrationObstructionKind.REDUCED_POLYNOMIAL,
         ),
     ],
 )
@@ -414,7 +348,7 @@ def test_general_polynomial_level_requires_no_special_certificate() -> None:
 
     with pytest.raises(
         NotImplementedError,
-        match="requires certified absence",
+        match="library-derived complete",
     ):
         integrate_elementary(tower.field().one, tower.derivation())
 
@@ -435,9 +369,7 @@ def test_nonstandard_base_is_rejected_before_family_dispatch() -> None:
 
 
 @given(
-    family=st.sampled_from(
-        ("primitive", "hyperexponential", "hypertangent", "nonlinear")
-    ),
+    family=st.sampled_from(("primitive", "hyperexponential", "hypertangent")),
     exact_coefficient=st.integers(min_value=-3, max_value=3),
     logarithmic_residue=st.integers(min_value=-3, max_value=3),
     lower_linear=st.integers(min_value=-3, max_value=3),
@@ -457,12 +389,6 @@ def test_generated_level_compositions_reconstruct_recursively(
         tower = monomial_tower(t)
     elif family == "hypertangent":
         tower = monomial_tower(1 + t**2)
-    else:
-        tower = monomial_tower(
-            t**2 + x,
-            special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-        )
-
     field = tower.field()
     derivation = tower.derivation()
     exact = field.from_sympy(exact_coefficient * (x + 1) / (t - 2) ** 2)

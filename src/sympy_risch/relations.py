@@ -252,13 +252,18 @@ class FundamentalSignature:
                     raise ValueError(
                         "a fundamental direction must retain its exact tower extension"
                     )
-                if (
-                    direction.level > 0
-                    and direction.extension.constant_field_status
-                    is not ConstantFieldStatus.PRESERVED
-                ):
+            if self.derivation.level > 0:
+                # A supported signature is itself a structural theorem
+                # certificate, so it cannot be authorized by advisory
+                # extension metadata. Reuse the prefix replay rather than
+                # independently scanning every direction.
+                from .constant_proofs import first_nonpreserved_constant_level
+
+                evidence = first_nonpreserved_constant_level(self.derivation)
+                if evidence is not None:
                     raise ValueError(
-                        "a non-base fundamental direction requires preserved constants"
+                        "a non-base fundamental direction requires replayed "
+                        "constant preservation"
                     )
         else:
             if self.reason is None:
@@ -334,9 +339,10 @@ def _is_standard_relation_base(extension: MonomialExtension) -> bool:
 def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
     r"""Describe the certified P/E/T directions of an active tower prefix.
 
-    The construction inspects immutable tower metadata only.  It never solves
-    a relation and reports ``UNSUPPORTED`` rather than a mathematical negative
-    conclusion when a required structure-theorem hypothesis is absent.
+    The construction replays the implemented constant-field criteria but never
+    solves an input relation.  It reports ``UNSUPPORTED`` rather than a
+    mathematical negative conclusion when a required structure-theorem
+    hypothesis is absent.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("fundamental signatures require a Derivation")
@@ -382,6 +388,14 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
     ]
     hyperexponential_directions: list[HyperexponentialFundamentalDirection] = []
     hypertangent_directions: list[HypertangentFundamentalDirection] = []
+    constant_failure = None
+    if base.parent_field in {QQ, QQ_I}:
+        # Replay the full prefix once. The result cache is bottom-up and
+        # identity-safe, so later factories and signatures reuse this check
+        # instead of each rescanning every lower level.
+        from .constant_proofs import first_nonpreserved_constant_level
+
+        constant_failure = first_nonpreserved_constant_level(derivation)
 
     for level, extension in enumerate(active_levels[1:], start=1):
         if not isinstance(extension, MonomialExtension):
@@ -394,17 +408,15 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
                 ),
                 f"level {level} is not a monomial extension",
             )
-        if extension.constant_field_status is ConstantFieldStatus.UNKNOWN:
+        if extension.family not in {
+            MonomialFamily.PRIMITIVE,
+            MonomialFamily.HYPEREXPONENTIAL,
+            MonomialFamily.HYPERTANGENT,
+        }:
             return _unsupported_fundamental_signature(
                 derivation,
-                FundamentalSignatureReason.CONSTANT_FIELD_UNKNOWN,
-                f"level {level} has no certified preserved-constants status",
-            )
-        if extension.constant_field_status is ConstantFieldStatus.ENLARGED:
-            return _unsupported_fundamental_signature(
-                derivation,
-                FundamentalSignatureReason.CONSTANT_FIELD_ENLARGED,
-                f"level {level} enlarges the constant field",
+                FundamentalSignatureReason.UNSUPPORTED_MONOMIAL_FAMILY,
+                f"level {level} has unsupported monomial family {extension.family.value}",
             )
         if base.parent_field not in {QQ, QQ_I}:
             if extension.family is MonomialFamily.HYPERTANGENT:
@@ -420,6 +432,26 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
                 "finite algebraic constant towers need proof-carrying "
                 "no-new-constants evidence before recursive P/E signatures "
                 "can be certified",
+            )
+        if (
+            constant_failure is not None
+            and constant_failure.derivation.level == level
+            and constant_failure.status is ConstantFieldStatus.UNKNOWN
+        ):
+            return _unsupported_fundamental_signature(
+                derivation,
+                FundamentalSignatureReason.CONSTANT_FIELD_UNKNOWN,
+                f"level {level} has no replayed preserved-constants proof",
+            )
+        if (
+            constant_failure is not None
+            and constant_failure.derivation.level == level
+            and constant_failure.status is ConstantFieldStatus.ENLARGED
+        ):
+            return _unsupported_fundamental_signature(
+                derivation,
+                FundamentalSignatureReason.CONSTANT_FIELD_ENLARGED,
+                f"level {level} enlarges the constant field under replay",
             )
         if extension.family is MonomialFamily.PRIMITIVE:
             primitive_directions.append(
@@ -813,7 +845,12 @@ class _RelationSystemCompiler:
                     "over an effective finite constant field C"
                 )
         else:
-            extension.require_preserved_constants("logarithmic relation systems")
+            from .constant_proofs import require_preserved_constant_field
+
+            require_preserved_constant_field(
+                derivation,
+                "logarithmic relation systems",
+            )
         direction = (
             self.fundamental_signature.direction_at(derivation.level)
             if self.fundamental_signature.supported

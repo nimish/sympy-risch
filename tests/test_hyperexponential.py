@@ -392,7 +392,7 @@ def test_hyperexponential_reduction_rejects_other_families(
     "status",
     [ConstantFieldStatus.UNKNOWN, ConstantFieldStatus.ENLARGED],
 )
-def test_hyperexponential_reduction_requires_preserved_constants(
+def test_hyperexponential_reduction_replays_advisory_constant_metadata(
     status,
 ) -> None:
     tower = hyperexponential_tower(
@@ -400,18 +400,20 @@ def test_hyperexponential_reduction_requires_preserved_constants(
         constant_field_status=status,
     )
 
-    with pytest.raises(ValueError, match=r"Const\(K\(t\)\)"):
-        reduce_hyperexponential_laurent(
-            tower.field().from_sympy(t),
-            tower.derivation(),
-        )
+    result = reduce_hyperexponential_laurent(
+        tower.field().from_sympy(t),
+        tower.derivation(),
+    )
+
+    assert result.exact_part == tower.field().from_sympy(t)
+    assert result.remainder == tower.field().zero
 
 
 @pytest.mark.parametrize("eta", [1 / x, 1 / (2 * x)])
 def test_hyperexponential_reduction_rejects_dependent_generators(eta) -> None:
     tower = hyperexponential_tower(eta)
 
-    with pytest.raises(ValueError, match="algebraically dependent"):
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         reduce_hyperexponential_laurent(
             tower.field().from_sympy(t),
             tower.derivation(),
@@ -546,7 +548,7 @@ def test_unsolvable_primitive_lower_rde_is_retained_as_an_obstruction() -> None:
 def test_dependent_primitive_hyperexponential_is_rejected() -> None:
     tower = hyperexponential_over_log_tower(1 / x)
 
-    with pytest.raises(ValueError, match="algebraically dependent"):
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         reduce_hyperexponential_laurent(
             tower.field().from_sympy(u),
             tower.derivation(),
@@ -586,17 +588,16 @@ def test_primitive_coefficient_pole_integrates_end_to_end() -> None:
     assert result.antiderivative == x * u
 
 
-def test_primitive_independence_requires_lower_constant_field_evidence() -> None:
+def test_primitive_independence_replays_lower_constant_evidence() -> None:
     tower = hyperexponential_over_log_tower(
         2 * t / x,
         lower_constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        reduce_hyperexponential_laurent(
-            tower.field().from_sympy(u),
-            tower.derivation(),
-        )
+    integrand = tower.field().from_sympy(u)
+    result = reduce_hyperexponential_laurent(integrand, tower.derivation())
+
+    assert tower.derivation()(result.exact_part) + result.remainder == integrand
 
 
 @given(

@@ -156,29 +156,15 @@ class ConstantFieldStatus(Enum):
     r"""Knowledge about constants introduced by a transcendental level.
 
     The structure theorems used for negative Risch decisions require
-    :math:`\operatorname{Const}(K(t))=\operatorname{Const}(K)`.  Until an
-    automatic tower builder proves that fact, manually constructed levels must
-    record whether it is asserted, disproved, or still unknown.
+    :math:`\operatorname{Const}(K(t))=\operatorname{Const}(K)`.  It is
+    immutable diagnostic metadata produced by extension factories, but is not
+    by itself a structure-theorem certificate: consumers replay the criterion
+    against an explicit tower derivation.
     """
 
     UNKNOWN = "unknown"
     PRESERVED = "preserved"
     ENLARGED = "enlarged"
-
-
-class SpecialPolynomialStatus(Enum):
-    r"""Knowledge about nonconstant special polynomials at a monomial level.
-
-    A polynomial :math:`p\in K[t]` is special when :math:`p\mid Dp`.
-    Bronstein's nonlinear no-special case assumes that no nonconstant
-    irreducible special polynomial exists.  Until a tower builder proves that
-    structure theorem hypothesis, a manually constructed level must record it
-    explicitly.
-    """
-
-    UNKNOWN = "unknown"
-    ABSENT = "absent"
-    PRESENT = "present"
 
 
 class TowerRepresentationOutcome(Enum):
@@ -222,14 +208,13 @@ class MonomialExtension:
     ``MonomialExtension(Poly(1, x, domain=QQ))``.
 
     The derivative law alone cannot establish that adjoining the formal
-    generator preserves the constant field.  Set ``constant_field_status`` to
-    :attr:`ConstantFieldStatus.PRESERVED` only when that hypothesis has been
-    proved or is an explicit construction assumption.
+    generator preserves the constant field.  ``constant_field_status`` is a
+    cached result or diagnostic hint; theorem consumers independently replay
+    the supported criterion against an explicit :class:`Derivation`.
     """
 
     generator_derivative: Poly
     constant_field_status: ConstantFieldStatus = ConstantFieldStatus.UNKNOWN
-    special_polynomial_status: SpecialPolynomialStatus = SpecialPolynomialStatus.UNKNOWN
     _field: Domain = dataclass_field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -247,10 +232,6 @@ class MonomialExtension:
             raise ValueError("a zero-derivative generator belongs in the constants")
         if not isinstance(self.constant_field_status, ConstantFieldStatus):
             raise TypeError("constant_field_status must be a ConstantFieldStatus")
-        if not isinstance(self.special_polynomial_status, SpecialPolynomialStatus):
-            raise TypeError(
-                "special_polynomial_status must be a SpecialPolynomialStatus"
-            )
         if self.generator in _domain_symbols(self.parent_field):
             raise ValueError(
                 f"generator {self.generator} already occurs in the parent field"
@@ -278,23 +259,6 @@ class MonomialExtension:
         if _contains_finite_extension(self.parent_field):
             raise NotImplementedError(_ALGEBRAIC_MONOMIAL_BACKEND_LIMITATION)
         return self._field
-
-    def require_preserved_constants(self, algorithm: str) -> None:
-        r"""Require the no-new-constants hypothesis for a structure theorem."""
-        if self.constant_field_status is not ConstantFieldStatus.PRESERVED:
-            raise ValueError(
-                f"{algorithm} requires Const(K(t)) = Const(K); "
-                f"constant-field status is {self.constant_field_status.value}"
-            )
-
-    def require_no_special_polynomials(self, algorithm: str) -> None:
-        r"""Require :math:`S^{\mathrm{irr}}=\varnothing`."""
-        if self.special_polynomial_status is not SpecialPolynomialStatus.ABSENT:
-            raise ValueError(
-                f"{algorithm} requires no nonconstant special polynomials; "
-                f"special-polynomial status is "
-                f"{self.special_polynomial_status.value}"
-            )
 
     @property
     def family(self) -> MonomialFamily:
@@ -705,10 +669,11 @@ def rebase_derivation_constants(
 ) -> Derivation:
     """Copy a derivation over a larger exact constant field.
 
-    Generator symbols, derivative laws, algebraic defining polynomials, and
-    monomial proof metadata are preserved.  The returned derivation is bound
-    to a newly constructed immutable tower; source domain elements can be
-    embedded through their exact SymPy expressions.
+    Generator symbols, derivative laws, and algebraic defining polynomials
+    are preserved. Diagnostic monomial statuses are reset: changing the
+    constant field requires replay at the new tower position. The returned
+    derivation is bound to a newly constructed immutable tower; source domain
+    elements can be embedded through their exact SymPy expressions.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("rebasing requires a Derivation")
@@ -734,13 +699,7 @@ def rebase_derivation_constants(
                 source.generator,
                 domain=tower.field(),
             )
-            tower = tower.extend(
-                MonomialExtension(
-                    derivative,
-                    source.constant_field_status,
-                    source.special_polynomial_status,
-                )
-            )
+            tower = tower.extend(MonomialExtension(derivative))
             continue
         if isinstance(source, AlgebraicExtension):
             minimal_polynomial = Poly(
@@ -813,6 +772,20 @@ class Derivation:
         if self._lower_derivation is None:
             raise ValueError("the constant field has no lower derivation")
         return self._lower_derivation
+
+    def has_same_position(self, other: object) -> bool:
+        """Whether ``other`` denotes this exact immutable tower position.
+
+        Derivation values compare structurally, and ``tower.derivation()``
+        intentionally returns a fresh value on each call. Certificates must
+        therefore bind to tower *identity* plus the active level: structural
+        equality would admit evidence from a distinct, value-equal tower.
+        """
+        return (
+            isinstance(other, Derivation)
+            and self.tower is other.tower
+            and self.level == other.level
+        )
 
     def __call__(self, element: object) -> FieldElement:
         """Differentiate ``element`` and return a native domain element."""

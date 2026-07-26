@@ -22,18 +22,31 @@ means ``UNKNOWN``, not ``ABSENT``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 from sympy.core.expr import Expr
 from sympy.polys.polyerrors import PolynomialError
 from sympy.polys.polytools import Poly
 
+from .constant_proofs import require_preserved_constant_field
 from .tower import (
-    ConstantFieldStatus,
     Derivation,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
 )
+
+
+class SpecialPolynomialStatus(Enum):
+    r"""Outcome of a derivation-bound special-polynomial analysis.
+
+    Unlike the former extension metadata, this status is derived from the
+    certificates retained by :class:`SpecialPolynomialAnalysis` and cannot
+    authorize an algorithm by itself.
+    """
+
+    UNKNOWN = "unknown"
+    ABSENT = "absent"
+    PRESENT = "present"
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,9 +99,9 @@ class PrimitiveNoSpecialPolynomialCertificate:
     not.  Thus ``q`` is a nonconstant constant of ``K(t)``, contradicting
     ``Const(K(t)) = Const(K)``.
 
-    The stored primitive extension's ``PRESERVED`` status is the required
-    constant-field premise.  This certificate checks that premise but does
-    not attempt to establish it independently.
+    The primitive constant-field premise is independently replayed against
+    the exact lower derivation.  A caller-supplied ``PRESERVED`` enum is never
+    accepted as evidence.
     """
 
     derivation: Derivation
@@ -100,7 +113,10 @@ class PrimitiveNoSpecialPolynomialCertificate:
             raise ValueError(
                 "a primitive no-special certificate requires Dt in the lower field"
             )
-        extension.require_preserved_constants("primitive no-special certification")
+        require_preserved_constant_field(
+            self.derivation,
+            "primitive no-special certification",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,7 +154,7 @@ class SpecialPolynomialAnalysis:
                 "special-polynomial certificates must be an immutable tuple"
             )
         if any(
-            certificate.derivation != self.derivation
+            not certificate.derivation.has_same_position(self.derivation)
             for certificate in self.certificates
         ):
             raise ValueError(
@@ -152,7 +168,9 @@ class SpecialPolynomialAnalysis:
                 raise TypeError(
                     "a special-polynomial absence certificate has the wrong type"
                 )
-            if self.absence_certificate.derivation != self.derivation:
+            if not self.absence_certificate.derivation.has_same_position(
+                self.derivation,
+            ):
                 raise ValueError(
                     "a special-polynomial absence certificate belongs to another derivation"
                 )
@@ -199,7 +217,7 @@ def certify_primitive_no_special_polynomials(
     r"""Certify ``S^{irr}(K[t]) = emptyset`` for a primitive level.
 
     This is the complete primitive special-polynomial theorem, conditional on
-    the level's recorded preserved-constants certificate.  It intentionally
+    replayed evidence that the level preserves constants.  It intentionally
     does not extend to hyperexponential, hypertangent, or general polynomial
     monomials, where a non-generator Darboux factor needs additional theory.
     """
@@ -315,7 +333,7 @@ def analyze_special_polynomials(
         examined.append(factor)
         try:
             certificate = certify_special_polynomial(factor, derivation)
-        except ValueError:
+        except (NotImplementedError, ValueError):
             if required:
                 raise
             return
@@ -326,14 +344,14 @@ def analyze_special_polynomials(
     for candidate in candidates:
         add_candidate(candidate, required=True)
 
-    absence_certificate = (
-        certify_primitive_no_special_polynomials(derivation)
-        if (
-            extension.family is MonomialFamily.PRIMITIVE
-            and extension.constant_field_status is ConstantFieldStatus.PRESERVED
-        )
-        else None
-    )
+    absence_certificate = None
+    if extension.family is MonomialFamily.PRIMITIVE:
+        try:
+            absence_certificate = certify_primitive_no_special_polynomials(derivation)
+        except (NotImplementedError, ValueError):
+            # A failed constant-field replay leaves the general search
+            # incomplete.  It is not evidence that special polynomials exist.
+            absence_certificate = None
     result = SpecialPolynomialAnalysis(
         derivation,
         tuple(examined),

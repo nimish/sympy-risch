@@ -10,16 +10,17 @@ from sympy_risch import (
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
-    SpecialPolynomialStatus,
     certify_primitive_extension,
 )
 from sympy_risch.special import (
+    SpecialPolynomialAnalysis,
+    SpecialPolynomialStatus,
     analyze_special_polynomials,
     certify_primitive_no_special_polynomials,
     certify_special_polynomial,
 )
 
-x, t = symbols("x t")
+x, s, t = symbols("x s t")
 
 
 def monomial_derivation(
@@ -167,6 +168,18 @@ def test_primitive_shape_does_not_masquerade_as_an_absence_certificate() -> None
     assert with_hint.certificates[0].cofactor.is_zero
 
 
+def test_primitive_absence_certificate_rejects_forged_preserved_metadata() -> None:
+    derivation = monomial_derivation(
+        1,
+        constant_status=ConstantFieldStatus.PRESERVED,
+    )
+
+    with pytest.raises(
+        ValueError, match="independent constant-field replay is enlarged"
+    ):
+        certify_primitive_no_special_polynomials(derivation)
+
+
 def test_analyzer_certifies_primitive_absence_from_checked_constants() -> None:
     derivation = certified_primitive_derivation()
 
@@ -178,6 +191,41 @@ def test_analyzer_certifies_primitive_absence_from_checked_constants() -> None:
     assert analysis.certificates == ()
     assert analysis.absence_certificate == certificate
     assert analysis.reconstructs
+
+
+def test_analysis_binds_positive_and_absence_certificates_to_tower_identity() -> None:
+    first = monomial_derivation(1 - t**2)
+    second = monomial_derivation(1 - t**2)
+    certificate = certify_special_polynomial(
+        Poly(t - 1, t, domain=first.tower.field(0)),
+        first,
+    )
+
+    assert first.tower == second.tower
+    assert first.tower is not second.tower
+    same_tower_fresh_derivation = first.tower.derivation()
+    analysis = SpecialPolynomialAnalysis(
+        same_tower_fresh_derivation,
+        (),
+        (certificate,),
+    )
+    assert analysis.reconstructs
+    with pytest.raises(ValueError, match="another derivation"):
+        SpecialPolynomialAnalysis(second, (), (certificate,))
+
+    primitive_first = certified_primitive_derivation()
+    primitive_second = certified_primitive_derivation()
+    absence = certify_primitive_no_special_polynomials(primitive_first)
+    assert primitive_first.tower == primitive_second.tower
+    assert primitive_first.tower is not primitive_second.tower
+    SpecialPolynomialAnalysis(
+        primitive_first.tower.derivation(),
+        (),
+        (),
+        absence,
+    )
+    with pytest.raises(ValueError, match="another derivation"):
+        SpecialPolynomialAnalysis(primitive_second, (), (), absence)
 
 
 @given(
@@ -209,44 +257,59 @@ def test_generated_primitive_candidates_are_rejected_by_the_absence_theorem(
         certify_special_polynomial(candidate, derivation)
 
 
-@pytest.mark.parametrize(
-    ("status", "generator_derivative"),
-    [
-        (ConstantFieldStatus.UNKNOWN, 1 / x),
-        # Dt = 1 makes t - x a genuine new constant.
-        (ConstantFieldStatus.ENLARGED, 1),
-    ],
-)
-def test_primitive_absence_requires_certified_constants_and_primitive_shape(
-    status,
-    generator_derivative,
-) -> None:
+def test_primitive_absence_requires_replayed_constants_and_primitive_shape() -> None:
+    # Dt=1 makes t-x a genuine new constant, irrespective of caller metadata.
     unproved = monomial_derivation(
-        generator_derivative,
-        constant_status=status,
+        1,
+        constant_status=ConstantFieldStatus.ENLARGED,
     )
     hyperexponential = monomial_derivation(t)
 
     assert (
         analyze_special_polynomials(unproved).status is SpecialPolynomialStatus.UNKNOWN
     )
-    with pytest.raises(ValueError, match=f"status is {status.value}"):
+    with pytest.raises(
+        ValueError, match="independent constant-field replay is enlarged"
+    ):
         certify_primitive_no_special_polynomials(unproved)
     with pytest.raises(ValueError, match="requires Dt in the lower field"):
         certify_primitive_no_special_polynomials(hyperexponential)
 
 
-def test_special_candidate_exposes_an_inconsistent_primitive_status() -> None:
-    # This deliberately lies about preservation: Dt = 1 makes t - x a new
-    # constant.  A supplied Darboux identity must expose the contradiction,
-    # rather than allowing the analyzer to return an unsound ABSENT result.
+def test_analyzer_returns_unknown_when_primitive_replay_is_unavailable() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(1, x, domain=QQ), ConstantFieldStatus.PRESERVED)
+    )
+    unsupported = base.extend(
+        MonomialExtension(
+            Poly(s**2 + x, s, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = unsupported.extend(
+        MonomialExtension(
+            Poly(1, t, domain=unsupported.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+
+    analysis = analyze_special_polynomials(tower.derivation())
+
+    assert analysis.status is SpecialPolynomialStatus.UNKNOWN
+    assert analysis.absence_certificate is None
+
+
+def test_special_candidate_wins_over_stale_primitive_metadata() -> None:
+    # Dt=1 makes t-x a new constant.  A checked positive Darboux identity
+    # remains useful evidence even if the extension metadata says preserved.
     derivation = monomial_derivation(1)
     parent = derivation.tower.field(0)
     hidden = Poly(t - x, t, domain=parent)
 
     assert certify_special_polynomial(hidden, derivation).cofactor.is_zero
-    with pytest.raises(ValueError, match="contradicts"):
-        analyze_special_polynomials(derivation, candidates=(hidden,))
+    analysis = analyze_special_polynomials(derivation, candidates=(hidden,))
+    assert analysis.status is SpecialPolynomialStatus.PRESENT
+    assert analysis.certificates[0].factor == hidden
 
 
 def test_hyperexponential_canonical_factor_is_not_an_exhaustive_claim() -> None:

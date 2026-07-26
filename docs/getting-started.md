@@ -61,7 +61,6 @@ from sympy_risch import (
     IntegrationObstructionKind,
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
-    SpecialPolynomialStatus,
     TowerAdmission,
     TowerAdmissionOutcome,
     TowerAdmissionReason,
@@ -123,21 +122,22 @@ assert isinstance(admission, TowerAdmission)
 assert admission.outcome is TowerAdmissionOutcome.ACCEPTED
 ```
 
-`TowerAdmissionOutcome.ACCEPTED` says that the tower is supported, not that a
-particular integrand has an elementary antiderivative. If the outcome is
-`TowerAdmissionOutcome.UNSUPPORTED`, the failed assumption is represented by
-`TowerAdmissionReason`; that result also says nothing about integrability.
+`TowerAdmissionOutcome.ACCEPTED` says that the tower has a supported
+structural shape, not that a particular integrand has an elementary
+antiderivative or that every current recursive solver applies. If the outcome
+is `TowerAdmissionOutcome.UNSUPPORTED`, the failed assumption is represented
+by `TowerAdmissionReason`; that result also says nothing about integrability.
 The admitted family is primitive, hyperexponential, or hypertangent levels
-with preserved constants, together with an exact hyperbolic Möbius
+with replay-proved preserved constants, together with an exact hyperbolic Möbius
 normalization at the active top level described below. The explicit
 certificate-driven Riccati route below is intentionally separate: it first
 changes coordinates, then checks the resulting hyperexponential target.
-For the automatic hyperbolic law, `SpecialPolynomialStatus.UNKNOWN` or
-`PRESENT` is consistent; `ABSENT` is rejected because the law has two known
-linear special factors.
-General nonlinear monomials, including a dispatcher experiment with
-`SpecialPolynomialStatus.ABSENT`, are deliberately outside this total public
-contract.
+For the automatic hyperbolic law, the derivative law itself constructs and
+checks its two linear special factors. Some PTE recursive PLogD paths can
+reach the `QQ(x)`-only primitive-PLogD boundary and raise
+`NotImplementedError`; that outcome is not non-elementarity. General nonlinear
+monomials remain outside this public contract until the library implements a
+complete derivation-bound no-special proof.
 
 See the [mixed-tower admission contract](mixed-transcendental-towers.md) for
 the precise boundary and its relation to integration results.
@@ -212,7 +212,7 @@ functions represented by those generators.
 
 In the same tower, `1/u` represents `1/log(log(x))`. The implemented residue
 criterion proves that this example has no elementary antiderivative under the
-recorded no-new-constants assumptions:
+replayed no-new-constants hypotheses:
 
 ```python
 result = integrate_elementary(
@@ -326,7 +326,6 @@ riccati = base.extend(
     MonomialExtension(
         Poly(t**2 + (1 / x - x) * t, t, domain=base.field()),
         ConstantFieldStatus.PRESERVED,
-        SpecialPolynomialStatus.PRESENT,
     )
 )
 derivation = riccati.derivation()
@@ -361,12 +360,12 @@ The builder retains both input certificates and verifies the forward map
 `RiccatiMobiusNormalForm` also exposes those verification methods for
 inspection. Its integration function uses the normal P/E/T dispatcher only
 after the target tower passes the existing admission check. The target `u`
-must be a fresh SymPy `Symbol` over the whole source field. The source must
-have preserved constants; its special-polynomial metadata may be `UNKNOWN`
-because the two certificates supply positive evidence, while `ABSENT`
-contradicts them. A missing factor certificate, an unknown constant field, or
-a target outside that contract is an unsupported algorithmic boundary—not a
-non-elementarity result.
+must be a fresh SymPy `Symbol` over the whole source field. The checked
+factor pair supplies the coordinate evidence, and preservation is replayed on
+the hyperexponential target; source status metadata is only advisory. A
+missing factor certificate, an unavailable replay, or a target outside that
+contract is an unsupported algorithmic boundary—not a non-elementarity
+result.
 
 ### Certified local special-pole reduction
 
@@ -508,11 +507,13 @@ either:
 2. removes each leading power of the primitive generator by recursively
    solving `D(s) + a*s = lc(b)` in the lower field.
 
-This primitive recurrence is the specialized lower-field route. In the wider
-supported P/E/T contract, the RDE dispatcher uses the corresponding
+This primitive recurrence is the specialized lower-field route. For the
+documented mixed P/E/T shapes, the RDE dispatcher uses the corresponding
 hyperexponential or hypertangent reductions and coupled-RDE fallback when a
-lower level is not primitive. Coefficients with poles in the current primitive
-generator are weakly normalized before normal-denominator reduction.
+lower level is not primitive; other recursive paths retain the boundary
+described in [mixed transcendental towers](mixed-transcendental-towers.md).
+Coefficients with poles in the current primitive generator are weakly
+normalized before normal-denominator reduction.
 Positive-integer logarithmic residues are removed by an exact change of
 unknown; other residues remain in the normalized equation and are handled by
 the denominator, degree-bound, and SPDE stages.
@@ -706,11 +707,11 @@ assert coupled.imaginary_solution == Poly(
 assert coupled.reconstructs
 ```
 
-This is the terminal recurrence used by the complete rational coupled-RDE
-frontend. That frontend performs paired weak normalization, denominator
-reduction, degree bounds, and SPDE before reaching this stage. It also uses
-the immutable all-level Cayley normalization needed for nested hypertangent
-levels.
+This is the terminal recurrence used by the rational coupled-RDE frontend for
+its documented dispatch shapes. That frontend performs paired weak
+normalization, denominator reduction, degree bounds, and SPDE before reaching
+this stage. It also uses the immutable Cayley normalization needed for nested
+hypertangent levels.
 
 ## Test a parametric logarithmic derivative
 
@@ -802,10 +803,11 @@ residue not proportional to `Dp`, and an obstruction inherited from
 `QQ(x)`.
 
 `solve_radical_logarithmic_derivative(f, derivation)` is the uniform entry
-point. It returns the minimal positive integer `n` and an argument `v`
-satisfying `n*f = D(v)/v` throughout the documented P/E/T tower contract.
-Its immutable certificate retains the rational result, a complete primitive
-signature, or the mixed-tower relation data appropriate to the current level.
+point for its implemented level and recursive shapes. It returns the minimal
+positive integer `n` and an argument `v` satisfying `n*f = D(v)/v`; outside
+those shapes it reports the documented unsupported boundary. Its immutable
+certificate retains the rational result, a complete primitive signature, or
+the mixed-tower relation data appropriate to the current level.
 
 For an additional primitive level with `Du = 1/(x*t)`, the same entry point
 combines residue denominators from every level:
@@ -850,10 +852,10 @@ assert decision.reconstructs
 ```
 
 The primitive signature route is complete over recursively primitive towers
-when every primitive level carries a `PRESERVED` constant-field certificate.
-For mixed P/E/T lower towers the public parametric solver automatically uses
-the general relation-system route; algebraic and other unsupported lower
-families remain explicit `UNSUPPORTED` outcomes.
+when replay proves constant preservation at every primitive level. Where the
+relation-system route is implemented for a mixed P/E/T lower tower, the public
+parametric solver uses it automatically; other recursive shapes, algebraic
+lower fields, and other unsupported families retain explicit boundaries.
 
 ## Compute finite residues of an algebraic differential
 
@@ -960,17 +962,17 @@ not enlarge the constant field. For primitive levels, use
 the lower field, returns `ENLARGED` with the witness `v` when `Dt = D(v)`, and
 leaves unsupported or uncertified lower towers `UNKNOWN`.
 
-Other monomial families still use explicitly supplied
-`ConstantFieldStatus.PRESERVED` metadata after their family-specific
-dependency analysis. Algorithms that need the hypothesis reject `UNKNOWN`
-and `ENLARGED` rather than issuing an unsound certificate.
+For every currently supported primitive, hyperexponential, hypertangent, or
+hyperbolic level, algorithms replay the family-specific constant-field
+criterion at its exact tower position. `ConstantFieldStatus` is cached
+diagnostic metadata: factories populate it, but a caller-supplied enum never
+admits or rejects a theorem application.
 
-General nonlinear monomial reduction has a similar
-`SpecialPolynomialStatus.ABSENT` precondition. It means the level has no
-nonconstant irreducible polynomial `p` with `p` dividing `Dp`. For a primitive
-level with a certified preserved constant field, the special-polynomial
-analyzer proves that fact automatically; other monomial families still need
-their family theorem or explicit evidence.
+A checked positive special-polynomial certificate is usable evidence, and
+the primitive structure theorem can produce a derivation-bound absence
+certificate after constant preservation is replayed. General nonlinear
+absence remains unsupported rather than becoming a negative conclusion from
+caller metadata.
 
 The current SymPy domain backend cannot yet represent a monomial extension
 above a function-field `AlgebraicExtension`, or a nested
@@ -984,20 +986,20 @@ boundary, not a mathematical claim about the integral.
 | Tower shape or operation | Status |
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
-| Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)`, in any finite order | End-to-end |
-| Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors and preserved constants are supplied; ordinary general-polynomial dispatch remains unsupported |
+| Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)` | Structural admission is end-to-end; the documented recursive solver shapes are end-to-end, while some PTE primitive-PLogD paths report an explicit unsupported boundary |
+| Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
-| Scalar-RDE dispatch admission | `assess_scalar_rde_admission` checks the full recursive prefix: `QQ(x)` P/E/T or `QQ(i)(x)` P/E, with certified preserved constants above the base |
-| Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision in the explicit certified P/E/T contract |
-| Coupled RDE in the explicit certified P/E/T contract | Complete decision |
+| Scalar-RDE dispatch admission | `assess_scalar_rde_admission` checks the full recursive prefix: `QQ(x)` P/E/T or `QQ(i)(x)` P/E, with replay-proved preserved constants above the base |
+| Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete for the documented certified P/E/T dispatch shapes |
+| Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |
-| General rational coupled RDE over a hypertangent level | Complete decision in the explicit certified P/E/T contract |
-| Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete decision |
-| Nonlinear monomial with certified absence of special polynomials | End-to-end over supported lower towers |
-| Radical and parametric logarithmic derivatives in the supported P/E/T tower contract | Complete decision with explicit unsupported outcomes outside that contract |
+| General rational coupled RDE over a hypertangent level | Complete for the documented dispatch shapes |
+| Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete for the documented recursive shapes |
+| General nonlinear monomial with absence of special polynomials | Not implemented; positive special-factor certificates support only their documented local reductions |
+| Radical and parametric logarithmic derivatives in the supported P/E/T tower contract | Complete for their documented recursive shapes; an unsupported lower-field branch is explicit, never a negative decision |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
@@ -1006,7 +1008,7 @@ boundary, not a mathematical claim about the integral.
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
-| Hypertangent over hyperexponential or hypertangent lower levels | End-to-end in the explicit certified P/E/T contract |
+| Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |
 | General automatic tower discovery and canonical back-substitution | Not implemented; algebraic, arbitrary constants/functions, dependency minimization, and branch-aware normalization remain outside the narrow expression frontend |
 | Complete global real branch management | Not implemented |
 

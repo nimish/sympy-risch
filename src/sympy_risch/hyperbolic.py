@@ -32,12 +32,12 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from ._typing import FieldElement, is_field_zero
+from .constant_proofs import require_preserved_constant_field
 from .special import SpecialPolynomialCertificate, certify_special_polynomial
 from .tower import (
     Derivation,
     DifferentialTower,
     MonomialExtension,
-    SpecialPolynomialStatus,
     _coerce,
     _domain_symbols,
 )
@@ -120,9 +120,10 @@ class RiccatiMobiusNormalForm:
             SpecialPolynomialCertificate,
         ):
             raise TypeError("a Riccati Möbius normal form needs special certificates")
-        if (
-            self.numerator_certificate.derivation != self.source_derivation
-            or self.denominator_certificate.derivation != self.source_derivation
+        if not self.numerator_certificate.derivation.has_same_position(
+            self.source_derivation,
+        ) or not self.denominator_certificate.derivation.has_same_position(
+            self.source_derivation,
         ):
             raise ValueError(
                 "Riccati Möbius special factors belong to another derivation"
@@ -380,7 +381,7 @@ def _validate_riccati_certificate(
     """Require one checked monic linear special factor at the active level."""
     if not isinstance(certificate, SpecialPolynomialCertificate):
         raise TypeError(f"the {role} factor must be a SpecialPolynomialCertificate")
-    if certificate.derivation != derivation:
+    if not certificate.derivation.has_same_position(derivation):
         raise ValueError(f"the {role} special factor belongs to another derivation")
     if certificate.factor.degree() != 1:
         raise ValueError(
@@ -393,8 +394,6 @@ def _validate_riccati_source(
     target_generator: Symbol,
     numerator_certificate: SpecialPolynomialCertificate,
     denominator_certificate: SpecialPolynomialCertificate,
-    *,
-    require_preserved_constants: bool,
 ) -> tuple[MonomialExtension, FieldElement]:
     """Validate the quadratic theorem hypotheses and return ``Du/u``."""
     if not isinstance(derivation, Derivation):
@@ -412,14 +411,6 @@ def _validate_riccati_source(
         or extension.generator_derivative.degree() != 2
     ):
         raise ValueError(_RICCATI_LAW_MESSAGE)
-    if require_preserved_constants:
-        extension.require_preserved_constants("quadratic Möbius normal form")
-    if extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT:
-        raise ValueError(
-            "a source marked without special polynomials contradicts the "
-            "supplied special-factor certificates"
-        )
-
     _validate_riccati_certificate(
         numerator_certificate,
         derivation,
@@ -463,7 +454,6 @@ def _build_riccati_mobius_normal_form(
         target_generator,
         numerator_certificate,
         denominator_certificate,
-        require_preserved_constants=require_preserved_constants,
     )
     target_tower = DifferentialTower(
         derivation.tower.constants,
@@ -475,11 +465,17 @@ def _build_riccati_mobius_normal_form(
         target_generator,
         domain=target_parent,
     )
-    target_extension = MonomialExtension(
+    # The checked special-factor quotient gives an exact source-to-target
+    # differential-field isomorphism.  Replay the *hyperexponential* target
+    # rather than trusting metadata on the generic quadratic source: target
+    # preservation proves source preservation through that isomorphism.
+    from .dependency import certify_hyperexponential_extension
+
+    target_analysis = certify_hyperexponential_extension(
         target_derivative,
-        source_extension.constant_field_status,
-        SpecialPolynomialStatus.PRESENT,
+        target_tower.derivation(),
     )
+    target_extension = target_analysis.extension
     target_tower = target_tower.extend(target_extension)
     normal_form = RiccatiMobiusNormalForm(
         derivation,
@@ -493,6 +489,10 @@ def _build_riccati_mobius_normal_form(
         raise ValueError("quadratic Möbius normal-form maps are not inverse")
     if not normal_form.verifies_derivation():
         raise ValueError("quadratic Möbius normal form does not intertwine derivations")
+    if require_preserved_constants:
+        require_preserved_constant_field(
+            target_tower.derivation(), "quadratic Möbius normal form"
+        )
     return normal_form
 
 
@@ -504,10 +504,11 @@ def build_riccati_mobius_normal_form(
 ) -> RiccatiMobiusNormalForm:
     r"""Build the certified quadratic normal form ``u=(t-a)/(t-b)``.
 
-    The active extension must have ``deg_t(Dt)=2`` and certified preserved
-    constants.  ``numerator_certificate`` and ``denominator_certificate``
-    must certify distinct monic linear special factors ``t-a`` and ``t-b``.
-    No factor search or no-special conclusion is performed here.
+    The active extension must have ``deg_t(Dt)=2``.  Its preservation premise
+    is independently replayed after the checked coordinate change: the
+    certificates must certify distinct monic linear special factors ``t-a``
+    and ``t-b``, and the resulting hyperexponential target must preserve
+    constants.  No factor search or no-special conclusion is performed here.
     """
     return _build_riccati_mobius_normal_form(
         derivation,
@@ -524,10 +525,11 @@ def build_hyperbolic_mobius_normal_form(
 ) -> HyperbolicMobiusNormalForm:
     r"""Build the exact ``Dt=eta*(1-t**2)`` to ``Du=2*eta*u`` normal form.
 
-    ``target_generator`` must be fresh over the source field.  The source and
-    target have the same constant-field metadata because a rational Möbius
-    change of coordinate cannot add constants.  The target is marked as
-    having special polynomials: its generator ``u`` divides ``Du``.
+    ``target_generator`` must be fresh over the source field.  The rational
+    Möbius coordinate preserves the constant-field question, so the target's
+    status is derived by replaying its hyperexponential criterion rather than
+    copied from source metadata. The checked source factors remain part of
+    this normal-form proof; the target carries no special-polynomial metadata.
     """
     source_extension, _ = _validate_hyperbolic_source(
         derivation,

@@ -24,6 +24,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from ._typing import FieldElement
+from .constant_proofs import require_preserved_constant_field
 from .relations import (
     FundamentalSignature,
     HyperexponentialFundamentalDirection,
@@ -31,12 +32,10 @@ from .relations import (
     build_fundamental_signature,
 )
 from .tower import (
-    ConstantFieldStatus,
     Derivation,
     DifferentialTower,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
     _coerce,
 )
 
@@ -184,13 +183,10 @@ def _validate_source_tower(derivation: Derivation) -> None:
                 "Gaussian normal form supports primitive, hyperexponential, "
                 "and hypertangent monomial levels"
             )
-        if (
-            level > 0
-            and extension.constant_field_status is not ConstantFieldStatus.PRESERVED
-        ):
-            raise ValueError(
-                "Gaussian normal form requires Const(K(t)) = Const(K) at "
-                "every monomial level"
+        if level > 0:
+            require_preserved_constant_field(
+                Derivation(derivation.tower, level),
+                "Gaussian normal form",
             )
         has_hypertangent |= extension.family is MonomialFamily.HYPERTANGENT
     if not has_hypertangent:
@@ -227,18 +223,14 @@ def build_hypertangent_gaussian_normal_form(
             target_derivative = (
                 2 * I * _substitute_once(eta, forward_substitutions) * generator
             )
-            target_special_status = SpecialPolynomialStatus.PRESENT
         else:
             target_derivative = _substitute_once(
                 source_extension.generator_derivative.as_expr(),
                 forward_substitutions,
             )
-            target_special_status = source_extension.special_polynomial_status
 
         target_extension = MonomialExtension(
             Poly(target_derivative, generator, domain=target_parent),
-            source_extension.constant_field_status,
-            target_special_status,
         )
         target_tower = target_tower.extend(target_extension)
 
@@ -282,7 +274,9 @@ def hypertangent_cayley_logarithmic_direction(
         raise TypeError("the hypertangent level must be an integer")
     if not source_signature.supported:
         raise ValueError("the source tower needs a certified fundamental signature")
-    if source_signature.derivation != normal_form.source_derivation:
+    if not source_signature.derivation.has_same_position(
+        normal_form.source_derivation,
+    ):
         raise ValueError(
             "the signature and Gaussian normal form have different sources"
         )

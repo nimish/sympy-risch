@@ -51,16 +51,27 @@ def _extend_family(
     )
 
 
-@pytest.mark.parametrize("order", ("PET", "PTE", "EPT", "ETP", "TPE", "TEP"))
+@pytest.mark.parametrize(
+    ("order", "supported"),
+    (
+        ("PET", True),
+        ("PTE", False),
+        ("EPT", True),
+        ("ETP", True),
+        ("TPE", True),
+        ("TEP", True),
+    ),
+)
 @pytest.mark.parametrize(
     "shape",
     ("linear_normal", "repeated_normal", "mixed_lower_coefficient"),
 )
-def test_mixed_family_orders_integrate_planted_rational_derivatives(
+def test_mixed_family_orders_integrate_or_report_the_documented_boundary(
     order: str,
+    supported: bool,
     shape: str,
 ) -> None:
-    """Every ordering reaches its family reducer and recursively descends."""
+    """Only implemented recursive PLogD orders claim end-to-end reduction."""
     tower = _base_tower()
     generators = (a, b, c)
     for family, generator in zip(order, generators, strict=True):
@@ -76,6 +87,14 @@ def test_mixed_family_orders_integrate_planted_rational_derivatives(
         "mixed_lower_coefficient": (top**2 + lower * top + 1) / (top + lower + 1),
     }
     planted = field.from_sympy(planted_by_shape[shape])
+
+    if not supported:
+        with pytest.raises(
+            NotImplementedError,
+            match="hyperexponential logarithmic signatures",
+        ):
+            integrate_elementary(derivation(planted), derivation)
+        return
 
     result = integrate_elementary(derivation(planted), derivation)
 

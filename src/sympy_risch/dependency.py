@@ -691,27 +691,24 @@ class TranscendentalExtensionAnalysis:
 def _uncertified_lower_tower_detail(
     lower_derivation: Derivation,
 ) -> str | None:
-    """Explain why a proposed transcendental level cannot yet be certified."""
+    """Explain why a proposed level lacks replayed lower-field evidence."""
     if lower_derivation.level < 0:
         return (
             "transcendental extension certification requires a supported "
             "nonconstant lower differential field"
         )
-    lower_levels = lower_derivation.tower.levels[: lower_derivation.level + 1]
-    uncertified_level = next(
-        (
-            level
-            for level in lower_levels
-            if isinstance(level, MonomialExtension)
-            and level.constant_field_status is not ConstantFieldStatus.PRESERVED
-        ),
-        None,
-    )
-    if uncertified_level is None:
+    # Local import avoids the cycle: constant-field replay delegates its
+    # family decisions to the factories in this module.
+    from .constant_proofs import first_nonpreserved_constant_level
+
+    evidence = first_nonpreserved_constant_level(lower_derivation)
+    if evidence is None:
         return None
+    suffix = f": {evidence.detail}" if evidence.detail else ""
     return (
-        "the lower tower contains a monomial level without certified "
-        "constant preservation"
+        "the lower tower contains a monomial level without replayed "
+        f"constant preservation at level {evidence.derivation.level} "
+        f"({evidence.status.value}){suffix}"
     )
 
 
@@ -721,11 +718,9 @@ def _certified_lower_fundamental_signature(
     r"""Return P/E/T evidence only for an already-certified lower tower.
 
     The relation signature deliberately accepts a standard rational base even
-    when callers have not annotated its status, because the direct relation
-    compiler historically did so.  Extension factories are stricter: their
-    no-new-constants certificate needs every lower monomial level to be
-    certified first.  Keeping that distinction here preserves the existing
-    factory outcomes while exposing structural evidence only when it is safe.
+    when callers have not annotated its status.  Extension factories instead
+    replay every lower monomial criterion, so caller metadata never becomes a
+    substitute for the no-new-constants premise.
     """
     if _uncertified_lower_tower_detail(lower_derivation) is not None:
         return None
@@ -1518,20 +1513,23 @@ def _solve_primitive_parametric_logarithmic_derivative(
                     "transcendental level above QQ(x) to be primitive"
                 ),
             )
-        if (
-            recursive_extension.constant_field_status
-            is not ConstantFieldStatus.PRESERVED
-        ):
-            return ParametricLogarithmicDerivativeResult(
-                extension,
-                lower_derivation,
-                element,
-                ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
-                detail=(
-                    "primitive parametric solving requires Const(K(t)) = "
-                    "Const(K) at every primitive level"
-                ),
-            )
+
+    from .constant_proofs import first_nonpreserved_constant_level
+
+    evidence = first_nonpreserved_constant_level(lower_derivation)
+    if evidence is not None:
+        suffix = f": {evidence.detail}" if evidence.detail else ""
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            detail=(
+                "primitive parametric solving requires Const(K(t)) = "
+                "Const(K) at every primitive level"
+                f"{suffix}"
+            ),
+        )
 
     # Local import avoids the module cycle: monomial family reducers use the
     # dependency analyses defined in this module.
@@ -1810,7 +1808,6 @@ def _solve_hypertangent_parametric_logarithmic_derivative(
             extension.generator,
             domain=normal_form.target_field,
         ),
-        extension.constant_field_status,
     )
     target_result = solve_parametric_logarithmic_derivative(
         normal_form.forward(element),
@@ -1919,18 +1916,11 @@ def solve_parametric_logarithmic_derivative(
         )
 
     if has_hyperexponential_level:
-        uncertified_level = next(
-            (
-                level
-                for level in lower_derivation.tower.levels[
-                    1 : lower_derivation.level + 1
-                ]
-                if isinstance(level, MonomialExtension)
-                and level.constant_field_status is not ConstantFieldStatus.PRESERVED
-            ),
-            None,
-        )
-        if uncertified_level is not None:
+        from .constant_proofs import first_nonpreserved_constant_level
+
+        evidence = first_nonpreserved_constant_level(lower_derivation)
+        if evidence is not None:
+            suffix = f": {evidence.detail}" if evidence.detail else ""
             return ParametricLogarithmicDerivativeResult(
                 extension,
                 lower_derivation,
@@ -1939,6 +1929,7 @@ def solve_parametric_logarithmic_derivative(
                 detail=(
                     "parametric logarithmic derivatives require "
                     "Const(K(t)) = Const(K) at every lower monomial level"
+                    f"{suffix}"
                 ),
             )
         return _solve_monomial_relation_system_parametric_logarithmic_derivative(
@@ -2163,22 +2154,18 @@ def certify_primitive_extension(
     lower_fundamental_signature = _certified_lower_fundamental_signature(
         lower_derivation,
     )
-    lower_levels = lower_derivation.tower.levels[: lower_derivation.level + 1]
-    uncertified_level = next(
-        (
-            level
-            for level in lower_levels
-            if isinstance(level, MonomialExtension)
-            and level.constant_field_status is not ConstantFieldStatus.PRESERVED
-        ),
-        None,
+    # ``Dx=1`` is the supported base primitive extension over constants.  At
+    # every higher level, lower replay evidence is a theorem prerequisite.
+    detail = (
+        None
+        if lower_derivation.level < 0
+        else _uncertified_lower_tower_detail(lower_derivation)
     )
-    if uncertified_level is not None:
+    if detail is not None:
         return PrimitiveExtensionAnalysis(
             extension,
             None,
-            "the lower tower contains a monomial level without certified "
-            "constant preservation",
+            detail,
             lower_fundamental_signature,
         )
 

@@ -174,20 +174,21 @@ def test_elementary_dispatch_integrates_nested_tangent_and_lower_parts() -> None
 def test_nested_hypertangent_reduction_rejects_a_dependent_generator() -> None:
     tower = tangent_over_primitive(eta=1 / (x * (s**2 + 1)))
 
-    with pytest.raises(ValueError, match="algebraically dependent"):
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         reduce_hypertangent_special(1, tower.derivation())
 
 
-def test_nested_hypertangent_reduction_requires_constant_field_evidence() -> None:
+def test_nested_hypertangent_reduction_replays_advisory_constant_metadata() -> None:
     tower = tangent_over_primitive(
         constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
 
-    with pytest.raises(ValueError, match="status is unknown"):
-        reduce_hypertangent_special(1, tower.derivation())
+    result = reduce_hypertangent_special(1, tower.derivation())
+
+    assert tower.derivation()(result.exact_part) + result.remainder == tower.field().one
 
 
-def test_nested_hypertangent_handles_two_primitive_lower_levels() -> None:
+def test_nested_hypertangent_reduces_over_two_primitive_lower_levels() -> None:
     primitive = primitive_lower_tower()
     lower = primitive.extend(
         MonomialExtension(
@@ -205,18 +206,14 @@ def test_nested_hypertangent_handles_two_primitive_lower_levels() -> None:
             ConstantFieldStatus.PRESERVED,
         )
     )
-    field = tower.field()
     derivation = tower.derivation()
-    planted = field.from_sympy(cayley_pair(x + s * u, s + u))
 
-    result = reduce_hypertangent_monomial(
-        derivation(planted),
-        derivation,
-    )
+    planted = tower.field().from_sympy(t * (s + u))
+    reduction = reduce_hypertangent_monomial(derivation(planted), derivation)
 
-    assert not result.is_non_elementary
-    assert result.exact_part == planted
-    assert result.remainder == field.zero
+    assert reduction.remainder == tower.field().zero
+    assert reduction.exact_part == planted
+    assert derivation(reduction.exact_part) + reduction.remainder == derivation(planted)
 
 
 @given(

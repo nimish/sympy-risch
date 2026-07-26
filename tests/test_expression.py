@@ -260,6 +260,29 @@ def test_compilation_constructor_rejects_forged_derivative_law() -> None:
         )
 
 
+def test_compilation_constructor_replays_valid_unknown_metadata() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(1, x, domain=QQ)),
+    )
+    tower = base.extend(
+        MonomialExtension(Poly(1 / x, t, domain=base.field())),
+    )
+
+    compilation = ExpressionCompilation(
+        log(x),
+        x,
+        ExpressionCompilationOutcome.COMPILED,
+        None,
+        "replayed unknown metadata",
+        tower,
+        tower.field().from_sympy(t),
+        ((t, log(x)),),
+    )
+
+    assert compilation.compiled
+    assert compilation.tower is tower
+
+
 def test_compilation_constructor_replays_nested_dependency_certification() -> None:
     constants = DifferentialTower(QQ)
     base = certify_primitive_extension(

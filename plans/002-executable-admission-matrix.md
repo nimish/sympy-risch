@@ -24,13 +24,14 @@
 
 ## Why this matters
 
-The library is total only for a deliberately narrow class: explicit immutable
-towers over `QQ(x)` with certified preserved constants and primitive,
-hyperexponential, or hypertangent levels. The public dispatcher documents that
-boundary but currently callers infer it from a mixture of tower metadata and
-`NotImplementedError`. A table-driven admission result and generated coverage
-matrix make the claim reviewable, prevent accidental contract expansion, and
-give later front-end work one authoritative boundary.
+The library has a structural admission boundary for a deliberately narrow
+class: explicit immutable towers over `QQ(x)` with derivation-bound replay
+proofs of preserved constants and primitive, hyperexponential, or
+hypertangent levels. It distinguishes recognized tower shapes from
+unsupported ones, but is not a claim that every recursive solver is total.
+A table-driven admission result and generated coverage matrix make that
+boundary reviewable, prevent accidental contract expansion, and give later
+front-end work one authoritative boundary.
 
 ## Completed state
 
@@ -102,13 +103,15 @@ Create `src/sympy_risch/admission.py` with a small, typed result protocol:
   and undecided special-polynomial hypothesis;
 - an immutable `TowerAdmission` containing the problem name, tower, outcome,
   failed requirement when any, and human-readable detail; and
-- one assessor for the present public elementary-integration P/E/T contract.
+- one assessor for the present public elementary-integration P/E/T structural
+  input-shape boundary.
 
 Use exact `isinstance`/metadata checks already used by the dispatcher. The
 assessor must accept a finite P/E/T tower precisely when every non-base level
-has `ConstantFieldStatus.PRESERVED`, and must reject rather than guess about
-any algebraic or general nonlinear level. It must not call a solver or turn a
-failed solver into an admission result.
+has a replayed preservation proof, and must reject rather than guess about
+any algebraic or general nonlinear level. It must not call a solver, turn a
+failed solver into an admission result, or claim that acceptance makes every
+solver path available.
 
 **Verify**: focused unit tests construct accepted primitive, hyperexponential,
 hypertangent, and mixed P/E/T towers plus rejected unknown/enlarged constants,
@@ -123,12 +126,13 @@ In `tests/test_admission.py`, declare the current support cells explicitly:
 - constructive exact cases and known theorem-backed non-elementary cases; and
 - every relevant admission failure category.
 
-For accepted cells, invoke `integrate_elementary` and assert either exact
-reconstruction or a structured obstruction; an unexpected
-`NotImplementedError` fails the test. For rejected cells, assert the exact
-admission reason and do not invoke the integration dispatcher as evidence of
-non-elementarity. Use bounded generated variants only where their construction
-has an independent reconstruction check.
+For explicitly declared solver cells, invoke `integrate_elementary` and assert
+either exact reconstruction or a structured obstruction; an unexpected
+`NotImplementedError` fails the test. For structurally admitted but
+unimplemented cells, assert the documented boundary. For rejected cells,
+assert the exact admission reason and do not invoke the integration dispatcher
+as evidence of non-elementarity. Use bounded generated variants only where
+their construction has an independent reconstruction check.
 
 **Verify**: `uv run --no-sync pytest -q tests/test_admission.py` exits 0 and
 its parametrization names every declared cell.
@@ -170,8 +174,9 @@ checkpoint lands.
 
 - [x] The present P/E/T scope has one programmatic assessor and stable reason
   codes.
-- [x] Every declared accepted cell either reconstructs or returns a
-  theorem-backed obstruction; none raises `NotImplementedError`.
+- [x] Every declared solver cell either reconstructs or returns a
+  theorem-backed obstruction; structurally admitted but unimplemented cells
+  assert their documented boundary.
 - [x] Rejected shapes have an explicit unsupported reason and are never
   presented as non-elementary.
 - [x] CI runs lint, format, type, and test gates.
@@ -181,7 +186,7 @@ checkpoint lands.
 
 Stop and report if:
 
-- an accepted P/E/T cell reaches `NotImplementedError`;
+- an explicitly declared solver cell reaches `NotImplementedError`;
 - the only way to classify a cell is to run a solver and reinterpret a failure;
 - an existing obstruction lacks its theorem hypothesis; or
 - the proposed work requires changes to algebraic or special-factor algorithms.

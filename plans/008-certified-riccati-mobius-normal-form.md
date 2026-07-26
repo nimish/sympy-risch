@@ -38,14 +38,14 @@ the reciprocal coordinate and negates the hyperexponential direction.
 
 `integrate_riccati_mobius_normal_form` is an explicit proof-carrying route.
 It transports an integrand to the resulting hyperexponential target, requires
-that target to meet the existing P/E/T admission contract, invokes the normal
-recursive integrator, and transports exact parts, logarithmic terms, and
-Liouville obstructions back to the source field.
+that target to be structurally admitted, invokes the normal recursive
+integrator, propagates any documented solver boundary, and transports exact
+parts, logarithmic terms, and Liouville obstructions back to the source field.
 
 The exact `Dt = eta*(1-t**2)` hyperbolic normalizer shares target construction
 internally and retains its automatic dispatcher path. Its pure coordinate map
-can retain unknown constant-field metadata, but contradictory `ABSENT`
-special-polynomial metadata is rejected just as it is for the generic route.
+can retain unknown constant-field metadata; it neither copies a source
+special-polynomial status nor treats missing factor evidence as absence.
 
 ## Deliberate boundary
 
@@ -60,7 +60,7 @@ certificate is therefore `UNSUPPORTED` input, never evidence that no such
 factor exists or that an integral is non-elementary. The ordinary
 `integrate_elementary` dispatcher continues to reject an arbitrary quadratic
 polynomial monomial: it cannot infer either factor identities or their chosen
-orientation from `SpecialPolynomialStatus.PRESENT` alone.
+orientation from metadata or an incomplete factor search.
 
 The normalizer applies only at the active top level. Rewriting a lower
 quadratic generator would require transporting every higher extension and is

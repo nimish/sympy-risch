@@ -345,7 +345,7 @@ def test_free_ratio_uses_zero_when_f_is_already_radical_logarithmic() -> None:
         ConstantFieldStatus.ENLARGED,
     ],
 )
-def test_unproved_primitive_constant_field_is_unsupported(status) -> None:
+def test_primitive_constant_field_metadata_is_replayed(status) -> None:
     lower = logarithmic_tower(constant_field_status=status)
     extension = hyperexponential_extension(lower, 1)
 
@@ -355,9 +355,8 @@ def test_unproved_primitive_constant_field_is_unsupported(status) -> None:
         lower.derivation(),
     )
 
-    assert result.is_unsupported
-    assert not result.proves_no_solution
-    assert "Const" in result.detail
+    assert result.has_solution
+    assert result.reconstructs
 
 
 def test_nested_primitive_lower_field_is_decided_recursively() -> None:
@@ -440,7 +439,7 @@ def test_nested_top_ratio_can_expose_lower_obstruction() -> None:
     assert not result.certificate.residual_signature.has_solution
 
 
-def test_unproved_intermediate_constant_field_is_unsupported() -> None:
+def test_intermediate_primitive_constant_field_metadata_is_replayed() -> None:
     lower = nested_logarithmic_tower(
         intermediate_status=ConstantFieldStatus.UNKNOWN,
     )
@@ -452,8 +451,8 @@ def test_unproved_intermediate_constant_field_is_unsupported() -> None:
         lower.derivation(),
     )
 
-    assert result.is_unsupported
-    assert "every primitive level" in result.detail
+    assert result.has_solution
+    assert result.reconstructs
 
 
 @settings(max_examples=40, deadline=None)

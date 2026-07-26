@@ -12,7 +12,6 @@ from sympy_risch import (
     MonomialExtension,
     RationalRDEObstruction,
     SpecialPolynomialCertificate,
-    SpecialPolynomialStatus,
     certify_special_polynomial,
 )
 from sympy_risch.monomial import (
@@ -37,8 +36,6 @@ def rational_base() -> DifferentialTower:
 
 def monomial_tower(
     generator_derivative,
-    *,
-    special_status: SpecialPolynomialStatus = SpecialPolynomialStatus.UNKNOWN,
 ) -> DifferentialTower:
     """Return ``QQ(x)(t)`` with the selected polynomial derivative law."""
     base = rational_base()
@@ -46,7 +43,6 @@ def monomial_tower(
         MonomialExtension(
             Poly(generator_derivative, t, domain=base.field()),
             ConstantFieldStatus.PRESERVED,
-            special_status,
         )
     )
 
@@ -397,7 +393,7 @@ def test_constant_lower_field_is_a_structured_rde_boundary() -> None:
     assert "nonconstant differential field" in result.unsupported_detail
 
 
-def test_uncertified_lower_constants_are_a_structured_rde_boundary() -> None:
+def test_replayed_lower_constants_enable_linear_special_reduction() -> None:
     base = rational_base()
     lower = base.extend(
         MonomialExtension(
@@ -424,15 +420,14 @@ def test_uncertified_lower_constants_are_a_structured_rde_boundary() -> None:
         certificate,
     )
 
-    assert result.status is LinearSpecialPoleReductionStatus.UNSUPPORTED_LOWER_RDE
+    assert result.status is LinearSpecialPoleReductionStatus.REDUCED
     assert result.reconstructs
-    assert result.exact_part == tower.field().zero
-    assert result.remainder == integrand
-    assert result.unsupported_detail is not None
-    assert "preserved constant field" in result.unsupported_detail
+    assert result.exact_part == tower.field().from_sympy(-1 / u)
+    assert result.remainder == tower.field().zero
+    assert result.unsupported_detail is None
 
 
-def test_nested_uncertified_lower_constants_are_a_structured_rde_boundary() -> None:
+def test_nested_replay_unavailable_constants_are_a_structured_rde_boundary() -> None:
     base = rational_base()
     primitive = base.extend(
         MonomialExtension(
@@ -470,7 +465,7 @@ def test_nested_uncertified_lower_constants_are_a_structured_rde_boundary() -> N
     assert result.exact_part == tower.field().zero
     assert result.remainder == integrand
     assert result.unsupported_detail is not None
-    assert "level 1" in result.unsupported_detail
+    assert "constant-field replay is unavailable" in result.unsupported_detail
     assert result.unresolved_step is not None
     assert result.unresolved_step.rde_result is None
 
@@ -498,7 +493,7 @@ def test_solver_value_errors_are_not_reclassified_as_unsupported(
         )
 
 
-def test_contract_rejects_non_linear_foreign_and_contradictory_certificates() -> None:
+def test_contract_rejects_non_linear_and_foreign_certificates() -> None:
     tangent_tower = monomial_tower(1 + t**2)
     nonlinear_certificate = linear_certificate(tangent_tower, 1 + t**2)
     with pytest.raises(ValueError, match="linear factor"):
@@ -518,17 +513,24 @@ def test_contract_rejects_non_linear_foreign_and_contradictory_certificates() ->
             foreign_certificate,
         )
 
-    contradictory = monomial_tower(
-        t * (t - 1),
-        special_status=SpecialPolynomialStatus.ABSENT,
-    )
-    contradictory_certificate = linear_certificate(contradictory, t)
-    with pytest.raises(ValueError, match="status is absent"):
+    equal_second = monomial_tower(t)
+    assert first == equal_second
+    assert first is not equal_second
+    with pytest.raises(ValueError, match="another derivation"):
         reduce_certified_linear_special_poles(
-            contradictory.field().from_sympy(1 / t),
-            contradictory.derivation(),
-            contradictory_certificate,
+            equal_second.field().from_sympy(1 / t),
+            equal_second.derivation(),
+            foreign_certificate,
         )
+
+    contradictory = monomial_tower(t * (t - 1))
+    contradictory_certificate = linear_certificate(contradictory, t)
+    result = reduce_certified_linear_special_poles(
+        contradictory.field().from_sympy(1 / t),
+        contradictory.derivation(),
+        contradictory_certificate,
+    )
+    assert result.reconstructs
 
 
 def test_missing_target_pole_is_a_checked_no_op() -> None:

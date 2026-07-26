@@ -127,7 +127,7 @@ class AlgebraicAllPlaceResidueResult:
         if analysis is not None:
             if analysis.extension is not extension:
                 raise ValueError("the constant analysis belongs to another extension")
-            if analysis.derivation != self.derivation:
+            if not analysis.derivation.has_same_position(self.derivation):
                 raise ValueError("the constant analysis belongs to another derivation")
 
         integrand = _extension_element(extension, self.integrand)

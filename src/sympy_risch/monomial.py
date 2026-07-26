@@ -20,6 +20,7 @@ from sympy.simplify.radsimp import fraction
 from ._typing import FieldElement, is_field_zero
 from .admission import assess_scalar_rde_admission
 from .constant_fields import is_supported_finite_constant_field
+from .constant_proofs import require_preserved_constant_field
 from .dependency import (
     analyze_hyperexponential_extension,
     analyze_hypertangent_extension,
@@ -43,7 +44,6 @@ from .tower import (
     Derivation,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
     _coerce,
     _domain_symbols,
 )
@@ -197,40 +197,6 @@ class NonlinearMonomialReduction:
             self.reduced_function_reduction is not None
             and self.reduced_function_reduction.needs_special_polynomial
         )
-
-
-class NonlinearNoSpecialStatus(Enum):
-    """Conclusion of the nonlinear no-special decision procedure."""
-
-    REDUCED_TO_LOWER_FIELD = "reduced_to_lower_field"
-    FINITE_RESIDUE_OBSTRUCTION = "finite_residue_obstruction"
-    INFINITY_RESIDUE_OBSTRUCTION = "infinity_residue_obstruction"
-    NONCONSTANT_REDUCED_POLYNOMIAL = "nonconstant_reduced_polynomial"
-
-
-@dataclass(frozen=True, slots=True)
-class NonlinearNoSpecialReduction:
-    r"""Decision result for Bronstein's nonlinear no-special case.
-
-    ``common_reduction`` reconstructs the input as an exact derivative, a
-    logarithmic derivative, and a reduced remainder.  When ``status`` is
-    ``REDUCED_TO_LOWER_FIELD``, ``lower_remainder`` is that remainder coerced
-    to :math:`K`; otherwise the status identifies a Liouville obstruction.
-    """
-
-    common_reduction: NonlinearMonomialReduction
-    status: NonlinearNoSpecialStatus
-    lower_remainder: FieldElement | None = None
-
-    @property
-    def reduced_to_lower_field(self) -> bool:
-        """Whether integration has recursively reduced from ``K(t)`` to ``K``."""
-        return self.status is NonlinearNoSpecialStatus.REDUCED_TO_LOWER_FIELD
-
-    @property
-    def is_non_elementary(self) -> bool:
-        """Whether the result contains a proof of non-elementarity."""
-        return not self.reduced_to_lower_field
 
 
 @dataclass(frozen=True, slots=True)
@@ -918,7 +884,9 @@ class LinearSpecialPoleReduction:
                 raise ValueError("a special-pole step has the wrong cofactor residue")
 
             if step.rde_result is not None:
-                if step.rde_result.derivation != lower_derivation:
+                if not step.rde_result.derivation.has_same_position(
+                    lower_derivation,
+                ):
                     raise ValueError(
                         "a special-pole step belongs to another lower derivation"
                     )
@@ -1139,7 +1107,7 @@ def _require_linear_special_pole_certificate(
         )
     if not isinstance(derivation, Derivation):
         raise TypeError("linear special-pole reduction requires a Derivation")
-    if certificate.derivation != derivation:
+    if not certificate.derivation.has_same_position(derivation):
         raise ValueError("the special-pole certificate belongs to another derivation")
     if derivation.level < 0:
         raise TypeError("linear special-pole reduction requires a monomial level")
@@ -1148,11 +1116,6 @@ def _require_linear_special_pole_certificate(
         raise TypeError("linear special-pole reduction requires a monomial level")
     if certificate.factor.degree() != 1:
         raise ValueError("linear special-pole reduction requires a linear factor")
-    if extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT:
-        raise ValueError(
-            "special-polynomial status is absent, but the supplied certificate "
-            "proves a special factor"
-        )
     return certificate, extension
 
 
@@ -1778,7 +1741,6 @@ def polynomial_reduce_primitive(
     derivation.polynomial(polynomial)
     if extension.generator_derivative.degree() != 0:
         raise ValueError("primitive polynomial reduction requires Dt in K")
-    extension.require_preserved_constants("primitive polynomial reduction")
 
     lower_derivation = derivation.lower()
     parent = extension.parent_field
@@ -1787,6 +1749,8 @@ def polynomial_reduce_primitive(
     variable = None
     if lower_derivation.level == 0:
         variable = _standard_rational_base_variable(lower_derivation)
+    require_preserved_constant_field(derivation, "primitive polynomial reduction")
+    if variable is not None:
         eta_result = solve_rational_exact_derivative(
             eta.as_expr(),
             variable,
@@ -1799,7 +1763,7 @@ def polynomial_reduce_primitive(
 
     if eta_result.has_solution:
         raise ValueError(
-            "constant-field status is preserved, but Dt is exact in the lower field"
+            "constant-field replay is preserved, but Dt is exact in the lower field"
         )
     eta_exact_part = _coerce(parent, eta_result.exact_part)
     eta_obstruction = _coerce(parent, eta_result.obstruction)
@@ -2071,14 +2035,14 @@ def bronstein_residue_criterion(
 
     Passing the criterion only settles the normal fraction.  It does not yet
     integrate, or prove integrability of, polynomial and special parts.  The
-    top extension must explicitly record the no-new-constants hypothesis.
+    top extension must pass the derivation-bound no-new-constants replay.
     """
     if derivation.level < 0:
         raise TypeError("the residue criterion requires a monomial level")
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("the residue criterion requires a monomial level")
-    extension.require_preserved_constants("the residue criterion")
+    require_preserved_constant_field(derivation, "the residue criterion")
 
     residue = Dummy("z") if residue is None else residue
     if not isinstance(residue, Symbol):
@@ -2251,15 +2215,15 @@ def reduce_monomial_reduced_function(
     removes the leading term.  A special denominator is preferred as ``q``;
     otherwise the special part of ``Dt`` is tried.  ``special_polynomial`` can
     supply a different known special.  When none is known, the result records
-    ``needs_special_polynomial`` and leaves the input unchanged for the
-    nonlinear-no-specials branch.
+    ``needs_special_polynomial`` and leaves the input unchanged; no complete
+    general no-special continuation is implemented.
     """
     if derivation.level < 0:
         raise TypeError("reduced-function reduction requires a monomial level")
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("reduced-function reduction requires a monomial level")
-    extension.require_preserved_constants("reduced-function reduction")
+    require_preserved_constant_field(derivation, "reduced-function reduction")
 
     generator_derivative = extension.generator_derivative
     delta = generator_derivative.degree()
@@ -2392,16 +2356,16 @@ def reduce_nonlinear_monomial(
     3. nonlinear polynomial reduction;
     4. residue-at-infinity reduction when no finite obstruction remains.
 
-    The function requires the top extension to record the no-new-constants
-    hypothesis.  It does not perform the final primitive, hyperexponential,
-    hypertangent, or nonlinear-no-special family reduction.
+    The function requires the top extension to pass the no-new-constants
+    replay. It does not perform the final primitive, hyperexponential,
+    hypertangent, or general nonlinear-special family reduction.
     """
     if derivation.level < 0:
         raise TypeError("nonlinear reduction requires a monomial level")
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
         raise TypeError("nonlinear reduction requires a monomial level")
-    extension.require_preserved_constants("nonlinear monomial reduction")
+    require_preserved_constant_field(derivation, "nonlinear monomial reduction")
     if extension.generator_derivative.degree() < 2:
         raise ValueError("nonlinear reduction requires degree(Dt) >= 2")
 
@@ -2488,7 +2452,7 @@ def reduce_primitive_monomial(
         raise TypeError("primitive reduction requires a monomial level")
     if extension.generator_derivative.degree() != 0:
         raise ValueError("primitive reduction requires Dt in K")
-    extension.require_preserved_constants("primitive reduction")
+    require_preserved_constant_field(derivation, "primitive reduction")
 
     field = extension.field
     element = _coerce(field, integrand)
@@ -2615,8 +2579,8 @@ def primitive_logarithmic_derivative_signature(
     r"""Compute a radical-logarithmic signature at a primitive tower level.
 
     The top level must be primitive, with ``Dt`` in the lower field, and must
-    carry explicit evidence that it introduces no constants.  The lower field
-    is decided recursively down to the standard rational base ``QQ(x)``.
+    pass the replayed no-new-constants criterion. The lower field is decided
+    recursively down to the standard rational base ``QQ(x)``.
     Factor and principal-part data do not depend on a proposed parametric
     ratio, so the parametric structure fallback can compare signatures.
     """
@@ -2634,7 +2598,7 @@ def primitive_logarithmic_derivative_signature(
         raise ValueError(
             "primitive logarithmic signatures require Dt in the lower field"
         )
-    extension.require_preserved_constants("primitive logarithmic signatures")
+    require_preserved_constant_field(derivation, "primitive logarithmic signatures")
     field = extension.field
     element = _coerce(field, integrand)
     polynomial_part, proper_numerator, denominator = _polynomial_and_proper_fraction(
@@ -2777,7 +2741,10 @@ def hyperexponential_logarithmic_derivative_signature(
         )
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
         raise ValueError("hyperexponential logarithmic signatures require Dt = eta*t")
-    extension.require_preserved_constants("hyperexponential logarithmic signatures")
+    require_preserved_constant_field(
+        derivation,
+        "hyperexponential logarithmic signatures",
+    )
 
     field = extension.field
     parent = extension.parent_field
@@ -3161,7 +3128,7 @@ def solve_primitive_exact_derivative(
         raise TypeError("primitive exact solving requires a monomial level")
     if extension.generator_derivative.degree() != 0:
         raise ValueError("primitive exact solving requires Dt in K")
-    extension.require_preserved_constants("primitive exact solving")
+    require_preserved_constant_field(derivation, "primitive exact solving")
 
     field = extension.field
     element = _coerce(field, integrand)
@@ -3225,7 +3192,7 @@ def _validate_hyperexponential_reduction(
         raise TypeError("hyperexponential reduction requires a monomial level")
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
         raise ValueError("hyperexponential reduction requires Dt = eta*t")
-    extension.require_preserved_constants("hyperexponential reduction")
+    require_preserved_constant_field(derivation, "hyperexponential reduction")
 
     lower_derivation = derivation.lower()
     eta = extension.parent_field.convert(extension.generator_derivative.nth(1))
@@ -3421,7 +3388,7 @@ def _validate_hypertangent_reduction(
         raise TypeError("hypertangent reduction requires a monomial level")
     if extension.family is not MonomialFamily.HYPERTANGENT:
         raise ValueError("hypertangent reduction requires Dt = eta*(1 + t**2)")
-    extension.require_preserved_constants("hypertangent reduction")
+    require_preserved_constant_field(derivation, "hypertangent reduction")
 
     lower_derivation = derivation.lower()
     _standard_rational_base_variable(Derivation(derivation.tower, 0))
@@ -3438,7 +3405,10 @@ def _validate_hypertangent_reduction(
                 "hypertangent reduction currently supports primitive, "
                 "hyperexponential, and hypertangent levels above QQ(x)"
             )
-        lower_extension.require_preserved_constants("hypertangent reduction")
+        require_preserved_constant_field(
+            Derivation(derivation.tower, level),
+            "hypertangent reduction",
+        )
     dependency = analyze_hypertangent_extension(
         extension,
         lower_derivation,
@@ -3736,94 +3706,6 @@ def reduce_hypertangent_monomial(
         common_reduction.logarithmic_derivative,
         remainder,
         lower_remainder,
-    )
-
-
-def reduce_nonlinear_no_special(
-    integrand: object,
-    derivation: Derivation,
-    *,
-    residue: Symbol | None = None,
-) -> NonlinearNoSpecialReduction:
-    r"""Decide the nonlinear case with no nonconstant special polynomials.
-
-    This is the corollary following Theorem 5.11 in Bronstein, *Symbolic
-    Integration I*.  After the common Hermite, residue, polynomial, and
-    residue-at-infinity reductions, an elementary remainder must belong to
-    the lower field :math:`K` when
-    :math:`S^{\mathrm{irr}}=\varnothing`.  A remaining nonconstant polynomial
-    in ``t`` therefore proves non-elementarity.
-
-    The absence of special polynomials and preservation of constants are
-    structure-theorem hypotheses, not facts inferable from one integrand.
-    They must be recorded on the immutable top extension.
-    """
-    if derivation.level < 0:
-        raise TypeError("nonlinear no-special reduction requires a monomial level")
-    extension = derivation.tower.levels[derivation.level]
-    if not isinstance(extension, MonomialExtension):
-        raise TypeError("nonlinear no-special reduction requires a monomial level")
-    extension.require_no_special_polynomials("nonlinear no-special reduction")
-
-    # This inexpensive check catches inconsistent manually supplied metadata.
-    # It is not intended to replace a structure-theorem proof: special
-    # polynomials need not divide Dt.
-    _, obvious_special = split_normal_special(
-        extension.generator_derivative,
-        derivation,
-    )
-    if obvious_special.degree() > 0:
-        raise ValueError(
-            "special-polynomial status is absent, but Dt has a "
-            "nonconstant special factor"
-        )
-
-    common = reduce_nonlinear_monomial(
-        integrand,
-        derivation,
-        residue=residue,
-    )
-    if common.has_finite_residue_obstruction:
-        return NonlinearNoSpecialReduction(
-            common,
-            NonlinearNoSpecialStatus.FINITE_RESIDUE_OBSTRUCTION,
-        )
-    if common.has_infinity_obstruction:
-        return NonlinearNoSpecialReduction(
-            common,
-            NonlinearNoSpecialStatus.INFINITY_RESIDUE_OBSTRUCTION,
-        )
-
-    polynomial, proper_numerator, proper_denominator = _polynomial_and_proper_fraction(
-        common.remainder, extension
-    )
-    if not proper_numerator.is_zero:
-        _, special_denominator = split_normal_special(
-            proper_denominator,
-            derivation,
-        )
-        if special_denominator.degree() > 0:
-            raise ValueError(
-                "special-polynomial status is absent, but the reduced "
-                "remainder has a nonconstant special denominator"
-            )
-        raise ValueError("common reduction left an unexpected normal proper fraction")
-
-    if polynomial.is_zero or polynomial.degree() == 0:
-        lower_remainder = (
-            extension.parent_field.zero
-            if polynomial.is_zero
-            else extension.parent_field.convert(polynomial.nth(0))
-        )
-        return NonlinearNoSpecialReduction(
-            common,
-            NonlinearNoSpecialStatus.REDUCED_TO_LOWER_FIELD,
-            lower_remainder,
-        )
-
-    return NonlinearNoSpecialReduction(
-        common,
-        NonlinearNoSpecialStatus.NONCONSTANT_REDUCED_POLYNOMIAL,
     )
 
 

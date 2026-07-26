@@ -49,14 +49,14 @@ remainder, every local RDE, and one of these outcomes:
   tower.
 
 Every result verifies `integrand = D(exact_part) + remainder` and the actual
-remaining pole order. `SpecialPolynomialStatus.UNKNOWN` is allowed because
-the certificate is positive evidence; contradictory `ABSENT` metadata,
-nonlinear factors, and foreign certificates are rejected.
+remaining pole order. A checked factor certificate is positive evidence;
+nonlinear factors and foreign certificates are rejected.
 
-Before dispatch, the reducer uses the same full-prefix scalar-RDE admission
-check as `solve_risch_differential_equation`: certified P/E/T over `QQ(x)`,
-or certified P/E over `QQ(i)(x)`. This prevents an uncertified or unsupported
-ancestor from surfacing as an incidental recursive solver exception.
+Before dispatch, the reducer uses the same full-prefix scalar-RDE structural
+admission check as `solve_risch_differential_equation`: certified P/E/T over
+`QQ(x)`, or certified P/E over `QQ(i)(x)`. This prevents an uncertified or
+unsupported ancestor from surfacing as an incidental recursive solver
+exception; it does not make every admitted prefix a total lower-RDE solver.
 
 ## Mathematical boundary
 

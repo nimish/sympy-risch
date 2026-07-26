@@ -180,7 +180,7 @@ def test_hypertangent_factory_reuses_the_hyperexponential_lower_solver() -> None
     "status",
     (ConstantFieldStatus.UNKNOWN, ConstantFieldStatus.ENLARGED),
 )
-def test_factories_leave_uncertified_lower_towers_unknown(
+def test_factories_replay_advisory_lower_tower_metadata(
     certify,
     derivative,
     status: ConstantFieldStatus,
@@ -192,11 +192,10 @@ def test_factories_leave_uncertified_lower_towers_unknown(
         base.derivation(),
     )
 
-    assert analysis.status is ConstantFieldStatus.UNKNOWN
-    assert analysis.dependency is None
-    assert analysis.detail is not None
-    assert "without certified constant preservation" in analysis.detail
-    assert analysis.lower_fundamental_signature is None
+    assert analysis.status is ConstantFieldStatus.PRESERVED
+    assert analysis.dependency is not None
+    assert analysis.detail is None
+    assert analysis.lower_fundamental_signature is not None
 
 
 @pytest.mark.parametrize(
@@ -241,7 +240,7 @@ def test_factory_leaves_an_unsupported_monomial_lower_family_unknown() -> None:
     assert analysis.status is ConstantFieldStatus.UNKNOWN
     assert analysis.dependency is None
     assert analysis.detail is not None
-    assert "currently support" in analysis.detail
+    assert "without replayed constant preservation" in analysis.detail
     assert analysis.lower_fundamental_signature is None
 
 

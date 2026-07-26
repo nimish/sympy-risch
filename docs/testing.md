@@ -57,13 +57,14 @@ Focused files mirror the implementation modules. For example,
 the separate scalar-RDE prefix contract. The latter scans every active lower
 level, including the Gaussian `QQ(i)(x)` P/E boundary, so an uncertified
 ancestor cannot leak a solver precondition error during recursion.
-Every accepted primitive/hyperexponential/hypertangent cell, including the
-exact hyperbolic Möbius normalization exception at the active top level, must
-either reconstruct or return a structured mathematical obstruction; an unexpected
-`NotImplementedError` fails the cell. Rejected towers instead assert their
-stable `TowerAdmissionReason` and are never used as evidence of
-non-elementarity. General nonlinear no-special experiments remain outside
-that matrix.
+Every explicitly declared primitive/hyperexponential/hypertangent solver
+cell, including the exact hyperbolic Möbius normalization exception at the
+active top level, must either reconstruct or return a structured mathematical
+obstruction; an unexpected `NotImplementedError` fails that cell.
+Structurally admitted but unimplemented cells assert their documented
+boundary. Rejected towers instead assert their stable `TowerAdmissionReason`
+and are never used as evidence of non-elementarity. General nonlinear
+no-special experiments remain outside that matrix.
 `tests/test_hyperbolic_mobius.py` additionally checks the explicit
 two-factor quadratic/Riccati normalizer: asymmetric factors that do not divide
 `Dt`, coordinate orientation, generated moving-root laws, exact map and

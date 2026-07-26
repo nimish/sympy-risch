@@ -382,14 +382,15 @@ def test_hypertangent_reduction_requires_the_right_family() -> None:
         reduce_hypertangent_special(1, primitive.derivation())
 
 
-def test_hypertangent_reduction_requires_preserved_constants() -> None:
+def test_hypertangent_reduction_replays_advisory_constant_metadata() -> None:
     tower = hypertangent_tower(
         1,
         constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
 
-    with pytest.raises(ValueError, match=r"Const\(K\(t\)\)"):
-        reduce_hypertangent_special(1, tower.derivation())
+    result = reduce_hypertangent_special(1, tower.derivation())
+
+    assert tower.derivation()(result.exact_part) + result.remainder == tower.field().one
 
 
 def test_hypertangent_reduction_rejects_a_dependent_cayley_generator() -> None:
@@ -397,7 +398,7 @@ def test_hypertangent_reduction_rejects_a_dependent_cayley_generator() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Cayley generator is algebraically dependent",
+        match="constant-field replay is enlarged",
     ):
         reduce_hypertangent_special(1, tower.derivation())
 

@@ -166,7 +166,7 @@ def test_primitive_factory_keeps_unsupported_parents_unknown() -> None:
     assert analysis.lower_fundamental_signature is None
 
 
-def test_primitive_factory_requires_a_certified_lower_tower() -> None:
+def test_primitive_factory_replays_an_unannotated_lower_tower() -> None:
     uncertified_base = DifferentialTower(QQ).extend(
         MonomialExtension(Poly(1, x, domain=QQ))
     )
@@ -176,11 +176,9 @@ def test_primitive_factory_requires_a_certified_lower_tower() -> None:
         uncertified_base.derivation(),
     )
 
-    assert analysis.status is ConstantFieldStatus.UNKNOWN
-    assert analysis.exact_result is None
-    assert analysis.detail is not None
-    assert "without certified constant preservation" in analysis.detail
-    assert analysis.lower_fundamental_signature is None
+    assert analysis.status is ConstantFieldStatus.PRESERVED
+    assert analysis.detail is None
+    assert analysis.lower_fundamental_signature is not None
 
 
 def test_primitive_factory_leaves_an_unsupported_lower_family_unknown() -> None:
@@ -201,7 +199,7 @@ def test_primitive_factory_leaves_an_unsupported_lower_family_unknown() -> None:
     assert analysis.exact_result is None
     assert analysis.lower_fundamental_signature is None
     assert analysis.detail is not None
-    assert "currently supports" in analysis.detail
+    assert "without replayed constant preservation" in analysis.detail
 
 
 @pytest.mark.parametrize(

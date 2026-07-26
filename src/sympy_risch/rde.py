@@ -16,6 +16,7 @@ from sympy.polys.polytools import Poly, cancel, invert, resultant
 
 from ._typing import ExactInput, FieldElement
 from .admission import assess_scalar_rde_admission
+from .constant_proofs import require_preserved_constant_field
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
@@ -1989,7 +1990,7 @@ def _primitive_rde_extension(
         )
     if extension.family is not MonomialFamily.PRIMITIVE:
         raise ValueError("primitive RDE solving requires Dt in the lower field")
-    extension.require_preserved_constants("primitive RDE solving")
+    require_preserved_constant_field(derivation, "primitive RDE solving")
     return extension
 
 
@@ -3167,7 +3168,10 @@ def _hyperexponential_laurent_rde_extension(
         )
     if extension.family is not MonomialFamily.HYPEREXPONENTIAL:
         raise ValueError("hyperexponential Laurent RDE solving requires Dt = eta*t")
-    extension.require_preserved_constants("hyperexponential Laurent RDE solving")
+    require_preserved_constant_field(
+        derivation,
+        "hyperexponential Laurent RDE solving",
+    )
     return extension
 
 
@@ -5163,7 +5167,10 @@ def _hypertangent_extension(derivation: Derivation) -> MonomialExtension:
         )
     if extension.family is not MonomialFamily.HYPERTANGENT:
         raise ValueError("hypertangent coupled RDE solving requires Dt = eta*(1+t**2)")
-    extension.require_preserved_constants("hypertangent coupled RDE solving")
+    require_preserved_constant_field(
+        derivation,
+        "hypertangent coupled RDE solving",
+    )
     return extension
 
 

@@ -13,7 +13,6 @@ from sympy_risch import (
     DifferentialTower,
     MonomialExtension,
     MonomialFamily,
-    SpecialPolynomialStatus,
     TowerRepresentationAnalysis,
     TowerRepresentationOutcome,
     TowerRepresentationProposal,
@@ -21,6 +20,7 @@ from sympy_risch import (
     analyze_tower_representation,
     rebase_derivation_constants,
 )
+from sympy_risch.constant_proofs import require_preserved_constant_field
 
 x, y, z, t, u = symbols("x y z t u")
 
@@ -91,11 +91,6 @@ def test_monomial_extension_validates_its_derivative_law() -> None:
             Poly(1, x, domain=QQ),
             "preserved",  # type: ignore[arg-type]
         )
-    with pytest.raises(TypeError, match="SpecialPolynomialStatus"):
-        MonomialExtension(
-            Poly(1, x, domain=QQ),
-            special_polynomial_status="absent",  # type: ignore[arg-type]
-        )
 
 
 @pytest.mark.parametrize("inexact_domain", [RR, CC])
@@ -121,9 +116,10 @@ def test_monomial_constant_field_status_is_explicit_and_immutable() -> None:
 
     assert unknown.constant_field_status is ConstantFieldStatus.UNKNOWN
     assert preserved.constant_field_status is ConstantFieldStatus.PRESERVED
-    with pytest.raises(ValueError, match="status is unknown"):
-        unknown.require_preserved_constants("test algorithm")
-    preserved.require_preserved_constants("test algorithm")
+
+    tower = DifferentialTower(QQ).extend(preserved)
+    assert tower.levels[0] is preserved
+    require_preserved_constant_field(tower.derivation(), "test algorithm")
     with pytest.raises(FrozenInstanceError):
         preserved.constant_field_status = ConstantFieldStatus.ENLARGED  # type: ignore[misc]
 
@@ -133,22 +129,6 @@ def test_derivation_rejects_an_object_without_an_exact_conversion() -> None:
 
     with pytest.raises(TypeError, match="cannot coerce object into"):
         derivation(object())
-
-
-def test_monomial_special_polynomial_status_is_explicit_and_immutable() -> None:
-    unknown = MonomialExtension(Poly(1, x, domain=QQ))
-    absent = MonomialExtension(
-        Poly(1, x, domain=QQ),
-        special_polynomial_status=SpecialPolynomialStatus.ABSENT,
-    )
-
-    assert unknown.special_polynomial_status is SpecialPolynomialStatus.UNKNOWN
-    assert absent.special_polynomial_status is SpecialPolynomialStatus.ABSENT
-    with pytest.raises(ValueError, match="status is unknown"):
-        unknown.require_no_special_polynomials("test algorithm")
-    absent.require_no_special_polynomials("test algorithm")
-    with pytest.raises(FrozenInstanceError):
-        absent.special_polynomial_status = SpecialPolynomialStatus.PRESENT  # type: ignore[misc]
 
 
 def test_monomial_extension_rejects_a_generator_already_in_parent() -> None:
@@ -461,14 +441,13 @@ def test_derivation_rebases_a_cubic_algebraic_level_over_algebraic_constants() -
     )
 
 
-def test_derivation_rebase_preserves_monomial_proof_metadata() -> None:
+def test_derivation_rebase_resets_monomial_diagnostic_metadata() -> None:
     source = (
         DifferentialTower(QQ)
         .extend(
             MonomialExtension(
                 Poly(1, x, domain=QQ),
                 ConstantFieldStatus.PRESERVED,
-                SpecialPolynomialStatus.ABSENT,
             )
         )
         .derivation()
@@ -478,8 +457,8 @@ def test_derivation_rebase_preserves_monomial_proof_metadata() -> None:
     extension = rebased.tower.levels[0]
 
     assert isinstance(extension, MonomialExtension)
-    assert extension.constant_field_status is ConstantFieldStatus.PRESERVED
-    assert extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT
+    assert extension.constant_field_status is ConstantFieldStatus.UNKNOWN
+    require_preserved_constant_field(rebased, "rebase regression")
 
 
 def test_derivation_rebase_rejects_a_smaller_constant_field() -> None:

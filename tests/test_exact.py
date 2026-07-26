@@ -317,15 +317,16 @@ def test_primitive_exact_solver_validates_its_structure_theorem_hypotheses() -> 
     unknown = logarithmic_tower(
         constant_field_status=ConstantFieldStatus.UNKNOWN,
     )
-    with pytest.raises(ValueError, match="status is unknown"):
-        solve_primitive_exact_derivative(
-            unknown.field().one,
-            unknown.derivation(),
-        )
+    replayed = solve_primitive_exact_derivative(
+        unknown.field().one,
+        unknown.derivation(),
+    )
+    assert replayed.has_solution
+    assert unknown.derivation()(replayed.exact_part) == unknown.field().one
 
     for exact_eta in (1, 1 / x**2):
         invalid = logarithmic_tower(eta=exact_eta)
-        with pytest.raises(ValueError, match="Dt is exact in the lower field"):
+        with pytest.raises(ValueError, match="constant-field replay is enlarged"):
             solve_primitive_exact_derivative(
                 invalid.field().one,
                 invalid.derivation(),
@@ -704,7 +705,7 @@ def test_generic_dispatch_rejects_unimplemented_tower_families() -> None:
         )
 
 
-def test_generic_dispatch_rejects_invalid_transcendental_metadata() -> None:
+def test_generic_dispatch_replays_transcendental_structure() -> None:
     rational = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -716,11 +717,12 @@ def test_generic_dispatch_rejects_invalid_transcendental_metadata() -> None:
             Poly(t, t, domain=rational.field()),
         )
     )
-    with pytest.raises(ValueError, match="status is unknown"):
-        solve_exact_derivative(
-            unknown.field().one,
-            unknown.derivation(),
-        )
+    replayed = solve_exact_derivative(
+        unknown.field().one,
+        unknown.derivation(),
+    )
+    assert replayed.has_solution
+    assert unknown.derivation()(replayed.exact_part) == unknown.field().one
 
     dependent_exponential = rational.extend(
         MonomialExtension(
@@ -728,7 +730,7 @@ def test_generic_dispatch_rejects_invalid_transcendental_metadata() -> None:
             ConstantFieldStatus.PRESERVED,
         )
     )
-    with pytest.raises(ValueError, match="algebraically dependent"):
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         solve_exact_derivative(
             dependent_exponential.field().one,
             dependent_exponential.derivation(),
@@ -744,7 +746,7 @@ def test_generic_dispatch_rejects_invalid_transcendental_metadata() -> None:
             ConstantFieldStatus.PRESERVED,
         )
     )
-    with pytest.raises(ValueError, match="Cayley generator"):
+    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
         solve_exact_derivative(
             dependent_tangent.field().one,
             dependent_tangent.derivation(),
