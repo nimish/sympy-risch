@@ -18,6 +18,7 @@ plan with exact file scope, tests, and a separate commit.
 | 003 | Extract certified fundamental signatures | P1 | L | 002 | DONE |
 | 004 | Specify algebraic constants and all-place residues | P1 | L | 002 | DONE |
 | 005 | Establish certified algebraic global spaces | P1 | L | 004 | DONE |
+| 006 | Add exact finite algebraic valuation constraints | P1 | M | 005 | DONE |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -68,6 +69,8 @@ admitted preserved presentations; an actual function-field presentation
 rebase remains a later normalization task. Plan 005 adds only the global
 Riemann--Roch spaces proved complete by a direct theorem; a general
 finite/infinite lattice-intersection algorithm remains open.
+Plan 006 provides the first exact finite-dimensional intersection kernel and
+a bounded nonspecial search; it does not remove that general boundary.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

@@ -20,8 +20,8 @@
 - **Depends on**: none
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
-- **Last implementation reconciliation**: Plan 005 certified algebraic
-  global-space checkpoint complete, 2026-07-25
+- **Last implementation reconciliation**: Plan 006 finite algebraic
+  valuation-constraint checkpoint complete, 2026-07-25
 
 ## Why this matters
 
@@ -145,9 +145,10 @@ The current implementation already has a strong exact-arithmetic kernel:
   local expansions, divisors, and differential residues. A narrow
   constant-field analyzer and all-place collector are implemented for admitted
   direct `C(x)` simple-radical presentations. A theorem-limited global-space
-  kernel now certifies only explicit complete Riemann--Roch cases; general
-  lattice intersection, exact presentation normalization, logarithmic
-  reconstruction, and second-kind exactness remain open.
+  kernel now certifies explicit complete Riemann--Roch cases and exact
+  finite-dimensional valuation intersections; general lattice intersection,
+  exact presentation normalization, logarithmic reconstruction, and
+  second-kind exactness remain open.
 
 The implementation checkpoints since this roadmap was created are:
 
@@ -201,7 +202,7 @@ The existing design conventions to preserve are:
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation and Gaussian fallbacks are complete over `QQ(x)`; general effective constants, fundamental signatures, and non-generator special factors remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete; general polynomial special branches and expression-to-tower construction are not. |
-| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, and theorem-certified first global spaces now exist; constant normalization, general global-space/principal-divisor decisions remain. |
+| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, and exact finite valuation kernels now exist; constant normalization, general global-space/principal-divisor decisions remain. |
 | 6. Pure algebraic integration | Partial prerequisites exist; no end-to-end elementary integration decision yet. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
 | 8. Automatic expression towers | Not started. |
@@ -824,6 +825,9 @@ separate commit after focused and full-suite verification.
    service on admitted preserved presentations. It proves only theorem-backed
    complete cases and returns no partial basis outside them; general
    finite/infinite lattice intersection remains the next extension.
+   **Plan 006** adds exact all-place valuation constraints for any declared
+   finite constant subspace and a bounded nonspecial ideal-lattice search;
+   only a reached Riemann--Roch dimension certifies a complete global space.
 9. [ ] Use it for residue-basis descent and principal/torsion divisor solving
    (algebraic logarithmic reconstruction) and, in parallel, exactness of
    second-kind differentials. Test genus-zero and positive-genus cases.

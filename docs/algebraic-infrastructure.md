@@ -172,6 +172,29 @@ finite/infinite lattice intersection needed for arbitrary divisors, nor does
 it solve principal or torsion divisor problems. Those remain the global
 inputs for algebraic logarithmic reconstruction and second-kind exactness.
 
+### Finite-dimensional valuation kernels
+
+`solve_algebraic_valuation_constraints` is the next reusable piece of the
+general lattice-intersection problem. Given a finite constant-field subspace
+`V` and a divisor `D`, it computes exactly `V ∩ L(D)`. It collects the full
+principal-divisor support of every ambient basis element, then imposes the
+Laurent-coefficient conditions required at each place. This captures genuine
+cancellation between candidate functions, rather than merely filtering them
+one at a time.
+
+For now, a place that contributes a nontrivial equation must have residue
+field equal to the proved constant field. A higher-degree closed point with no
+active constraint is harmless; one that needs residue coordinates yields an
+information-free `UNSUPPORTED` result. The result also requires preserved
+constants and rechecks every returned basis element by its full principal
+divisor.
+
+`finite_lattice_slice` supplies a bounded subspace from the exact finite ideal
+associated with `-D_fin`. `search_nonspecial_lattice_slice` turns that bounded
+search into a complete global space only after its dimension reaches the
+nonspecial Riemann--Roch value. A smaller slice is `INCOMPLETE`, never a
+negative integration or global-space decision.
+
 ## Public API
 
 | Structure | Purpose |
@@ -192,6 +215,8 @@ inputs for algebraic logarithmic reconstruction and second-kind exactness.
 | `collect_algebraic_all_place_residues` | Guarded global residue collector |
 | `RiemannRochSpace` | Immutable complete basis with its proving theorem |
 | `compute_riemann_roch_space` | Certified first-scope global-space service |
+| `AlgebraicValuationKernel` | Exact `V ∩ L(D)` in a declared finite subspace |
+| `search_nonspecial_lattice_slice` | Bounded lattice search with a theorem-backed completion check |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from

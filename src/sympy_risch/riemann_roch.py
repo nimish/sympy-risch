@@ -73,21 +73,22 @@ class RiemannRochCertificate(Enum):
     RATIONAL_PARAMETER = "rational_parameter"
 
 
-def _constant_linear_rank(
+def _constant_coordinate_matrix(
     model: AlgebraicFunctionField,
     elements: tuple[ExtensionElement, ...],
-) -> int:
-    r"""Return the rank of ``elements`` over the proved constant field.
+) -> DomainMatrix:
+    r"""Return exact constant-coordinate columns for ``elements``.
 
     The native extension basis gives every element coordinates in ``C(x)``.
     Clearing their common ``x`` denominator and equating all powers of both
     the algebraic generator and ``x`` converts a ``C``-linear relation into a
-    finite exact matrix over ``C``.  This deliberately does *not* test linear
-    independence over ``C(x)``, which would be too weak for a Riemann--Roch
-    basis.
+    finite exact matrix over ``C``. Its column rank is their constant-field
+    span dimension; it deliberately does *not* encode linear relations over
+    ``C(x)``, which would be too weak for global-function bases.
     """
     if not elements:
-        return 0
+        _parent, constants, _variable = _base_polynomial_ring(model.extension)
+        return DomainMatrix([], (0, 0), constants)
 
     extension = model.extension
     parent, constants, variable = _base_polynomial_ring(extension)
@@ -120,13 +121,20 @@ def _constant_linear_rank(
                 row[column] = constants.convert(coefficient)
 
     if not rows:
-        return 0
-    matrix = DomainMatrix(
+        return DomainMatrix([], (0, len(elements)), constants)
+    return DomainMatrix(
         list(rows.values()),
         (len(rows), len(elements)),
         constants,
     )
-    return matrix.rank()
+
+
+def _constant_linear_rank(
+    model: AlgebraicFunctionField,
+    elements: tuple[ExtensionElement, ...],
+) -> int:
+    """Return the rank of ``elements`` over the proved constant field."""
+    return _constant_coordinate_matrix(model, elements).rank()
 
 
 def _basis_membership_is_verified(

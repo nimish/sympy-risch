@@ -956,6 +956,13 @@ principal divisors and constant-field linear independence, and otherwise
 returns no basis. General finite/infinite lattice intersection, principal and
 torsion divisor solving, and second-kind exactness remain separate decisions.
 
+The next layer computes an exact intersection `V ∩ L(D)` for a supplied finite
+constant subspace `V`, using all-place Laurent-coefficient constraints. Its
+bounded ideal-lattice search upgrades to a complete nonspecial space only when
+it reaches Riemann--Roch's theorem dimension; exhaustion is explicitly
+incomplete. It currently declines nontrivial higher-degree residue-coordinate
+constraints instead of flattening them unsafely.
+
 The proposed real algebraic-over-tangent direction is kept in the
 [algebraic-hypertangent research note](algebraic-hypertangent.md).
 
