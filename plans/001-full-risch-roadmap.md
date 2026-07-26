@@ -21,8 +21,9 @@
 - **Category**: direction
 - **Planned at**: commit `bf9a424`, 2026-07-24
 - **Last implementation reconciliation**: Plans 006 finite algebraic
-  valuation constraints and 007 narrow P/E/T expression frontend complete,
-  2026-07-25
+  valuation constraints, 007 narrow P/E/T expression frontend, 008 certified
+  Riccati Möbius normalization, and 009 local linear-special-pole reduction
+  complete, 2026-07-26
 
 ## Why this matters
 
@@ -126,12 +127,15 @@ The current implementation already has a strong exact-arithmetic kernel:
 - `src/sympy_risch/monomial.py` provides recursive radical logarithmic
   decisions, primitive reduction, and direct P/E/T family reducers. Its
   nonlinear reducer is complete only under a certified absence-of-special
-  hypothesis.
+  hypothesis; a separate positive-evidence API now cancels a currently
+  exposed principal part at one supplied linear special factor when its lower
+  RDE is solvable, without widening that theorem.
 - `src/sympy_risch/rde.py` implements scalar and coupled RDEs throughout the
   normalized P/E/T contract, including rational frontends, weak
   normalization, denominator/degree bounds, SPDE, and direct Chapter 8
-  cancellation recurrences. General polynomial special-factor RDEs and
-  parametric RDEs remain open.
+  cancellation recurrences. Its shared scalar admission checks the complete
+  recursive prefix before a local linear-special-pole consumer invokes it;
+  general polynomial special-factor RDEs and parametric RDEs remain open.
 - `src/sympy_risch/exact.py` dispatches exact derivatives at rational and
   normalized P/E/T levels.
 - `src/sympy_risch/elementary.py` recursively integrates any finite explicit
@@ -199,9 +203,9 @@ The existing design conventions to preserve are:
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Complete for the declared `QQ(x)` P/E/T contract: the public admission result, declared-cell matrix, and CI gate distinguish unsupported towers from theorem-backed obstructions. |
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist, and a checked feasibility result maps the current mixed-prefix backend boundary; general constant capabilities and canonical mixed algebraic towers remain. |
-| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, and an explicit two-linear-factor Riccati normalizer are checked over `QQ(x)`; general effective constants and automatic non-generator special-factor decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
-| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete, as is a narrow checked one-variable P/E/T expression grammar and an explicit two-factor Riccati pullback route; general polynomial special branches and general expression-to-tower construction are not. |
+| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`; general effective constants and automatic non-generator special-factor decisions remain. |
+| 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
+| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete, as is a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, and exact finite valuation kernels now exist; constant normalization, general global-space/principal-divisor decisions remain. |
 | 6. Pure algebraic integration | Partial prerequisites exist; no end-to-end elementary integration decision yet. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
@@ -419,8 +423,11 @@ public presentation remain future work.
 
 Status: primitive levels with certified preserved constants now have a
 complete no-special theorem; hyperexponential and hypertangent special
-behavior has family-specific positive evidence. General polynomial monomials
-still rely on manually supplied `SpecialPolynomialStatus` metadata.
+behavior has family-specific positive evidence. A caller-supplied monic
+linear certificate can now drive local special-pole reduction through a
+scalar lower RDE, but general polynomial monomials still rely on manually
+supplied `SpecialPolynomialStatus` metadata and lack an automatic Darboux
+decision.
 
 - Replace caller assertions of `SpecialPolynomialStatus` with an algorithmic
   decision wherever the structure theorems make it effective.
@@ -812,48 +819,52 @@ separate commit after focused and full-suite verification.
    normalizer and explicit integration route. It records, rather than
    searches for, the special-factor proof and leaves ordinary general-
    polynomial dispatch unchanged.
-6. [ ] Extend fundamental signatures to the declared effective constant fields
+6. [x] **Plan 009**: consume one caller-supplied monic linear special-factor
+   certificate in a local exact principal-part reduction. It records solved,
+   unsolved, and unsupported lower RDEs without treating a local failure as a
+   non-elementarity result.
+7. [ ] Extend fundamental signatures to the declared effective constant fields
    and use them for automatic no-new-constants/dependency certification.
-7. [ ] Solve the complete special-polynomial/Darboux decision for each
+8. [ ] Solve the complete special-polynomial/Darboux decision for each
    explicitly admitted general-monomial family. In particular, a linear factor
    `t-a` requires the Riccati equation `D(a) = Dt|_(t=a)`; failed search is
    never an `ABSENT` proof.
-8. [ ] Consume certified special factors in special-denominator Hermite/RDE
-   reduction, public parametric RDE, limited integration, coupled systems, and
-   logarithmic reconstruction. This completes explicit transcendental Risch
-   beyond the normalized P/E/T core.
+9. [ ] Extend the local factor consumer to complete special-denominator
+   Hermite/RDE reduction, public parametric RDE, limited integration, coupled
+   systems, and logarithmic reconstruction. This completes explicit
+   transcendental Risch beyond the normalized P/E/T core.
 
 ### Algebraic completion path
 
-9. [x] **Plan 005**: establish a first certified Riemann--Roch/global-space
+10. [x] **Plan 005**: establish a first certified Riemann--Roch/global-space
    service on admitted preserved presentations. It proves only theorem-backed
    complete cases and returns no partial basis outside them; general
    finite/infinite lattice intersection remains the next extension.
    **Plan 006** adds exact all-place valuation constraints for any declared
    finite constant subspace and a bounded nonspecial ideal-lattice search;
    only a reached Riemann--Roch dimension certifies a complete global space.
-10. [ ] Use it for residue-basis descent and principal/torsion divisor solving
+11. [ ] Use it for residue-basis descent and principal/torsion divisor solving
    (algebraic logarithmic reconstruction) and, in parallel, exactness of
    second-kind differentials. Test genus-zero and positive-genus cases.
-11. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
+12. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.
-12. [ ] Compose the completed algebraic and transcendental solvers over the
+13. [ ] Compose the completed algebraic and transcendental solvers over the
     proven mixed-tower representation. This is the exit gate for a complete
     *explicit* Risch tower.
 
 ### User-facing and upstream path
 
-12. [x] **Plan 007**: build a narrow reversible P/E/T expression compiler for
+14. [x] **Plan 007**: build a narrow reversible P/E/T expression compiler for
     one `QQ`-constant symbol, rational arithmetic, integer powers, and nested
     `log`/`exp`/`tan`. It replays checked extension factories and returns only
     local back-substituted presentations; dependent and branch-sensitive
     forms are structured boundaries rather than rewrites.
-13. [ ] Expand expression construction to algebraic/mixed expressions only
+15. [ ] Expand expression construction to algebraic/mixed expressions only
     after the corresponding mathematical cells are total.
-14. [ ] Broaden back-substitution to complex-local versus
+16. [ ] Broaden back-substitution to complex-local versus
     assumption-scoped-real presentation, branch metadata, and a small stable
     SymPy-facing facade.
-15. [ ] Expand the coverage matrix to every declared mixed-tower and expression
+17. [ ] Expand the coverage matrix to every declared mixed-tower and expression
     cell, then upstream independently mature domain, reduction, RDE, and
     frontend components.
 

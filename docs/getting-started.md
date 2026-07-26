@@ -368,6 +368,42 @@ contradicts them. A missing factor certificate, an unknown constant field, or
 a target outside that contract is an unsupported algorithmic boundary—not a
 non-elementarity result.
 
+### Certified local special-pole reduction
+
+One linear special factor can also be useful without a second factor or a
+coordinate change. Given a checked `p=t-a` with `D(p)=h*p`, the library can
+cancel an exposed principal part (the negative-power portion at `p`) when its
+necessary lower-field Risch differential equation (RDE) has a solution. For
+the Riccati factor above, `p=t-x` and
+`h=t+1/x`, so the local coefficient is `h mod p = x+1/x`:
+
+```python
+from sympy_risch import reduce_certified_linear_special_poles
+
+pole_exact = riccati.field().from_sympy(x / (t - x) ** 2)
+local = reduce_certified_linear_special_poles(
+    derivation(pole_exact),
+    derivation,
+    numerator,  # the checked certificate for t-x
+)
+
+assert local.is_fully_reduced
+assert local.reconstructs
+assert local.exact_part == pole_exact
+assert local.remainder == riccati.field().zero
+```
+
+At pole order `m`, it solves `D(q) - m*hbar*q = r` in the lower field, where
+`r` is the leading coefficient and `hbar = h mod p`. It then subtracts the
+*full* derivative of `q/p**m`, because a `t`-dependent `h` can alter the next
+lower pole order. This is intentionally a local reduction, not a full
+elementary integration decision: `UNRESOLVED_RDE` and
+`UNSUPPORTED_LOWER_RDE` preserve the exact work completed but do not prove
+that the original integral is non-elementary. Higher-order cancellation can
+make an integrand exact even when its apparent leading local RDE is unsolved.
+`local.is_fully_reduced` means only that the selected factor has disappeared;
+an unrelated remainder can still be present.
+
 Exactness is stricter than elementary integrability. The same dispatcher
 recovers derivatives in both families while retaining logarithmic residues or
 unsolved special modes as exactness obstructions:
@@ -950,8 +986,10 @@ boundary, not a mathematical claim about the integral.
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
 | Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)`, in any finite order | End-to-end |
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors and preserved constants are supplied; ordinary general-polynomial dispatch remains unsupported |
+| Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
+| Scalar-RDE dispatch admission | `assess_scalar_rde_admission` checks the full recursive prefix: `QQ(x)` P/E/T or `QQ(i)(x)` P/E, with certified preserved constants above the base |
 | Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision in the explicit certified P/E/T contract |
 | Coupled RDE in the explicit certified P/E/T contract | Complete decision |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
@@ -983,7 +1021,7 @@ principal groups are:
 | Rational reduction and integration | `hermite_reduce_rational`, `integrate_rational`, `integrate_rational_real` |
 | Rational logarithmic analysis | `lazard_rioboo_trager`, `rothstein_trager_residue_polynomial`, `solve_rational_logarithmic_derivative` |
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
-| Elementary-dispatch admission | `assess_elementary_admission`, `TowerAdmission`, `TowerAdmissionOutcome`, `TowerAdmissionReason` |
+| Algorithm admission | `assess_elementary_admission`, `assess_scalar_rde_admission`, `TowerAdmission`, `TowerAdmissionOutcome`, `TowerAdmissionReason` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
 | Primitive logarithmic analysis | `solve_radical_logarithmic_derivative`, `primitive_logarithmic_derivative_signature` |
@@ -991,6 +1029,7 @@ principal groups are:
 | Hyperbolic normal form | `build_hyperbolic_mobius_normal_form` for the exact law `Dt = eta*(1 - t**2)` |
 | Certified Riccati normal form | `build_riccati_mobius_normal_form`, `integrate_riccati_mobius_normal_form` with two `SpecialPolynomialCertificate` inputs |
 | Special-polynomial evidence | `certify_special_polynomial`, `analyze_special_polynomials`, `certify_primitive_no_special_polynomials` (primitive preserved-constant levels have a complete absence theorem; other families are positive-evidence-only) |
+| Certified linear special poles | `reduce_certified_linear_special_poles`, `LinearSpecialPoleReduction`, `LinearSpecialPoleReductionStatus`, `LinearSpecialPoleStep` |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
 | Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |

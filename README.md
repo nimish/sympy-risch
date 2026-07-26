@@ -18,7 +18,11 @@ integrate through its hyperexponential coordinate when the transformed target
 is admitted by the P/E/T contract, via
 `build_riccati_mobius_normal_form` and
 `integrate_riccati_mobius_normal_form`. It does not yet search for those
-factors automatically.
+factors automatically. A separate local API,
+`reduce_certified_linear_special_poles`, consumes one checked linear special
+factor to cancel a currently exposed principal part when its lower-field RDE
+has a solution; an unsolved local RDE remains an explicit boundary, not a
+non-elementarity claim.
 Lower-level modules also provide
 recursive radical and parametric logarithmic-derivative decisions over
 primitive towers, primitive RDE weak normalization and cancellation,
@@ -34,8 +38,8 @@ Chapter 8 cancellation recurrences for hyperexponential Laurent modes and
 hypertangent polynomial systems. Together with the immutable Gaussian Cayley
 normal form, those solvers close the declared explicit P/E/T tower contract.
 The expression frontend reuses its checked extension factories and returns
-only local, branch-preserving presentations. General polynomial monomials with
-nonconstant special factors, algebraic/mixed expression discovery, and global
+only local, branch-preserving presentations. Complete general-polynomial
+special-factor reduction, algebraic/mixed expression discovery, and global
 branch-aware expression normalization remain future work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not

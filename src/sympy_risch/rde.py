@@ -17,6 +17,7 @@ from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.polytools import Poly, cancel, invert, resultant
 
 from ._typing import FieldElement
+from .admission import assess_scalar_rde_admission
 from .polynomial import integrate_polynomial
 from .rational import (
     hermite_reduce_rational,
@@ -3592,6 +3593,14 @@ def solve_risch_differential_equation(
     derivation: Derivation,
 ) -> RischDifferentialEquationResult:
     r"""Dispatch ``Dy + a*y = b`` over an implemented differential level."""
+    admission = assess_scalar_rde_admission(derivation)
+    if not admission.accepted:
+        if admission.reason is None:
+            raise RuntimeError("unsupported scalar RDE admission omitted its reason")
+        raise NotImplementedError(
+            "scalar RDE dispatch is unsupported for this tower prefix: "
+            f"{admission.reason.value}: {admission.detail}"
+        )
     field = derivation.field
     coefficient_element = _coerce(
         field,

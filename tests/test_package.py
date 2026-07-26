@@ -17,6 +17,7 @@ def test_admission_exports_are_public() -> None:
         "TowerAdmissionOutcome",
         "TowerAdmissionReason",
         "assess_elementary_admission",
+        "assess_scalar_rde_admission",
     }
 
     assert expected <= set(sympy_risch.__all__)
@@ -42,6 +43,17 @@ def test_riccati_mobius_exports_are_public() -> None:
         "RiccatiMobiusNormalForm",
         "build_riccati_mobius_normal_form",
         "integrate_riccati_mobius_normal_form",
+    }
+
+    assert expected <= set(sympy_risch.__all__)
+
+
+def test_certified_special_pole_exports_are_public() -> None:
+    expected = {
+        "LinearSpecialPoleReduction",
+        "LinearSpecialPoleReductionStatus",
+        "LinearSpecialPoleStep",
+        "reduce_certified_linear_special_poles",
     }
 
     assert expected <= set(sympy_risch.__all__)

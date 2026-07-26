@@ -53,7 +53,10 @@ uv run --no-sync pytest -q
 ```
 
 Focused files mirror the implementation modules. For example,
-`tests/test_admission.py` declares the certified elementary-dispatch cells.
+`tests/test_admission.py` declares the certified elementary-dispatch cells and
+the separate scalar-RDE prefix contract. The latter scans every active lower
+level, including the Gaussian `QQ(i)(x)` P/E boundary, so an uncertified
+ancestor cannot leak a solver precondition error during recursion.
 Every accepted primitive/hyperexponential/hypertangent cell, including the
 exact hyperbolic Möbius normalization exception at the active top level, must
 either reconstruct or return a structured mathematical obstruction; an unexpected
@@ -65,6 +68,12 @@ that matrix.
 two-factor quadratic/Riccati normalizer: asymmetric factors that do not divide
 `Dt`, coordinate orientation, generated moving-root laws, exact map and
 derivation identities, and foreign/duplicate/nonlinear/status boundaries.
+`tests/test_special_poles.py` checks the separate positive-evidence consumer
+for one linear special factor: moving Riccati cofactors reduced modulo the
+factor, repeated-pole descent, mixed denominators, generated planted cases,
+unsupported lower RDEs (including uncertified ancestors), immutable
+certificate replay, and a higher-order resonance where an unresolved local
+RDE is deliberately *not* treated as non-elementarity.
 `tests/test_riccati_mobius_integration.py` checks its separate public
 integration route with planted derivatives, a pulled-back non-elementary
 hyperexponential obstruction, a pulled-back logarithmic term, and rejection

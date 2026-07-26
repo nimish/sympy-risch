@@ -17,8 +17,10 @@ from sympy_risch import (
     TowerAdmissionOutcome,
     TowerAdmissionReason,
     assess_elementary_admission,
+    assess_scalar_rde_admission,
     certify_primitive_extension,
     integrate_elementary,
+    solve_risch_differential_equation,
 )
 from sympy_risch.dependency import (
     certify_hyperexponential_extension,
@@ -384,6 +386,70 @@ def test_base_metadata_is_not_a_nonbase_constant_field_requirement() -> None:
     tower = _rational_tower(ConstantFieldStatus.UNKNOWN)
 
     assert assess_elementary_admission(tower.derivation()).accepted
+
+
+def test_scalar_rde_admission_accepts_a_gaussian_rational_base() -> None:
+    tower = DifferentialTower(QQ_I).extend(
+        MonomialExtension(Poly(1, x, domain=QQ_I), ConstantFieldStatus.UNKNOWN),
+    )
+
+    admission = assess_scalar_rde_admission(tower.derivation())
+
+    assert admission.accepted
+    assert admission.problem == "scalar_rde"
+
+
+def test_scalar_rde_admission_rejects_hypertangent_over_gaussian_constants() -> None:
+    base = DifferentialTower(QQ_I).extend(
+        MonomialExtension(Poly(1, x, domain=QQ_I), ConstantFieldStatus.UNKNOWN),
+    )
+    tower = base.extend(
+        MonomialExtension(
+            Poly(1 + t**2, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+    admission = assess_scalar_rde_admission(tower.derivation())
+
+    assert admission.unsupported
+    assert admission.reason is TowerAdmissionReason.HYPERTANGENT_RDE_BASE
+    assert "only over QQ(x)" in admission.detail
+
+
+def test_scalar_rde_admission_checks_the_entire_active_prefix() -> None:
+    base = _rational_tower()
+    primitive = base.extend(
+        MonomialExtension(
+            Poly(1 / x, y, domain=base.field()),
+            ConstantFieldStatus.UNKNOWN,
+        ),
+    )
+    hypertangent = primitive.extend(
+        MonomialExtension(
+            Poly(1 + t**2, t, domain=primitive.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    tower = hypertangent.extend(
+        MonomialExtension(
+            Poly(a, a, domain=hypertangent.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+    derivation = tower.derivation()
+
+    admission = assess_scalar_rde_admission(derivation)
+
+    assert admission.unsupported
+    assert admission.reason is TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN
+    assert "level 1" in admission.detail
+    with pytest.raises(NotImplementedError, match="constant_field_unknown"):
+        solve_risch_differential_equation(
+            tower.field().zero,
+            tower.field().zero,
+            derivation,
+        )
 
 
 def test_admission_result_is_immutable_and_rejects_non_derivations() -> None:

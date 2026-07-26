@@ -413,6 +413,42 @@ automatically when its no-new-constants premise is certified: a nonconstant
 primitive special polynomial would normalize to a new constant. General
 polynomial monomials still require their own Darboux decision.
 
+### Certified linear special-pole reduction
+
+Before a complete Darboux decision is available, a checked monic linear
+factor can still be consumed locally. Let `p=t-a` and suppose its certificate
+proves `D(p)=h*p`. If the current rational function has a pole
+`r/p**m` at `p` (its *principal part* is the negative-power portion at that
+factor), reduce `h` modulo `p` to `hbar` in the lower field. The exposed
+coefficient can be cancelled by solving the scalar Risch differential
+equation (RDE)
+
+```text
+D(q) - m*hbar*q = r
+```
+
+in the lower field and subtracting `D(q/p**m)`. The implementation then
+recomputes the next pole order. It must use the whole derivative: when `h`
+depends on `t`, the difference between `h` and `hbar` contributes at the next
+lower order.
+
+`reduce_certified_linear_special_poles` records this exact work in
+`LinearSpecialPoleReduction`. Its `REDUCED` state means only that the selected
+factor `p` no longer occurs in the denominator; other terms may remain. An
+unsolved or unsupported lower RDE is a structured local boundary, not a
+Liouville obstruction or an elementary-integration decision. A higher-pole
+antiderivative can cancel down to an apparent pole whose local RDE is
+unsolved.
+
+The shared `assess_scalar_rde_admission` check protects this boundary before
+the recursive solver starts. It scans the **entire** active lower prefix:
+`QQ(x)` supports certified P/E/T levels, while `QQ(i)(x)` supports certified
+P/E levels, including Gaussian-normal-form targets. An algebraic,
+general-polynomial,
+or uncertified-constants level is therefore reported as
+`UNSUPPORTED_LOWER_RDE` by this consumer rather than leaking a lower solver
+precondition error. The admission check is still not a solvability decision.
+
 ### Certified quadratic/Riccati Möbius normal forms
 
 There is one useful positive-evidence branch before a complete
@@ -1099,10 +1135,16 @@ structure-theorem track can prove `PRESENT` from supplied concrete factors in
 every family and `ABSENT` for a primitive level with certified preserved
 constants. General polynomial monomials still have no exhaustive Darboux
 decision.
+One narrow consumer is now available before that complete decision: a supplied
+monic linear special-factor certificate can cancel a currently exposed
+principal part when its lower-field RDE is solvable. Its outcome is
+intentionally only a reduction certificate. An unsolved local RDE is retained
+as a boundary, rather than being promoted to a non-elementarity result,
+because higher-order pole cancellation can make the whole integrand exact.
 The signature checkpoint exposes the certified P/E/T directions without
 widening their theorem domain. The next transcendental work is a complete
-special-factor decision, followed by the reductions that consume those
-factors.
+special-factor decision and the remaining complete special-denominator,
+parametric, coupled, and logarithmic branches.
 The current algebraic priority remains branch-place handling before the
 residue-field and divisor stages.
 
@@ -1177,6 +1219,8 @@ P/E/T core:
   the explicit integration route checks the resulting P/E/T target.
 - [x] Certify explicitly supplied and immediately visible special factors
   conservatively; an empty search remains `UNKNOWN`.
+- [x] Consume one supplied monic linear special factor in a local exact
+  principal-part reduction, preserving unresolved lower RDEs as boundaries.
 - [ ] Extend automatic dependence, no-new-constants, and special-polynomial
   decisions to general polynomial monomials.
 - [ ] Add the general nonconstant-special-polynomial branch: special
