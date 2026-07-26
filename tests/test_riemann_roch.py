@@ -12,10 +12,12 @@ from sympy_risch import (
     AlgebraicFunctionField,
     DifferentialTower,
     MonomialExtension,
+    analyze_algebraic_constant_field,
+)
+from sympy_risch.algebraic_geometry.riemann_roch import (
     RiemannRochCertificate,
     RiemannRochSpace,
     RiemannRochSpaceStatus,
-    analyze_algebraic_constant_field,
     compute_riemann_roch_space,
 )
 

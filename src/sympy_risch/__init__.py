@@ -29,15 +29,6 @@ from .algebraic import (
     trager_algebraic_place_residues,
     trager_algebraic_residue_polynomial,
 )
-from .algebraic_constraints import (
-    AlgebraicNonspecialLatticeSearch,
-    AlgebraicNonspecialSearchStatus,
-    AlgebraicValuationKernel,
-    AlgebraicValuationKernelStatus,
-    finite_lattice_slice,
-    search_nonspecial_lattice_slice,
-    solve_algebraic_valuation_constraints,
-)
 from .algebraic_geometry import (
     AlgebraicDifferential,
     AlgebraicDivisor,
@@ -50,6 +41,21 @@ from .algebraic_geometry import (
     LocalLaurentExpansion,
     integral_closure,
     polynomial_order,
+)
+from .algebraic_geometry.constraints import (
+    AlgebraicNonspecialLatticeSearch,
+    AlgebraicNonspecialSearchStatus,
+    AlgebraicValuationKernel,
+    AlgebraicValuationKernelStatus,
+    finite_lattice_slice,
+    search_nonspecial_lattice_slice,
+    solve_algebraic_valuation_constraints,
+)
+from .algebraic_geometry.riemann_roch import (
+    RiemannRochCertificate,
+    RiemannRochSpace,
+    RiemannRochSpaceStatus,
+    compute_riemann_roch_space,
 )
 from .dependency import (
     HyperexponentialDependency,
@@ -202,12 +208,6 @@ from .relations import (
     HypertangentFundamentalDirection,
     PrimitiveFundamentalDirection,
     build_fundamental_signature,
-)
-from .riemann_roch import (
-    RiemannRochCertificate,
-    RiemannRochSpace,
-    RiemannRochSpaceStatus,
-    compute_riemann_roch_space,
 )
 from .special import (
     PrimitiveNoSpecialPolynomialCertificate,

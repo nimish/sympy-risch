@@ -12,19 +12,23 @@ from sympy_risch import (
     AlgebraicDivisor,
     AlgebraicExtension,
     AlgebraicFunctionField,
+    DifferentialTower,
+    MonomialExtension,
+    analyze_algebraic_constant_field,
+)
+from sympy_risch.algebraic_geometry.constraints import (
     AlgebraicNonspecialLatticeSearch,
     AlgebraicNonspecialSearchStatus,
     AlgebraicValuationKernelStatus,
-    DifferentialTower,
-    MonomialExtension,
-    RiemannRochCertificate,
-    RiemannRochSpace,
-    analyze_algebraic_constant_field,
     finite_lattice_slice,
     search_nonspecial_lattice_slice,
     solve_algebraic_valuation_constraints,
 )
 from sympy_risch.algebraic_geometry.infinity import InfiniteAlgebraicPlace
+from sympy_risch.algebraic_geometry.riemann_roch import (
+    RiemannRochCertificate,
+    RiemannRochSpace,
+)
 
 x, y = symbols("x y")
 distinct_constants = st.tuples(

@@ -44,21 +44,21 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polytools import Poly
 
-from .algebraic._field import (
+from ..algebraic._field import (
     _base_polynomial_ring,
     _embed_parent,
     _extension_element,
 )
-from .algebraic.constant_analysis import (
+from ..algebraic.constant_analysis import (
     AlgebraicConstantFieldAnalysis,
     AlgebraicConstantFieldStatus,
 )
-from .algebraic_geometry.function_field import (
+from .function_field import (
     AlgebraicDivisor,
     AlgebraicFunctionField,
     AlgebraicPlace,
 )
-from .algebraic_geometry.infinity import InfiniteAlgebraicPlace
+from .infinity import InfiniteAlgebraicPlace
 from .riemann_roch import (
     RiemannRochSpace,
     RiemannRochSpaceStatus,
