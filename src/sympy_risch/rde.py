@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 
 class PolynomialRDEObstruction(Enum):
-    """Why ``Dy + a*y = b`` has no solution in ``QQ(x)``."""
+    """Why ``Dy + a*y = b`` has no solution over an exact constant field."""
 
     DEGREE = "degree"
     NONZERO_REMAINDER = "nonzero_remainder"
@@ -171,7 +171,12 @@ def _validate_failed_division(
 
 @dataclass(frozen=True, slots=True)
 class PolynomialRischDifferentialEquationResult:
-    r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``QQ[x]``.
+    r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``C[x]``.
+
+    ``C`` is any exact characteristic-zero constant field.  The public base
+    solver specializes this certificate to ``QQ``; exact coordinate changes
+    may use the same certificate over finite constant extensions such as
+    ``QQ_I``.
 
     A rational solution cannot have a finite pole: at a pole of ``y``,
     ``Dy`` has strictly higher order than ``a*y`` and cannot be cancelled by
@@ -210,8 +215,20 @@ class PolynomialRischDifferentialEquationResult:
         """Validate the complete polynomial decision certificate."""
         if not isinstance(self.a, Poly) or not isinstance(self.b, Poly):
             raise TypeError("polynomial RDE certificates require Poly inputs")
-        if self.a.gens != self.b.gens or self.a.domain != QQ or self.b.domain != QQ:
-            raise ValueError("polynomial RDE certificate inputs must share QQ[x]")
+        if (
+            len(self.a.gens) != 1
+            or self.a.gens != self.b.gens
+            or self.a.domain != self.b.domain
+        ):
+            raise ValueError(
+                "polynomial RDE certificate inputs must share one polynomial domain"
+            )
+        domain = self.a.domain
+        if not domain.is_Field or not domain.is_Exact or domain.characteristic() != 0:
+            raise ValueError(
+                "polynomial RDE certificates require an exact "
+                "characteristic-zero constant field"
+            )
         if (
             not isinstance(self.degree_bound, int)
             or isinstance(self.degree_bound, bool)
@@ -305,8 +322,10 @@ class PolynomialRischDifferentialEquationResult:
     def _validate_polynomial(self, polynomial: Poly, *, role: str) -> None:
         if not isinstance(polynomial, Poly):
             raise TypeError(f"polynomial RDE {role} must be a Poly")
-        if polynomial.gens != self.a.gens or polynomial.domain != QQ:
-            raise ValueError(f"polynomial RDE {role} must belong to QQ[x]")
+        if polynomial.gens != self.a.gens or polynomial.domain != self.a.domain:
+            raise ValueError(
+                f"polynomial RDE {role} must belong to the coefficient domain"
+            )
 
     @property
     def has_solution(self) -> bool:
@@ -4084,6 +4103,7 @@ def _solve_admitted_risch_differential_equation(
             normalized_rhs,
             domain_result.denominator_bound,
             domain_result.degree_bound,
+            domain_result.polynomial_result,
             obstruction_polynomial=(domain_result.obstruction_polynomial),
             obstruction_remainder=(domain_result.obstruction_remainder),
         )
@@ -4376,23 +4396,22 @@ def _domain_polynomial_degree_bound(
     return bound
 
 
-@dataclass(frozen=True, slots=True)
-class _DomainPolynomialRDEResult:
-    solution: Poly | None
-    degree_bound: int
-    residual: Poly | None = None
-
-
 def _solve_polynomial_rde_over_constant_field(
     coefficient: Poly,
     right_hand_side: Poly,
-) -> _DomainPolynomialRDEResult:
+) -> PolynomialRischDifferentialEquationResult:
     """Solve ``Dq+a*q=b`` by the forced leading recurrence."""
     x = coefficient.gens[0]
     domain = coefficient.domain
     zero = Poly(0, x, domain=domain)
     if right_hand_side.is_zero:
-        return _DomainPolynomialRDEResult(zero, 0)
+        return PolynomialRischDifferentialEquationResult(
+            coefficient,
+            right_hand_side,
+            0,
+            zero,
+            None,
+        )
     if coefficient.is_zero:
         solution = Poly.from_dict(
             {
@@ -4405,27 +4424,38 @@ def _solve_polynomial_rde_over_constant_field(
             x,
             domain=domain,
         )
-        return _DomainPolynomialRDEResult(
-            solution,
+        return PolynomialRischDifferentialEquationResult(
+            coefficient,
+            right_hand_side,
             right_hand_side.degree() + 1,
+            solution,
+            None,
         )
 
     degree_bound = right_hand_side.degree() - coefficient.degree()
     if degree_bound < 0:
-        return _DomainPolynomialRDEResult(
-            None,
-            -1,
+        return PolynomialRischDifferentialEquationResult(
+            coefficient,
             right_hand_side,
+            -1,
+            None,
+            PolynomialRDEObstruction.DEGREE,
+            partial_solution=zero,
+            residual=right_hand_side,
         )
     solution = zero
     residual = right_hand_side
     while not residual.is_zero:
         candidate_degree = residual.degree() - coefficient.degree()
         if candidate_degree < 0:
-            return _DomainPolynomialRDEResult(
-                None,
+            return PolynomialRischDifferentialEquationResult(
+                coefficient,
+                right_hand_side,
                 degree_bound,
-                residual,
+                None,
+                PolynomialRDEObstruction.NONZERO_REMAINDER,
+                partial_solution=solution,
+                residual=residual,
             )
         term = Poly.from_dict(
             {
@@ -4444,13 +4474,20 @@ def _solve_polynomial_rde_over_constant_field(
         residual = new_residual
     if solution.diff() + coefficient * solution != right_hand_side:
         raise ValueError("constant-field polynomial RDE reconstruction failed")
-    return _DomainPolynomialRDEResult(solution, degree_bound)
+    return PolynomialRischDifferentialEquationResult(
+        coefficient,
+        right_hand_side,
+        degree_bound,
+        solution,
+        None,
+    )
 
 
 @dataclass(frozen=True, slots=True)
 class _DomainSPDEResult:
     solution: Poly | None
     obstruction: RationalRDEObstruction | None
+    polynomial_result: PolynomialRischDifferentialEquationResult | None = None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
 
@@ -4492,8 +4529,8 @@ def _solve_spde_over_constant_field(
             return _DomainSPDEResult(
                 None,
                 RationalRDEObstruction.SPDE_DIVISIBILITY,
-                common_factor,
-                remainder,
+                obstruction_polynomial=common_factor,
+                obstruction_remainder=remainder,
             )
         derivative_coefficient = derivative_coefficient.exquo(common_factor)
         solution_coefficient = solution_coefficient.exquo(common_factor)
@@ -4516,14 +4553,14 @@ def _solve_spde_over_constant_field(
                 return _DomainSPDEResult(
                     None,
                     RationalRDEObstruction.POLYNOMIAL,
-                    normalized_coefficient,
-                    polynomial_result.residual,
+                    polynomial_result,
                 )
             tail = polynomial_result.solution
             if not tail.is_zero and tail.degree() > current_bound:
                 return _DomainSPDEResult(
                     None,
                     RationalRDEObstruction.SPDE_DEGREE,
+                    polynomial_result,
                 )
             solution = alpha * tail + beta
             if (
@@ -4532,7 +4569,7 @@ def _solve_spde_over_constant_field(
                 != original_rhs
             ):
                 raise ValueError("constant-field SPDE reconstruction failed")
-            return _DomainSPDEResult(solution, None)
+            return _DomainSPDEResult(solution, None, polynomial_result)
 
         inverse = invert(solution_coefficient, derivative_coefficient)
         residue = (right_hand_side * inverse).rem(derivative_coefficient)
@@ -4556,6 +4593,7 @@ class _DomainRDEResult:
     degree_bound: int | None
     obstruction_polynomial: Poly | None = None
     obstruction_remainder: Poly | None = None
+    polynomial_result: PolynomialRischDifferentialEquationResult | None = None
 
 
 def _solve_rde_over_constant_field(
@@ -4631,8 +4669,9 @@ def _solve_rde_over_constant_field(
             normalized_coefficient,
             denominator_reduction.denominator_bound,
             degree_bound,
-            spde_result.obstruction_polynomial,
-            spde_result.obstruction_remainder,
+            obstruction_polynomial=spde_result.obstruction_polynomial,
+            obstruction_remainder=spde_result.obstruction_remainder,
+            polynomial_result=spde_result.polynomial_result,
         )
     solution = cancel(
         spde_result.solution.as_expr()
@@ -4650,6 +4689,7 @@ def _solve_rde_over_constant_field(
         normalized_coefficient,
         denominator_reduction.denominator_bound,
         degree_bound,
+        polynomial_result=spde_result.polynomial_result,
     )
 
 

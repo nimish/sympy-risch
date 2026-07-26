@@ -3,15 +3,17 @@
 from dataclasses import replace
 
 import pytest
-from sympy import Poly, symbols
-from sympy.polys.domains import QQ
+from sympy import I, Poly, symbols
+from sympy.polys.domains import QQ, QQ_I
 
 from sympy_risch import (
     ConstantFieldStatus,
     CoupledRDEObstruction,
     DifferentialTower,
     MonomialExtension,
+    PolynomialRDEObstruction,
     RationalRDEObstruction,
+    RationalRischDifferentialEquationResult,
     solve_coupled_rational_rde,
     solve_coupled_risch_differential_equation,
     solve_hyperexponential_laurent_risch_differential_equation,
@@ -35,6 +37,80 @@ def rational_tower() -> DifferentialTower:
             ConstantFieldStatus.PRESERVED,
         )
     )
+
+
+def gaussian_rational_tower() -> DifferentialTower:
+    """Return the standard rational differential field over ``QQ_I``."""
+    return DifferentialTower(QQ_I).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ_I),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+
+
+def test_gaussian_polynomial_subcertificates_reconstruct_success_and_failure() -> None:
+    tower = gaussian_rational_tower()
+    field = tower.field()
+
+    solved = solve_risch_differential_equation(
+        field.from_sympy(I),
+        field.from_sympy(1 + I * x),
+        tower.derivation(),
+    )
+    assert isinstance(solved.certificate, RationalRischDifferentialEquationResult)
+    solved_polynomial = solved.certificate.polynomial_result
+    assert solved_polynomial is not None
+    assert solved_polynomial.a.domain == QQ_I
+    assert solved_polynomial.solution == Poly(x, x, domain=QQ_I)
+    assert (
+        solved_polynomial.solution.diff()
+        + solved_polynomial.a * solved_polynomial.solution
+        == solved_polynomial.b
+    )
+
+    obstructed = solve_risch_differential_equation(
+        field.from_sympy(x),
+        field.from_sympy(2 * I),
+        tower.derivation(),
+    )
+    assert isinstance(
+        obstructed.certificate,
+        RationalRischDifferentialEquationResult,
+    )
+    obstructed_polynomial = obstructed.certificate.polynomial_result
+    assert obstructed.obstruction is RationalRDEObstruction.POLYNOMIAL
+    assert obstructed_polynomial is not None
+    assert obstructed_polynomial.obstruction is PolynomialRDEObstruction.DEGREE
+    assert obstructed_polynomial.partial_solution is not None
+    assert obstructed_polynomial.residual is not None
+    assert (
+        obstructed_polynomial.partial_solution.diff()
+        + obstructed_polynomial.a * obstructed_polynomial.partial_solution
+        + obstructed_polynomial.residual
+        == obstructed_polynomial.b
+    )
+
+
+def test_gaussian_polynomial_subcertificates_reject_malformed_states() -> None:
+    tower = gaussian_rational_tower()
+    field = tower.field()
+    obstructed = solve_risch_differential_equation(
+        field.from_sympy(x),
+        field.from_sympy(2 * I),
+        tower.derivation(),
+    )
+    assert isinstance(
+        obstructed.certificate,
+        RationalRischDifferentialEquationResult,
+    )
+    polynomial = obstructed.certificate.polynomial_result
+    assert polynomial is not None
+
+    with pytest.raises(ValueError, match="partial reduction does not reconstruct"):
+        replace(polynomial, residual=Poly(0, x, domain=QQ_I))
+    with pytest.raises(ValueError, match="must belong to the coefficient domain"):
+        replace(polynomial, partial_solution=Poly(0, x, domain=QQ))
 
 
 def test_rational_certificate_rejects_contradictions_and_false_solution() -> None:
