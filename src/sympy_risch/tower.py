@@ -197,7 +197,6 @@ class TowerRepresentationReason(Enum):
     """Stable explanation for a non-representable tower-prefix proposal."""
 
     MONOMIAL_OVER_ALGEBRAIC = "monomial_over_algebraic"
-    NESTED_ALGEBRAIC = "nested_algebraic"
     NATIVE_OPERATION = "native_operation"
     PARENT_FIELD_MISMATCH = "parent_field_mismatch"
     DUPLICATE_GENERATOR = "duplicate_generator"
@@ -987,7 +986,6 @@ class TowerRepresentationAnalysis:
 
         backend_reasons = {
             TowerRepresentationReason.MONOMIAL_OVER_ALGEBRAIC,
-            TowerRepresentationReason.NESTED_ALGEBRAIC,
             TowerRepresentationReason.NATIVE_OPERATION,
         }
         if self.outcome is TowerRepresentationOutcome.BACKEND_LIMITED:
@@ -1101,25 +1099,17 @@ def analyze_tower_representation(
             )
 
         generators.add(extension.generator)
-        if isinstance(extension, MonomialExtension):
-            if _contains_finite_extension(expected_parent):
-                return _nonrepresentable_representation(
-                    proposal,
-                    TowerRepresentationOutcome.BACKEND_LIMITED,
-                    TowerRepresentationReason.MONOMIAL_OVER_ALGEBRAIC,
-                    level,
-                    "SymPy cannot form a native monomial field over an "
-                    "algebraic finite-extension parent",
-                )
-        elif _contains_finite_extension(expected_parent):
+        if isinstance(extension, MonomialExtension) and _contains_finite_extension(
+            expected_parent
+        ):
             return _nonrepresentable_representation(
                 proposal,
                 TowerRepresentationOutcome.BACKEND_LIMITED,
-                TowerRepresentationReason.NESTED_ALGEBRAIC,
+                TowerRepresentationReason.MONOMIAL_OVER_ALGEBRAIC,
                 level,
-                "SymPy cannot form a nested native algebraic finite extension",
+                "SymPy cannot form a native monomial field over an "
+                "algebraic finite-extension parent",
             )
-
         try:
             expected_parent = extension.field
         except (CoercionFailed, NotImplementedError) as exc:

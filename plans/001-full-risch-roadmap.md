@@ -800,9 +800,9 @@ separate commit after focused and full-suite verification.
 4. [x] Add a minimal native-SymPy mixed-prefix feasibility analyzer. It
    certifies a monomial prefix with an optional terminal algebraic level by
    exercising native coercion and differentiation, and reports
-   monomial-over-algebraic and nested algebraic orderings as explicit backend
-   limitations. It is a narrow boundary map, not a broad element-hierarchy
-   rewrite.
+   monomial-over-algebraic as an explicit backend limitation. Nested algebraic
+   extension construction remains rejected before a proposal can exist. It is
+   a narrow boundary map, not a broad element-hierarchy rewrite.
 
 ### Transcendental completion path
 

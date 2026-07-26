@@ -301,10 +301,12 @@ meanings:
 
 At present a finite monomial prefix, optionally followed by one algebraic
 extension, is representable. A monomial above a function-field algebraic
-extension and a nested algebraic extension are reported as backend limits,
-not as integration or elementary-function decisions. The proposal deliberately
-stores only the existing immutable extension metadata: it does not introduce a
-parallel element hierarchy merely to emulate unsupported fields.
+extension is reported as a backend limit, not as an integration or
+elementary-function decision. Nested algebraic extensions are rejected when
+their `AlgebraicExtension` object is constructed, before a representation
+proposal can exist. The proposal deliberately stores only the existing
+immutable extension metadata: it does not introduce a parallel element
+hierarchy merely to emulate unsupported fields.
 
 ### Derivation
 
