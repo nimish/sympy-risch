@@ -24,7 +24,7 @@ from sympy_risch import (
     search_nonspecial_lattice_slice,
     solve_algebraic_valuation_constraints,
 )
-from sympy_risch.algebraic_geometry import InfiniteAlgebraicPlace
+from sympy_risch.algebraic_geometry.infinity import InfiniteAlgebraicPlace
 
 x, y = symbols("x y")
 distinct_constants = st.tuples(

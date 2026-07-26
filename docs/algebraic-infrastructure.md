@@ -5,7 +5,7 @@ algebraic Risch algorithms. It is software infrastructure, not a tutorial and
 not an algebraic integrator.
 
 The implementation lives in
-`src/sympy_risch/algebraic_geometry.py`. It reuses SymPy for exact finite
+`src/sympy_risch/algebraic_geometry/`. It reuses SymPy for exact finite
 extensions, polynomial factorization, and `DomainMatrix` arithmetic. It adds
 the function-field structures that SymPy does not currently provide as a
 coherent exact API:
@@ -223,9 +223,9 @@ lower-level consumers. Most code should start from
 `AlgebraicFunctionField`.
 
 Refinement-step, maximality-certificate, reciprocal-chart, and union-type
-records are implementation-facing details in
-`sympy_risch.algebraic_geometry`; they are deliberately not re-exported from
-the package root. Likewise, the plane-model-only
+records are implementation-facing details in their
+`sympy_risch.algebraic_geometry` owner modules; they are deliberately omitted
+from both public facades. Likewise, the plane-model-only
 `sympy_risch.algebraic.trager.unramified_finite_places` helper remains available to
 the Trager resultant implementation, but it is not the canonical place API.
 New code should use `AlgebraicFunctionField.finite_places`, which handles

@@ -19,7 +19,7 @@ from sympy_risch import (
     polynomial_order,
     simple_radical_integral_basis,
 )
-from sympy_risch.algebraic_geometry import (
+from sympy_risch.algebraic_geometry.closure import (
     IntegralClosureResult,
     IntegralClosureStep,
     OrderMaximalityCertificate,

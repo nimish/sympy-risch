@@ -55,7 +55,10 @@ from .algebraic.constant_analysis import (
     AlgebraicConstantFieldAnalysis,
     AlgebraicConstantFieldStatus,
 )
-from .algebraic_geometry import AlgebraicDivisor, AlgebraicFunctionField
+from .algebraic_geometry.function_field import (
+    AlgebraicDivisor,
+    AlgebraicFunctionField,
+)
 
 
 class RiemannRochSpaceStatus(Enum):

@@ -53,12 +53,12 @@ from .algebraic.constant_analysis import (
     AlgebraicConstantFieldAnalysis,
     AlgebraicConstantFieldStatus,
 )
-from .algebraic_geometry import (
+from .algebraic_geometry.function_field import (
     AlgebraicDivisor,
     AlgebraicFunctionField,
     AlgebraicPlace,
-    InfiniteAlgebraicPlace,
 )
+from .algebraic_geometry.infinity import InfiniteAlgebraicPlace
 from .riemann_roch import (
     RiemannRochSpace,
     RiemannRochSpaceStatus,

@@ -21,7 +21,7 @@ from .hermite import (
 )
 
 if TYPE_CHECKING:
-    from ..algebraic_geometry import (
+    from ..algebraic_geometry.function_field import (
         AlgebraicDifferential,
         AlgebraicDivisor,
         AlgebraicFunctionField,
@@ -52,7 +52,8 @@ class AlgebraicLocalDifferentialResidue:
     value: ExtensionElement
 
     def __post_init__(self) -> None:
-        from ..algebraic_geometry import FiniteAlgebraicPlace, InfiniteAlgebraicPlace
+        from ..algebraic_geometry.finite_places import FiniteAlgebraicPlace
+        from ..algebraic_geometry.infinity import InfiniteAlgebraicPlace
 
         if not isinstance(self.place, (FiniteAlgebraicPlace, InfiniteAlgebraicPlace)):
             raise TypeError("a local residue needs a finite or infinite place")
@@ -187,7 +188,7 @@ class AlgebraicAllPlaceResidueResult:
         if self.differential_divisor is None:
             raise ValueError("a nonzero collected remainder needs its divisor")
         if verified_differential is not None:
-            from ..algebraic_geometry import AlgebraicDifferential
+            from ..algebraic_geometry.function_field import AlgebraicDifferential
 
             if not isinstance(verified_differential, AlgebraicDifferential):
                 raise TypeError("a verified collection needs its differential")
@@ -316,7 +317,7 @@ def collect_algebraic_all_place_residues(
             analysis.detail,
         )
 
-    from ..algebraic_geometry import AlgebraicFunctionField
+    from ..algebraic_geometry.function_field import AlgebraicFunctionField
 
     model = AlgebraicFunctionField(extension)
     differential = model.differential(remainder)

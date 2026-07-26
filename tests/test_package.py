@@ -1,7 +1,9 @@
 from importlib.metadata import version
+from typing import get_type_hints
 
 import sympy_risch
 import sympy_risch.algebraic as algebraic
+import sympy_risch.algebraic_geometry as algebraic_geometry
 from sympy_risch import __version__
 
 
@@ -39,6 +41,34 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
     assert all(hasattr(algebraic, name) for name in algebraic.__all__)
     assert not hasattr(algebraic, "UnramifiedFinitePlace")
     assert not hasattr(algebraic, "unramified_finite_places")
+
+
+def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None:
+    assert set(algebraic_geometry.__all__) == {
+        "AlgebraicDifferential",
+        "AlgebraicDivisor",
+        "AlgebraicFractionalIdeal",
+        "AlgebraicFunctionField",
+        "AlgebraicOrder",
+        "FiniteAlgebraicPlace",
+        "InfiniteAlgebraicPlace",
+        "IntegralClosureResult",
+        "LocalLaurentExpansion",
+        "integral_closure",
+        "polynomial_order",
+    }
+    assert all(hasattr(algebraic_geometry, name) for name in algebraic_geometry.__all__)
+    assert not hasattr(algebraic_geometry, "AlgebraicPlace")
+    assert not hasattr(algebraic_geometry, "IntegralClosureStep")
+    assert not hasattr(algebraic_geometry, "OrderMaximalityCertificate")
+    assert not hasattr(algebraic_geometry, "ReciprocalFunctionField")
+
+
+def test_algebraic_geometry_public_annotations_are_runtime_resolvable() -> None:
+    for name in algebraic_geometry.__all__:
+        value = getattr(algebraic_geometry, name)
+        if isinstance(value, type):
+            get_type_hints(value)
 
 
 def test_admission_exports_are_public() -> None:
