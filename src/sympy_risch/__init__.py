@@ -76,7 +76,9 @@ from .elementary import (
     IntegrationObstructionKind,
     LogarithmicTerm,
     RationalElementaryReduction,
+    RiccatiMobiusElementaryCertificate,
     integrate_elementary,
+    integrate_riccati_mobius_normal_form,
 )
 from .exact import (
     ExactDerivativeResult,
@@ -94,7 +96,9 @@ from .expression import (
 )
 from .hyperbolic import (
     HyperbolicMobiusNormalForm,
+    RiccatiMobiusNormalForm,
     build_hyperbolic_mobius_normal_form,
+    build_riccati_mobius_normal_form,
 )
 from .lrt import lazard_rioboo_trager
 from .monomial import (
@@ -353,6 +357,8 @@ __all__ = [
     "RationalRDEObstruction",
     "RationalRischDifferentialEquationResult",
     "ReducedFunctionReduction",
+    "RiccatiMobiusElementaryCertificate",
+    "RiccatiMobiusNormalForm",
     "RiemannRochCertificate",
     "RiemannRochSpace",
     "RiemannRochSpaceStatus",
@@ -379,6 +385,7 @@ __all__ = [
     "bronstein_residue_criterion",
     "build_fundamental_signature",
     "build_hyperbolic_mobius_normal_form",
+    "build_riccati_mobius_normal_form",
     "certify_primitive_extension",
     "certify_primitive_no_special_polynomials",
     "certify_special_polynomial",
@@ -396,6 +403,7 @@ __all__ = [
     "integrate_polynomial",
     "integrate_rational",
     "integrate_rational_real",
+    "integrate_riccati_mobius_normal_form",
     "lazard_rioboo_trager",
     "lazy_hermite_reduce_algebraic",
     "polynomial_order",

@@ -1,20 +1,25 @@
-r"""A narrow real Möbius normal form for hyperbolic tangent monomials.
+r"""Certified Möbius normal forms for quadratic monomial extensions.
 
-For one monomial extension with
-
-.. math::
-
-   D t = \eta (1 - t^2),
-
-the coordinate ``u = (1 + t)/(1 - t)`` is hyperexponential:
+Let ``K(t)`` be a preserved-constants monomial extension with quadratic
+generator derivative.  If two distinct linear factors ``t-a`` and ``t-b``
+are certified special, then
 
 .. math::
 
-   D u = 2 \eta u.
+   u = \frac{t-a}{t-b}
 
-The construction below records this as an immutable differential-field
-isomorphism.  It is intentionally limited to that exact derivative law; it
-does not purport to normalize general quadratic or Riccati monomials.
+is hyperexponential.  Indeed, the two Darboux cofactors have the same
+``t``-linear term, so their difference is in ``K`` and
+
+.. math::
+
+   \frac{D u}{u} = \frac{D(t-a)}{t-a} - \frac{D(t-b)}{t-b} \in K.
+
+This module records that exact differential-field isomorphism rather than
+mutating a user's tower.  It does *not* search for special factors: callers
+must supply checked :class:`~sympy_risch.special.SpecialPolynomialCertificate`
+objects. The exact real hyperbolic form is a scaled instance of this
+construction.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from ._typing import FieldElement, is_field_zero
+from .special import SpecialPolynomialCertificate, certify_special_polynomial
 from .tower import (
     Derivation,
     DifferentialTower,
@@ -37,6 +43,10 @@ from .tower import (
 )
 
 _HYPERBOLIC_LAW_MESSAGE = "hyperbolic Möbius normal form requires Dt = eta*(1 - t**2)"
+_RICCATI_LAW_MESSAGE = (
+    "quadratic Möbius normal form requires a preserved-constants "
+    "quadratic monomial with two distinct linear special factors"
+)
 
 
 def _field_elements_equal(
@@ -70,6 +80,189 @@ def _hyperbolic_mobius_coefficient(
 def is_hyperbolic_mobius_law(extension: MonomialExtension) -> bool:
     r"""Whether a monomial has the exact law ``Dt=eta*(1-t**2)``."""
     return _hyperbolic_mobius_coefficient(extension) is not None
+
+
+@dataclass(frozen=True, slots=True)
+class RiccatiMobiusNormalForm:
+    r"""Immutable ``u=(t-a)/(t-b)`` normal form for a quadratic monomial.
+
+    ``numerator_certificate`` and ``denominator_certificate`` retain the
+    checked monic linear special polynomials ``t-a`` and ``t-b`` that define
+    the chosen coordinate.  Reversing their order replaces ``u`` by ``1/u``
+    and hence negates the target logarithmic derivative; both choices are
+    valid but intentionally remain distinct normal forms.
+    """
+
+    source_derivation: Derivation
+    target_derivation: Derivation
+    source_generator: Symbol
+    target_generator: Symbol
+    numerator_certificate: SpecialPolynomialCertificate
+    denominator_certificate: SpecialPolynomialCertificate
+
+    def __post_init__(self) -> None:
+        """Keep the stored special-factor proof tied to this source tower."""
+        if not isinstance(self.source_derivation, Derivation) or not isinstance(
+            self.target_derivation,
+            Derivation,
+        ):
+            raise TypeError("a Riccati Möbius normal form needs two derivations")
+        if not isinstance(self.source_generator, Symbol) or not isinstance(
+            self.target_generator,
+            Symbol,
+        ):
+            raise TypeError("a Riccati Möbius normal form needs Symbol generators")
+        if not isinstance(
+            self.numerator_certificate,
+            SpecialPolynomialCertificate,
+        ) or not isinstance(
+            self.denominator_certificate,
+            SpecialPolynomialCertificate,
+        ):
+            raise TypeError("a Riccati Möbius normal form needs special certificates")
+        if (
+            self.numerator_certificate.derivation != self.source_derivation
+            or self.denominator_certificate.derivation != self.source_derivation
+        ):
+            raise ValueError(
+                "Riccati Möbius special factors belong to another derivation"
+            )
+        if self.numerator_factor.degree() != 1 or self.denominator_factor.degree() != 1:
+            raise ValueError("Riccati Möbius special factors must be linear")
+        if self.numerator_factor == self.denominator_factor:
+            raise ValueError("Riccati Möbius special factors must be distinct")
+        if self.source_derivation.level < 0:
+            raise ValueError("a Riccati Möbius normal form needs a monomial source")
+        source_extension = self.source_derivation.tower.levels[
+            self.source_derivation.level
+        ]
+        if (
+            not isinstance(source_extension, MonomialExtension)
+            or source_extension.generator != self.source_generator
+        ):
+            raise ValueError("Riccati Möbius source generator does not match its tower")
+        if self.target_derivation.level != self.source_derivation.level:
+            raise ValueError("Riccati Möbius towers must have the same active level")
+        target_extension = self.target_derivation.tower.levels[
+            self.target_derivation.level
+        ]
+        if (
+            not isinstance(target_extension, MonomialExtension)
+            or target_extension.generator != self.target_generator
+        ):
+            raise ValueError("Riccati Möbius target generator does not match its tower")
+
+    @property
+    def source_field(self) -> Domain:
+        """Return the field containing the original quadratic generator."""
+        return self.source_derivation.field
+
+    @property
+    def target_field(self) -> Domain:
+        """Return the field containing the hyperexponential coordinate."""
+        return self.target_derivation.field
+
+    @property
+    def numerator_factor(self) -> Poly:
+        """Return the certified numerator factor ``t-a``."""
+        return self.numerator_certificate.factor
+
+    @property
+    def denominator_factor(self) -> Poly:
+        """Return the certified denominator factor ``t-b``."""
+        return self.denominator_certificate.factor
+
+    @property
+    def numerator_root(self) -> FieldElement:
+        """Return ``a`` for the stored factor ``t-a``."""
+        return -self.numerator_factor.nth(0)
+
+    @property
+    def denominator_root(self) -> FieldElement:
+        """Return ``b`` for the stored factor ``t-b``."""
+        return -self.denominator_factor.nth(0)
+
+    @property
+    def forward_generator_expression(self) -> Expr:
+        r"""Return the target expression for ``t=(b*u-a)/(u-1)``."""
+        parent = self.numerator_factor.domain
+        numerator_root = parent.to_sympy(self.numerator_root)
+        denominator_root = parent.to_sympy(self.denominator_root)
+        return cancel(
+            (denominator_root * self.target_generator - numerator_root)
+            / (self.target_generator - 1)
+        )
+
+    @property
+    def inverse_generator_expression(self) -> Expr:
+        r"""Return the source expression for ``u=(t-a)/(t-b)``."""
+        parent = self.numerator_factor.domain
+        numerator_root = parent.to_sympy(self.numerator_root)
+        denominator_root = parent.to_sympy(self.denominator_root)
+        return cancel(
+            (self.source_generator - numerator_root)
+            / (self.source_generator - denominator_root)
+        )
+
+    def forward_expression(self, expression: Expr) -> Expr:
+        """Rewrite one source expression in the target coordinate."""
+        return cancel(
+            expression.xreplace(
+                {self.source_generator: self.forward_generator_expression},
+            )
+        )
+
+    def inverse_expression(self, value: object) -> Expr:
+        """Rewrite one target native element as a source expression."""
+        target_value = _coerce(self.target_field, value)
+        return cancel(
+            self.target_field.to_sympy(target_value).xreplace(
+                {self.target_generator: self.inverse_generator_expression},
+            )
+        )
+
+    def forward(self, value: object) -> FieldElement:
+        """Map a source native field element into the target field."""
+        source_value = _coerce(self.source_field, value)
+        return _coerce(
+            self.target_field,
+            self.forward_expression(self.source_field.to_sympy(source_value)),
+        )
+
+    def inverse(self, value: object) -> FieldElement:
+        """Map a target native field element back into the source field."""
+        return _coerce(self.source_field, self.inverse_expression(value))
+
+    def verifies_isomorphism(self) -> bool:
+        """Whether the two maps invert each other on their generators."""
+        source_generator = _coerce(self.source_field, self.source_generator)
+        target_generator = _coerce(self.target_field, self.target_generator)
+        return _field_elements_equal(
+            self.inverse(self.forward(source_generator)),
+            source_generator,
+            self.source_field,
+        ) and _field_elements_equal(
+            self.forward(self.inverse(target_generator)),
+            target_generator,
+            self.target_field,
+        )
+
+    def verifies_derivation(self) -> bool:
+        r"""Whether the Möbius map intertwines the two derivations.
+
+        A differential-field homomorphism is determined by the tower
+        generators.  The lower levels are identical, and the final equality
+        checks the certified quadratic coordinate change.
+        """
+        for extension in self.source_derivation.tower.levels[
+            : self.source_derivation.level + 1
+        ]:
+            source_generator = _coerce(self.source_field, extension.generator)
+            expected = self.forward(self.source_derivation(source_generator))
+            actual = self.target_derivation(self.forward(source_generator))
+            if not _field_elements_equal(actual, expected, self.target_field):
+                return False
+        return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +371,153 @@ def _validate_hyperbolic_source(
     return extension, eta
 
 
+def _validate_riccati_certificate(
+    certificate: SpecialPolynomialCertificate,
+    derivation: Derivation,
+    *,
+    role: str,
+) -> None:
+    """Require one checked monic linear special factor at the active level."""
+    if not isinstance(certificate, SpecialPolynomialCertificate):
+        raise TypeError(f"the {role} factor must be a SpecialPolynomialCertificate")
+    if certificate.derivation != derivation:
+        raise ValueError(f"the {role} special factor belongs to another derivation")
+    if certificate.factor.degree() != 1:
+        raise ValueError(
+            f"the {role} special factor must be monic and linear in the active generator"
+        )
+
+
+def _validate_riccati_source(
+    derivation: Derivation,
+    target_generator: Symbol,
+    numerator_certificate: SpecialPolynomialCertificate,
+    denominator_certificate: SpecialPolynomialCertificate,
+    *,
+    require_preserved_constants: bool,
+) -> tuple[MonomialExtension, FieldElement]:
+    """Validate the quadratic theorem hypotheses and return ``Du/u``."""
+    if not isinstance(derivation, Derivation):
+        raise TypeError("quadratic Möbius normal form requires a Derivation")
+    if derivation.level < 0:
+        raise ValueError(_RICCATI_LAW_MESSAGE)
+    if not isinstance(target_generator, Symbol):
+        raise TypeError("the target generator must be a SymPy Symbol")
+    if target_generator in _domain_symbols(derivation.field):
+        raise ValueError("the target generator must be fresh over the source field")
+
+    extension = derivation.tower.levels[derivation.level]
+    if (
+        not isinstance(extension, MonomialExtension)
+        or extension.generator_derivative.degree() != 2
+    ):
+        raise ValueError(_RICCATI_LAW_MESSAGE)
+    if require_preserved_constants:
+        extension.require_preserved_constants("quadratic Möbius normal form")
+    if extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT:
+        raise ValueError(
+            "a source marked without special polynomials contradicts the "
+            "supplied special-factor certificates"
+        )
+
+    _validate_riccati_certificate(
+        numerator_certificate,
+        derivation,
+        role="numerator",
+    )
+    _validate_riccati_certificate(
+        denominator_certificate,
+        derivation,
+        role="denominator",
+    )
+    if numerator_certificate.factor == denominator_certificate.factor:
+        raise ValueError("quadratic Möbius normal form needs distinct special factors")
+
+    logarithmic_direction = (
+        numerator_certificate.cofactor - denominator_certificate.cofactor
+    )
+    if logarithmic_direction.is_zero or logarithmic_direction.degree() > 0:
+        raise ValueError(
+            "the special-factor quotient does not have a lower-field "
+            "logarithmic derivative"
+        )
+    direction = extension.parent_field.convert(logarithmic_direction.nth(0))
+    if is_field_zero(direction):
+        raise ValueError(
+            "distinct special factors would make the Möbius coordinate a new constant"
+        )
+    return extension, direction
+
+
+def _build_riccati_mobius_normal_form(
+    derivation: Derivation,
+    target_generator: Symbol,
+    numerator_certificate: SpecialPolynomialCertificate,
+    denominator_certificate: SpecialPolynomialCertificate,
+    *,
+    require_preserved_constants: bool,
+) -> RiccatiMobiusNormalForm:
+    """Build the shared target construction for generic and hyperbolic forms."""
+    source_extension, direction = _validate_riccati_source(
+        derivation,
+        target_generator,
+        numerator_certificate,
+        denominator_certificate,
+        require_preserved_constants=require_preserved_constants,
+    )
+    target_tower = DifferentialTower(
+        derivation.tower.constants,
+        derivation.tower.levels[: derivation.level],
+    )
+    target_parent = target_tower.field()
+    target_derivative = Poly(
+        target_parent.to_sympy(target_parent.convert(direction)) * target_generator,
+        target_generator,
+        domain=target_parent,
+    )
+    target_extension = MonomialExtension(
+        target_derivative,
+        source_extension.constant_field_status,
+        SpecialPolynomialStatus.PRESENT,
+    )
+    target_tower = target_tower.extend(target_extension)
+    normal_form = RiccatiMobiusNormalForm(
+        derivation,
+        target_tower.derivation(),
+        source_extension.generator,
+        target_generator,
+        numerator_certificate,
+        denominator_certificate,
+    )
+    if not normal_form.verifies_isomorphism():
+        raise ValueError("quadratic Möbius normal-form maps are not inverse")
+    if not normal_form.verifies_derivation():
+        raise ValueError("quadratic Möbius normal form does not intertwine derivations")
+    return normal_form
+
+
+def build_riccati_mobius_normal_form(
+    derivation: Derivation,
+    target_generator: Symbol,
+    numerator_certificate: SpecialPolynomialCertificate,
+    denominator_certificate: SpecialPolynomialCertificate,
+) -> RiccatiMobiusNormalForm:
+    r"""Build the certified quadratic normal form ``u=(t-a)/(t-b)``.
+
+    The active extension must have ``deg_t(Dt)=2`` and certified preserved
+    constants.  ``numerator_certificate`` and ``denominator_certificate``
+    must certify distinct monic linear special factors ``t-a`` and ``t-b``.
+    No factor search or no-special conclusion is performed here.
+    """
+    return _build_riccati_mobius_normal_form(
+        derivation,
+        target_generator,
+        numerator_certificate,
+        denominator_certificate,
+        require_preserved_constants=True,
+    )
+
+
 def build_hyperbolic_mobius_normal_form(
     derivation: Derivation,
     target_generator: Symbol,
@@ -189,29 +529,33 @@ def build_hyperbolic_mobius_normal_form(
     change of coordinate cannot add constants.  The target is marked as
     having special polynomials: its generator ``u`` divides ``Du``.
     """
-    source_extension, eta = _validate_hyperbolic_source(
+    source_extension, _ = _validate_hyperbolic_source(
         derivation,
         target_generator,
     )
-    target_tower = DifferentialTower(
-        derivation.tower.constants,
-        derivation.tower.levels[: derivation.level],
+    parent = source_extension.parent_field
+    numerator_certificate = certify_special_polynomial(
+        Poly(source_extension.generator + 1, source_extension.generator, domain=parent),
+        derivation,
     )
-    target_parent = target_tower.field()
-    target_derivative = Poly(
-        2 * target_parent.to_sympy(eta) * target_generator,
+    denominator_certificate = certify_special_polynomial(
+        Poly(source_extension.generator - 1, source_extension.generator, domain=parent),
+        derivation,
+    )
+    generic_normal_form = _build_riccati_mobius_normal_form(
+        derivation,
         target_generator,
-        domain=target_parent,
+        numerator_certificate,
+        denominator_certificate,
+        # The coordinate map remains exact when constant-field evidence is
+        # unknown; integration separately requires the target's P/E/T
+        # admission. The generic Riccati builder requires the stronger
+        # preserved-constants premise.
+        require_preserved_constants=False,
     )
-    target_extension = MonomialExtension(
-        target_derivative,
-        source_extension.constant_field_status,
-        SpecialPolynomialStatus.PRESENT,
-    )
-    target_tower = target_tower.extend(target_extension)
     normal_form = HyperbolicMobiusNormalForm(
         derivation,
-        target_tower.derivation(),
+        generic_normal_form.target_derivation,
         source_extension.generator,
         target_generator,
     )

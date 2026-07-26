@@ -199,9 +199,9 @@ The existing design conventions to preserve are:
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Complete for the declared `QQ(x)` P/E/T contract: the public admission result, declared-cell matrix, and CI gate distinguish unsupported towers from theorem-backed obstructions. |
 | 1. Effective field and tower kernel | Partial: exact `QQ` towers and finite extensions exist, and a checked feasibility result maps the current mixed-prefix backend boundary; general constant capabilities and canonical mixed algebraic towers remain. |
-| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation and Gaussian fallbacks are complete over `QQ(x)`; general effective constants, fundamental signatures, and non-generator special factors remain. |
+| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, and an explicit two-linear-factor Riccati normalizer are checked over `QQ(x)`; general effective constants and automatic non-generator special-factor decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs are complete throughout the normalized P/E/T contract; parametric RDE/limited integration and general special-factor branches remain. |
-| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete, as is a narrow checked one-variable P/E/T expression grammar; general polynomial special branches and general expression-to-tower construction are not. |
+| 4. Transcendental integration | Partial: explicit P/E/T towers in any family ordering are complete, as is a narrow checked one-variable P/E/T expression grammar and an explicit two-factor Riccati pullback route; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, and exact finite valuation kernels now exist; constant normalization, general global-space/principal-divisor decisions remain. |
 | 6. Pure algebraic integration | Partial prerequisites exist; no end-to-end elementary integration decision yet. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
@@ -808,32 +808,36 @@ separate commit after focused and full-suite verification.
 
 ### Transcendental completion path
 
-5. [ ] Extend fundamental signatures to the declared effective constant fields
+5. [x] **Plan 008**: add a certified two-linear-factor Riccati Möbius
+   normalizer and explicit integration route. It records, rather than
+   searches for, the special-factor proof and leaves ordinary general-
+   polynomial dispatch unchanged.
+6. [ ] Extend fundamental signatures to the declared effective constant fields
    and use them for automatic no-new-constants/dependency certification.
-6. [ ] Solve the complete special-polynomial/Darboux decision for each
+7. [ ] Solve the complete special-polynomial/Darboux decision for each
    explicitly admitted general-monomial family. In particular, a linear factor
    `t-a` requires the Riccati equation `D(a) = Dt|_(t=a)`; failed search is
    never an `ABSENT` proof.
-7. [ ] Consume certified special factors in special-denominator Hermite/RDE
+8. [ ] Consume certified special factors in special-denominator Hermite/RDE
    reduction, public parametric RDE, limited integration, coupled systems, and
    logarithmic reconstruction. This completes explicit transcendental Risch
    beyond the normalized P/E/T core.
 
 ### Algebraic completion path
 
-8. [x] **Plan 005**: establish a first certified Riemann--Roch/global-space
+9. [x] **Plan 005**: establish a first certified Riemann--Roch/global-space
    service on admitted preserved presentations. It proves only theorem-backed
    complete cases and returns no partial basis outside them; general
    finite/infinite lattice intersection remains the next extension.
    **Plan 006** adds exact all-place valuation constraints for any declared
    finite constant subspace and a bounded nonspecial ideal-lattice search;
    only a reached Riemann--Roch dimension certifies a complete global space.
-9. [ ] Use it for residue-basis descent and principal/torsion divisor solving
+10. [ ] Use it for residue-basis descent and principal/torsion divisor solving
    (algebraic logarithmic reconstruction) and, in parallel, exactness of
    second-kind differentials. Test genus-zero and positive-genus cases.
-10. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
+11. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.
-11. [ ] Compose the completed algebraic and transcendental solvers over the
+12. [ ] Compose the completed algebraic and transcendental solvers over the
     proven mixed-tower representation. This is the exit gate for a complete
     *explicit* Risch tower.
 

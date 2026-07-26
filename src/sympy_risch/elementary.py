@@ -32,9 +32,10 @@ from sympy.polys.polytools import Poly
 from sympy.polys.rootoftools import RootSum
 
 from ._typing import FieldElement, is_field_zero
-from .admission import is_standard_rational_base
+from .admission import assess_elementary_admission, is_standard_rational_base
 from .hyperbolic import (
     HyperbolicMobiusNormalForm,
+    RiccatiMobiusNormalForm,
     build_hyperbolic_mobius_normal_form,
     is_hyperbolic_mobius_law,
 )
@@ -68,6 +69,8 @@ MonomialLevelCertificate = (
     | HypertangentMonomialReduction
     | NonlinearNoSpecialReduction
 )
+
+MobiusNormalForm = HyperbolicMobiusNormalForm | RiccatiMobiusNormalForm
 
 
 class IntegrationObstructionKind(Enum):
@@ -164,6 +167,7 @@ class ElementaryIntegralResult:
         RationalElementaryReduction
         | MonomialLevelCertificate
         | HyperbolicMobiusElementaryCertificate
+        | RiccatiMobiusElementaryCertificate
         | None
     )
 
@@ -248,6 +252,20 @@ class HyperbolicMobiusElementaryCertificate:
     """
 
     normal_form: HyperbolicMobiusNormalForm
+    target_result: ElementaryIntegralResult
+
+
+@dataclass(frozen=True, slots=True)
+class RiccatiMobiusElementaryCertificate:
+    r"""Record an elementary decision pulled back through a Riccati form.
+
+    The source's two supplied special-factor certificates identify an exact
+    isomorphism to the recorded hyperexponential target.  The target result
+    remains intact so callers can inspect the complete P/E/T decision that
+    was transported back to the original quadratic coordinate.
+    """
+
+    normal_form: RiccatiMobiusNormalForm
     target_result: ElementaryIntegralResult
 
 
@@ -529,9 +547,9 @@ def _fresh_hyperbolic_target_generator(derivation: Derivation) -> Symbol:
         index += 1
 
 
-def _pullback_hyperbolic_logarithmic_terms(
+def _pullback_mobius_logarithmic_terms(
     target_terms: tuple[LogarithmicTerm, ...],
-    normal_form: HyperbolicMobiusNormalForm,
+    normal_form: MobiusNormalForm,
 ) -> tuple[LogarithmicTerm, ...]:
     """Map encoded target logarithms back to the source Möbius coordinate."""
     substitution = {
@@ -548,10 +566,10 @@ def _pullback_hyperbolic_logarithmic_terms(
     )
 
 
-def _pullback_hyperbolic_obstruction(
+def _pullback_mobius_obstruction(
     obstruction: IntegrationObstruction | None,
     derivation: Derivation,
-    normal_form: HyperbolicMobiusNormalForm,
+    normal_form: MobiusNormalForm,
 ) -> IntegrationObstruction | None:
     """Re-express a target obstruction in the source tower coordinate."""
     if obstruction is None:
@@ -559,7 +577,7 @@ def _pullback_hyperbolic_obstruction(
     if obstruction.level == derivation.level:
         extension = derivation.tower.levels[derivation.level]
         if not isinstance(extension, MonomialExtension):
-            raise TypeError("a hyperbolic source level must be a monomial extension")
+            raise TypeError("a Möbius source level must be a monomial extension")
         generator = extension.generator
         family = extension.family
     else:
@@ -575,6 +593,48 @@ def _pullback_hyperbolic_obstruction(
     )
 
 
+def _integrate_through_mobius_normal_form(
+    element: FieldElement,
+    derivation: Derivation,
+    normal_form: MobiusNormalForm,
+) -> ElementaryIntegralResult:
+    """Integrate through one checked source-to-hyperexponential isomorphism."""
+    if derivation != normal_form.source_derivation:
+        raise ValueError("the Möbius normal form belongs to another derivation")
+
+    target_result = integrate_elementary(
+        normal_form.forward(element),
+        normal_form.target_derivation,
+    )
+    if isinstance(normal_form, HyperbolicMobiusNormalForm):
+        certificate: (
+            HyperbolicMobiusElementaryCertificate | RiccatiMobiusElementaryCertificate
+        ) = HyperbolicMobiusElementaryCertificate(normal_form, target_result)
+    else:
+        certificate = RiccatiMobiusElementaryCertificate(normal_form, target_result)
+    result = ElementaryIntegralResult(
+        derivation,
+        element,
+        normal_form.inverse(target_result.total_exact_part),
+        _pullback_mobius_logarithmic_terms(
+            target_result.all_logarithmic_terms,
+            normal_form,
+        ),
+        normal_form.inverse(target_result.total_logarithmic_derivative),
+        normal_form.inverse(target_result.unintegrated_remainder),
+        None,
+        _pullback_mobius_obstruction(
+            target_result.obstruction,
+            derivation,
+            normal_form,
+        ),
+        certificate,
+    )
+    if not result.reconstructs:
+        raise ValueError("Möbius elementary pullback failed to reconstruct")
+    return result
+
+
 def _integrate_hyperbolic_mobius_level(
     element: FieldElement,
     derivation: Derivation,
@@ -584,31 +644,41 @@ def _integrate_hyperbolic_mobius_level(
         derivation,
         _fresh_hyperbolic_target_generator(derivation),
     )
-    target_result = integrate_elementary(
-        normal_form.forward(element),
-        normal_form.target_derivation,
-    )
-    result = ElementaryIntegralResult(
-        derivation,
-        element,
-        normal_form.inverse(target_result.total_exact_part),
-        _pullback_hyperbolic_logarithmic_terms(
-            target_result.all_logarithmic_terms,
-            normal_form,
-        ),
-        normal_form.inverse(target_result.total_logarithmic_derivative),
-        normal_form.inverse(target_result.unintegrated_remainder),
-        None,
-        _pullback_hyperbolic_obstruction(
-            target_result.obstruction,
-            derivation,
-            normal_form,
-        ),
-        HyperbolicMobiusElementaryCertificate(normal_form, target_result),
-    )
-    if not result.reconstructs:
-        raise ValueError("hyperbolic Möbius elementary pullback failed to reconstruct")
-    return result
+    return _integrate_through_mobius_normal_form(element, derivation, normal_form)
+
+
+def integrate_riccati_mobius_normal_form(
+    integrand: object,
+    normal_form: RiccatiMobiusNormalForm,
+) -> ElementaryIntegralResult:
+    r"""Integrate through a checked quadratic/Riccati Möbius normal form.
+
+    ``normal_form`` must come from
+    :func:`~sympy_risch.hyperbolic.build_riccati_mobius_normal_form`, which
+    carries two supplied linear special-factor certificates.  The original
+    quadratic level is deliberately *not* admitted by
+    :func:`integrate_elementary`: this explicit operation first transports
+    the problem to its hyperexponential target and then requires that target
+    to satisfy the established P/E/T admission contract.
+
+    A rejected target is an algorithmic boundary, not a proof that the source
+    integrand lacks an elementary antiderivative.
+    """
+    if not isinstance(normal_form, RiccatiMobiusNormalForm):
+        raise TypeError("Riccati Möbius integration requires a Riccati normal form")
+    if not normal_form.verifies_isomorphism() or not normal_form.verifies_derivation():
+        raise ValueError("Riccati Möbius normal form failed its map verification")
+
+    admission = assess_elementary_admission(normal_form.target_derivation)
+    if not admission.accepted:
+        raise NotImplementedError(
+            "Riccati Möbius integration needs an admitted hyperexponential "
+            f"target tower: {admission.detail}"
+        )
+
+    derivation = normal_form.source_derivation
+    element = _coerce(derivation.field, integrand)
+    return _integrate_through_mobius_normal_form(element, derivation, normal_form)
 
 
 def integrate_elementary(

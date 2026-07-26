@@ -33,6 +33,15 @@ not certify the proposed tower. In particular, a dependent `log`, `exp`, or
 `NON_ELEMENTARY` result is only produced after successful compilation and is
 backed by the contained `ElementaryIntegralResult` obstruction.
 
+The explicit Riccati API has the same discipline. A
+`RiccatiMobiusNormalForm` can be built only from two supplied checked linear
+special-factor certificates; the library does not interpret an unsuccessful
+factor search as their absence. `integrate_riccati_mobius_normal_form` then
+checks the transformed hyperexponential target before integrating it. If that
+target is outside the P/E/T contract, its `NotImplementedError` is an
+unsupported-input boundary, not a conclusion about the original quadratic
+integrand.
+
 ## Reading a top-level integration result
 
 `integrate_elementary` returns an immutable `ElementaryIntegralResult`.

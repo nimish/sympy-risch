@@ -20,6 +20,7 @@ plan with exact file scope, tests, and a separate commit.
 | 005 | Establish certified algebraic global spaces | P1 | L | 004 | DONE |
 | 006 | Add exact finite algebraic valuation constraints | P1 | M | 005 | DONE |
 | 007 | Add a certified narrow P/E/T expression frontend | P1 | M | 002, 003 | DONE |
+| 008 | Add certified Riccati Möbius normalization | P1 | M | 002, special-factor certificates | DONE |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -76,6 +77,10 @@ Plan 007 adds a deliberately conservative one-variable expression compiler
 for rational arithmetic and nested P/E/T calls. It reuses the certified tower
 factories and returns local back-substituted presentations, while leaving
 general algebraic/mixed discovery and branch-aware normalization open.
+Plan 008 consumes two caller-supplied checked linear special factors to make a
+quadratic/Riccati active top level explicitly hyperexponential. It preserves
+the ordinary P/E/T admission boundary: no Riccati or Darboux factor search is
+claimed, and only the transformed target is passed to the total dispatcher.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

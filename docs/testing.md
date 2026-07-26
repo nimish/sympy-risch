@@ -61,6 +61,14 @@ either reconstruct or return a structured mathematical obstruction; an unexpecte
 stable `TowerAdmissionReason` and are never used as evidence of
 non-elementarity. General nonlinear no-special experiments remain outside
 that matrix.
+`tests/test_hyperbolic_mobius.py` additionally checks the explicit
+two-factor quadratic/Riccati normalizer: asymmetric factors that do not divide
+`Dt`, coordinate orientation, generated moving-root laws, exact map and
+derivation identities, and foreign/duplicate/nonlinear/status boundaries.
+`tests/test_riccati_mobius_integration.py` checks its separate public
+integration route with planted derivatives, a pulled-back non-elementary
+hyperexponential obstruction, a pulled-back logarithmic term, and rejection
+when the transformed target is outside the declared P/E/T contract.
 `tests/test_nested_primitive.py` exercises recursive primitive descent,
 `tests/test_primitive_rde.py` cross-checks the primitive-field recurrence
 against an independent bounded matrix oracle. Its cancellation tests cover

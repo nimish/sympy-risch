@@ -61,12 +61,16 @@ from sympy_risch import (
     IntegrationObstructionKind,
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
+    SpecialPolynomialStatus,
     TowerAdmission,
     TowerAdmissionOutcome,
     TowerAdmissionReason,
     assess_elementary_admission,
+    build_riccati_mobius_normal_form,
     certify_primitive_extension,
+    certify_special_polynomial,
     integrate_elementary,
+    integrate_riccati_mobius_normal_form,
     primitive_logarithmic_derivative_signature,
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
@@ -125,8 +129,13 @@ particular integrand has an elementary antiderivative. If the outcome is
 `TowerAdmissionReason`; that result also says nothing about integrability.
 The admitted family is primitive, hyperexponential, or hypertangent levels
 with preserved constants, together with an exact hyperbolic Möbius
-normalization at the active top level described below. General nonlinear
-monomials, including a dispatcher experiment with
+normalization at the active top level described below. The explicit
+certificate-driven Riccati route below is intentionally separate: it first
+changes coordinates, then checks the resulting hyperexponential target.
+For the automatic hyperbolic law, `SpecialPolynomialStatus.UNKNOWN` or
+`PRESENT` is consistent; `ABSENT` is rejected because the law has two known
+linear special factors.
+General nonlinear monomials, including a dispatcher experiment with
 `SpecialPolynomialStatus.ABSENT`, are deliberately outside this total public
 contract.
 
@@ -293,8 +302,71 @@ assert result.reconstructs
 assert result.antiderivative == x
 ```
 
-This covers precisely that Möbius-normalizable law. It is not yet a general
-decision procedure for arbitrary polynomial or Riccati monomials.
+This automatic dispatcher path covers precisely that hyperbolic law. It is
+not a general decision procedure for arbitrary polynomial or Riccati
+monomials.
+
+### Explicit certified Riccati normalization
+
+There is a broader *explicit* coordinate-change API when you already know two
+linear special factors. For a quadratic law `Dt = Q(t)`, a factor `t-a` is
+special when `D(t-a)` is divisible by `t-a`; equivalently, `D(a) = Q(a)`.
+If certificates prove this for two distinct roots `a` and `b`, then
+
+```text
+u = (t-a)/(t-b)
+Du/u = A*(a-b), where A is the t**2 coefficient of Q.
+```
+
+For example, neither factor below is discovered by the library. We supply
+and verify them before asking for the coordinate change:
+
+```python
+riccati = base.extend(
+    MonomialExtension(
+        Poly(t**2 + (1 / x - x) * t, t, domain=base.field()),
+        ConstantFieldStatus.PRESERVED,
+        SpecialPolynomialStatus.PRESENT,
+    )
+)
+derivation = riccati.derivation()
+numerator = certify_special_polynomial(
+    Poly(t - x, t, domain=base.field()),
+    derivation,
+)
+denominator = certify_special_polynomial(
+    Poly(t, t, domain=base.field()),
+    derivation,
+)
+normal_form = build_riccati_mobius_normal_form(
+    derivation,
+    u,
+    numerator,
+    denominator,
+)
+
+# u = (t-x)/t and Du = x*u.
+planted = riccati.field().from_sympy((t**2 + x) / (t + 1))
+result = integrate_riccati_mobius_normal_form(
+    derivation(planted),
+    normal_form,
+)
+
+assert result.is_elementary
+assert result.reconstructs
+```
+
+The builder retains both input certificates and verifies the forward map
+`t = (b*u-a)/(u-1)`, its inverse, and the tower derivation.
+`RiccatiMobiusNormalForm` also exposes those verification methods for
+inspection. Its integration function uses the normal P/E/T dispatcher only
+after the target tower passes the existing admission check. The target `u`
+must be a fresh SymPy `Symbol` over the whole source field. The source must
+have preserved constants; its special-polynomial metadata may be `UNKNOWN`
+because the two certificates supply positive evidence, while `ABSENT`
+contradicts them. A missing factor certificate, an unknown constant field, or
+a target outside that contract is an unsupported algorithmic boundary—not a
+non-elementarity result.
 
 Exactness is stricter than elementary integrability. The same dispatcher
 recovers derivatives in both families while retaining logarithmic residues or
@@ -877,6 +949,7 @@ boundary, not a mathematical claim about the integral.
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
 | Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)`, in any finite order | End-to-end |
+| Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors and preserved constants are supplied; ordinary general-polynomial dispatch remains unsupported |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
 | Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete decision in the explicit certified P/E/T contract |
@@ -916,6 +989,7 @@ principal groups are:
 | Primitive logarithmic analysis | `solve_radical_logarithmic_derivative`, `primitive_logarithmic_derivative_signature` |
 | Parametric logarithmic derivative | `solve_parametric_logarithmic_derivative`; `solve_parametric_logarithmic_derivative_heuristic` exposes the Section 7.3 fast path |
 | Hyperbolic normal form | `build_hyperbolic_mobius_normal_form` for the exact law `Dt = eta*(1 - t**2)` |
+| Certified Riccati normal form | `build_riccati_mobius_normal_form`, `integrate_riccati_mobius_normal_form` with two `SpecialPolynomialCertificate` inputs |
 | Special-polynomial evidence | `certify_special_polynomial`, `analyze_special_polynomials`, `certify_primitive_no_special_polynomials` (primitive preserved-constant levels have a complete absence theorem; other families are positive-evidence-only) |
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |

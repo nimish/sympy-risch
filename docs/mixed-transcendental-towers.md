@@ -37,6 +37,14 @@ control flow without treating `NotImplementedError` as a proof.
 The exact law `Dt = eta*(1 - t**2)` is admitted only when it is the active
 top level, because the dispatcher normalizes that level before its recursive
 descent; it cannot yet normalize a hyperbolic level below another extension.
+Its special-polynomial metadata may be `UNKNOWN` or `PRESENT`, but `ABSENT`
+is rejected because the law itself exhibits two linear special factors.
+An active quadratic/Riccati level with two caller-supplied checked linear
+special factors has a separate explicit route:
+`build_riccati_mobius_normal_form` constructs its hyperexponential coordinate,
+and `integrate_riccati_mobius_normal_form` checks admission of that *target*.
+This does not make the source tower accepted by `assess_elementary_admission`,
+and it does not search for the factors.
 By contrast, the broader dispatcher has an
 experimental nonlinear branch when the caller supplies
 `SpecialPolynomialStatus.ABSENT`; it is not part of this total public

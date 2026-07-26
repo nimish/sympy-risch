@@ -147,7 +147,8 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
     with certified preserved constants.  The exact hyperbolic law
     ``Dt=eta*(1-t**2)`` is also admitted when it is the active top level,
     because the dispatcher normalizes that level immutably to a
-    hyperexponential coordinate.
+    hyperexponential coordinate. Its metadata may be unknown or present, but
+    cannot contradict the known linear special factors by claiming absence.
 
     This is an admission check, not an integration decision: it reads only
     exact tower metadata and never calls a solver.  In particular,
@@ -223,6 +224,13 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
         }:
             continue
         if is_hyperbolic_mobius_law(extension):
+            if extension.special_polynomial_status is SpecialPolynomialStatus.ABSENT:
+                return _unsupported(
+                    derivation,
+                    TowerAdmissionReason.SPECIAL_POLYNOMIAL_STATUS,
+                    f"level {index} claims no special polynomials, but the "
+                    "hyperbolic law has its two linear Möbius factors",
+                )
             if index == derivation.level:
                 continue
             return _unsupported(

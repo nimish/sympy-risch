@@ -12,7 +12,7 @@ drop-in replacement for `sympy.integrate`.
 
 ## Current status
 
-The top-level entry point is:
+The primary recursive dispatcher is:
 
 ```python
 integrate_elementary(integrand, derivation) -> ElementaryIntegralResult
@@ -24,8 +24,18 @@ It operates on a manually constructed differential tower and supports:
 - any finite ordering of primitive, hyperexponential, and hypertangent
   extensions over that base when every non-base level has certified preserved
   constants; and
+- the exact hyperbolic top-level law `Dt = eta*(1-t**2)` through an automatic
+  immutable Möbius normalization; and
 - a nonlinear polynomial monomial over supported lower levels when absence of
   nonconstant special polynomials has been certified.
+
+The separately explicit
+`integrate_riccati_mobius_normal_form(integrand, normal_form)` entry point
+adds a certificate-driven quadratic/Riccati top-level route. It accepts a
+normal form built from two supplied linear special factors, transforms to a
+hyperexponential target, and runs only when that target is admitted by the
+P/E/T dispatcher. An arbitrary quadratic source remains unsupported by
+`integrate_elementary` itself.
 
 The dispatcher returns exact and logarithmic parts, recursively descends into
 the lower field, and preserves a structured Liouville obstruction when a
@@ -402,6 +412,47 @@ special polynomials. The primitive family now obtains that evidence
 automatically when its no-new-constants premise is certified: a nonconstant
 primitive special polynomial would normalize to a new constant. General
 polynomial monomials still require their own Darboux decision.
+
+### Certified quadratic/Riccati Möbius normal forms
+
+There is one useful positive-evidence branch before a complete
+Darboux-polynomial decision exists. Let the active preserved-constants level
+be quadratic,
+
+```text
+Dt = A*t**2 + B*t + C, with A nonzero,
+```
+
+and suppose callers supply checked `SpecialPolynomialCertificate` objects for
+two distinct monic linear factors `t-a` and `t-b`. Special means
+`D(t-a)` is a multiple of `t-a`; it does **not** mean that `t-a` divides
+`Dt`. Equivalently, `D(a) = Dt` after substituting `t = a`.
+
+The immutable `RiccatiMobiusNormalForm` retains those two certificates and
+uses their caller-specified order to define
+
+```text
+u = (t-a)/(t-b)
+Du/u = A*(a-b).
+```
+
+The inverse is `t = (b*u-a)/(u-1)`. The implementation independently checks
+both maps and derivation intertwining on every active tower generator before
+returning the normal form. Reversing the factors gives `1/u` and the negated
+hyperexponential direction, which is a distinct but equally valid normal
+form.
+
+`integrate_riccati_mobius_normal_form` is deliberately separate from
+`integrate_elementary`. It first transports the input to the hyperexponential
+target, requires the target to pass the existing P/E/T admission boundary,
+then transports exact parts, logarithmic terms, and any obstruction back to
+the source. A `SpecialPolynomialStatus.PRESENT` value alone cannot trigger
+this path: it neither identifies the two factors nor proves their order. The
+normalizer does not solve the Riccati equation or search for factors, and a
+missing certificate is never negative evidence.
+
+The exact hyperbolic law `Dt = eta*(1-t**2)` remains the automatic top-level
+special case. Its known factors provide the same coordinate change internally.
 
 ## Parametric logarithmic derivatives
 
@@ -1039,16 +1090,19 @@ cancellation recurrences, immutable Gaussian Cayley fallbacks, recursive
 lower-field certificates, worked examples, and independent generated
 matrix-oracle comparisons.
 
-The most recent normalization checkpoint adds the verified Möbius law
-`Dt = eta*(1 - t**2) -> Du = 2*eta*u`, so a formal hyperbolic tangent level
-can use the established hyperexponential integrator without mutating the
-source tower. The structure-theorem track now has certificates for concrete
-special factors: they can prove `PRESENT` in every family and `ABSENT` for a
-primitive level with certified preserved constants. General polynomial
-monomials still have no exhaustive Darboux decision.
+The normalization layer now includes the verified hyperbolic law
+`Dt = eta*(1 - t**2) -> Du = 2*eta*u` and an explicit quadratic/Riccati
+normalizer driven by two certified linear special factors. Both use an
+immutable hyperexponential target rather than mutate the source tower. The
+Riccati route is deliberately proof-carrying rather than automatic. The
+structure-theorem track can prove `PRESENT` from supplied concrete factors in
+every family and `ABSENT` for a primitive level with certified preserved
+constants. General polynomial monomials still have no exhaustive Darboux
+decision.
 The signature checkpoint exposes the certified P/E/T directions without
-widening their theorem domain.  The next transcendental work after it
-is complete special-factor decisions and expression-to-tower construction.
+widening their theorem domain. The next transcendental work is a complete
+special-factor decision, followed by the reductions that consume those
+factors.
 The current algebraic priority remains branch-place handling before the
 residue-field and divisor stages.
 
@@ -1118,6 +1172,9 @@ P/E/T core:
 - [x] Normalize the exact hyperbolic Möbius law
   `Dt = eta*(1 - t**2)` to a hyperexponential coordinate with exact
   forward/inverse field maps.
+- [x] Normalize an active preserved-constants quadratic/Riccati level when
+  two caller-supplied linear special-factor certificates prove the coordinate;
+  the explicit integration route checks the resulting P/E/T target.
 - [x] Certify explicitly supplied and immediately visible special factors
   conservatively; an empty search remains `UNKNOWN`.
 - [ ] Extend automatic dependence, no-new-constants, and special-polynomial

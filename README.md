@@ -11,7 +11,14 @@ The implemented end-to-end dispatcher handles rational functions and explicit
 finite towers of primitive, hyperexponential, and hypertangent extensions
 over `QQ(x)`, in any order when their constant fields have been certified as
 preserved. It also normalizes the exact hyperbolic law
-`Dt = eta*(1 - t**2)` to an isomorphic hyperexponential coordinate.
+`Dt = eta*(1 - t**2)` to an isomorphic hyperexponential coordinate. When a
+caller supplies two checked linear special-factor certificates, it can also
+normalize a preserved-constants quadratic/Riccati top level explicitly and
+integrate through its hyperexponential coordinate when the transformed target
+is admitted by the P/E/T contract, via
+`build_riccati_mobius_normal_form` and
+`integrate_riccati_mobius_normal_form`. It does not yet search for those
+factors automatically.
 Lower-level modules also provide
 recursive radical and parametric logarithmic-derivative decisions over
 primitive towers, primitive RDE weak normalization and cancellation,

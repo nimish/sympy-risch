@@ -196,6 +196,22 @@ def test_exact_hyperbolic_mobius_normalization_is_admitted() -> None:
     assert result.reconstructs
 
 
+def test_hyperbolic_mobius_normalization_rejects_contradictory_absence() -> None:
+    base = _rational_tower()
+    tower = base.extend(
+        MonomialExtension(
+            Poly(1 - t**2, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+            SpecialPolynomialStatus.ABSENT,
+        ),
+    )
+
+    admission = assess_elementary_admission(tower.derivation())
+
+    assert admission.unsupported
+    assert admission.reason is TowerAdmissionReason.SPECIAL_POLYNOMIAL_STATUS
+
+
 def test_hyperbolic_mobius_normalization_is_not_admitted_below_the_top() -> None:
     base = _rational_tower()
     hyperbolic = base.extend(
