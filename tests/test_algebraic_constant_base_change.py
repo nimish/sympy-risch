@@ -1,0 +1,135 @@
+"""Conservative algebraic-constant transport for closed finite places."""
+
+from sympy import Poly, Rational, symbols
+from sympy.polys.domains import QQ
+
+from sympy_risch import (
+    AlgebraicExtension,
+    AlgebraicFunctionField,
+    DifferentialTower,
+    MonomialExtension,
+)
+from sympy_risch.algebraic_geometry.base_change import (
+    AlgebraicConstantBaseChangeStatus,
+    AlgebraicPlaceSplitStatus,
+    build_algebraic_constant_base_change,
+    split_algebraic_place,
+    split_finite_algebraic_place,
+)
+
+x, y, z = symbols("x y z")
+
+
+def _source_model():
+    """Return the standard geometrically integral QQ(x, y), y**2 = x model."""
+    rational = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(1, x, domain=QQ)),
+    )
+    extension = AlgebraicExtension(Poly(y**2 - x, y, domain=rational.field()))
+    tower = rational.extend(extension)
+    return tower, extension, AlgebraicFunctionField(extension)
+
+
+def _quadratic_factor() -> Poly:
+    """A quadratic whose two roots lie in its exact root field."""
+    return Poly(z**2 - Rational(1, 18), z, domain=QQ)
+
+
+def test_base_change_rebuilds_a_preserved_target_and_commutes_with_d() -> None:
+    tower, extension, model = _source_model()
+    source_derivation = tower.derivation()
+
+    change = build_algebraic_constant_base_change(
+        model,
+        source_derivation,
+        _quadratic_factor(),
+    )
+
+    assert change.status is AlgebraicConstantBaseChangeStatus.CERTIFIED
+    assert change.certified
+    assert change.target_extension is not None
+    assert change.target_derivation is not None
+    assert change.target_model is not None
+    assert change.target_constant_field_analysis is not None
+
+    source_values = (
+        extension.field.from_sympy(x),
+        extension.field.generator,
+        extension.field.from_sympy(y / (x - 2)),
+    )
+    for source_value in source_values:
+        mapped_derivative = change.embed(source_derivation(source_value))
+        target_derivative = change.target_derivation(change.embed(source_value))
+        assert (
+            mapped_derivative - target_derivative == change.target_extension.field.zero
+        )
+
+
+def test_finite_closed_places_split_and_transport_local_residues() -> None:
+    tower, extension, model = _source_model()
+    change = build_algebraic_constant_base_change(
+        model,
+        tower.derivation(),
+        _quadratic_factor(),
+    )
+    assert change.certified
+    assert change.target_constants is not None
+
+    alpha = change.target_constants.ext.root
+    field = extension.field
+    first = model.finite_places(Poly(x - 2, x, domain=QQ))[0]
+    second = model.finite_places(Poly(x - 8, x, domain=QQ))[0]
+    first_split = split_finite_algebraic_place(change, first)
+    second_split = split_algebraic_place(change, second)
+
+    for source_place, split in ((first, first_split), (second, second_split)):
+        assert split.status is AlgebraicPlaceSplitStatus.SPLIT
+        assert split.split
+        assert len(split.target_places) == 2
+        assert split.ramification_indices == (1, 1)
+        assert sum(place.degree for place in split.target_places) == source_place.degree
+
+    # These are the local residues of y/((x - 2)(x - 8))*dx at x = 2, 8.
+    first_residue = first.reduce_local(field.from_sympy(y / (x - 8)))
+    second_residue = second.reduce_local(field.from_sympy(y / (x - 2)))
+    first_values = first_split.transport_residue(first_residue)
+    second_values = second_split.transport_residue(second_residue)
+
+    assert {
+        place.residue_field.to_sympy(value)
+        for place, value in zip(first_split.target_places, first_values, strict=True)
+    } == {alpha, -alpha}
+    assert {
+        place.residue_field.to_sympy(value)
+        for place, value in zip(second_split.target_places, second_values, strict=True)
+    } == {2 * alpha, -2 * alpha}
+
+
+def test_cubic_factor_that_does_not_split_in_its_root_field_is_unsupported() -> None:
+    tower, _extension, model = _source_model()
+
+    change = build_algebraic_constant_base_change(
+        model,
+        tower.derivation(),
+        Poly(z**3 - 2, z, domain=QQ),
+    )
+
+    assert change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED
+    assert not change.certified
+    assert change.target_extension is None
+    assert "does not split completely" in change.detail
+
+
+def test_infinite_places_are_an_explicit_boundary_of_the_finite_layer() -> None:
+    tower, _extension, model = _source_model()
+    change = build_algebraic_constant_base_change(
+        model,
+        tower.derivation(),
+        _quadratic_factor(),
+    )
+    infinity = model.infinite_places()[0]
+
+    split = split_algebraic_place(change, infinity)
+
+    assert split.status is AlgebraicPlaceSplitStatus.UNSUPPORTED
+    assert "infinity" in split.detail
