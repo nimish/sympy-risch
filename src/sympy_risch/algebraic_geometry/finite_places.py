@@ -825,7 +825,11 @@ class LocalLaurentExpansion:
             reconstructed += (
                 self.place.lift_residue(coefficient) * uniformizer**exponent
             )
-        return reconstructed == self.element
+        # ``ExtensionElement`` equality can retain different unreduced
+        # rational-function presentations of the same field element.  Test
+        # equality in the field instead, so an exact cancellation is not
+        # mistaken for a failed local expansion.
+        return reconstructed - self.element == self.element.ext.zero
 
 
 def _decompose_finite_places(

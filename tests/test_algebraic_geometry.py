@@ -375,6 +375,21 @@ def test_infinity_chart_finds_ramification_and_exact_expansions() -> None:
     assert expansion.reconstructs
 
 
+def test_infinity_local_expansion_accepts_equivalent_fraction_presentations() -> None:
+    """Exact local cancellation need not preserve SymPy's fraction presentation."""
+    extension = algebraic_extension(y**2 - x)
+    field = extension.field
+    model = AlgebraicFunctionField(extension)
+
+    (place,) = model.infinite_places()
+    expansion = place.local_expansion(field.from_sympy(x * y / (x - 1)), stop=0)
+
+    assert expansion.start == -1
+    assert place.residue_field.to_sympy(expansion.coefficient(-1)) == 1
+    assert expansion.remainder_valuation == 1
+    assert expansion.reconstructs
+
+
 def test_unramified_infinity_splits_on_an_even_hyperelliptic_model() -> None:
     extension = algebraic_extension(y**2 - x**2 - 1)
     field = extension.field
