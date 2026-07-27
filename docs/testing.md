@@ -143,6 +143,11 @@ removes a pole, algebraic constant fields, and degree-four closed-place
 coordinate flattening. Its nonspecial bounded search is allowed to certify a
 global basis only by delegating to the existing Riemann--Roch certificate
 after reaching the theorem dimension.
+`tests/test_algebraic_principal.py` checks the separate bounded
+principal-divisor semialgorithm: it reconstructs genus-zero and
+positive-genus witnesses through their complete divisors, never turns an
+exhausted degree-zero slice into a negative decision, and treats nonzero
+degree as the complete elementary obstruction.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

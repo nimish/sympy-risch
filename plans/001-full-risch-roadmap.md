@@ -862,6 +862,9 @@ separate commit after focused and full-suite verification.
      `product_P Norm_{k(P)/C}(Z-res_P)`, including branch and infinity places,
      without pretending independent local residue fields are already a common
      constant extension.
+   - [x] Add a bounded, globally verified principal-divisor semialgorithm for
+     degree-zero divisors; exhaustion is incomplete, while nonzero degree is
+     the complete obstruction.
    - [ ] Construct compatible constant base changes and split-place maps, then
      turn profile roots into residue-basis/divisor candidates.
 12. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing

@@ -9,6 +9,11 @@ from .function_field import (
 )
 from .infinity import InfiniteAlgebraicPlace
 from .orders import AlgebraicFractionalIdeal, AlgebraicOrder
+from .principal import (
+    AlgebraicPrincipalDivisorSearch,
+    AlgebraicPrincipalDivisorStatus,
+    search_algebraic_principal_divisor,
+)
 
 __all__ = [
     "AlgebraicDifferential",
@@ -16,10 +21,13 @@ __all__ = [
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",
     "AlgebraicOrder",
+    "AlgebraicPrincipalDivisorSearch",
+    "AlgebraicPrincipalDivisorStatus",
     "FiniteAlgebraicPlace",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
     "integral_closure",
     "polynomial_order",
+    "search_algebraic_principal_divisor",
 ]

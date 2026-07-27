@@ -1004,6 +1004,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
 | Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, and degree-one-pole rational parameters; arbitrary divisors return `UNSUPPORTED` |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
+| Bounded algebraic principal-divisor search | Low-level exact semialgorithm: verifies a supplied-bound witness for degree-zero `D`, returns `INCOMPLETE` on finite-slice exhaustion, and proves only the nonzero-degree obstruction |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |
@@ -1036,6 +1037,7 @@ principal groups are:
 | Algebraic all-place residue profiles | `build_algebraic_residue_profile` |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
+| Bounded principal-divisor search | `AlgebraicPrincipalDivisorSearch`, `search_algebraic_principal_divisor` |
 | Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |
 | Mixed-prefix backend feasibility | `TowerRepresentationProposal`, `analyze_tower_representation`, `TowerRepresentationOutcome` |
 

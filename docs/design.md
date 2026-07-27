@@ -1081,7 +1081,10 @@ model. The collector now feeds a closed-place residue profile whose roots are
 the full finite/ramified/infinite residue multiset. The next algebraic
 decisions are global: compatible base change and place splitting, a residue
 basis over the necessary algebraic constant extension, and principal/torsion
-divisor-class solving for logarithmic reconstruction. In
+divisor-class solving for logarithmic reconstruction. A bounded exact
+principal-divisor semialgorithm now searches `L(-D)` for a degree-zero divisor
+and verifies any witness through its full divisor; exhausting the requested
+finite lattice slice is intentionally only incomplete. In
 parallel, the nonzero zero-residue branch needs exactness decisions for
 second-kind differentials and the Risch equation on an algebraic curve.
 Recursive composition with transcendental levels comes after those field-level
@@ -1101,7 +1104,10 @@ constructed closed residue field is flattened in its native finite `C`-basis, so
 degree-`d` local coefficient supplies `d` exact scalar equations rather than
 being mistaken for a rational point. Its bounded ideal-lattice search upgrades
 to a complete nonspecial space only when it reaches Riemann--Roch's theorem
-dimension; exhaustion is explicitly incomplete. These local coordinates do
+dimension; exhaustion is explicitly incomplete. The same finite-lattice
+kernel supplies a bounded exact principal-divisor search: for degree-zero
+`D`, any nonzero element of `L(-D)` has divisor exactly `D`, and is checked
+against the full global divisor. These local coordinates do
 not yet choose a common algebraic-closure embedding across different places;
 that is still part of residue-basis descent for logarithmic reconstruction.
 
@@ -1359,6 +1365,9 @@ divisor stage; they are not yet a logarithmic answer.
   model. Build and certify the all-place closed-residue profile from that
   data, while retaining the old plane-model route as an independent
   unramified finite oracle.
+- [x] Search a finite exact lattice slice for a degree-zero principal-divisor
+  witness, verify it globally, and distinguish the degree obstruction from a
+  bounded incomplete search.
 - [ ] Compute a rational basis for the algebraic residues in their minimal
   constant extension.
 - [ ] Construct the divisor associated with each residue-basis coefficient

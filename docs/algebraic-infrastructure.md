@@ -237,6 +237,22 @@ search into a complete global space only after its dimension reaches the
 nonspecial Riemann--Roch value. A smaller slice is `INCOMPLETE`, never a
 negative integration or global-space decision.
 
+### Bounded principal-divisor search
+
+`search_algebraic_principal_divisor(model, D, analysis, max_x_degree=n)` is a
+separate, exact semialgorithm for the one global task needed by a logarithmic
+term. For a degree-zero divisor `D`, it searches the finite ideal-lattice
+slice of `L(-D)`. A nonzero candidate `f` has
+`div(f) - D >= 0`; both divisors have degree zero, so the implementation then
+checks the full divisor identity `div(f) = D`. This is a constructive
+principal-divisor certificate, not a heuristic guess.
+
+An empty slice is reported as `INCOMPLETE`: a larger bound may contain a
+witness. The only complete negative result is the elementary degree
+obstruction `deg(D) != 0`, since every principal divisor has degree zero.
+General degree-zero non-principality and torsion still require divisor-class
+algorithms; the bounded routine deliberately does not claim either.
+
 ## Public API
 
 | Structure | Purpose |
@@ -262,6 +278,8 @@ negative integration or global-space decision.
 | `compute_riemann_roch_space` | Certified first-scope global-space service |
 | `AlgebraicValuationKernel` | Exact `V ∩ L(D)` in a declared finite subspace |
 | `search_nonspecial_lattice_slice` | Bounded lattice search with a theorem-backed completion check |
+| `AlgebraicPrincipalDivisorSearch` | Verified witness or honest bounded principal-divisor search outcome |
+| `search_algebraic_principal_divisor` | Search a finite `L(-D)` slice for an exact principal witness |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from

@@ -104,12 +104,15 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "AlgebraicFractionalIdeal",
         "AlgebraicFunctionField",
         "AlgebraicOrder",
+        "AlgebraicPrincipalDivisorSearch",
+        "AlgebraicPrincipalDivisorStatus",
         "FiniteAlgebraicPlace",
         "InfiniteAlgebraicPlace",
         "IntegralClosureResult",
         "LocalLaurentExpansion",
         "integral_closure",
         "polynomial_order",
+        "search_algebraic_principal_divisor",
     }
     assert all(hasattr(algebraic_geometry, name) for name in algebraic_geometry.__all__)
     assert not hasattr(algebraic_geometry, "AlgebraicPlace")
