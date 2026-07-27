@@ -7,6 +7,12 @@ from dataclasses import field as dataclass_field
 from itertools import count, product
 from typing import Protocol, cast
 
+from flint import (
+    fmpz_mod_poly_ctx,
+    fq_default,
+    fq_default_ctx,
+    fq_default_poly_ctx,
+)
 from sympy.core.expr import Expr
 from sympy.core.singleton import S
 from sympy.core.symbol import Dummy, Symbol
@@ -130,6 +136,93 @@ def _embed_base_residue_value(
     return residue_field.dtype(residue_field.ring.new(coefficient), residue_field)
 
 
+def _finite_extension_to_flint(
+    field: FiniteExtension,
+) -> tuple[fq_default_ctx, fq_default_poly_ctx]:
+    """Build the matching python-flint finite field and polynomial context."""
+    constants = field.domain
+    if not constants.is_FiniteField:
+        raise NotImplementedError("the residue field is not finite")
+    characteristic = int(constants.characteristic())
+    polynomial_context = fmpz_mod_poly_ctx(characteristic)
+    modulus = polynomial_context(
+        [int(coefficient) for coefficient in reversed(field.mod.to_list())]
+    )
+    finite_context = fq_default_ctx(
+        modulus=modulus,
+        var=str(field.modulus.gens[0]),
+    )
+    return finite_context, fq_default_poly_ctx(finite_context)
+
+
+def _extension_element_to_flint(
+    value: ExtensionElement,
+    context: fq_default_ctx,
+) -> fq_default:
+    """Convert a SymPy finite-extension value to its flint counterpart."""
+    generator = context.gen()
+    result = context(0)
+    for power in range(value.ext.rank - 1, -1, -1):
+        result = result * generator + context(int(value.rep.nth(power)))
+    return result
+
+
+def _flint_to_extension_element(
+    field: FiniteExtension,
+    value: fq_default,
+) -> ExtensionElement:
+    """Convert one flint finite-field value back to SymPy's native field."""
+    representative = Poly.from_dict(
+        {
+            (power,): field.domain.convert(int(coefficient))
+            for power, coefficient in enumerate(value.to_list())
+            if int(coefficient)
+        },
+        field.modulus.gens[0],
+        domain=field.domain,
+    )
+    return field.dtype(representative.rep, field)
+
+
+def _factor_residue_polynomial(
+    polynomial: Poly,
+) -> tuple[tuple[Poly, int], ...]:
+    """Factor over an exact residue field, using flint for ``GF(p^d)``."""
+    try:
+        _, factor_list = polynomial.factor_list()
+    except NotImplementedError:
+        field = polynomial.domain
+        if not isinstance(field, FiniteExtension) or not field.domain.is_FiniteField:
+            raise
+        finite_context, polynomial_context = _finite_extension_to_flint(field)
+        coefficients = [
+            _extension_element_to_flint(
+                cast(ExtensionElement, polynomial.rep.nth(power)),
+                finite_context,
+            )
+            for power in range(polynomial.degree() + 1)
+        ]
+        _unit, flint_factors = polynomial_context(coefficients).factor()
+        factors: list[tuple[Poly, int]] = []
+        for factor, multiplicity in flint_factors:
+            factors.append(
+                (
+                    Poly.from_dict(
+                        {
+                            (power,): _flint_to_extension_element(field, coefficient)
+                            for power, coefficient in enumerate(factor.coeffs())
+                            if coefficient
+                        },
+                        polynomial.gens[0],
+                        domain=field,
+                    ).monic(),
+                    int(multiplicity),
+                )
+            )
+        return tuple(factors)
+    return tuple((factor.monic(), multiplicity) for factor, multiplicity in factor_list)
+
+
 @dataclass(frozen=True, slots=True)
 class _SeparatorData:
     """A certified primitive element of the reduced residue algebra."""
@@ -178,14 +271,11 @@ def _separating_residue_element(
             domain=context.field,
         )
         try:
-            _, factor_list = characteristic_polynomial.factor_list()
+            factors = _factor_residue_polynomial(characteristic_polynomial)
         except NotImplementedError as exc:
             raise NotImplementedError(
-                "SymPy could not factor the exact residue-algebra polynomial"
+                "the exact residue-algebra polynomial could not be factored"
             ) from exc
-        factors = tuple(
-            (factor.monic(), multiplicity) for factor, multiplicity in factor_list
-        )
         if sum(factor.degree() for factor, _ in factors) != reduced_rank:
             continue
 

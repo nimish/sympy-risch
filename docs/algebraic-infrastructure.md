@@ -21,8 +21,7 @@ provide as a coherent exact API:
 It deliberately does **not** implement the general later Risch components:
 
 - compatible algebraic constant descent through arbitrary composita;
-- general principal- or torsion-divisor solving;
-- complete exactness decisions for arbitrary second-kind differentials; or
+- complete elementary decisions for arbitrary second-kind differentials; or
 - a general algebraic-curve Risch differential-equation solver.
 
 Those algorithms can now consume a tested algebraic substrate rather than
@@ -38,16 +37,19 @@ L = C(x)[y]/(m(y))
 
 with these requirements:
 
-1. `C` is an exact characteristic-zero field.
+1. `C` is an exact field.
 2. `m` is monic and irreducible over `C(x)`.
-3. SymPy can factor the univariate residue polynomials created over `C` and
-   its exact algebraic extensions.
+3. The available SymPy/python-flint backend can factor the residue
+   polynomials created over `C` and its exact algebraic extensions.
 4. The rational base has one generator `x`.
 
 `QQ` and SymPy algebraic number fields are the primary tested constant
-domains. Positive characteristic is rejected by maximal-order construction:
-the trace-radical identity used here needs a separate inseparability and wild
-ramification treatment there.
+domains for differential integration. The neutral geometry layer additionally
+supports prime finite fields for separable polynomial models whose polynomial
+order has square-free discriminant. In that case square-free discriminant
+certifies maximality directly; repeated-discriminant models are rejected
+rather than passed through the characteristic-zero trace-radical algorithm.
+`DifferentialTower` remains characteristic zero.
 
 Order, ideal, and place arithmetic remains valid for a constant extension
 such as `QQ(x)(sqrt(2))`. The reported genus assumes that `C` is the exact
@@ -561,9 +563,26 @@ does not inspect a hyperelliptic equation.
 class. Reaching zero returns the first positive order and a reconstructed
 field element `v` with `div(v) = n*D`. Exhausting `max_order` is
 `INCONCLUSIVE`, because characteristic-zero iteration alone cannot prove that
-the order is infinite. A total standalone torsion decision still needs
-Trager's finite-prime Jacobian reductions to obtain or exclude a candidate
-order.
+the order is infinite.
+
+`finite_divisor_class_order` reduces a `QQ(x)[y]` curve, its finite and
+reciprocal maximal orders, and the divisor modulo a supported good prime. It
+checks order-basis reduction and genus preservation, then searches through
+the Weil bound to obtain the exact order in the finite Jacobian.
+`decide_algebraic_divisor_torsion` combines two such primes. If the
+characteristic-zero order is `n` and the reduced order is `m_p`, injectivity
+on prime-to-`p` torsion implies that `n/m_p` is a power of `p`. Thus two
+distinct primes give the only candidate
+
+```text
+n = lcm(m_p, m_q).
+```
+
+Incompatible finite orders prove nontorsion. A compatible candidate is always
+replayed by the characteristic-zero divisor-class algorithm before it is
+reported as torsion. Unsupported or bad reductions are skipped; if the
+configured prime list supplies fewer than two good reductions, the result is
+`UNSUPPORTED`, not a negative claim.
 
 ### Pell--Abel target example
 
@@ -591,11 +610,12 @@ Equivalently, the degree-zero divisor of residues is a 29-torsion
 principal-divisor relation between the two infinite places.
 
 This is now a normal end-to-end regression. Calling `integrate_algebraic`
-with `torsion_order_bound=29` reduces the primitive infinity-place class,
-finds its first zero multiple at 29, reconstructs `v`, and verifies the
-original differential as `D(v)/v`. No Pell equation or hyperelliptic
-continued fraction is special-cased. Omitting the bound leaves positive
-torsion search disabled until finite-prime order selection is implemented.
+reduces the primitive infinity-place class modulo 3 and 5, obtains order 29
+in both finite Jacobians, replays that order in characteristic zero,
+reconstructs `v`, and verifies the original differential as `D(v)/v`. No
+Pell equation or hyperelliptic continued fraction is special-cased.
+`torsion_order_bound=29` remains available only as an explicit bounded-search
+override.
 
 ## Public API
 
@@ -611,6 +631,9 @@ torsion search disabled until finite-prime order selection is implemented.
 | `AlgebraicDivisor` | Immutable formal sum of closed places |
 | `ReducedAlgebraicDivisorClass` | Bounded representative plus its Riemann--Roch correction |
 | `AlgebraicTorsionSearch` | Exact positive torsion relation or an explicit bounded-search boundary |
+| `AlgebraicFunctionFieldReduction` | Verified good-prime reduction of a curve and its orders |
+| `FiniteDivisorClassOrder` | Exact order of a reduced class within the Weil bound |
+| `AlgebraicDivisorTorsionDecision` | Two-prime torsion, nontorsion, or unsupported decision |
 | `AlgebraicDifferential` | Differential represented as `h dx` |
 | `AlgebraicFunctionField` | Cached global owner for orders and places |
 | `AlgebraicConstantFieldAnalysis` | Narrow, witnessed constant-field decision |
@@ -971,6 +994,10 @@ Brian L. Miller's 2012 dissertation:
   the Logarithmic Part*](https://ttu-ir.tdl.org/server/api/core/bitstreams/6a1324fa-b43d-4efe-9cfe-a95480f2dc86/content)
   (Texas Tech University, 2012), especially its residue polynomial and divisor
   reconstruction route.
+- Daniel Schultz,
+  [*Trager's Algorithm for Integration of Algebraic Functions Revisited*](https://bpb-us-e1.wpmucdn.com/sites.psu.edu/dist/d/34699/files/2016/12/IntegrationOnCurves-2hhuby8.pdf),
+  especially §4.2 on good reduction, the Weil bound, and two-prime torsion
+  decisions.
 
 See `references/README.md` for the locally available sources and provenance.
 
@@ -987,8 +1014,9 @@ The next algebraic Risch implementation may assume all of the following:
 7. finite divisor/fractional-ideal conversion.
 
 It now also has complete Hess Riemann--Roch spaces, reduced divisor-class
-arithmetic, positive torsion witness recovery, displayed-constant logarithmic
-reconstruction, residue-free exactness, and an integrating-factor RDE
-endpoint. It must still implement finite-prime Jacobian order selection for a
-total torsion decision, general splitting-field residue descent, and general
-algebraic RDEs. Those are intentionally separate algorithms.
+arithmetic, good-prime finite Jacobian order selection over `QQ`, verified
+torsion/nontorsion decisions, displayed-constant logarithmic reconstruction,
+residue-free exactness, and an integrating-factor RDE endpoint. It must still
+implement general splitting-field residue descent, algebraic-number-field
+prime reduction, and general algebraic RDEs. Those are intentionally separate
+algorithms.

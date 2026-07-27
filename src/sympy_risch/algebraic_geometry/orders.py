@@ -79,6 +79,30 @@ def _matrix_from_columns(
     )
 
 
+def _polynomial_matrix_to_parent(
+    matrix: DomainMatrix,
+    extension: AlgebraicExtension,
+) -> DomainMatrix:
+    """Embed a ``C[x]`` matrix natively into ``C(x)``."""
+    parent, constants, variable, polynomial_ring = _polynomial_ring(extension)
+    if matrix.domain != polynomial_ring:
+        raise ValueError("the matrix does not use the function-field polynomial ring")
+    return DomainMatrix(
+        [
+            [
+                _polynomial_parent_element(
+                    Poly.from_dict(entry.to_dict(), variable, domain=constants),
+                    parent,
+                )
+                for entry in row
+            ]
+            for row in matrix.to_list()
+        ],
+        matrix.shape,
+        parent,
+    )
+
+
 def _row_lattice_basis(
     rows: tuple[tuple[FracElement, ...], ...],
     extension: AlgebraicExtension,
@@ -166,7 +190,7 @@ def _integrality_lattice(
     """
     parent, constants, variable, polynomial_ring = _polynomial_ring(extension)
     if matrix.domain != parent:
-        matrix = matrix.convert_to(parent)
+        matrix = _polynomial_matrix_to_parent(matrix, extension)
     row_count, column_count = matrix.shape
     if column_count != extension.field.rank:
         raise ValueError("integrality constraints have the wrong field rank")
@@ -468,8 +492,10 @@ class AlgebraicOrder:
     @property
     def codifferent(self) -> AlgebraicFractionalIdeal:
         r"""Return ``{a : Tr(a*self) is contained in C[x]}``."""
-        parent = self.extension.parent_field
-        trace_parent = self.trace_pairing_matrix().convert_to(parent)
+        trace_parent = _polynomial_matrix_to_parent(
+            self.trace_pairing_matrix(),
+            self.extension,
+        )
         try:
             coordinate_matrix = trace_parent.inv()
         except DMNonInvertibleMatrixError as exc:

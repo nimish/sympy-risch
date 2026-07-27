@@ -175,7 +175,7 @@ def _common_denominator(
 
 def _algebraic_constant_domain(constants: Domain) -> Domain:
     """Return a constant domain that supports algebraic root adjunction."""
-    if constants.is_QQ or constants.is_AlgebraicField:
+    if constants.is_QQ or constants.is_AlgebraicField or constants.is_FiniteField:
         return constants
     as_algebraic_field = getattr(constants, "as_AlgebraicField", None)
     if as_algebraic_field is None:

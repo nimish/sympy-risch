@@ -8,6 +8,7 @@ from typing import cast
 from sympy.core.expr import Expr
 from sympy.core.numbers import AlgebraicNumber
 from sympy.core.symbol import Dummy, Symbol
+from sympy.polys.agca.extensions import FiniteExtension
 from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
 from sympy.polys.numberfields import field_isomorphism
@@ -61,6 +62,21 @@ class _BaseResidueContext:
             )
 
         alias = Dummy(f"{variable.name}_bar")
+        if algebraic_constants.is_FiniteField:
+            finite_prime = Poly.from_dict(
+                algebraic_prime.rep.to_dict(),
+                alias,
+                domain=algebraic_constants,
+            )
+            residue_field = FiniteExtension(finite_prime)
+            return cls(
+                extension,
+                normalized,
+                residue_field,
+                alias,
+                residue_field.generator,
+                None,
+            )
         residue_field = algebraic_constants.alg_field_from_poly(
             algebraic_prime,
             alias=alias,

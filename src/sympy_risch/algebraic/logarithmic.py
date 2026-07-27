@@ -33,6 +33,10 @@ from ..algebraic_geometry.divisor_classes import (
     search_algebraic_divisor_torsion,
 )
 from ..algebraic_geometry.finite_places import FiniteAlgebraicPlace
+from ..algebraic_geometry.finite_torsion import (
+    AlgebraicDivisorTorsionStatus,
+    decide_algebraic_divisor_torsion,
+)
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ..algebraic_geometry.principal import (
     AlgebraicPrincipalityDecision,
@@ -547,10 +551,10 @@ def reconstruct_constant_residue_logarithms(
     basis ``(1, alpha, ..., alpha**(d - 1))``.  Every rational coordinate
     gives an integral residue divisor and, when that divisor has a verified
     principal witness, one term in the logarithmic part.  If the primitive
-    coordinate divisor is nonprincipal, reduced divisor-class arithmetic
-    searches for a positive torsion relation through ``torsion_order_bound``.
-    A found relation is exact; exhausting the bound remains an unsupported
-    boundary rather than a non-elementarity result.
+    coordinate divisor is nonprincipal, finite-prime divisor-class arithmetic
+    determines a candidate torsion order and verifies it in characteristic
+    zero.  Supplying ``torsion_order_bound`` instead requests the older bounded
+    positive search.
 
     This is constructive descent over the *displayed* algebraic constants;
     local residues outside that field still require compatible constant base
@@ -694,16 +698,27 @@ def reconstruct_constant_residue_logarithms(
                 )
             decision = decide_algebraic_principality(collection.model, divisor)
             coefficient = constants.convert(basis_element * scale)
-            if (
-                decision.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
-                and torsion_order_bound is not None
-            ):
-                search = search_algebraic_divisor_torsion(
-                    collection.model,
-                    divisor,
-                    max_order=torsion_order_bound,
-                )
-                if search.status is AlgebraicTorsionStatus.TORSION:
+            if decision.status is AlgebraicPrincipalityStatus.NONPRINCIPAL:
+                search = None
+                if torsion_order_bound is not None:
+                    search = search_algebraic_divisor_torsion(
+                        collection.model,
+                        divisor,
+                        max_order=torsion_order_bound,
+                    )
+                else:
+                    torsion = decide_algebraic_divisor_torsion(
+                        collection.model,
+                        divisor,
+                    )
+                    if (
+                        torsion.status is AlgebraicDivisorTorsionStatus.TORSION
+                        and torsion.characteristic_zero_search is not None
+                    ):
+                        search = torsion.characteristic_zero_search
+                if search is not None and (
+                    search.status is AlgebraicTorsionStatus.TORSION
+                ):
                     if search.order is None:
                         raise ValueError("a torsion relation omitted its order")
                     divisor = divisor.scale(search.order)
@@ -790,9 +805,10 @@ def integrate_algebraic(
     complete function-field service. A residue-free remainder is then tested
     for an algebraic primitive using a complete certified Riemann--Roch space.
     It returns structured boundaries for algebraic residue base change and
-    unsupported exactness spaces.  Positive divisor-class torsion is searched
-    through ``torsion_order_bound``; ``None`` disables that optional
-    semidecision.
+    unsupported exactness spaces.  By default, positive divisor-class torsion
+    is decided from two good finite reductions and verified in characteristic
+    zero.  ``torsion_order_bound`` remains available as an explicit bounded
+    positive search.
     """
     collection = collect_algebraic_all_place_residues(
         integrand,

@@ -25,6 +25,7 @@ from sympy.polys.polytools import Poly
 from sympy.simplify.radsimp import fraction
 
 from .._typing import FieldElement, SupportsAsExpr
+from ._finite_field import finite_field_function_polynomial_is_irreducible
 
 CoefficientDerivation = Callable[[object], FieldElement]
 
@@ -96,12 +97,21 @@ def _require_exact_characteristic_zero_field(
     role: str,
 ) -> None:
     """Validate the common coefficient-field contract of tower objects."""
+    _require_exact_field(domain, role=role)
+    if domain.characteristic() != 0:
+        raise ValueError("differential towers require characteristic zero")
+
+
+def _require_exact_field(
+    domain: Domain,
+    *,
+    role: str,
+) -> None:
+    """Validate an exact field without imposing a differential characteristic."""
     if not domain.is_Field:
         raise ValueError(f"{role} must be a field")
     if not domain.is_Exact:
         raise ValueError(f"{role} must be exact")
-    if domain.characteristic() != 0:
-        raise ValueError("differential towers require characteristic zero")
 
 
 def _contains_finite_extension(domain: Domain) -> bool:
@@ -355,7 +365,7 @@ class AlgebraicExtension:
             raise TypeError("minimal_polynomial must be a SymPy Poly")
         if len(modulus.gens) != 1:
             raise ValueError("an algebraic extension needs exactly one generator")
-        _require_exact_characteristic_zero_field(
+        _require_exact_field(
             modulus.domain,
             role="the parent domain",
         )
@@ -370,7 +380,12 @@ class AlgebraicExtension:
             raise ValueError("the minimal polynomial must be monic")
         if modulus.gcd(modulus.diff()).degree() != 0:
             raise ValueError("the minimal polynomial must be square-free")
-        if modulus.is_irreducible is not True:
+        irreducible = (
+            finite_field_function_polynomial_is_irreducible(modulus)
+            if modulus.domain.characteristic() != 0
+            else modulus.is_irreducible is True
+        )
+        if not irreducible:
             raise ValueError("the minimal polynomial must be irreducible")
         if self.generator in _domain_symbols(self.parent_field):
             raise ValueError(
@@ -514,9 +529,9 @@ class AlgebraicExtension:
     ) -> Poly:
         r"""Return the minimal polynomial of ``element`` over the parent field.
 
-        In characteristic zero the extension is separable.  The
-        characteristic polynomial is therefore a positive power of the
-        element's minimal polynomial, so its monic square-free part is exact.
+        The defining polynomial is required to be separable, so the
+        characteristic polynomial is a positive power of the element's
+        minimal polynomial and its monic square-free part is exact.
         """
         return self.characteristic_polynomial(element, indeterminate).sqf_part().monic()
 

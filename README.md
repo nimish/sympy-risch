@@ -28,7 +28,8 @@ recursive radical and parametric logarithmic-derivative decisions over
 primitive towers, primitive RDE weak normalization and cancellation,
 algebraic Hermite reduction, certified algebraic maximal orders and
 fractional ideals, ramified and infinite places, exact valuations and
-divisors, Trager finite-residue polynomials for supported algebraic models,
+divisors, good-prime finite Jacobian torsion decisions over `QQ`, Trager
+finite-residue polynomials for supported algebraic models,
 an independent Czichowski Gröbner-basis checker for rational LRT logarithmic
 parts, generalized monomial residue reduction, family-aware
 exact-derivative decisions, and Risch differential-equation solvers.

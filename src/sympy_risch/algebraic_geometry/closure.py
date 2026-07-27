@@ -190,10 +190,6 @@ def integral_closure(
     if not isinstance(extension, AlgebraicExtension):
         raise TypeError("integral closure requires an AlgebraicExtension")
     _, constants, _ = _base_polynomial_ring(extension)
-    if constants.characteristic() != 0:
-        raise NotImplementedError(
-            "trace-radical maximal orders currently require characteristic zero"
-        )
     if not isinstance(max_refinements, int) or max_refinements <= 0:
         raise ValueError("max_refinements must be a positive integer")
 
@@ -201,6 +197,24 @@ def integral_closure(
     if current.extension != extension:
         raise ValueError("the initial order belongs to a different extension")
     start = current
+    if constants.characteristic() != 0:
+        _, factors = current.discriminant.factor_list()
+        if any(multiplicity >= 2 for _factor, multiplicity in factors):
+            raise NotImplementedError(
+                "positive-characteristic maximal orders currently require a "
+                "square-free polynomial-order discriminant"
+            )
+        result = IntegralClosureResult(
+            initial_order=start,
+            order=current,
+            steps=(),
+            tested_primes=(),
+            maximality_certificates=(),
+        )
+        if not result.is_certified:
+            raise ValueError("square-free discriminant maximality did not certify")
+        return result
+
     steps: list[IntegralClosureStep] = []
     tested_primes: list[Poly] = []
     final_certificates: tuple[OrderMaximalityCertificate, ...] = ()

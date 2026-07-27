@@ -607,14 +607,40 @@ def test_refinement_limit_is_an_explicit_guard() -> None:
         integral_closure(extension, max_refinements=1)
 
 
-def test_positive_characteristic_curve_is_explicitly_unsupported() -> None:
+def test_squarefree_discriminant_curve_over_finite_field_is_supported() -> None:
     from sympy.polys.domains import GF
 
     parent = GF(5).frac_field(x)
-    with pytest.raises(ValueError, match="characteristic zero"):
-        AlgebraicExtension(
-            Poly(y**2 - x, y, domain=parent),
-        )
+    extension = AlgebraicExtension(Poly(y**2 - x, y, domain=parent))
+    model = AlgebraicFunctionField(extension)
+
+    assert model.genus == 0
+    assert len(model.finite_places(Poly(x, x, domain=GF(5)))) == 1
+    assert len(model.infinite_places()) == 1
+
+
+def test_unresolved_bad_finite_field_model_is_rejected() -> None:
+    from sympy.polys.domains import GF
+
+    parent = GF(5).frac_field(x)
+    extension = AlgebraicExtension(
+        Poly(y**2 - x**2 * (x + 1), y, domain=parent),
+    )
+
+    with pytest.raises(
+        NotImplementedError,
+        match="square-free polynomial-order discriminant",
+    ):
+        AlgebraicFunctionField(extension)
+
+
+def test_reducible_finite_field_relation_is_rejected() -> None:
+    from sympy.polys.domains import GF
+
+    parent = GF(5).frac_field(x)
+
+    with pytest.raises(ValueError, match="irreducible"):
+        AlgebraicExtension(Poly(y**2 - x**2, y, domain=parent))
 
 
 def test_algebraic_constant_field_survives_place_construction() -> None:

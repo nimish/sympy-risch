@@ -140,10 +140,10 @@ def _weak_popov_reduce(
             left, right = right, left
             left_degree, right_degree = right_degree, left_degree
 
-        leading = rows[left][column].LC()
-        other_leading = rows[right][column].LC()
+        leading = constants.convert(rows[left][column].LC())
+        other_leading = constants.convert(rows[right][column].LC())
         shift = left_degree - right_degree
-        coefficient = -leading / other_leading
+        coefficient = -constants.exquo(leading, other_leading)
         multiplier = Poly.from_dict({(shift,): coefficient}, variable, domain=constants)
         rows[left] = [
             entry + multiplier * other

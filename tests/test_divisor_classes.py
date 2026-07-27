@@ -121,7 +121,6 @@ def test_degree_29_genus_two_logarithm_is_found_by_divisor_classes() -> None:
         integrand,
         tower.derivation(),
         IntegralBasis.power_basis(extension),
-        torsion_order_bound=29,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY

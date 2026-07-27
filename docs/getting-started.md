@@ -942,12 +942,14 @@ assert decision.antiderivative == 2 * log(y)
 assert decision.reconstructs
 ```
 
-For a nonprincipal coordinate divisor whose class is torsion, pass a positive
-`torsion_order_bound`. The search is general divisor-class iteration; it does
-not special-case hyperelliptic or Pell--Abel curves. A found relation is exact,
-while an exhausted bound leaves the result unsupported. The genus-2
-degree-29 example in the algebraic infrastructure guide is integrated with
-`torsion_order_bound=29`.
+For a nonprincipal coordinate divisor, `integrate_algebraic` automatically
+reduces the curve and class at two supported good primes. Compatible finite
+orders determine one characteristic-zero candidate, which is then verified
+by general divisor-class iteration; incompatible orders prove nontorsion.
+This does not special-case hyperelliptic or Pell--Abel curves.
+`torsion_order_bound` remains an optional explicit bounded-search override.
+The genus-2 degree-29 example in the algebraic infrastructure guide needs no
+order hint.
 
 Non-rational local residues return `NEEDS_CONSTANT_BASE_CHANGE`, and a nonzero residue-free
 remainder is tested for an algebraic primitive. If its primitive-pole space
@@ -1059,9 +1061,11 @@ composita from `QQ` and existing SymPy algebraic number fields. It currently
 adjoins only factors defined over `QQ` and retains deliberately narrow
 finite-place splitting support. Factors with genuinely algebraic
 coefficients and general splitting fields remain future algebraic work.
-Positive divisor-class torsion is available with an explicit search bound;
-finite-prime Jacobian reduction is still needed to choose that bound
-algorithmically and prove nontorsion.
+For curves over `QQ`, positive divisor-class torsion is selected
+algorithmically by supported good-prime reductions and verified over
+characteristic zero. Factors genuinely defined over algebraic constants,
+prime ideals of algebraic number fields, and unsupported bad models remain
+future work.
 
 ## Certify a first global algebraic space
 
@@ -1142,9 +1146,9 @@ boundary, not a mathematical claim about the integral.
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
 | Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; unavailable ideal arithmetic returns `UNSUPPORTED` |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
-| Algebraic divisor classes and positive torsion | General Riemann--Roch reduction relative to any effective positive-degree anchor; bounded searches reconstruct exact torsion witnesses, while exhaustion remains inconclusive |
+| Algebraic divisor classes and torsion | General Riemann--Roch reduction; supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly |
 | Algebraic principality decision | Generic AFF decision through primitive coefficient content and reduced class addition, with complete direct `L(-D)` fallback |
-| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension; principal coordinate divisors are automatic and positive torsion relations can be searched through an explicit order bound |
+| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension; principal coordinate divisors are automatic and `QQ` torsion orders are selected from good finite reductions |
 | Algebraic residue-free exactness | Uses the generic complete primitive-pole Riemann--Roch space; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |

@@ -13,6 +13,18 @@ from .divisor_classes import (
     search_algebraic_divisor_torsion,
 )
 from .finite_places import FiniteAlgebraicPlace, LocalLaurentExpansion
+from .finite_reduction import (
+    AlgebraicFunctionFieldReduction,
+    BadAlgebraicReduction,
+    reduce_algebraic_function_field,
+)
+from .finite_torsion import (
+    AlgebraicDivisorTorsionDecision,
+    AlgebraicDivisorTorsionStatus,
+    FiniteDivisorClassOrder,
+    decide_algebraic_divisor_torsion,
+    finite_divisor_class_order,
+)
 from .function_field import (
     AlgebraicDifferential,
     AlgebraicDivisor,
@@ -31,24 +43,32 @@ __all__ = [
     "AlgebraicConstantFieldExtension",
     "AlgebraicDifferential",
     "AlgebraicDivisor",
+    "AlgebraicDivisorTorsionDecision",
+    "AlgebraicDivisorTorsionStatus",
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",
+    "AlgebraicFunctionFieldReduction",
     "AlgebraicOrder",
     "AlgebraicPrincipalityDecision",
     "AlgebraicPrincipalityStatus",
     "AlgebraicTorsionSearch",
     "AlgebraicTorsionStatus",
+    "BadAlgebraicReduction",
     "FiniteAlgebraicPlace",
+    "FiniteDivisorClassOrder",
     "HessDivisorIdeals",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
     "ReducedAlgebraicDivisorClass",
+    "decide_algebraic_divisor_torsion",
     "decide_algebraic_principality",
     "extend_algebraic_constants",
+    "finite_divisor_class_order",
     "hess_divisor_ideals",
     "integral_closure",
     "polynomial_order",
     "reduce_algebraic_divisor_class",
+    "reduce_algebraic_function_field",
     "search_algebraic_divisor_torsion",
 ]

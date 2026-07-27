@@ -1107,10 +1107,12 @@ basis over the necessary algebraic constant extension, and divisor-class
 relations for logarithmic reconstruction. Displayed constants over `QQ` or a
 finite algebraic extension are expanded in an exact rational basis. Each
 coordinate divisor is reduced through complete Riemann--Roch spaces; its
-coefficient content gives a complete principality bound, and an optional
-positive torsion search can reconstruct a larger principal multiple. A found
-torsion relation is exact, while exhausting an arbitrary torsion bound is
-only an unsupported boundary. In
+coefficient content gives a complete principality bound. For curves over
+`QQ`, two supported good-prime reductions compute finite Jacobian class
+orders. Their prime-primary compatibility selects the only possible
+characteristic-zero torsion order or proves nontorsion, and every positive
+candidate is replayed exactly over `QQ`. Unsupported bad reductions remain an
+explicit boundary. In
 parallel, the nonzero zero-residue branch needs exactness decisions for
 second-kind differentials and the Risch equation on an algebraic curve.
 Recursive composition with transcendental levels comes after those field-level
@@ -1121,8 +1123,11 @@ finite/infinite ideal intersection, with smaller theorem-backed shortcuts for
 negative and zero divisors, supplied degree-zero witnesses, nonspecial bases,
 and powers of a degree-one-pole rational parameter. Reduced divisor-class
 arithmetic uses these spaces relative to any effective positive-degree
-anchor. A standalone total torsion decision still requires finite-prime
-Jacobian reduction to select or exclude a characteristic-zero order.
+anchor. The finite-prime service now reduces the finite and reciprocal
+maximal orders and the divisor, checks genus and degree preservation, and
+searches the finite class through a Weil bound. It currently handles prime
+reductions of `QQ` models; number-field primes and repeated-discriminant
+finite models remain outside its declared domain.
 
 The next layer computes an exact intersection `V ∩ L(D)` for a supplied finite
 constant subspace `V`, using all-place Laurent-coefficient constraints. Each
@@ -1405,8 +1410,9 @@ divisor stage; they are not yet a logarithmic answer.
   continue through compatible exact constant-field composita.
 - [x] Reduce degree-zero divisor classes generally and reconstruct positive
   torsion relations through an explicit order bound.
-- [ ] Add finite-prime Jacobian reductions for total torsion/nontorsion order
-  selection.
+- [x] Add good-prime finite Jacobian reductions over `QQ`, reconcile two
+  reduced orders, and replay the unique torsion candidate in characteristic
+  zero.
 - [ ] Implement exactness testing for differentials of the second kind.
 - [ ] Solve the Risch differential equation on an algebraic curve.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
@@ -1469,6 +1475,9 @@ exist.
   INRIA RR-3562, 1998.
 - Brian L. Miller, *On the Integration of Elementary Functions: Computing the
   Logarithmic Part*, PhD dissertation, Texas Tech University, 2012.
+- Daniel Schultz,
+  [*Trager's Algorithm for Integration of Algebraic Functions Revisited*](https://bpb-us-e1.wpmucdn.com/sites.psu.edu/dist/d/34699/files/2016/12/IntegrationOnCurves-2hhuby8.pdf),
+  especially §4.2 on two-prime torsion decisions.
 - Robert Risch, *The Problem of Integration in Finite Terms*.
 - Daniel Lazard and Renaud Rioboo, *Integration of Rational Functions:
   Rational Computation of the Logarithmic Part*.
