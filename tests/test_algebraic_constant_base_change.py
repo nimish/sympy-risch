@@ -1,6 +1,6 @@
 """Conservative algebraic-constant transport for closed finite places."""
 
-from sympy import Poly, Rational, symbols
+from sympy import Poly, Rational, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -39,6 +39,17 @@ def _quadratic_factor() -> Poly:
     return Poly(z**2 - Rational(1, 18), z, domain=QQ)
 
 
+def _algebraic_source_model():
+    """Return QQ(sqrt(2))(x, y), y**2 = x with its standard derivation."""
+    constants = QQ.algebraic_field(sqrt(2))
+    rational = DifferentialTower(constants).extend(
+        MonomialExtension(Poly(1, x, domain=constants)),
+    )
+    extension = AlgebraicExtension(Poly(y**2 - x, y, domain=rational.field()))
+    tower = rational.extend(extension)
+    return constants, tower, extension, AlgebraicFunctionField(extension)
+
+
 def test_base_change_rebuilds_a_preserved_target_and_commutes_with_d() -> None:
     tower, extension, model = _source_model()
     source_derivation = tower.derivation()
@@ -67,6 +78,60 @@ def test_base_change_rebuilds_a_preserved_target_and_commutes_with_d() -> None:
         assert (
             mapped_derivative - target_derivative == change.target_extension.field.zero
         )
+
+
+def test_base_change_embeds_an_existing_algebraic_constant_field() -> None:
+    constants, tower, extension, model = _algebraic_source_model()
+    derivation = tower.derivation()
+
+    change = build_algebraic_constant_base_change(
+        model,
+        derivation,
+        Poly(z**2 - 3, z, domain=QQ),
+    )
+
+    assert change.certified
+    assert change.constant_extension is not None
+    assert change.target_constants is change.constant_extension.target
+    assert change.target_constants.ext.minpoly.degree() == 4
+    assert change.target_extension is not None
+    assert change.target_derivation is not None
+
+    source_constant = constants.from_sympy(sqrt(2))
+    mapped_constant = change.constant_extension.embed(source_constant)
+    assert change.target_constants.to_sympy(mapped_constant) == sqrt(2)
+
+    value = extension.field.from_sympy((sqrt(2) * y + 1) / (x - 2))
+    assert change.embed(derivation(value)) == change.target_derivation(
+        change.embed(value)
+    )
+
+
+def test_two_successive_base_changes_form_an_exact_compositum_chain() -> None:
+    tower, extension, model = _source_model()
+    first = build_algebraic_constant_base_change(
+        model,
+        tower.derivation(),
+        Poly(z**2 - 2, z, domain=QQ),
+    )
+    assert first.certified
+    assert first.target_model is not None
+    assert first.target_derivation is not None
+
+    second = build_algebraic_constant_base_change(
+        first.target_model,
+        first.target_derivation,
+        Poly(z**2 - 3, z, domain=QQ),
+    )
+
+    assert second.certified
+    assert second.target_constants is not None
+    assert second.target_constants.ext.minpoly.degree() == 4
+    assert second.target_derivation is not None
+    value = extension.field.from_sympy((y + 1) / (x - 5))
+    embedded = second.embed(first.embed(value))
+    embedded_derivative = second.embed(first.embed(tower.derivation()(value)))
+    assert second.target_derivation(embedded) == embedded_derivative
 
 
 def test_finite_closed_places_split_and_transport_local_residues() -> None:

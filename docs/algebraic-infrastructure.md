@@ -419,20 +419,31 @@ not the direct-curve `C(x)` integral-basis code.  A resonant leading equation
 is an explicit `NotImplementedError` boundary; its treatment belongs to the
 relative logarithmic/RDE stage rather than to Hermite reduction.
 
-## One-step profile-selected algebraic constant base change
+## Algebraic constant composita and one-step profile selection
 
 `integrate_algebraic_with_constant_base_change` continues the displayed-
 constant boundary with either an explicit irreducible factor `q(alpha)` or a
 one-step profile plan. The automatic path factors the square-free all-place
 residue profile over `QQ`, orders its non-linear irreducible factors by degree
 and exact coefficients, and tries them until a certified target no longer
-needs another constant base change. Its current certified scope is a source
-over `QQ(x)`, a target `QQ(alpha)(x, y)` in which `q` splits completely, and
-finite-place splitting with ramification index one. The target relation and
-constant field are rebuilt and checked, then the **original** differential is
-embedded and collected again at every target place. Recollecting is required:
-transported source finite residues alone would miss target infinity and other
-descendants.
+needs another constant base change.
+
+The underlying map is reusable beyond that one-step planner. It accepts
+constants `C = QQ` or an existing SymPy algebraic number field and constructs
+the exact compositum with the root field of a rational irreducible `q`.
+Constants are embedded by an explicit number-field isomorphism; the map is
+then lifted coefficientwise through `C(x)[y]/(f)`. Thus successive manual
+changes such as
+`QQ -> QQ(sqrt(2)) -> QQ(sqrt(2), sqrt(3))` do not rely on reparsing a whole
+function-field expression. At every step the target relation is rebuilt, the
+target constant field is checked again, and commutation with the derivation is
+verified on the field generators.
+
+The automatic integration planner is still one step. Its current certified
+place layer supports finite-place splitting with ramification index one. The
+**original** differential is embedded and collected again at every target
+place. Recollecting is required: transported source finite residues alone
+would miss target infinity and other descendants.
 
 The result keeps both fields visible. Its `source_result` records why the
 source needed a base change; when present, `target_result` and
@@ -440,8 +451,8 @@ source needed a base change; when present, `target_result` and
 For example, on `y**2 = x`, the source differential
 `y / (x * (x - 2))` has residues outside `QQ`; its profile has the factor
 `q(Z) = Z**2 - 1/2`, which gives an elementary target-field logarithmic
-answer. This is a one-step constructive route, not general constant descent
-or a constant-compositum algorithm.
+answer. This is currently a one-step constructive integration route over a
+compositum-capable field map, not yet iterative constant descent.
 
 ## Riemann--Roch spaces
 

@@ -1,6 +1,10 @@
 r"""Exact algebraic-curve infrastructure over a rational function field."""
 
 from .closure import IntegralClosureResult, integral_closure, polynomial_order
+from .constant_extensions import (
+    AlgebraicConstantFieldExtension,
+    extend_algebraic_constants,
+)
 from .finite_places import FiniteAlgebraicPlace, LocalLaurentExpansion
 from .function_field import (
     AlgebraicDifferential,
@@ -17,6 +21,7 @@ from .principal import (
 )
 
 __all__ = [
+    "AlgebraicConstantFieldExtension",
     "AlgebraicDifferential",
     "AlgebraicDivisor",
     "AlgebraicFractionalIdeal",
@@ -30,6 +35,7 @@ __all__ = [
     "IntegralClosureResult",
     "LocalLaurentExpansion",
     "decide_algebraic_principality",
+    "extend_algebraic_constants",
     "hess_divisor_ideals",
     "integral_closure",
     "polynomial_order",

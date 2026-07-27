@@ -4,31 +4,31 @@ The residue-profile step can exhibit an irreducible polynomial whose roots
 are needed to express local residues.  This module implements only the first
 safe instance of that construction:
 
-``QQ(x, y) -> QQ(alpha)(x, y)``, where ``q(alpha) = 0`` and the selected
-``q`` splits completely over ``QQ(alpha)``.  The source relation is rebuilt
-over the target constants, its constants are re-analysed, and the source
-embedding is checked against both derivations.  A finite source place is then
-split by factoring its rational-base prime and identifying descendants from
-the transported prime ideal.
+``C(x, y) -> C(alpha)(x, y)``, where ``C`` is ``QQ`` or an algebraic number
+field, ``q(alpha) = 0``, and the selected rational polynomial ``q`` splits
+completely over the compositum.  The source relation is rebuilt coefficient
+by coefficient over the target constants, its constants are re-analysed, and
+the source embedding is checked against both derivations.  A finite source
+place is then split by factoring its rational-base prime and identifying
+descendants from the transported prime ideal.
 
-This is intentionally not a generic constant-extension mechanism.  It does
-not merge unrelated residue fields, does not split infinity, and declines a
-target whose algebraic relation or constant field falls outside the certified
-scope.  Those boundaries make the resulting transport suitable as a later
-input to logarithmic residue descent without pretending to solve that descent
-here.
+The constant-field layer does construct exact composita of successive
+rationally defined number fields.  It does not yet adjoin a polynomial with
+genuinely non-rational coefficients, split infinity, or accept a target whose
+algebraic relation or constant field falls outside the certified scope.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import cast
 
 from sympy.core.singleton import S
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.domains import QQ
 from sympy.polys.domains.algebraicfield import AlgebraicField
+from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.polyclasses import DMP
 from sympy.polys.polyerrors import BasePolynomialError
 from sympy.polys.polytools import Poly
 
@@ -39,6 +39,10 @@ from ..algebraic.constant_analysis import (
     analyze_algebraic_constant_field,
 )
 from ..tower import AlgebraicExtension, Derivation, DifferentialTower, MonomialExtension
+from .constant_extensions import (
+    AlgebraicConstantFieldExtension,
+    extend_algebraic_constants,
+)
 from .finite_places import FiniteAlgebraicPlace
 from .function_field import AlgebraicFunctionField, AlgebraicPlace
 from .infinity import InfiniteAlgebraicPlace
@@ -58,9 +62,36 @@ class AlgebraicPlaceSplitStatus(Enum):
     UNSUPPORTED = "unsupported"
 
 
+def _embed_parent_element(
+    element: object,
+    source: FractionField,
+    target: FractionField,
+    constants: AlgebraicConstantFieldExtension,
+) -> object:
+    """Lift the constant embedding coefficientwise through ``C(x)``."""
+    source_element = source.convert(element)
+    target_ring = target.field.ring
+    target_type = target.dtype
+    if target_type is None:
+        raise TypeError("the target rational function field has no element type")
+    numerator = target_ring.from_dict(
+        {
+            monomial: constants.embed(coefficient)
+            for monomial, coefficient in source_element.numer.to_dict().items()
+        }
+    )
+    denominator = target_ring.from_dict(
+        {
+            monomial: constants.embed(coefficient)
+            for monomial, coefficient in source_element.denom.to_dict().items()
+        }
+    )
+    return target_type(numerator, denominator)
+
+
 @dataclass(frozen=True, slots=True)
 class AlgebraicConstantBaseChange:
-    r"""A derivative-commuting, QQ-to-``QQ(alpha)`` function-field map.
+    r"""A derivative-commuting ``C``-to-``C(alpha)`` function-field map.
 
     On a certified result, :meth:`embed` is the explicit map from the source
     algebraic function field into the target.  The builder checks it on the
@@ -74,7 +105,7 @@ class AlgebraicConstantBaseChange:
     factor: Poly
     status: AlgebraicConstantBaseChangeStatus
     detail: str
-    target_constants: AlgebraicField | None = None
+    constant_extension: AlgebraicConstantFieldExtension | None = None
     target_extension: AlgebraicExtension | None = None
     target_derivation: Derivation | None = None
     target_model: AlgebraicFunctionField | None = None
@@ -98,7 +129,7 @@ class AlgebraicConstantBaseChange:
             raise ValueError("the source derivation is not bound to the source field")
 
         target_data = (
-            self.target_constants,
+            self.constant_extension,
             self.target_extension,
             self.target_derivation,
             self.target_model,
@@ -111,8 +142,11 @@ class AlgebraicConstantBaseChange:
 
         if self.status is not AlgebraicConstantBaseChangeStatus.CERTIFIED:
             raise ValueError("a base change has an unknown status")
-        if not isinstance(self.target_constants, AlgebraicField):
-            raise ValueError("a certified base change needs algebraic constants")
+        if not isinstance(
+            self.constant_extension,
+            AlgebraicConstantFieldExtension,
+        ):
+            raise ValueError("a certified base change needs a constant-field map")
         if not isinstance(self.target_extension, AlgebraicExtension):
             raise ValueError("a certified base change needs a target extension")
         if not isinstance(self.target_derivation, Derivation):
@@ -138,6 +172,16 @@ class AlgebraicConstantBaseChange:
             is not AlgebraicConstantFieldStatus.PRESERVED
         ):
             raise ValueError("a certified base change needs preserved target constants")
+        _parent, source_constants, _variable = _base_polynomial_ring(
+            self.source_extension
+        )
+        if self.constant_extension.source != source_constants:
+            raise ValueError("the constant-field map has another source")
+        _target_parent, target_constants, _target_variable = _base_polynomial_ring(
+            self.target_extension
+        )
+        if self.constant_extension.target != target_constants:
+            raise ValueError("the constant-field map has another target")
 
     @property
     def certified(self) -> bool:
@@ -149,23 +193,47 @@ class AlgebraicConstantBaseChange:
         """The source algebraic extension."""
         return self.source_model.extension
 
+    @property
+    def target_constants(self) -> AlgebraicField | None:
+        """The target constant field, when this change was certified."""
+        if self.constant_extension is None:
+            return None
+        return self.constant_extension.target
+
     def embed(self, element: object) -> ExtensionElement:
         r"""Embed a source-field element into the certified target field.
 
-        The current scope starts over ``QQ`` and retains the rational and
-        algebraic generator names, so the exact SymPy expression is an
-        unambiguous presentation of this particular field homomorphism.  It
-        is deliberately kept local to a certified base-change object rather
-        than treating arbitrary domain coercion as an algebraic embedding.
+        Constants, rational-function coefficients, and algebraic-generator
+        coefficients are mapped separately.  This avoids using a symbolic
+        expression round trip as an implicit number-field embedding.
         """
         if not self.certified:
             raise NotImplementedError(self.detail)
         target_extension = self.target_extension
-        if target_extension is None:
-            raise ValueError("a certified base change has no target extension")
+        constant_extension = self.constant_extension
+        if target_extension is None or constant_extension is None:
+            raise ValueError("a certified base change has incomplete target data")
         source = _extension_element(self.source_extension, element)
-        expression = self.source_extension.field.to_sympy(source)
-        return cast(ExtensionElement, target_extension.field.from_sympy(expression))
+        source_parent = self.source_extension.parent_field
+        target_parent = target_extension.parent_field
+        if not isinstance(source_parent, FractionField) or not isinstance(
+            target_parent,
+            FractionField,
+        ):
+            raise NotImplementedError(
+                "constant base change requires rational function parent fields"
+            )
+        coefficients = [
+            _embed_parent_element(
+                coefficient,
+                source_parent,
+                target_parent,
+                constant_extension,
+            )
+            for coefficient in source.rep.to_list()
+        ]
+        representative = DMP(coefficients, target_parent, 0)
+        return target_extension.field.dtype(representative, target_extension.field)
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,19 +335,6 @@ def _unsupported_base_change(
     )
 
 
-def _target_factor_splits_completely(
-    factor: Poly,
-    constants: AlgebraicField,
-) -> bool:
-    """Whether every root of ``factor`` is already in ``constants``."""
-    target_factor = Poly(factor.as_expr(), factor.gens[0], domain=constants)
-    _unit, factors = target_factor.factor_list()
-    return len(factors) == factor.degree() and all(
-        component.degree() == 1 and multiplicity == 1
-        for component, multiplicity in factors
-    )
-
-
 def _generator_derivatives_commute(change: AlgebraicConstantBaseChange) -> bool:
     """Check derivation commutation on the rational and algebraic generators."""
     target_extension = change.target_extension
@@ -307,12 +362,13 @@ def build_algebraic_constant_base_change(
 ) -> AlgebraicConstantBaseChange:
     r"""Build the first certified algebraic-constant base-change layer.
 
-    The accepted input is deliberately narrow: a standard algebraic function
-    field over ``QQ(x)``, a monic irreducible polynomial ``q`` of degree at
-    least two, and a target ``QQ(alpha)`` in which ``q`` splits completely.
-    The source relation must remain a supported irreducible relation over the
-    target constants, and the target constant field must again be preserved.
-    Every other case is returned as :attr:`~AlgebraicConstantBaseChangeStatus.UNSUPPORTED`.
+    The source constants may be ``QQ`` or a SymPy algebraic number field.
+    The selected ``q`` is currently required to be irreducible over ``QQ``;
+    its root field is joined to the source constants exactly.  The source
+    relation must remain a supported irreducible relation over the compositum,
+    and the target constant field must again be preserved.  Every other case
+    is returned as
+    :attr:`~AlgebraicConstantBaseChangeStatus.UNSUPPORTED`.
     """
     if not isinstance(model, AlgebraicFunctionField):
         raise TypeError("constant base change needs an algebraic function field")
@@ -326,15 +382,15 @@ def build_algebraic_constant_base_change(
         raise ValueError("the derivation must be bound to the model extension")
 
     try:
-        _parent, constants, variable = _base_polynomial_ring(model.extension)
+        source_parent, constants, variable = _base_polynomial_ring(model.extension)
     except (NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_base_change(model, derivation, factor, str(exc))
-    if constants != QQ:
+    if constants != QQ and not isinstance(constants, AlgebraicField):
         return _unsupported_base_change(
             model,
             derivation,
             factor,
-            "constant base change currently starts only from QQ",
+            "constant base change requires QQ or algebraic-number constants",
         )
     if len(factor.gens) != 1:
         return _unsupported_base_change(
@@ -386,49 +442,40 @@ def build_algebraic_constant_base_change(
         )
 
     try:
-        target_constants = QQ.alg_field_from_poly(normalized_factor)
-    except (NotImplementedError, TypeError, ValueError) as exc:
-        return _unsupported_base_change(
-            model,
-            derivation,
+        constant_extension = extend_algebraic_constants(
+            constants,
             normalized_factor,
-            f"SymPy cannot construct the selected algebraic constants: {exc}",
-        )
-    if not isinstance(target_constants, AlgebraicField):
-        return _unsupported_base_change(
-            model,
-            derivation,
-            normalized_factor,
-            "SymPy did not construct an algebraic-number constant field",
-        )
-    try:
-        splits_completely = _target_factor_splits_completely(
-            normalized_factor,
-            target_constants,
         )
     except (NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_base_change(
             model,
             derivation,
             normalized_factor,
-            f"the selected constant polynomial cannot be factored over its root field: {exc}",
+            f"the selected algebraic constant compositum is unavailable: {exc}",
         )
-    if not splits_completely:
-        return _unsupported_base_change(
-            model,
-            derivation,
-            normalized_factor,
-            "the selected constant polynomial does not split completely over QQ(alpha)",
-        )
+    target_constants = constant_extension.target
 
     try:
         target_rational = DifferentialTower(target_constants).extend(
             MonomialExtension(Poly(1, variable, domain=target_constants)),
         )
-        target_modulus = Poly(
-            model.extension.minimal_polynomial.as_expr(),
+        target_parent = target_rational.field()
+        if not isinstance(target_parent, FractionField):
+            raise TypeError("the rebuilt rational tower has no fraction field")
+        target_modulus = Poly.from_dict(
+            {
+                monomial: _embed_parent_element(
+                    coefficient,
+                    source_parent,
+                    target_parent,
+                    constant_extension,
+                )
+                for monomial, coefficient in (
+                    model.extension.minimal_polynomial.rep.to_dict().items()
+                )
+            },
             model.extension.generator,
-            domain=target_rational.field(),
+            domain=target_parent,
         )
         target_extension = AlgebraicExtension(target_modulus)
         target_tower = target_rational.extend(target_extension)
@@ -451,7 +498,7 @@ def build_algebraic_constant_base_change(
             model,
             derivation,
             normalized_factor,
-            f"the source algebraic relation cannot be rebuilt over QQ(alpha): {exc}",
+            f"the source algebraic relation cannot be rebuilt over the compositum: {exc}",
         )
 
     candidate = AlgebraicConstantBaseChange(
@@ -461,7 +508,7 @@ def build_algebraic_constant_base_change(
         AlgebraicConstantBaseChangeStatus.CERTIFIED,
         "the selected constant polynomial splits completely and the rebuilt "
         "algebraic function field preserves its constants",
-        target_constants,
+        constant_extension,
         target_extension,
         target_derivation,
         target_model,

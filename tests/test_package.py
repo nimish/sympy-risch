@@ -123,6 +123,7 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
     assert set(algebraic_geometry.__all__) == {
         "AlgebraicDifferential",
         "AlgebraicDivisor",
+        "AlgebraicConstantFieldExtension",
         "AlgebraicFractionalIdeal",
         "AlgebraicFunctionField",
         "AlgebraicOrder",
@@ -137,6 +138,7 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "hess_divisor_ideals",
         "polynomial_order",
         "decide_algebraic_principality",
+        "extend_algebraic_constants",
     }
     assert all(hasattr(algebraic_geometry, name) for name in algebraic_geometry.__all__)
     assert not hasattr(algebraic_geometry, "AlgebraicPlace")
