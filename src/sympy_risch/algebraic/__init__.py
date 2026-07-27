@@ -26,6 +26,17 @@ from .exactness import (
     solve_algebraic_exactness,
 )
 from .hermite import hermite_reduce_algebraic, lazy_hermite_reduce_algebraic
+from .log_derivative import (
+    AlgebraicIntegratingFactorCertificate,
+    AlgebraicIntegratingFactorResult,
+    AlgebraicIntegratingFactorStatus,
+    find_algebraic_integrating_factor,
+)
+from .rde import (
+    AlgebraicIntegratingFactorRDEResult,
+    AlgebraicIntegratingFactorRDEStatus,
+    solve_algebraic_integrating_factor_rde,
+)
 from .residue_profile import (
     AlgebraicResidueProfile,
     AlgebraicResidueProfileFactor,
@@ -49,6 +60,11 @@ __all__ = [
     "AlgebraicExactnessResult",
     "AlgebraicExactnessStatus",
     "AlgebraicFraction",
+    "AlgebraicIntegratingFactorCertificate",
+    "AlgebraicIntegratingFactorRDEResult",
+    "AlgebraicIntegratingFactorRDEStatus",
+    "AlgebraicIntegratingFactorResult",
+    "AlgebraicIntegratingFactorStatus",
     "AlgebraicLocalDifferentialResidue",
     "AlgebraicPlaceResidue",
     "AlgebraicResidueProfile",
@@ -60,11 +76,13 @@ __all__ = [
     "analyze_algebraic_constant_field",
     "build_algebraic_residue_profile",
     "collect_algebraic_all_place_residues",
+    "find_algebraic_integrating_factor",
     "hermite_reduce_algebraic",
     "lazy_hermite_reduce_algebraic",
     "recognize_simple_radical",
     "simple_radical_integral_basis",
     "solve_algebraic_exactness",
+    "solve_algebraic_integrating_factor_rde",
     "trager_algebraic_place_residues",
     "trager_algebraic_residue_polynomial",
 ]

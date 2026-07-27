@@ -159,6 +159,10 @@ decision.
 genus-zero primitives, first- and second-kind elliptic no-primitive decisions,
 and a bounded primitive-space search that remains incomplete until its
 Riemann--Roch dimension is reached.
+`tests/test_algebraic_rde.py` covers the direct integrating-factor RDE cell:
+it reduces a genus-zero algebraic equation to exactness, preserves a bounded
+exactness miss, proves a transformed no-solution case, and does not mistake a
+nonintegral logarithmic residue for a general-RDE negative result.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

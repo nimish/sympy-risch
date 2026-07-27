@@ -1090,6 +1090,7 @@ boundary, not a mathematical claim about the integral.
 | Bounded algebraic principal-divisor search | Low-level exact semialgorithm: verifies a supplied-bound witness for degree-zero `D`, returns `INCOMPLETE` on finite-slice exhaustion, and proves only the nonzero-degree obstruction |
 | Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor has a bounded-search principal witness; residue-free remainders also receive the certified in-field exactness step |
 | Algebraic residue-free exactness | Complete only when the primitive-pole Riemann--Roch space is certified; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
+| Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | One-step algebraic constant-base-change integration | Constructive `QQ(x, y) -> QQ(alpha)(x, y)` continuation for an explicit or profile-selected factor that splits in its root field; a returned elementary answer is explicitly target-field-valued |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
@@ -1122,6 +1123,7 @@ principal groups are:
 | Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |
 | Algebraic all-place residue profiles | `build_algebraic_residue_profile` |
 | Algebraic displayed-constant residue integration | `AlgebraicIntegrationResult`, `AlgebraicLogarithmicTerm`, `integrate_algebraic`, `reconstruct_constant_residue_logarithms` |
+| Algebraic integrating-factor RDE | `find_algebraic_integrating_factor`, `solve_algebraic_integrating_factor_rde` |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
 | Bounded principal-divisor search | `AlgebraicPrincipalDivisorSearch`, `search_algebraic_principal_divisor` |

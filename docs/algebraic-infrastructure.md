@@ -20,10 +20,10 @@ provide as a coherent exact API:
 
 It deliberately does **not** implement the general later Risch components:
 
-- compatible algebraic constant base change and residue-basis descent;
+- compatible algebraic constant descent through arbitrary composita;
 - general principal- or torsion-divisor solving;
-- exactness decisions for differentials of the second kind;
-- an algebraic-curve Risch differential-equation solver.
+- complete exactness decisions for arbitrary second-kind differentials; or
+- a general algebraic-curve Risch differential-equation solver.
 
 Those algorithms can now consume a tested algebraic substrate rather than
 embedding their own curve arithmetic.
@@ -246,6 +246,33 @@ elementary-integrability conclusion.
 correction after its logarithmic term is reconstructed. On an elliptic curve,
 a holomorphic differential such as `dx / y` correctly remains a residue-free
 remainder with a certified no-primitive exactness result.
+
+## Integrating-factor algebraic RDEs
+
+`find_algebraic_integrating_factor` recognizes the restricted but useful
+coefficient shape
+
+```text
+a = D(h) / h,  h in L^*.
+```
+
+It requires every pole of `a*dx` to be simple with an integral residue,
+searches for the corresponding principal residue divisor, and verifies the
+field identity after finding a witness. A bounded principal-divisor miss stays
+`INCOMPLETE`; a coefficient that is not a logarithmic derivative is a complete
+negative only for this factor-recognition question.
+
+`solve_algebraic_integrating_factor_rde` then solves
+
+```text
+D(u) + a*u = b
+```
+
+by converting it to `D(h*u) = h*b` and invoking the certified exactness
+solver. Thus it can return a constructive solution or a complete no-solution
+certificate when the transformed exactness decision is complete. It does not
+claim to solve a general algebraic RDE: arbitrary coefficients require local
+resonance analysis and a global pole bound for `u`.
 
 ## One-step profile-selected algebraic constant base change
 
@@ -734,8 +761,9 @@ The next algebraic Risch implementation may assume all of the following:
 7. finite divisor/fractional-ideal conversion.
 
 It now also has a small set of certified global Riemann--Roch spaces and a
-bounded direct-`QQ` logarithmic reconstruction cell. It must still implement
-general finite/infinite lattice intersection, compatible residue descent,
-divisor-class/torsion solving, general logarithmic reconstruction, second-kind
-exactness, and algebraic RDEs. Those are intentionally not infrastructure
-methods.
+bounded direct-`QQ` logarithmic reconstruction cell, residue-free exactness,
+and an integrating-factor RDE endpoint. It must still implement general
+finite/infinite lattice intersection, compatible residue descent,
+divisor-class/torsion solving, general logarithmic reconstruction, complete
+second-kind exactness, and general algebraic RDEs. Those are intentionally not
+infrastructure methods.

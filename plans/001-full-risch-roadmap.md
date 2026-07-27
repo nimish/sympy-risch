@@ -886,6 +886,9 @@ separate commit after focused and full-suite verification.
      principal/torsion divisor cases.
 12. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.
+    - [x] Add the direct-curve integrating-factor cell: when a verified
+      `h` satisfies `a = D(h)/h`, reduce `D(u) + a*u = b` to exactness of
+      `h*b`. This is not a general algebraic RDE solver.
 13. [ ] Compose the completed algebraic and transcendental solvers over the
     proven mixed-tower representation. This is the exit gate for a complete
     *explicit* Risch tower.
