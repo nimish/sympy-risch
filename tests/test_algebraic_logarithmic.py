@@ -181,6 +181,52 @@ def test_selected_constant_base_change_can_finish_an_algebraic_log_integral() ->
     assert result.antiderivative is not None
 
 
+def test_profile_base_change_selects_a_compatible_constant_factor() -> None:
+    """One profile factor can supply every residue constant on this curve."""
+    source_tower, source_extension, source_basis = algebraic_tower(y**2 - x)
+
+    result = integrate_algebraic_with_constant_base_change(
+        source_extension.field.from_sympy(y / (x * (x - 2))),
+        source_tower.derivation(),
+        source_basis,
+        max_x_degree=1,
+    )
+
+    assert result.base_change is not None
+    assert result.base_change.certified
+    candidate = result.base_change.factor
+    assert candidate == Poly(
+        candidate.gens[0] ** 2 - Rational(1, 2),
+        candidate.gens[0],
+        domain=QQ,
+    )
+    assert result.target_result is not None
+    assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
+    assert result.is_elementary
+    assert result.reconstructs
+
+
+def test_profile_base_change_does_not_claim_two_independent_constants_resolved() -> (
+    None
+):
+    """One quadratic target cannot silently combine two distinct residue fields."""
+    source_tower, source_extension, source_basis = algebraic_tower(y**2 - x)
+
+    result = integrate_algebraic_with_constant_base_change(
+        source_extension.field.from_sympy(y / ((x - 2) * (x - 3))),
+        source_tower.derivation(),
+        source_basis,
+        max_x_degree=1,
+    )
+
+    assert result.base_change is not None
+    assert result.base_change.certified
+    assert result.target_result is not None
+    assert result.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+    assert not result.is_elementary
+    assert result.reconstructs
+
+
 def test_logarithmic_reconstruction_retains_a_residue_free_remainder() -> None:
     tower, extension, basis = algebraic_tower(y**2 - x)
 

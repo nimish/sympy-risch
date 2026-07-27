@@ -23,7 +23,7 @@
 - **Last implementation reconciliation**: Plans 006 finite algebraic
   valuation constraints, 007 narrow P/E/T expression frontend, 008 certified
   Riccati Möbius normalization, 009 local linear-special-pole reduction, and
-  010 finite algebraic constant bases plus the first selected compatible
+  010 finite algebraic constant bases plus the first one-step profile-selected
   algebraic-constant target integration cell, 2026-07-26
 
 ## Why this matters
@@ -871,12 +871,14 @@ separate commit after focused and full-suite verification.
    - [x] Integrate direct displayed-constant residues over `QQ` or a finite
      algebraic extension of `QQ` when every coordinate divisor has a verified
      bounded-search principal witness.
-   - [x] Construct the first selected compatible base change
+   - [x] Construct the first compatible base change
      `QQ(x, y) -> QQ(alpha)(x, y)`, split finite places, recollect all target
-     residues, and reconstruct a target-field logarithmic answer. This is
-     deliberately limited to explicit factors that split in their root field.
-   - [ ] Turn residue-profile roots into selected extension plans, generalize
-     compatible constant descent and place splitting, and solve the remaining
+     residues, and reconstruct a target-field logarithmic answer. An explicit
+     factor or the first compatible irreducible factor from the square-free
+     all-place residue profile may select the target. This is deliberately
+     limited to one factor that splits in its root field.
+   - [ ] Generalize compatible constant descent and place splitting to
+     composita and iterative extensions, and solve the remaining
      principal/torsion divisor cases.
 12. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.

@@ -151,8 +151,8 @@ degree as the complete elementary obstruction.
 `tests/test_algebraic_logarithmic.py` exercises the first end-to-end algebraic
 integration cell: ramified and split rational-residue logarithms, independent
 logarithmic directions over an algebraic constant field, a retained
-residue-free remainder, residues requiring compatible base change, a
-selected-factor target-field reconstruction over algebraic constants, and a
+residue-free remainder, residues requiring compatible base change, explicit
+and profile-selected target-field reconstruction over algebraic constants, and a
 bounded principal-divisor miss that is not misreported as a non-elementarity
 decision.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility

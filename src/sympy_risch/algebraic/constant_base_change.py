@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sympy.core.expr import Expr
+from sympy.core.symbol import Dummy
+from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
 from ..algebraic_geometry.base_change import (
@@ -24,6 +26,10 @@ from .logarithmic import (
     AlgebraicIntegrationResult,
     AlgebraicIntegrationStatus,
     integrate_algebraic,
+)
+from .residue_profile import (
+    AlgebraicResidueProfileStatus,
+    build_algebraic_residue_profile,
 )
 
 
@@ -66,11 +72,6 @@ class AlgebraicConstantBaseChangeIntegrationResult:
         if change is None:
             if target is not None:
                 raise ValueError("a target result needs its certified base change")
-            if (
-                self.source_result.status
-                is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
-            ):
-                raise ValueError("a required base change cannot be omitted")
             return
 
         source_model = self.source_result.collection.model
@@ -145,48 +146,75 @@ class AlgebraicConstantBaseChangeIntegrationResult:
         return None
 
 
-def integrate_algebraic_with_constant_base_change(
-    integrand: object,
-    derivation: Derivation,
-    basis: IntegralBasis,
-    factor: Poly,
-    *,
-    max_x_degree: int = 1,
-    lazy: bool = False,
-) -> AlgebraicConstantBaseChangeIntegrationResult:
-    r"""Continue a compatible algebraic integral in a selected constant field.
+def _automatic_constant_factor_candidates(
+    source_result: AlgebraicIntegrationResult,
+) -> tuple[tuple[Poly, ...], str]:
+    """Return supported one-step constant-field candidates from a profile.
 
-    The source is first integrated through the displayed-constant logarithmic
-    slice. If and only if that ends at
-    :attr:`AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE`, ``factor``
-    is used to build the currently supported ``QQ -> QQ(alpha)`` extension.
-    The embedded original differential is then collected again at every
-    target place before logarithmic reconstruction. This is essential: merely
-    transporting the source finite residues would omit target infinity and
-    any other split descendants.
-
-    The caller supplies ``factor`` deliberately in this first API. Automatic
-    factor selection from algebraic residue profiles is a later planner; an
-    unsupported factor or target remains an explicit non-decision result.
+    A root of an irreducible profile factor is only a *candidate* for a
+    compatible constant extension.  The certified base-change builder still
+    checks that its root field contains every conjugate needed by the selected
+    factor, and the target integration is recollected independently below.
     """
-    source_result = integrate_algebraic(
-        integrand,
-        derivation,
-        basis,
-        max_x_degree=max_x_degree,
-        lazy=lazy,
+    profile = build_algebraic_residue_profile(
+        source_result.collection,
+        Dummy("risch_residue"),
     )
-    if (
-        source_result.status
-        is not AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
-    ):
-        return AlgebraicConstantBaseChangeIntegrationResult(
-            source_result,
-            None,
-            None,
-            "the source integration did not require algebraic constant base change",
+    if profile.status is not AlgebraicResidueProfileStatus.PROFILED:
+        return (
+            (),
+            "automatic residue-profile selection is unavailable: " + profile.detail,
         )
 
+    polynomial = profile.square_free_residue_polynomial
+    if polynomial is None or polynomial.domain != QQ:
+        return (
+            (),
+            "automatic residue-profile selection currently starts only from "
+            "a profile over QQ",
+        )
+    try:
+        _content, factors = polynomial.factor_list()
+    except (NotImplementedError, TypeError, ValueError) as exc:
+        return (), "the residue profile could not be factored over QQ: " + str(exc)
+
+    candidates = tuple(
+        sorted(
+            (
+                factor.monic()
+                for factor, _multiplicity in factors
+                if factor.degree() >= 2
+            ),
+            key=lambda factor: (
+                factor.degree(),
+                tuple(
+                    (int(QQ.numer(coefficient)), int(QQ.denom(coefficient)))
+                    for coefficient in factor.all_coeffs()
+                ),
+            ),
+        )
+    )
+    if not candidates:
+        return (
+            (),
+            "the residue profile has no non-rational irreducible factor for "
+            "a one-step constant extension",
+        )
+    return (
+        candidates,
+        "selected compatible constant-field candidates from the square-free "
+        "all-place residue profile",
+    )
+
+
+def _continue_source_result(
+    source_result: AlgebraicIntegrationResult,
+    factor: Poly,
+    *,
+    max_x_degree: int,
+    lazy: bool,
+) -> AlgebraicConstantBaseChangeIntegrationResult:
+    """Reintegrate one source boundary over a caller- or profile-chosen factor."""
     source_model = source_result.collection.model
     if source_model is None:
         raise ValueError("a base-change boundary lacks its source function field")
@@ -221,4 +249,94 @@ def integrate_algebraic_with_constant_base_change(
         target_result,
         "the source differential was integrated again after certified algebraic "
         "constant base change",
+    )
+
+
+def integrate_algebraic_with_constant_base_change(
+    integrand: object,
+    derivation: Derivation,
+    basis: IntegralBasis,
+    factor: Poly | None = None,
+    *,
+    max_x_degree: int = 1,
+    lazy: bool = False,
+) -> AlgebraicConstantBaseChangeIntegrationResult:
+    r"""Continue a compatible algebraic integral in a selected constant field.
+
+    The source is first integrated through the displayed-constant logarithmic
+    slice. If and only if that ends at
+    :attr:`AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE`, an explicit
+    ``factor`` is used to build the currently supported ``QQ -> QQ(alpha)``
+    extension. When ``factor`` is omitted, the square-free all-place residue
+    profile supplies deterministic irreducible candidates over ``QQ``. The
+    first certified target that no longer needs another constant base change
+    is retained. The embedded original differential is then collected again
+    at every target place before logarithmic reconstruction. This is
+    essential: merely transporting source finite residues would omit target
+    infinity and split descendants.
+
+    Automatic selection is a one-step planner, not general constant descent:
+    it only considers profile factors whose root fields meet the current
+    certified splitting condition. If no such target is found, the source
+    ``NEEDS_CONSTANT_BASE_CHANGE`` boundary remains explicit.
+    """
+    source_result = integrate_algebraic(
+        integrand,
+        derivation,
+        basis,
+        max_x_degree=max_x_degree,
+        lazy=lazy,
+    )
+    if (
+        source_result.status
+        is not AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+    ):
+        return AlgebraicConstantBaseChangeIntegrationResult(
+            source_result,
+            None,
+            None,
+            "the source integration did not require algebraic constant base change",
+        )
+
+    if factor is not None:
+        return _continue_source_result(
+            source_result,
+            factor,
+            max_x_degree=max_x_degree,
+            lazy=lazy,
+        )
+
+    candidates, detail = _automatic_constant_factor_candidates(source_result)
+    fallback: AlgebraicConstantBaseChangeIntegrationResult | None = None
+    for candidate in candidates:
+        continued = _continue_source_result(
+            source_result,
+            candidate,
+            max_x_degree=max_x_degree,
+            lazy=lazy,
+        )
+        if continued.base_change is not None and continued.base_change.certified:
+            if fallback is None:
+                fallback = continued
+            if continued.status in {
+                AlgebraicIntegrationStatus.EXACT,
+                AlgebraicIntegrationStatus.ELEMENTARY,
+                AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER,
+                AlgebraicIntegrationStatus.INCOMPLETE,
+            }:
+                return continued
+
+    if fallback is not None:
+        return AlgebraicConstantBaseChangeIntegrationResult(
+            fallback.source_result,
+            fallback.base_change,
+            fallback.target_result,
+            "no supported one-step profile factor resolved the source "
+            "constant-base-change boundary",
+        )
+    return AlgebraicConstantBaseChangeIntegrationResult(
+        source_result,
+        None,
+        None,
+        detail,
     )

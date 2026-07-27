@@ -218,25 +218,29 @@ that the requested finite principal-divisor bound missed a witness;
 displayed constants; and `RESIDUE_FREE_REMAINDER` is passed to the future
 first-/second-kind exactness decision. None is a non-elementarity claim.
 
-## Selected algebraic constant base change
+## One-step profile-selected algebraic constant base change
 
 `integrate_algebraic_with_constant_base_change` continues the displayed-
-constant boundary when the caller supplies a selected irreducible factor
-`q(alpha)`. Its current certified scope is a source over `QQ(x)`, a target
-`QQ(alpha)(x, y)` in which `q` splits completely, and finite-place splitting
-with ramification index one. The target relation and constant field are
-rebuilt and checked, then the **original** differential is embedded and
-collected again at every target place. Recollecting is required: transported
-source finite residues alone would miss target infinity and other descendants.
+constant boundary with either an explicit irreducible factor `q(alpha)` or a
+one-step profile plan. The automatic path factors the square-free all-place
+residue profile over `QQ`, orders its non-linear irreducible factors by degree
+and exact coefficients, and tries them until a certified target no longer
+needs another constant base change. Its current certified scope is a source
+over `QQ(x)`, a target `QQ(alpha)(x, y)` in which `q` splits completely, and
+finite-place splitting with ramification index one. The target relation and
+constant field are rebuilt and checked, then the **original** differential is
+embedded and collected again at every target place. Recollecting is required:
+transported source finite residues alone would miss target infinity and other
+descendants.
 
 The result keeps both fields visible. Its `source_result` records why the
 source needed a base change; when present, `target_result` and
 `antiderivative` belong to the target field, never silently to the source.
 For example, on `y**2 = x`, the source differential
-`y / (x * (x - 2))` has residues outside `QQ`; selecting
-`q(Z) = Z**2 - 1/18` gives an elementary target-field logarithmic answer.
-This is an explicit constructive route, not yet automatic selection from the
-residue profile or a general constant-extension algorithm.
+`y / (x * (x - 2))` has residues outside `QQ`; its profile has the factor
+`q(Z) = Z**2 - 1/2`, which gives an elementary target-field logarithmic
+answer. This is a one-step constructive route, not general constant descent
+or a constant-compositum algorithm.
 
 ## Certified first global spaces
 
@@ -345,7 +349,7 @@ algorithms; the bounded routine deliberately does not claim either.
 | `AlgebraicLogarithmicTerm` | One coefficient, verified residue divisor, and log argument |
 | `integrate_algebraic` | Current displayed-constant algebraic integration slice |
 | `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus explicit target-field continuation |
-| `integrate_algebraic_with_constant_base_change` | Recollect and integrate after a caller-selected compatible factor |
+| `integrate_algebraic_with_constant_base_change` | Recollect and integrate after an explicit or one-step profile-selected compatible factor |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from
