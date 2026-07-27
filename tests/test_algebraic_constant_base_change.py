@@ -4,10 +4,14 @@ from sympy import Poly, Rational, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicAllPlaceResidueStatus,
     AlgebraicExtension,
     AlgebraicFunctionField,
     DifferentialTower,
+    FiniteAlgebraicPlace,
+    IntegralBasis,
     MonomialExtension,
+    collect_algebraic_all_place_residues,
 )
 from sympy_risch.algebraic_geometry.base_change import (
     AlgebraicConstantBaseChangeStatus,
@@ -133,3 +137,54 @@ def test_infinite_places_are_an_explicit_boundary_of_the_finite_layer() -> None:
 
     assert split.status is AlgebraicPlaceSplitStatus.UNSUPPORTED
     assert "infinity" in split.detail
+
+
+def test_unramified_target_places_use_the_base_prime_for_local_residues() -> None:
+    """Split target fibres retain a quotient-field invertible uniformizer."""
+    tower, extension, model = _source_model()
+    change = build_algebraic_constant_base_change(
+        model,
+        tower.derivation(),
+        _quadratic_factor(),
+    )
+    assert change.target_extension is not None
+    assert change.target_derivation is not None
+
+    integrand = change.embed(
+        extension.field.from_sympy(y / ((x - 2) * (x - 8))),
+    )
+    result = collect_algebraic_all_place_residues(
+        integrand,
+        change.target_derivation,
+        IntegralBasis.power_basis(change.target_extension),
+    )
+
+    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert result.reconstructs_input
+    finite = tuple(
+        record
+        for record in result.residues
+        if isinstance(record.place, FiniteAlgebraicPlace)
+    )
+    assert finite
+    assert all(
+        record.place.uniformizer
+        == change.target_extension.field.from_sympy(record.place.base_prime.as_expr())
+        for record in finite
+    )
+
+
+def test_higher_degree_target_residue_field_boundary_is_structured() -> None:
+    """Do not leak SymPy's missing algebraic-compositum embedding as a crash."""
+    tower, _extension, model = _source_model()
+    change = build_algebraic_constant_base_change(
+        model,
+        tower.derivation(),
+        _quadratic_factor(),
+    )
+    source_place = model.finite_places(Poly(x**2 + 1, x, domain=QQ))[0]
+
+    split = split_algebraic_place(change, source_place)
+
+    assert split.status is AlgebraicPlaceSplitStatus.UNSUPPORTED
+    assert "could not be certified" in split.detail

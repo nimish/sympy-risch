@@ -29,6 +29,7 @@ from sympy.core.singleton import S
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.domains import QQ
 from sympy.polys.domains.algebraicfield import AlgebraicField
+from sympy.polys.polyerrors import BasePolynomialError
 from sympy.polys.polytools import Poly
 
 from ..algebraic._field import _base_polynomial_ring, _extension_element
@@ -549,7 +550,7 @@ def split_algebraic_place(
             domain=target_constants,
         )
         _unit, factors = target_base_prime.factor_list()
-    except (NotImplementedError, TypeError, ValueError) as exc:
+    except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_place_split(
             base_change,
             source_place,
@@ -589,7 +590,7 @@ def split_algebraic_place(
                     )
                 descendants.append(target_place)
                 ramification.append(index)
-    except (NotImplementedError, TypeError, ValueError) as exc:
+    except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_place_split(
             base_change,
             source_place,

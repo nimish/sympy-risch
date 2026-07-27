@@ -353,6 +353,22 @@ class FiniteAlgebraicPlace:
         if cached is not None:
             return cached
 
+        # At an unramified finite place, the rational-base prime has
+        # valuation one by definition.  Prefer it to an arbitrary generator
+        # of the maximal ideal: the former has a canonical quotient-field
+        # representation and avoids needless inversions of split-fibre
+        # generators over algebraic constant fields.
+        if self.ramification_index == 1:
+            base_uniformizer = _embed_parent(self.extension, self.base_prime)
+            if self.valuation(base_uniformizer) != 1:
+                raise ValueError("an unramified base prime failed valuation one")
+            object.__setattr__(
+                self,
+                "_uniformizer_cache",
+                base_uniformizer,
+            )
+            return base_uniformizer
+
         square = self._prime_power(2)
         for basis_element in self.prime_ideal.basis_elements:
             if not square.contains(basis_element):
