@@ -50,9 +50,11 @@ candidate forms are:
 - `exp(u)`, proposed hyperexponential with `Dt/t = Du`; and
 - `tan(u)`, proposed hypertangent with `Dt = Du*(1+t**2)`.
 
-Rational arithmetic and integer powers introduce no generator. `RootOf` and
-general algebraic-function objects are a later candidate parser that feeds the
-same algebraic node type.
+Rational arithmetic and integer powers introduce no generator.
+Algebraic-number `RootOf` and the selected-root/relation representation chosen
+by Plan 017 F0 are later candidate parsers that feed the same algebraic node
+type. Current SymPy `CRootOf` alone does not represent a polynomial root over
+`QQ(x)`.
 
 ### 2. Relation-aware construction
 

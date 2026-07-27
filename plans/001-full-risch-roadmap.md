@@ -26,8 +26,9 @@
   010 finite algebraic constant bases, plus Plan 011 reusable algebraic
   constant composita, Plan 012 general divisor-class reduction, and Plan 013
   good-prime finite Jacobian torsion decisions; Plan 014 mixed expression
-  discovery; and Plan 015's reconciled algebraic-completion program,
-  2026-07-27
+  discovery; Plan 015's reconciled algebraic-completion program; Plan 016's
+  explicit transcendental-completion program; and Plan 017's automatic
+  construction, presentation, completeness, and upstream program, 2026-07-27
 
 ## Why this matters
 
@@ -218,18 +219,18 @@ The existing design conventions to preserve are:
 
 | Milestone | Current status |
 | --- | --- |
-| 0. Completeness contract and coverage ledger | Structural P/E/T admission and coverage ledger complete: the public admission result and declared-cell matrix distinguish unsupported towers from theorem-backed obstructions without claiming every admitted solver path is implemented. |
-| 1. Effective field and tower kernel | Partial: exact `QQ` towers, native finite algebraic number-field constants at a standard rational base, and finite extensions exist; a checked feasibility result maps the current mixed-prefix backend boundary, while general constant capabilities and canonical mixed algebraic towers remain. |
-| 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`. Native finite `QQ`-algebraic constants now support the base relation kernel and direct P/E factory proposals; proof-carrying recursive constant evidence, general effective constants, and automatic non-generator special-factor decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
-| 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
+| 0. Completeness contract and coverage ledger | Partial, completed by Plans 016 T0 and 017 F0/F7: structural P/E/T admission distinguishes unsupported towers from theorem-backed obstructions, but the operation-specific totality matrix and full expression-cell corpus remain. |
+| 1. Effective field and tower kernel | Partial, shared by Plans 015 A0-A2 and 016 T0-T1: exact `QQ` towers, native finite algebraic number-field constants at a standard rational base, and finite extensions exist. General effective-field capabilities, recursive proof transport, presentation normalization, and canonical mixed towers remain. |
+| 2. Dependency and structure decisions | Partial, expanded in Plan 016 T1-T2/T6: normalized P/E/T relations, fundamental signatures, Gaussian fallbacks, Riccati normalization, and local linear-special-factor evidence are checked. General recursive effective constants, every P/E/T ordering, and automatic non-generator special-polynomial decisions remain. |
+| 3. Scalar, parametric, and coupled RDEs | Partial, expanded in Plan 016 T3-T5: scalar and coupled RDEs cover documented normalized P/E/T shapes and one local special-pole consumer. Missing recursive cells, public parametric RDE/limited integration, and complete real coupled coverage remain. |
+| 4. Transcendental integration | Partial, expanded in Plan 016 T6-T8: explicit P/E/T integration covers documented shapes rather than every family ordering. Complete P/E/T totality and the admitted general-polynomial special-factor/denominator branch remain. |
 | 5. Algebraic-function-field kernel | Partial, expanded in Plan 015 A0-A6: direct admitted models have maximal orders, places, local expansions, divisors, complete long-basis Hess spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess parametric/large-divisor algorithms, scalable class operations, and algebraic-number-field good reduction remain. |
 | 6. Pure algebraic integration | Partial, expanded in Plan 015 A7-A8: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and verified `QQ` torsion decisions, continues through compatible constant composita, and solves an in-field residue-free exactness problem. General compatible residue descent and divisor combinations, full second-kind cohomology, normalization, and automatic dispatch remain. |
 | 7. Mixed algebraic/transcendental towers | Started, expanded in Plan 015 A9-A10: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic scalar/parametric RDEs, relative geometry, residue/logarithmic reduction, and arbitrary interleavings remain. |
-| 8. Automatic expression towers | Active through Plan 014 and completed by Plan 015 A1/A11: a backend-independent candidate DAG covers rational powers and P/E/T calls in either mixed order; the native compiler executes rational-power and terminal algebraic-over-P/E/T towers and finite-power exponential reclassification. General `RootOf` normalization/composita, monomial-over-algebraic execution, canonical minimization, and branch metadata remain. |
-| 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
-| 10. Completeness evidence | Partial: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; algebraic, mixed, and automatic-tower coverage remains. |
-| 11. SymPy upstreaming | Not started. |
+| 8. Automatic expression towers | Active through Plan 014; completion is split across Plan 015 A1/A11 and Plan 017 F0-F3. A backend-independent candidate DAG covers rational powers and P/E/T calls in either mixed order; the native compiler executes rational-power and terminal algebraic-over-P/E/T towers and finite-power exponential reclassification. General algebraic relation objects/composita, monomial-over-algebraic execution, canonical minimization, and exact round trips remain. |
+| 9. Real/complex presentation | Partial, expanded in Plan 017 F4-F5: rational real logarithmic output and internal Gaussian tangent normalization exist; exact source back-substitution, algebraic root isolation, interval validity, and branch/unwinding metadata remain. |
+| 10. Completeness evidence | Partial, expanded in Plan 017 F7-F8: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; operation-specific totality, algebraic/mixed/frontend coverage, and end-to-end performance families remain. |
+| 11. SymPy upstreaming | Planned in Plan 017 F9; no upstream extraction has started. |
 
 ## Reference map
 
@@ -290,6 +291,11 @@ Shared effective-field and certificate contracts
 
 The algebraic track can be developed in parallel conceptually, but mixed-tower
 completion waits for both tracks.
+
+Plan 016 owns the complete explicit transcendental branch of this graph.
+Plan 015 owns the algebraic-function-field, pure algebraic, algebraic-RDE, and
+mixed-explicit branches. Plans 014 and 017 own automatic construction,
+presentation, completeness evidence, and the upstream-facing path.
 
 ## Milestone 0: Establish the completeness contract and coverage ledger
 
@@ -368,6 +374,10 @@ these capabilities.
 Every supported mixed field has exact coercion, equality, differentiation,
 factorization, trace/norm, and stable canonical representation independent of
 the integration algorithms.
+
+Plan 016 T0-T1 owns the effective constant-field and checked transcendental
+tower portion of this milestone. Plan 015 A0-A2 owns algebraic presentation,
+normalization, orders, and mixed-field representation.
 
 ## Milestone 2: Complete dependency and structure-theorem decisions
 
@@ -461,11 +471,10 @@ automatic Darboux/no-special decision.
 
 ### Exit gate
 
-For every explicitly listed current solver cell, dependency,
-radical logarithmic derivative, and no-new-constants questions reach a
-decision or documented boundary. General special-polynomial absence remains a
-future algorithmic decision; `UNKNOWN` is possible when a declared
-effective-field prerequisite or that future decision is absent.
+For every accepted solver cell, dependency, radical logarithmic derivative,
+and no-new-constants questions reach a complete decision. Every advertised
+general-monomial family also has a complete special-polynomial decision;
+otherwise that family is rejected at admission. See Plan 016 T1-T2 and T6.
 
 ## Milestone 3: Complete scalar, parametric, and coupled RDEs
 
@@ -527,7 +536,8 @@ solutions directly and through conjugate complex scalar systems.
 ### Exit gate
 
 Scalar RDE, parametric RDE, limited integration, and required coupled systems
-are total over every supported explicit transcendental tower.
+are total over every supported explicit transcendental tower. See Plan 016
+T3-T5.
 
 ## Milestone 4: Complete transcendental integration
 
@@ -558,7 +568,8 @@ field, `integrate_elementary` never reaches an implementation gap and returns
 either an exact elementary answer or a theorem-backed obstruction.
 
 This is the first major release target: **complete explicit transcendental
-Risch**, before automatic expression discovery.
+Risch**, before automatic expression discovery. Plan 016 T6-T8 gives its
+remaining checkpoint order.
 
 ## Milestone 5: Build the algebraic-function-field kernel
 
@@ -708,7 +719,8 @@ this milestone explicit.
 Define and test an explicit grammar including:
 
 - arithmetic and integer/rational powers;
-- algebraic `RootOf`/radical expressions;
+- radicals, algebraic-number `RootOf`, and an explicit selected-root/relation
+  object for general algebraic functions;
 - `exp`, `log`;
 - trigonometric, hyperbolic, and inverse forms reducible to elementary
   extensions; and
@@ -749,7 +761,8 @@ algebraic(exp(log(x)))     -> simplified dependency before tower admission
 Every expression in the accepted grammar either constructs and verifies a
 minimal supported tower or returns a precise unsupported-input reason. No
 manual `ConstantFieldStatus.PRESERVED` assertion is required for constructed
-towers.
+towers. Plans 014 and 015 A11 supply algebraic/mixed discovery; Plan 017
+F0-F3 completes the grammar, minimization, and exact round trip.
 
 ## Milestone 9: Complete real and complex presentation
 
@@ -769,7 +782,7 @@ towers.
 Every constructive field certificate can be converted into an exact SymPy
 expression whose derivative reconstructs the input under the recorded
 assumptions. Real mode additionally states the domains on which its
-presentation is valid.
+presentation is valid. See Plan 017 F4-F5.
 
 ## Milestone 10: Establish completeness evidence
 
@@ -818,6 +831,9 @@ Add a public test corpus which:
 - exercises automatic construction and back-substitution for every expression
   grammar rule.
 
+Plan 017 F7-F8 turns this matrix into the final end-to-end correctness and
+performance gate without requiring tests for incidental internal architecture.
+
 ## Milestone 11: Integrate with and upstream to SymPy
 
 Upstream incrementally rather than as one replacement:
@@ -843,7 +859,8 @@ Each proposal must:
 
 The upstream-facing Risch entry point accepts the declared elementary
 expression grammar and is total over its effective field class. The standalone
-package may then become a development harness or be retired.
+package may then become a development harness or be retired. See Plan 017
+F6 and F9.
 
 ## Immediate execution order
 
@@ -885,22 +902,19 @@ separate commit after focused and full-suite verification.
    certificate in a local exact principal-part reduction. It records solved,
    unsolved, and unsupported lower RDEs without treating a local failure as a
    non-elementarity result.
-7. [ ] Extend fundamental signatures to the declared effective constant fields
-   and use them for automatic no-new-constants/dependency certification.
+7. [ ] **Plan 016 T0-T2**: make effective constant operations and the
+   per-operation solver matrix executable, then complete proof-carrying
+   recursive P/E/T constant, dependency, and structure decisions.
    - [x] **Plan 010**: admit native finite algebraic `C/QQ` at the standard
      `C(x)` base, retain rational-coordinate relation constraints, and enable
      direct checked primitive/hyperexponential proposals.
-   - [ ] Replace caller metadata with replayed or proof-carrying
-     no-new-constants evidence before recursively certifying a general-`C`
-     P/E tower.
-8. [ ] Solve the complete special-polynomial/Darboux decision for each
-   explicitly admitted general-monomial family. In particular, a linear factor
-   `t-a` requires the Riccati equation `D(a) = Dt|_(t=a)`; failed search is
-   never an `ABSENT` proof.
-9. [ ] Extend the local factor consumer to complete special-denominator
-   Hermite/RDE reduction, public parametric RDE, limited integration, coupled
-   systems, and logarithmic reconstruction. This completes explicit
-   transcendental Risch beyond the normalized P/E/T core.
+8. [ ] **Plan 016 T3-T5**: fill every missing P/E/T scalar RDE ordering and
+   implement complete parametric RDE, limited integration, and required real
+   coupled systems.
+9. [ ] **Plan 016 T6-T8**: decide special polynomials for each additionally
+   advertised general-monomial family, complete the special-denominator and
+   logarithmic branches, and make explicit transcendental dispatch total. A
+   failed Darboux search without a proved bound remains an admission boundary.
 
 ### Algebraic completion path
 
@@ -992,12 +1006,16 @@ separate commit after focused and full-suite verification.
       backends.
 19. [ ] **Plan 015 A11**: finish automatic algebraic/mixed execution, including
     source-model isomorphisms and automatic integral-basis construction.
-20. [ ] Broaden back-substitution to complex-local versus
-    assumption-scoped-real presentation, branch metadata, and a small stable
-    SymPy-facing facade.
-21. [ ] Expand the coverage matrix to every declared mixed-tower and expression
-    cell, then upstream independently mature domain, reduction, RDE, and
-    frontend components.
+20. [ ] **Plan 017 F0-F3**: make the full elementary expression grammar
+    executable, complete candidate minimization, and require exact
+    source-to-tower round trips.
+21. [ ] **Plan 017 F4-F6**: implement canonical complex-local and
+    assumption-scoped real back-substitution, then expose one stable
+    SymPy-facing decision API.
+22. [ ] **Plan 017 F7-F8**: expand the completeness matrix to every declared
+    tower/expression cell and add end-to-end performance families.
+23. [ ] **Plan 017 F9**: upstream independently mature domain, reduction, RDE,
+    function-field, frontend, dispatcher, and presentation components.
 
 ## Commands required for every checkpoint
 

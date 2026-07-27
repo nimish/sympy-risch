@@ -10,7 +10,7 @@
 - **Priority**: P1
 - **Effort**: XL, a multi-checkpoint research program
 - **Risk**: HIGH
-- **Depends on**: Plans 004-006 and 010-014
+- **Depends on**: Plans 004-006 and 010-013; A11 also consumes Plan 014
 - **Category**: algebraic function fields / algebraic and mixed integration
 - **Planned**: 2026-07-27
 - **Status**: TODO
@@ -105,6 +105,11 @@ Define exactly which coefficient fields and function-field presentations the
 geometry engine admits. The first complete cell should be characteristic-zero
 number fields with exact arithmetic and univariate factorization, plus finite
 fields used only for certified good reduction.
+
+The generic effective constant-field capability record is shared with Plan
+016 T0 and must be implemented once in a neutral domain layer. This checkpoint
+adds the function-field-specific presentation and normalization admission
+rather than creating a second capability hierarchy.
 
 The admission result must distinguish:
 

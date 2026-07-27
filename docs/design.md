@@ -1225,6 +1225,16 @@ limited piece of this layer.
 Each checkpoint ends with focused tests, the complete test suite, and a
 separate commit.
 
+The maintained program plans divide the remaining work by mathematical
+boundary:
+
+| Plan | Scope |
+| --- | --- |
+| [001](../plans/001-full-risch-roadmap.md) | Complete Risch program, dependency graph, and global exit criteria |
+| [015](../plans/015-algebraic-completion-program.md) | Hess/function-field expansion, pure algebraic integration, algebraic RDEs, and mixed towers |
+| [016](../plans/016-transcendental-risch-completion.md) | Effective constants, structure theorems, scalar/parametric/coupled RDEs, and total explicit transcendental integration |
+| [017](../plans/017-automatic-presentation-and-upstream.md) | Automatic tower construction, reversible compilation, real/complex presentation, completeness evidence, and SymPy upstreaming |
+
 The latest transcendental checkpoints establish the declared explicit P/E/T
 *structural* contract: finite primitive, hyperexponential, and hypertangent
 prefixes over `QQ(x)` with replay-proved preserved constants.  They include
@@ -1254,8 +1264,9 @@ The signature checkpoint exposes the certified P/E/T directions without
 widening their theorem domain. The next transcendental work is a complete
 special-factor decision and the remaining complete special-denominator,
 parametric, coupled, and logarithmic branches.
-The current algebraic priority remains branch-place handling before the
-residue-field and divisor stages.
+Plan 016 orders that work without reopening the implemented P/E/T
+recurrences. Plan 015 separately records the expanded Hess/function-field,
+pure algebraic, algebraic-RDE, and relative mixed-tower program.
 
 ### Completed foundation
 

@@ -27,7 +27,9 @@ plan with exact file scope, tests, and a separate commit.
 | 012 | Decide general divisor torsion by exact reduction | P1 | L | 005, 011 | DONE |
 | 013 | Bound torsion with good finite-prime reductions | P1 | M | 012 | DONE |
 | 014 | Discover algebraic and mixed expression towers | P1 | L | 007, 010-013 | IN PROGRESS |
-| 015 | Complete the algebraic and mixed Risch program | P1 | XL | 004-006, 010-014 | TODO |
+| 015 | Complete the algebraic and mixed Risch program | P1 | XL | 004-006, 010-013; A11: 014 | TODO |
+| 016 | Complete the explicit transcendental Risch algorithm | P1 | XL | 002, 003, 008-010 | TODO |
+| 017 | Complete automatic construction, presentation, and upstreaming | P1 | XL | 014-016 | TODO |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -76,11 +78,12 @@ source directions as explicit fundamental signatures while keeping the
 Gaussian conversion as an independent check. Plan 004 now
 provides a narrow constant-field decision and complete all-place data for its
 admitted preserved presentations; an actual function-field presentation
-rebase remains a later normalization task. Plan 005 adds only the global
-Riemann--Roch spaces proved complete by a direct theorem; a general
-finite/infinite lattice-intersection algorithm remains open.
-Plan 006 provides the first exact finite-dimensional intersection kernel and
-a bounded nonspecial search; it does not remove that general boundary.
+rebase remains a later normalization task. Plan 005 established the global
+Riemann--Roch service; the later Hess finite/infinite ideal-intersection route
+now computes complete long bases for the direct models admitted by the
+maximal-order layer. Plan 006 provides an independent exact finite-dimensional
+valuation kernel and retains bounded nonspecial search only as an explicitly
+incomplete auxiliary route.
 Plan 007 adds a deliberately conservative one-variable expression compiler
 for rational arithmetic and nested P/E/T calls. It reuses the certified tower
 factories and returns local back-substituted presentations, while leaving
@@ -111,13 +114,21 @@ and large-divisor algorithms, scalable class arithmetic, complete algebraic
 integration, algebraic RDEs, and their relative mixed-tower forms. Plan 014's
 remaining execution cells depend on those services rather than on more
 syntax-directed special cases.
+Plan 016 gives the transcendental track the same decomposition: effective
+constants, recursive structure decisions, total P/E/T scalar, parametric, and
+coupled RDEs, the optional general-monomial special-polynomial branch, and a
+total explicit-tower dispatcher. Plan 017 then owns the remaining user-facing
+work: automatic verified tower construction, reversible compilation,
+complex-local and branch-aware real presentation, completeness evidence,
+performance, and incremental SymPy upstreaming.
 
-- Plan 003 must land before a complete special-polynomial/Darboux decision or
-  any claim of general effective constants.
-- Plan 004 must settle its constant-field contract before a residue can be
-  called a Liouville constant, and before principal/torsion divisor work.
-- The global algebraic logarithmic and second-kind branches depend on Plan 004;
-  mixed algebraic/transcendental towers depend on both tracks.
+- Plan 016 T0-T2 supplies the effective-constant and structure decisions
+  needed by its RDE and integration checkpoints.
+- Plan 015 A0-A9 and Plan 016 T0-T8 may advance independently after their
+  shared effective-field boundary is fixed.
+- Plan 015 A10 joins the completed algebraic and transcendental tracks.
+- Plans 014 and 015 A11 finish mixed discovery/execution; Plan 017 consumes
+  those explicit algorithms for public construction and presentation.
 
 ## Findings considered and rejected
 
