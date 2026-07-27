@@ -1,5 +1,7 @@
 # Plan 011: Certified algebraic constant composita
 
+**Status:** completed 2026-07-27
+
 ## Goal
 
 Replace the one-off `QQ -> QQ(alpha)` integration path with a reusable exact

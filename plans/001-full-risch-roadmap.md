@@ -23,8 +23,9 @@
 - **Last implementation reconciliation**: Plans 006 finite algebraic
   valuation constraints, 007 narrow P/E/T expression frontend, 008 certified
   Riccati Möbius normalization, 009 local linear-special-pole reduction, and
-  010 finite algebraic constant bases plus the first one-step profile-selected
-  algebraic-constant target integration cell, 2026-07-26
+  010 finite algebraic constant bases, plus Plan 011 reusable algebraic
+  constant composita and iterative profile-selected target integration,
+  2026-07-27
 
 ## Why this matters
 
@@ -152,20 +153,19 @@ The current implementation already has a strong exact-arithmetic kernel:
   that certified explicit tower, returning either a local presented answer, a
   native obstruction, or a structured compiler boundary. It intentionally
   does not minimize general expression generators or resolve global branches.
-- `src/sympy_risch/algebraic.py` validates algebraic extensions and implements
-  algebraic Hermite reduction over `QQ(x)` with explicit, simple-radical, or
-  lazily refined integral bases, plus Trager's finite-residue polynomial for
-  supported unbranched poles. `src/sympy_risch/algebraic_geometry.py` now adds
-  certified maximal orders, ramified and infinite places, residue fields,
-  local expansions, divisors, and differential residues. A narrow
-  constant-field analyzer and all-place collector are implemented for admitted
-  direct `C(x)` simple-radical presentations. A theorem-limited global-space
-  kernel now certifies explicit complete Riemann--Roch cases and exact
-  finite-dimensional valuation intersections. A first direct-
-  `C(x)`, `C/QQ` finite algebraic, displayed-constant logarithmic slice is
-  constructive; general lattice intersection, exact presentation
-  normalization, compatible residue descent, and second-kind exactness remain
-  open.
+- `src/sympy_risch/algebraic/` validates algebraic extensions and implements
+  algebraic Hermite reduction, all-place residues, displayed-constant
+  logarithmic reconstruction, and complete in-field exactness for supported
+  direct curves. `src/sympy_risch/algebraic_geometry/` provides certified
+  maximal orders, ramified and infinite places, residue fields, divisors,
+  Hess ideal arithmetic, complete Riemann--Roch spaces, and principality.
+  Constant base change now lifts exact number-field embeddings coefficientwise
+  through `C(x)[y]/(f)` and iterates through compatible rationally defined
+  residue factors, rebuilding and rechecking every target. Independent
+  quadratic residue fields can therefore be combined in a certified
+  compositum. Divisor-class torsion, factors genuinely defined over the
+  current algebraic constants, general splitting fields, and arbitrary
+  algebraic-curve RDEs remain open.
 
 The implementation checkpoints since this roadmap was created are:
 
@@ -913,7 +913,7 @@ separate commit after focused and full-suite verification.
    - [x] Decide direct residue-free exactness using the complete `L(E)` from
      the generic Riemann--Roch service. A complete failed solve proves only no
      primitive in the current algebraic function field.
-   - [ ] **Plan 007**: factor the one-step `QQ -> QQ(alpha)` base-change
+   - [x] **Plan 011**: factor the one-step `QQ -> QQ(alpha)` base-change
      presentation into a reusable algebraic-constant extension map, then add
      certified composita and iterative target-field integration. Each step
      must rebuild the function-field relation, re-prove preserved constants,

@@ -18,13 +18,58 @@ from enum import Enum
 
 from sympy.polys.agca.extensions import ExtensionElement
 
-from ..algebraic._field import _extension_element
+from ..algebraic._field import (
+    _base_polynomial_ring,
+    _extension_element,
+    _quotient_extension_elements,
+)
+from .finite_places import FiniteAlgebraicPlace
 from .function_field import AlgebraicDivisor, AlgebraicFunctionField
 from .riemann_roch import (
     RiemannRochSpace,
     RiemannRochSpaceStatus,
     compute_riemann_roch_space,
 )
+
+
+def _simple_fibre_witness(
+    model: AlgebraicFunctionField,
+    divisor: AlgebraicDivisor,
+) -> ExtensionElement | None:
+    r"""Try linear functions vanishing at degree-one finite support.
+
+    This is only a positive shortcut.  For a degree-one point ``P``, both
+    ``x - x(P)`` and ``y - y(P)`` are exact functions in the displayed field.
+    Their complete principal divisors can cheaply recognize the common
+    genus-zero logarithmic arguments.  Failure falls through to the complete
+    Riemann--Roch algorithm and therefore carries no negative meaning.
+    """
+    extension = model.extension
+    _parent, _constants, variable = _base_polynomial_ring(extension)
+    generators = (
+        extension.field.from_sympy(variable),
+        extension.field.generator,
+    )
+    seen: set[ExtensionElement] = set()
+    for place, _coefficient in divisor.terms:
+        if not isinstance(place, FiniteAlgebraicPlace) or place.degree != 1:
+            continue
+        for generator in generators:
+            residue = place.reduce_local(generator)
+            candidate = generator - place.lift_residue(residue)
+            if candidate == extension.field.zero or candidate in seen:
+                continue
+            seen.add(candidate)
+            candidate_divisor = model.principal_divisor(candidate)
+            if candidate_divisor == divisor:
+                return candidate
+            if -candidate_divisor == divisor:
+                return _quotient_extension_elements(
+                    extension,
+                    extension.field.one,
+                    candidate,
+                )
+    return None
 
 
 class AlgebraicPrincipalityStatus(Enum):
@@ -161,7 +206,12 @@ def decide_algebraic_principality(
             "a principal divisor must have degree zero",
         )
 
-    space = compute_riemann_roch_space(model, -divisor)
+    witness = _simple_fibre_witness(model, divisor)
+    space = compute_riemann_roch_space(
+        model,
+        -divisor,
+        candidate_basis=None if witness is None else (witness,),
+    )
     if space.status is RiemannRochSpaceStatus.UNSUPPORTED:
         return AlgebraicPrincipalityDecision(
             model,

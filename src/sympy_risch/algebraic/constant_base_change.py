@@ -1,9 +1,9 @@
 r"""Explicit algebraic integration after a compatible constant base change.
 
 This module owns the orchestration boundary between direct algebraic
-logarithmic reconstruction and the certified ``QQ -> QQ(alpha)`` base-change
-layer.  Keeping it separate means the direct logarithmic kernel has no reason
-to know about target towers or split places.
+logarithmic reconstruction and certified algebraic-constant composita.
+Keeping it separate means the direct logarithmic kernel has no reason to know
+about target towers or split places.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from sympy.polys.polytools import Poly
 
 from ..algebraic_geometry.base_change import (
     AlgebraicConstantBaseChange,
-    AlgebraicConstantBaseChangeStatus,
     build_algebraic_constant_base_change,
 )
 from ..tower import Derivation
@@ -34,102 +33,121 @@ from .residue_profile import (
 
 
 @dataclass(frozen=True, slots=True)
+class AlgebraicConstantBaseChangeStep:
+    """One certified target-field integration in a constant-extension chain."""
+
+    base_change: AlgebraicConstantBaseChange
+    target_result: AlgebraicIntegrationResult
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.base_change, AlgebraicConstantBaseChange):
+            raise TypeError("a constant-extension step needs a base change")
+        if not isinstance(self.target_result, AlgebraicIntegrationResult):
+            raise TypeError("a constant-extension step needs a target result")
+        if not self.base_change.certified:
+            raise ValueError("a constant-extension step needs a certified map")
+        target_extension = self.base_change.target_extension
+        target_derivation = self.base_change.target_derivation
+        if target_extension is None or target_derivation is None:
+            raise ValueError("a certified base change lacks its target field")
+        if self.target_result.collection.basis.extension is not target_extension:
+            raise ValueError("the target integration belongs to another field")
+        if not self.target_result.collection.derivation.has_same_position(
+            target_derivation
+        ):
+            raise ValueError("the target integration belongs to another derivation")
+
+
+@dataclass(frozen=True, slots=True)
 class AlgebraicConstantBaseChangeIntegrationResult:
-    r"""An algebraic integration attempt continued in ``C'(x, y)``.
+    r"""An algebraic integration continued through explicit constant fields.
 
     ``source_result`` records the original differential over ``C(x, y)``.
-    When its residues require a compatible finite constant extension,
-    ``base_change`` records the certified map ``C(x, y) -> C'(x, y)`` and
-    ``target_result`` is a fresh all-place integration result for the embedded
-    *original* differential. Thus a successful ``antiderivative`` belongs to
-    the target field; it is not silently presented as an expression in the
-    source field.
+    Every item in ``steps`` contains a certified map to the next compositum
+    and a fresh all-place integration of the embedded differential there.
+    A successful antiderivative therefore belongs to the final target field;
+    it is never silently presented as an expression in the source field.
     """
 
     source_result: AlgebraicIntegrationResult
-    base_change: AlgebraicConstantBaseChange | None
-    target_result: AlgebraicIntegrationResult | None
+    steps: tuple[AlgebraicConstantBaseChangeStep, ...]
     detail: str
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_result, AlgebraicIntegrationResult):
             raise TypeError("a base-change integration needs a source result")
-        if self.base_change is not None and not isinstance(
-            self.base_change,
-            AlgebraicConstantBaseChange,
+        if not isinstance(self.steps, tuple) or any(
+            not isinstance(step, AlgebraicConstantBaseChangeStep) for step in self.steps
         ):
-            raise TypeError("a base-change integration needs a base change")
-        if self.target_result is not None and not isinstance(
-            self.target_result,
-            AlgebraicIntegrationResult,
-        ):
-            raise TypeError("a base-change integration needs a target result")
+            raise TypeError("base-change integration steps must be a tuple")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("a base-change integration needs a nonempty detail")
 
-        change = self.base_change
-        target = self.target_result
-        if change is None:
-            if target is not None:
-                raise ValueError("a target result needs its certified base change")
-            return
+        previous = self.source_result
+        for step in self.steps:
+            if (
+                previous.status
+                is not AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+            ):
+                raise ValueError(
+                    "only a constant-base-change boundary may be continued"
+                )
+            source_model = previous.collection.model
+            change = step.base_change
+            if source_model is None or change.source_model is not source_model:
+                raise ValueError("a base change belongs to another source model")
+            if not change.source_derivation.has_same_position(
+                previous.collection.derivation
+            ):
+                raise ValueError("a base change belongs to another source derivation")
+            target_extension = change.target_extension
+            if target_extension is None:
+                raise ValueError("a certified base change has no target extension")
+            embedded = change.embed(previous.collection.integrand)
+            if (
+                step.target_result.collection.integrand - embedded
+                != target_extension.field.zero
+            ):
+                raise ValueError(
+                    "a target integration did not use the preceding embedded input"
+                )
+            previous = step.target_result
 
-        source_model = self.source_result.collection.model
-        if source_model is None or change.source_model is not source_model:
-            raise ValueError("the base change belongs to another source model")
-        if not change.source_derivation.has_same_position(
-            self.source_result.collection.derivation,
-        ):
-            raise ValueError("the base change belongs to another source derivation")
+    @property
+    def active_result(self) -> AlgebraicIntegrationResult:
+        """The integration result in the last constructed constant field."""
+        if self.steps:
+            return self.steps[-1].target_result
+        return self.source_result
 
-        if change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED:
-            if target is not None:
-                raise ValueError("an unsupported base change cannot carry a target")
-            return
-        if not change.certified:
-            raise ValueError("a base change has an unknown status")
-        if target is None:
-            raise ValueError("a certified base change needs a target result")
-        if (
-            self.source_result.status
-            is not AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
-        ):
-            raise ValueError("only a source base-change boundary may be continued")
+    @property
+    def base_change(self) -> AlgebraicConstantBaseChange | None:
+        """The last certified base change, for convenient inspection."""
+        if self.steps:
+            return self.steps[-1].base_change
+        return None
 
-        target_extension = change.target_extension
-        target_derivation = change.target_derivation
-        if target_extension is None or target_derivation is None:
-            raise ValueError("a certified base change lacks its target field")
-        if target.collection.basis.extension is not target_extension:
-            raise ValueError("the target integration belongs to another field")
-        if not target.collection.derivation.has_same_position(target_derivation):
-            raise ValueError("the target integration belongs to another derivation")
-        embedded_source = change.embed(self.source_result.collection.integrand)
-        if target.collection.integrand - embedded_source != target_extension.field.zero:
-            raise ValueError("the target integration did not use the embedded source")
+    @property
+    def target_result(self) -> AlgebraicIntegrationResult | None:
+        """The last target result, or ``None`` when no change was constructed."""
+        if self.steps:
+            return self.steps[-1].target_result
+        return None
 
     @property
     def status(self) -> AlgebraicIntegrationStatus:
-        """Return the source or target integration outcome."""
-        if self.target_result is not None:
-            return self.target_result.status
-        if self.base_change is not None:
-            return AlgebraicIntegrationStatus.UNSUPPORTED
-        return self.source_result.status
+        """Return the active integration outcome."""
+        return self.active_result.status
 
     @property
     def is_elementary(self) -> bool:
-        """Whether the active source or target result is constructive."""
-        if self.target_result is not None:
-            return self.target_result.is_elementary
-        return self.base_change is None and self.source_result.is_elementary
+        """Whether the active result is constructive."""
+        return self.active_result.is_elementary
 
     @property
     def reconstructs(self) -> bool:
-        """Whether the active decomposition reconstructs its input field."""
-        if self.target_result is not None:
-            return self.target_result.reconstructs
-        return self.source_result.reconstructs
+        """Whether the active decomposition reconstructs its input."""
+        return self.active_result.reconstructs
 
     @property
     def source_reconstructs(self) -> bool:
@@ -138,23 +156,20 @@ class AlgebraicConstantBaseChangeIntegrationResult:
 
     @property
     def antiderivative(self) -> Expr | None:
-        """Return the source or explicitly base-changed displayed answer."""
-        if self.target_result is not None:
-            return self.target_result.antiderivative
-        if self.base_change is None:
-            return self.source_result.antiderivative
-        return None
+        """Return the source or final explicitly base-changed answer."""
+        return self.active_result.antiderivative
 
 
 def _automatic_constant_factor_candidates(
     source_result: AlgebraicIntegrationResult,
 ) -> tuple[tuple[Poly, ...], str]:
-    """Return supported one-step constant-field candidates from a profile.
+    """Return rationally defined constant-field candidates from a profile.
 
     A root of an irreducible profile factor is only a *candidate* for a
     compatible constant extension.  The certified base-change builder still
     checks that its root field contains every conjugate needed by the selected
-    factor, and the target integration is recollected independently below.
+    factor.  Over algebraic constants, only factors whose coefficients descend
+    exactly to ``QQ`` enter this constructive compositum cell.
     """
     profile = build_algebraic_residue_profile(
         source_result.collection,
@@ -167,24 +182,37 @@ def _automatic_constant_factor_candidates(
         )
 
     polynomial = profile.square_free_residue_polynomial
-    if polynomial is None or polynomial.domain != QQ:
+    if polynomial is None:
         return (
             (),
-            "automatic residue-profile selection currently starts only from "
-            "a profile over QQ",
+            "the residue profile has no square-free polynomial",
         )
     try:
         _content, factors = polynomial.factor_list()
     except (NotImplementedError, TypeError, ValueError) as exc:
         return (), "the residue profile could not be factored over QQ: " + str(exc)
 
+    rational_factors: list[Poly] = []
+    for candidate, _multiplicity in factors:
+        if candidate.degree() < 2:
+            continue
+        try:
+            rational = Poly.from_dict(
+                {
+                    monomial: QQ.convert(coefficient)
+                    for monomial, coefficient in candidate.rep.to_dict().items()
+                },
+                candidate.gens[0],
+                domain=QQ,
+            ).monic()
+        except (NotImplementedError, TypeError, ValueError):
+            continue
+        if rational.is_irreducible is True:
+            rational_factors.append(rational)
+
     candidates = tuple(
         sorted(
-            (
-                factor.monic()
-                for factor, _multiplicity in factors
-                if factor.degree() >= 2
-            ),
+            rational_factors,
             key=lambda factor: (
                 factor.degree(),
                 tuple(
@@ -197,13 +225,13 @@ def _automatic_constant_factor_candidates(
     if not candidates:
         return (
             (),
-            "the residue profile has no non-rational irreducible factor for "
-            "a one-step constant extension",
+            "the residue profile has no new rationally defined irreducible "
+            "factor supported by the constant-compositum layer",
         )
     return (
         candidates,
-        "selected compatible constant-field candidates from the square-free "
-        "all-place residue profile",
+        "selected rationally defined constant-field candidates from the "
+        "square-free all-place residue profile",
     )
 
 
@@ -212,8 +240,8 @@ def _continue_source_result(
     factor: Poly,
     *,
     lazy: bool,
-) -> AlgebraicConstantBaseChangeIntegrationResult:
-    """Reintegrate one source boundary over a caller- or profile-chosen factor."""
+) -> tuple[AlgebraicConstantBaseChangeStep | None, str]:
+    """Reintegrate one boundary over a caller- or profile-chosen factor."""
     source_model = source_result.collection.model
     if source_model is None:
         raise ValueError("a base-change boundary lacks its source function field")
@@ -223,9 +251,7 @@ def _continue_source_result(
         factor,
     )
     if not change.certified:
-        return AlgebraicConstantBaseChangeIntegrationResult(
-            source_result,
-            change,
+        return (
             None,
             "the selected algebraic constant base change is unsupported: "
             + change.detail,
@@ -241,10 +267,8 @@ def _continue_source_result(
         target_model.order.basis,
         lazy=lazy,
     )
-    return AlgebraicConstantBaseChangeIntegrationResult(
-        source_result,
-        change,
-        target_result,
+    return (
+        AlgebraicConstantBaseChangeStep(change, target_result),
         "the source differential was integrated again after certified algebraic "
         "constant base change",
     )
@@ -258,24 +282,22 @@ def integrate_algebraic_with_constant_base_change(
     *,
     lazy: bool = False,
 ) -> AlgebraicConstantBaseChangeIntegrationResult:
-    r"""Continue a compatible algebraic integral in a selected constant field.
+    r"""Continue an algebraic integral through compatible constant fields.
 
     The source is first integrated through the displayed-constant logarithmic
     slice. If and only if that ends at
     :attr:`AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE`, an explicit
-    ``factor`` is used to build the currently supported ``QQ -> QQ(alpha)``
-    extension. When ``factor`` is omitted, the square-free all-place residue
-    profile supplies deterministic irreducible candidates over ``QQ``. The
-    first certified target that no longer needs another constant base change
-    is retained. The embedded original differential is then collected again
-    at every target place before logarithmic reconstruction. This is
-    essential: merely transporting source finite residues would omit target
-    infinity and split descendants.
+    ``factor`` requests one selected extension. When ``factor`` is omitted,
+    every unresolved target is profiled anew and its deterministic
+    rationally-defined factors are tried. Each certified factor strictly
+    enlarges the constants, so a factor already absorbed by the compositum
+    cannot be selected again.
 
-    Automatic selection is a one-step planner, not general constant descent:
-    it only considers profile factors whose root fields meet the current
-    certified splitting condition. If no such target is found, the source
-    ``NEEDS_CONSTANT_BASE_CHANGE`` boundary remains explicit.
+    Every step embeds the preceding differential and collects it again at all
+    target places before logarithmic reconstruction. Merely transporting a
+    source residue list would omit target infinity and split descendants.
+    Factors with genuinely algebraic coefficients and nonsplitting root
+    fields remain explicit unsupported boundaries.
     """
     source_result = integrate_algebraic(
         integrand,
@@ -289,47 +311,68 @@ def integrate_algebraic_with_constant_base_change(
     ):
         return AlgebraicConstantBaseChangeIntegrationResult(
             source_result,
-            None,
-            None,
+            (),
             "the source integration did not require algebraic constant base change",
         )
 
     if factor is not None:
-        return _continue_source_result(
+        step, detail = _continue_source_result(
             source_result,
             factor,
             lazy=lazy,
         )
-
-    candidates, detail = _automatic_constant_factor_candidates(source_result)
-    fallback: AlgebraicConstantBaseChangeIntegrationResult | None = None
-    for candidate in candidates:
-        continued = _continue_source_result(
-            source_result,
-            candidate,
-            lazy=lazy,
-        )
-        if continued.base_change is not None and continued.base_change.certified:
-            if fallback is None:
-                fallback = continued
-            if continued.status in {
-                AlgebraicIntegrationStatus.EXACT,
-                AlgebraicIntegrationStatus.ELEMENTARY,
-                AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER,
-            }:
-                return continued
-
-    if fallback is not None:
         return AlgebraicConstantBaseChangeIntegrationResult(
-            fallback.source_result,
-            fallback.base_change,
-            fallback.target_result,
-            "no supported one-step profile factor resolved the source "
-            "constant-base-change boundary",
+            source_result,
+            () if step is None else (step,),
+            detail,
+        )
+
+    steps: list[AlgebraicConstantBaseChangeStep] = []
+    current = source_result
+    attempted: set[tuple[int, tuple[object, ...]]] = set()
+    final_detail = "automatic algebraic constant descent made no progress"
+    while current.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE:
+        candidates, final_detail = _automatic_constant_factor_candidates(current)
+        progressed = False
+        for candidate in candidates:
+            key = (
+                id(current.collection.basis.extension),
+                tuple(candidate.all_coeffs()),
+            )
+            if key in attempted:
+                continue
+            attempted.add(key)
+            step, attempt_detail = _continue_source_result(
+                current,
+                candidate,
+                lazy=lazy,
+            )
+            if step is None:
+                final_detail = attempt_detail
+                continue
+            steps.append(step)
+            current = step.target_result
+            final_detail = attempt_detail
+            progressed = True
+            break
+        if not progressed:
+            break
+
+    if (
+        steps
+        and current.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+    ):
+        final_detail = (
+            "the certified compositum chain exhausted the supported residue factors: "
+            + final_detail
+        )
+    elif steps:
+        final_detail = (
+            f"algebraic integration continued through {len(steps)} certified "
+            "constant-field extension" + ("" if len(steps) == 1 else "s")
         )
     return AlgebraicConstantBaseChangeIntegrationResult(
         source_result,
-        None,
-        None,
-        detail,
+        tuple(steps),
+        final_detail,
     )

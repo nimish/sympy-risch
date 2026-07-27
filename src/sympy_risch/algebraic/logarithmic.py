@@ -28,6 +28,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polyerrors import CoercionFailed
 
 from .._typing import FieldElement
+from ..algebraic_geometry.finite_places import FiniteAlgebraicPlace
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ..algebraic_geometry.principal import (
     AlgebraicPrincipalityDecision,
@@ -448,6 +449,87 @@ def _rational_coordinates_of_constant(
     return tuple(reversed((QQ.zero,) * (degree - len(coefficients)) + coefficients))
 
 
+def _rational_parameter_plans(
+    collection: AlgebraicAllPlaceResidueResult,
+    constants: Domain,
+    records: tuple[
+        tuple[
+            AlgebraicLocalDifferentialResidue,
+            FieldElement,
+            tuple[FieldElement, ...],
+        ],
+        ...,
+    ],
+) -> (
+    tuple[tuple[FieldElement, AlgebraicDivisor, AlgebraicPrincipalityDecision], ...]
+    | None
+):
+    r"""Reconstruct degree-one residues through a rational parameter.
+
+    If ``t`` has one simple pole, then ``div(t - t(P)) = P - P_infinity`` for
+    every degree-one finite point ``P``.  This avoids expanding algebraic
+    residues into a rational power basis, which can create needlessly large
+    integer-coordinate divisors.  Every proposed divisor and witness is still
+    verified; failure simply returns to the general coordinate algorithm.
+    """
+    model = collection.model
+    if model is None:
+        return None
+    extension = model.extension
+    _parent, _constants, variable = _base_polynomial_ring(extension)
+    parameters = (
+        extension.field.generator,
+        extension.field.from_sympy(variable),
+    )
+    for parameter in parameters:
+        parameter_divisor = model.principal_divisor(parameter)
+        pole_divisor = parameter_divisor.negative_part
+        if (
+            pole_divisor.degree != 1
+            or len(pole_divisor.terms) != 1
+            or pole_divisor.terms[0][1] != 1
+        ):
+            continue
+        pole = pole_divisor.terms[0][0]
+        plans: list[
+            tuple[FieldElement, AlgebraicDivisor, AlgebraicPrincipalityDecision]
+        ] = []
+        nonpole_sum = constants.zero
+        pole_residue = constants.zero
+        supported = True
+        for record, residue, _coordinates in records:
+            converted_residue = constants.convert(residue)
+            if record.place is pole:
+                pole_residue += converted_residue
+                continue
+            if (
+                not isinstance(record.place, FiniteAlgebraicPlace)
+                or record.place.degree != 1
+            ):
+                supported = False
+                break
+            value_at_place = record.place.lift_residue(
+                record.place.reduce_local(parameter)
+            )
+            argument = parameter - value_at_place
+            divisor = AlgebraicDivisor(
+                model,
+                ((record.place, 1), (pole, -1)),
+            )
+            if model.principal_divisor(argument) != divisor:
+                supported = False
+                break
+            decision = decide_algebraic_principality(model, divisor)
+            if decision.status is not AlgebraicPrincipalityStatus.PRINCIPAL:
+                supported = False
+                break
+            plans.append((converted_residue, divisor, decision))
+            nonpole_sum += converted_residue
+        if supported and plans and pole_residue == -nonpole_sum:
+            return tuple(plans)
+    return None
+
+
 def reconstruct_constant_residue_logarithms(
     collection: AlgebraicAllPlaceResidueResult,
 ) -> AlgebraicIntegrationResult:
@@ -514,7 +596,11 @@ def reconstruct_constant_residue_logarithms(
         )
 
     constant_records: list[
-        tuple[AlgebraicLocalDifferentialResidue, tuple[FieldElement, ...]]
+        tuple[
+            AlgebraicLocalDifferentialResidue,
+            FieldElement,
+            tuple[FieldElement, ...],
+        ]
     ] = []
     for record in collection.residues:
         residue = _displayed_constant_residue(record, constants)
@@ -541,7 +627,7 @@ def reconstruct_constant_residue_logarithms(
         if len(coordinates) != len(constant_basis):
             raise ValueError("a displayed constant has the wrong coordinate dimension")
         if any(coordinate != QQ.zero for coordinate in coordinates):
-            constant_records.append((record, coordinates))
+            constant_records.append((record, residue, coordinates))
 
     if not constant_records:
         return AlgebraicIntegrationResult(
@@ -554,35 +640,49 @@ def reconstruct_constant_residue_logarithms(
             "remains to be decided",
         )
 
+    # For small displayed constant bases the coordinate decomposition is both
+    # compact and gives the traditional combined logarithmic presentation.
+    # The parameter form matters once a larger compositum would inflate those
+    # coordinates into high-power principal-divisor searches.
+    parameter_plans = (
+        _rational_parameter_plans(
+            collection,
+            constants,
+            tuple(constant_records),
+        )
+        if len(constant_basis) > 2
+        else None
+    )
     plans: list[
         tuple[FieldElement, AlgebraicDivisor, AlgebraicPrincipalityDecision]
-    ] = []
-    for coordinate_index, basis_element in enumerate(constant_basis):
-        coordinate_records = tuple(
-            (record, coordinates[coordinate_index])
-            for record, coordinates in constant_records
-            if coordinates[coordinate_index] != QQ.zero
-        )
-        if not coordinate_records:
-            continue
-        scale = _primitive_rational_scale(
-            tuple(residue for _record, residue in coordinate_records),
-        )
-        divisor = AlgebraicDivisor(
-            collection.model,
-            tuple(
-                (record.place, _integer_multiple(residue, scale))
-                for record, residue in coordinate_records
-            ),
-        )
-        if divisor.degree != 0:
-            raise ValueError(
-                "displayed-constant residue coordinates violated the global "
-                "residue theorem",
+    ] = [] if parameter_plans is None else list(parameter_plans)
+    if parameter_plans is None:
+        for coordinate_index, basis_element in enumerate(constant_basis):
+            coordinate_records = tuple(
+                (record, coordinates[coordinate_index])
+                for record, _residue, coordinates in constant_records
+                if coordinates[coordinate_index] != QQ.zero
             )
-        decision = decide_algebraic_principality(collection.model, divisor)
-        coefficient = constants.convert(basis_element * scale)
-        plans.append((coefficient, divisor, decision))
+            if not coordinate_records:
+                continue
+            scale = _primitive_rational_scale(
+                tuple(residue for _record, residue in coordinate_records),
+            )
+            divisor = AlgebraicDivisor(
+                collection.model,
+                tuple(
+                    (record.place, _integer_multiple(residue, scale))
+                    for record, residue in coordinate_records
+                ),
+            )
+            if divisor.degree != 0:
+                raise ValueError(
+                    "displayed-constant residue coordinates violated the global "
+                    "residue theorem",
+                )
+            decision = decide_algebraic_principality(collection.model, divisor)
+            coefficient = constants.convert(basis_element * scale)
+            plans.append((coefficient, divisor, decision))
 
     decisions = tuple(decision for _coefficient, _divisor, decision in plans)
     if any(

@@ -419,14 +419,14 @@ not the direct-curve `C(x)` integral-basis code.  A resonant leading equation
 is an explicit `NotImplementedError` boundary; its treatment belongs to the
 relative logarithmic/RDE stage rather than to Hermite reduction.
 
-## Algebraic constant composita and one-step profile selection
+## Algebraic constant composita and iterative profile selection
 
 `integrate_algebraic_with_constant_base_change` continues the displayed-
-constant boundary with either an explicit irreducible factor `q(alpha)` or a
-one-step profile plan. The automatic path factors the square-free all-place
-residue profile over `QQ`, orders its non-linear irreducible factors by degree
-and exact coefficients, and tries them until a certified target no longer
-needs another constant base change.
+constant boundary with either one explicit irreducible factor `q(alpha)` or
+an iterative profile plan. The automatic path factors the square-free
+all-place residue profile, orders its supported rationally defined non-linear
+factors by degree and exact coefficients, and tries them until a certified
+target no longer needs another constant base change.
 
 The underlying map is reusable beyond that one-step planner. It accepts
 constants `C = QQ` or an existing SymPy algebraic number field and constructs
@@ -439,11 +439,13 @@ function-field expression. At every step the target relation is rebuilt, the
 target constant field is checked again, and commutation with the derivation is
 verified on the field generators.
 
-The automatic integration planner is still one step. Its current certified
-place layer supports finite-place splitting with ramification index one. The
-**original** differential is embedded and collected again at every target
-place. Recollecting is required: transported source finite residues alone
-would miss target infinity and other descendants.
+After each successful step, the planner profiles the new target result rather
+than assuming that source residue data survived unchanged. Every step strictly
+enlarges the constant field, so an absorbed factor cannot be selected again.
+Its current certified place layer supports finite-place splitting with
+ramification index one. The preceding differential is embedded and collected
+again at every target place. Recollecting is required: transported source
+finite residues alone would miss target infinity and other descendants.
 
 The result keeps both fields visible. Its `source_result` records why the
 source needed a base change; when present, `target_result` and
@@ -451,8 +453,14 @@ source needed a base change; when present, `target_result` and
 For example, on `y**2 = x`, the source differential
 `y / (x * (x - 2))` has residues outside `QQ`; its profile has the factor
 `q(Z) = Z**2 - 1/2`, which gives an elementary target-field logarithmic
-answer. This is currently a one-step constructive integration route over a
-compositum-capable field map, not yet iterative constant descent.
+answer. The example `y / ((x - 2)*(x - 3))` requires two independent
+quadratic residue fields and now finishes over their quartic compositum.
+
+On a rational curve with a verified degree-one parameter `t`, the final
+reconstruction uses the exact divisors
+`div(t - t(P)) = P - P_infinity`. This keeps a large compositum from turning
+small residue constants into high-power `QQ`-coordinate divisors. The general
+complete Riemann--Roch principality algorithm remains the fallback.
 
 ## Riemann--Roch spaces
 
@@ -601,8 +609,8 @@ slow search is an implementation boundary, never a non-elementarity claim.
 | `integrate_algebraic` | Current displayed-constant algebraic integration slice |
 | `AlgebraicExactnessResult` | Verified primitive, complete in-field no-primitive decision, or unsupported AFF boundary |
 | `solve_algebraic_exactness` | Low-level residue-free exactness decision in a direct algebraic function field |
-| `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus explicit target-field continuation |
-| `integrate_algebraic_with_constant_base_change` | Recollect and integrate after an explicit or one-step profile-selected compatible factor |
+| `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus an explicit chain of target-field continuations |
+| `integrate_algebraic_with_constant_base_change` | Recollect and integrate through explicit or iteratively profile-selected compatible factors |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from

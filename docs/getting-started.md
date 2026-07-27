@@ -1020,15 +1020,14 @@ boundaries. See
 [the algebraic infrastructure contract](algebraic-infrastructure.md#relative-simple-radical-rde-descent)
 for the complete current scope and a nonzero-coefficient example.
 
-### Continue through a profile-selected algebraic constant extension
+### Continue through profile-selected algebraic constant extensions
 
-For the first compatible constant-extension cell, omit `factor` and the
-integrator factors the square-free all-place residue profile over `QQ`. It
-tries its small irreducible factors in a deterministic order, retaining the
-first certified target which no longer needs another constant extension. The
-result makes the field change explicit: an elementary target answer is an
-answer in `QQ(alpha)(x, y)`, not automatically one in the original
-`QQ(x, y)`.
+Omit `factor` and the integrator factors the square-free all-place residue
+profile. It tries supported rationally defined factors in deterministic order.
+If one target still needs more residue constants, the target is profiled
+again and a new exact compositum is constructed. The result makes every field
+change explicit: an elementary target answer is an answer in the final
+`C'(x, y)`, not automatically one in the original `QQ(x, y)`.
 
 ```python
 from sympy_risch import integrate_algebraic_with_constant_base_change
@@ -1040,6 +1039,7 @@ continued = integrate_algebraic_with_constant_base_change(
 )
 
 assert continued.source_result.status.value == "needs_constant_base_change"
+assert len(continued.steps) == 1
 assert continued.base_change is not None and continued.base_change.certified
 assert continued.target_result is not None
 assert continued.is_elementary
@@ -1047,10 +1047,12 @@ assert continued.reconstructs
 ```
 
 Pass an explicit `Poly` as `factor` when a particular constant field is
-desired. Automatic selection currently starts from `QQ`, uses only one
-profile factor, and has deliberately narrow finite-place splitting support.
-General constant descent, composita, and arbitrary second-kind exactness
-remain future algebraic work.
+desired; that requests one step. Automatic selection can build successive
+composita from `QQ` and existing SymPy algebraic number fields. It currently
+adjoins only factors defined over `QQ` and retains deliberately narrow
+finite-place splitting support. Factors with genuinely algebraic
+coefficients, general splitting fields, divisor-class torsion, and arbitrary
+second-kind exactness remain future algebraic work.
 
 ## Certify a first global algebraic space
 

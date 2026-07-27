@@ -200,10 +200,8 @@ def test_profile_base_change_selects_a_compatible_constant_factor() -> None:
     assert result.reconstructs
 
 
-def test_profile_base_change_does_not_claim_two_independent_constants_resolved() -> (
-    None
-):
-    """One quadratic target cannot silently combine two distinct residue fields."""
+def test_profile_base_change_combines_two_independent_residue_fields() -> None:
+    """Two quadratic residue fields are integrated in their exact compositum."""
     source_tower, source_extension, source_basis = algebraic_tower(y**2 - x)
 
     result = integrate_algebraic_with_constant_base_change(
@@ -214,10 +212,14 @@ def test_profile_base_change_does_not_claim_two_independent_constants_resolved()
 
     assert result.base_change is not None
     assert result.base_change.certified
+    assert len(result.steps) == 2
+    assert result.base_change.target_constants is not None
+    assert result.base_change.target_constants.ext.minpoly.degree() == 4
     assert result.target_result is not None
-    assert result.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
-    assert not result.is_elementary
+    assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
+    assert result.is_elementary
     assert result.reconstructs
+    assert result.antiderivative is not None
 
 
 def test_logarithmic_reconstruction_adds_an_exact_residue_free_correction() -> None:
