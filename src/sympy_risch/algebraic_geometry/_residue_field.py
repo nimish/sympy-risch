@@ -8,7 +8,9 @@ from typing import cast
 from sympy.core.expr import Expr
 from sympy.core.numbers import AlgebraicNumber
 from sympy.core.symbol import Dummy, Symbol
+from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
+from sympy.polys.numberfields import field_isomorphism
 from sympy.polys.polytools import Poly
 
 from ..algebraic._field import (
@@ -27,6 +29,7 @@ class _BaseResidueContext:
     field: Domain
     root: Expr
     root_value: object
+    constant_unit_image: object | None
 
     @classmethod
     def create(
@@ -54,6 +57,7 @@ class _BaseResidueContext:
                 algebraic_constants,
                 root,
                 root_value,
+                None,
             )
 
         alias = Dummy(f"{variable.name}_bar")
@@ -61,8 +65,25 @@ class _BaseResidueContext:
             algebraic_prime,
             alias=alias,
         )
-        root = cast(AlgebraicNumber, residue_field.orig_ext[-1])
-        return cls(extension, normalized, residue_field, root, residue_field.unit)
+        algebraic_residue_field = cast(AlgebraicField, residue_field)
+        root = cast(AlgebraicNumber, algebraic_residue_field.orig_ext[-1])
+        root_value = _embed_algebraic_number(root, algebraic_residue_field)
+        constant_unit_image = (
+            _embed_algebraic_number(
+                cast(AlgebraicField, algebraic_constants).ext,
+                algebraic_residue_field,
+            )
+            if algebraic_constants.is_AlgebraicField
+            else None
+        )
+        return cls(
+            extension,
+            normalized,
+            residue_field,
+            root,
+            root_value,
+            constant_unit_image,
+        )
 
     def reduce_polynomial(self, polynomial: Poly) -> object:
         """Evaluate a base polynomial at the selected algebraic root."""
@@ -72,9 +93,23 @@ class _BaseResidueContext:
             return self.field.zero
         result = self.field.zero
         for power in range(normalized.degree(), -1, -1):
-            result = result * self.root_value + self.field.convert(
-                normalized.rep.nth(power)
+            result = result * self.root_value + self._embed_constant(
+                normalized.rep.nth(power),
             )
+        return result
+
+    def _embed_constant(self, value: object) -> object:
+        """Embed one displayed constant into this closed point's field."""
+        _, constants, _ = _base_polynomial_ring(self.extension)
+        unit_image = self.constant_unit_image
+        if unit_image is None:
+            return self.field.convert(constants.convert(value))
+
+        source = cast(AlgebraicField, constants)
+        converted = source.convert(value)
+        result = self.field.zero
+        for coefficient in converted.to_list():
+            result = result * unit_image + self.field.convert(coefficient)
         return result
 
     def lift(self, value: object) -> Poly:
@@ -137,3 +172,14 @@ def _rebase_base_polynomial(
         variable,
         domain=domain,
     )
+
+
+def _embed_algebraic_number(
+    source: AlgebraicNumber,
+    target: AlgebraicField,
+) -> object:
+    """Embed a known algebraic number in a compositum's native basis."""
+    coefficients = field_isomorphism(source, target.ext)
+    if coefficients is None:
+        raise ValueError("the closed residue field lost a required subfield")
+    return target(AlgebraicNumber(target.ext, coefficients).native_coeffs())

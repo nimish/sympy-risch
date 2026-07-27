@@ -665,6 +665,27 @@ def test_finite_places_preserve_native_high_degree_algebraic_constants() -> None
         )
 
 
+def test_closed_places_embed_algebraic_constants_in_a_compositum() -> None:
+    """Closed points retain the embedding ``QQ(a) -> QQ(a, i)``."""
+    constants = QQ.alg_field_from_poly(
+        Poly(z**2 - Rational(1, 18), z, domain=QQ),
+    )
+    extension = algebraic_extension(y**2 - x, constants)
+    model = AlgebraicFunctionField(extension)
+    prime = Poly(x**2 + 1, x, domain=constants)
+
+    places = model.finite_places(prime)
+
+    assert len(places) == 2
+    assert all(place.base_degree == 2 for place in places)
+    assert all(place.relative_degree == 1 for place in places)
+    for place in places:
+        residue = place.reduce_integral(extension.field.generator)
+        coordinates = place.constant_coordinates(residue)
+        assert place.from_constant_coordinates(coordinates) == residue
+        assert residue**2 == place.reduce_integral(extension.field.from_sympy(x))
+
+
 def test_genus_rejects_an_unaccounted_constant_field_extension() -> None:
     extension = algebraic_extension(y**2 - 2)
     model = AlgebraicFunctionField(extension)
