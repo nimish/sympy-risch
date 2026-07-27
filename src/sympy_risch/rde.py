@@ -22,6 +22,7 @@ from .rational import (
     hermite_reduce_rational,
     solve_rational_logarithmic_derivative,
 )
+from .reduction.fractions import split_normal_special
 from .tower import (
     Derivation,
     MonomialExtension,
@@ -2109,8 +2110,6 @@ def _weakly_normalize_hyperexponential_rde_coefficient(
         coefficient,
         extension,
     )
-    from .monomial import split_normal_special
-
     normal_denominator, _ = split_normal_special(denominator, derivation)
     repeated_part = normal_denominator.gcd(normal_denominator.diff())
     squarefree_part = normal_denominator.exquo(repeated_part)
@@ -2203,8 +2202,6 @@ def _reduce_hyperexponential_normal_denominator(
         right_hand_side,
         extension,
     )
-    from .monomial import split_normal_special
-
     coefficient_normal, _ = split_normal_special(
         coefficient_denominator,
         derivation,

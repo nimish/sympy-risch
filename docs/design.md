@@ -190,9 +190,10 @@ The current implementation is organized by mathematical responsibility:
 | `_typing.py` | Structural types for native SymPy domain elements |
 | `tower.py` | Immutable extension metadata and level-bound derivations |
 | `exact.py` | Level-independent exact-derivative dispatch |
+| `reduction/fractions.py` | Shared monomial fraction normal forms and normal/special decomposition |
 | `monomial.py` | Primitive signatures, radical logarithmic decisions, and family reducers |
 | `dependency.py` | Parametric logarithmic decisions and generator-dependency certificates |
-| `rde.py` | Polynomial, rational, and primitive Risch differential equations |
+| `rde.py` | Scalar and coupled Risch differential equations by tower family |
 | `elementary.py` | Recursive elementary integration and obstruction propagation |
 
 These modules form a descending recursion, not a mutable solver context. Every
@@ -207,6 +208,30 @@ QQ(x) <- primitive <- primitive <- ...
 
 with explicit `Const(K(t)) = Const(K)` evidence at every primitive level.
 Unsupported intervening families do not silently become negative decisions.
+
+### Source-structure maintenance
+
+The mathematical recursion creates deferred calls between the RDE, monomial,
+exact-derivative, and dependency algorithms.  Those are descending calls in a
+tower, not import-time cycles: the package must stay importable without a
+global solver object or mutable ambient context.  A function-local import is
+therefore acceptable at a genuine recursive boundary, but shared algebraic
+normal forms belong in a neutral module such as `reduction/fractions.py`.
+
+The next physical splits should follow theorem families rather than a generic
+service layer:
+
+1. split `rde.py` into rational, primitive, hyperexponential, coupled, and
+   dispatch modules behind an `rde` facade;
+2. split `dependency.py` into parametric logarithmic-derivative and
+   extension-certification modules; then
+3. split `monomial.py` into primitive/logarithmic, common fraction reduction,
+   hyperexponential, and hypertangent modules.
+
+Each split keeps the existing public facade, moves one coherent algorithm at a
+time, and is verified by the affected behavioral tests plus an import smoke
+test.  It should not add an abstract solver protocol merely to remove a
+deferred recursive call.
 
 SymPy's exact domains return several backend-specific element classes:
 `python-flint` ground values, fraction-field elements, and algebraic-extension

@@ -14,7 +14,6 @@ from .monomial import (
     HyperexponentialMonomialReduction,
     HypertangentMonomialReduction,
     PrimitiveExactDerivativeResult,
-    _normal_fraction_part,
     reduce_hyperexponential_monomial,
     reduce_hypertangent_monomial,
     solve_primitive_exact_derivative,
@@ -23,6 +22,7 @@ from .rational import (
     RationalExactDerivativeResult,
     _solve_rational_exact_derivative_over_domain,
 )
+from .reduction.fractions import _normal_fraction_part
 from .tower.core import Derivation, MonomialExtension, MonomialFamily, _coerce
 
 if TYPE_CHECKING:

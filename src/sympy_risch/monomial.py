@@ -15,7 +15,6 @@ from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly, cancel, invert, resultant
-from sympy.simplify.radsimp import fraction
 
 from ._typing import FieldElement, is_field_zero
 from .admission import assess_scalar_rde_admission
@@ -38,6 +37,12 @@ from .rde import (
     solve_coupled_rational_rde,
     solve_coupled_risch_differential_equation,
     solve_risch_differential_equation,
+)
+from .reduction.fractions import (
+    _normal_fraction_part,
+    _polynomial_and_proper_fraction,
+    _reduced_polynomial_fraction,
+    split_normal_special,
 )
 from .special import SpecialPolynomialCertificate
 from .tower.core import (
@@ -1061,41 +1066,6 @@ class _PrimitiveObstructionPivot:
     value: FieldElement
 
 
-def split_normal_special(
-    polynomial: Poly,
-    derivation: Derivation,
-) -> tuple[Poly, Poly]:
-    r"""Return the normal and special parts of a nonzero polynomial.
-
-    A square-free factor ``p`` is normal when ``gcd(p, Dp) = 1`` and special
-    when ``p`` divides ``Dp``, where ``D`` is the total tower derivation.  For
-    an arbitrary polynomial, its square-free factors are classified separately
-    and retain their original multiplicities.  The returned pair multiplies
-    exactly to ``polynomial``; its coefficient is assigned to the normal part.
-    """
-    if not isinstance(polynomial, Poly):
-        raise TypeError("polynomial must be a SymPy Poly")
-    if polynomial.is_zero:
-        raise ValueError("the zero polynomial has no normal/special decomposition")
-
-    # Besides checking the generator and coefficient domain, this makes the
-    # required level explicit even for a constant polynomial with no factors.
-    derivation.polynomial(polynomial)
-
-    coefficient, square_free_factors = polynomial.sqf_list()
-    normal = polynomial.one.mul_ground(coefficient)
-    special = polynomial.one
-
-    for factor, multiplicity in square_free_factors:
-        factor_derivative = derivation.polynomial(factor)
-        special_factor = factor.gcd(factor_derivative)
-        normal_factor = factor.exquo(special_factor)
-        special *= special_factor**multiplicity
-        normal *= normal_factor**multiplicity
-
-    return normal, special
-
-
 def _require_linear_special_pole_certificate(
     certificate: object,
     derivation: object,
@@ -1848,80 +1818,6 @@ def polynomial_reduce_primitive(
         remainder,
         tuple(steps),
     )
-
-
-def _reduced_polynomial_fraction(
-    element: FieldElement,
-    extension: MonomialExtension,
-) -> tuple[Poly, Poly]:
-    numerator_expression, denominator_expression = fraction(
-        extension.field.to_sympy(element)
-    )
-    numerator = Poly(
-        numerator_expression,
-        extension.generator,
-        domain=extension.parent_field,
-    )
-    denominator = Poly(
-        denominator_expression,
-        extension.generator,
-        domain=extension.parent_field,
-    )
-    coefficient, numerator, denominator = numerator.cancel(denominator)
-    return numerator.mul_ground(coefficient), denominator
-
-
-def _polynomial_and_proper_fraction(
-    element: FieldElement,
-    extension: MonomialExtension,
-) -> tuple[Poly, Poly, Poly]:
-    """Return the polynomial part and a proper fraction over a monic denominator."""
-    numerator, denominator = _reduced_polynomial_fraction(element, extension)
-    leading_inverse = denominator.domain.one / denominator.domain.convert(
-        denominator.LC(),
-    )
-    numerator = numerator.mul_ground(leading_inverse)
-    denominator = denominator.monic()
-    polynomial, proper_numerator = numerator.div(denominator)
-    if proper_numerator.is_zero:
-        return polynomial, denominator.zero, denominator.one
-    return polynomial, proper_numerator, denominator
-
-
-def _normal_fraction_part(
-    element: FieldElement,
-    extension: MonomialExtension,
-    derivation: Derivation,
-) -> tuple[Poly, Poly]:
-    r"""Return ``A, N`` for the normal proper fraction ``A/N`` in ``element``.
-
-    For a reduced denominator ``N*S``, Bezout reduction gives
-
-    ``C/(N*S) = A/N + B/S`` with ``A = C*S**(-1) mod N``.
-
-    This is the decomposition used before the generalized Rothstein--Trager
-    resultant in section 3.4 of Bronstein's ISSAC'98 tutorial.
-    """
-    _, proper_numerator, denominator = _polynomial_and_proper_fraction(
-        element,
-        extension,
-    )
-    if proper_numerator.is_zero:
-        return denominator.zero, denominator.one
-
-    normal_denominator, special_denominator = split_normal_special(
-        denominator,
-        derivation,
-    )
-    if normal_denominator.degree() == 0:
-        return denominator.zero, denominator.one
-
-    normal_numerator = (
-        proper_numerator * special_denominator.invert(normal_denominator)
-    ).rem(normal_denominator)
-    if normal_numerator.is_zero:
-        return denominator.zero, denominator.one
-    return normal_numerator, normal_denominator.monic()
 
 
 def _coefficient_derivative(
