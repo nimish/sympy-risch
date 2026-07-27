@@ -244,10 +244,15 @@ def test_expression_frontend_exports_are_public() -> None:
     expected = {
         "ExpressionCompilation",
         "ExpressionCompilationOutcome",
+        "ExpressionDiscoveryOutcome",
+        "ExpressionGeneratorKind",
         "ExpressionIntegrationOutcome",
         "ExpressionIntegralResult",
+        "ExpressionTowerCandidate",
+        "ExpressionTowerDiscovery",
         "ExpressionUnsupportedReason",
         "compile_expression",
+        "discover_expression_tower",
         "integrate_expression",
     }
 

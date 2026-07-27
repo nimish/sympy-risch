@@ -1150,14 +1150,22 @@ The proposed real algebraic-over-tangent direction is kept in the
 
 ## Automatic tower construction
 
-`expression.py` now provides the first narrow expression frontend. It accepts
-one `Symbol`, rational constants, addition, multiplication, integer powers,
-and nested `log`, `exp`, and `tan` calls. It constructs the certified `QQ(x)`
-base and adjoins each syntactic function call through the same checked
-primitive, hyperexponential, or hypertangent factory used by the explicit
-tower API. A call that would introduce a new constant is rejected as a
-structured dependency boundary rather than represented by a redundant formal
-generator.
+The expression frontend now has two stages. `expression_discovery.py` walks
+one-variable rational arithmetic, rational powers, and nested
+`log`/`exp`/`tan` calls to build an immutable candidate DAG. This pass is
+backend-independent: it identifies both algebraic-over-transcendental and
+transcendental-over-algebraic orderings even when a later solver cell is not
+implemented.
+
+`_expression_compilation.py` constructs the certified `QQ(x)` base and consumes
+those source families in dependency order. P/E/T calls use the same checked
+primitive, hyperexponential, or hypertangent factories as the explicit tower
+API. A rational power `u**(p/q)` proposes the algebraic relation
+`Y**q - u**p`; it is accepted only when the native algebraic extension
+normalizes that relation as monic, square-free, and irreducible. The
+hyperexponential dependency solver can also reclassify a finite-power
+exponential such as `exp(log(x)/2)` as an algebraic level instead of adding a
+false transcendental generator.
 
 The frontend deliberately preserves source syntax. Its substitutions are
 simultaneous mappings from fresh internal generators to source calls, and a
@@ -1167,16 +1175,18 @@ branches. Its immutable public results replay the extension certificates and
 verify native/source derivative agreement, so callers cannot turn an arbitrary
 manually labelled tower into a frontend certificate.
 
-This is not yet general automatic tower construction. The complete frontend
-must additionally:
+This is not yet complete automatic tower construction. The remaining frontend
+work is to:
 
-1. collect transcendental and algebraic generator candidates;
-2. construct their dependency graph;
-3. recognize exact, logarithmic, exponential, tangent, rational-power, and
-   algebraic dependencies;
-4. choose and topologically order a minimal generator set;
-5. rewrite the input into the top exact field; and
-6. retain back-substitutions, assumptions, and branch information.
+1. parse general algebraic `RootOf` and polynomial relations;
+2. normalize several algebraic candidates into a compositum or primitive
+   element;
+3. complete relation-driven reuse for rationally dependent logarithms,
+   exponentials, and tangents;
+4. execute monomial-over-algebraic and arbitrarily interleaved towers in the
+   native domain backend;
+5. choose a globally minimal generator set; and
+6. retain assumptions and explicit branch metadata in presentations.
 
 Examples it should consolidate include:
 
@@ -1185,6 +1195,8 @@ exp(x/2), exp(x)          one generator, with exp(x) = t**2
 exp(x), exp(x + 1)        one generator plus a constant factor
 log(x), log(x**2)         differential dependence with branch-sensitive output
 tan(log(x))               primitive level before hypertangent level
+sqrt(x + log(x))          primitive level before algebraic level
+exp(sqrt(x))              algebraic candidate before exponential candidate
 ```
 
 The builder must prove constant-field and special-polynomial hypotheses rather

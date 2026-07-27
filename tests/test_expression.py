@@ -6,7 +6,20 @@ from typing import cast
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-from sympy import Abs, Poly, Symbol, cancel, diff, exp, log, sin, sqrt, symbols, tan
+from sympy import (
+    Abs,
+    Poly,
+    Rational,
+    Symbol,
+    cancel,
+    diff,
+    exp,
+    log,
+    sin,
+    sqrt,
+    symbols,
+    tan,
+)
 from sympy.polys.domains import QQ
 from sympy.polys.rootoftools import RootSum
 
@@ -27,6 +40,7 @@ from sympy_risch.expression import (
     integrate_expression,
 )
 from sympy_risch.tower import (
+    AlgebraicExtension,
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
@@ -155,7 +169,6 @@ def test_non_elementary_expression_keeps_the_native_obstruction() -> None:
 @pytest.mark.parametrize(
     ("expression", "reason"),
     (
-        (sqrt(x), ExpressionUnsupportedReason.NONINTEGER_POWER),
         (sin(x), ExpressionUnsupportedReason.UNSUPPORTED_FUNCTION),
         (Abs(x), ExpressionUnsupportedReason.BRANCH_SENSITIVE_FORM),
         (x + a, ExpressionUnsupportedReason.EXTRA_SYMBOL),
@@ -210,6 +223,73 @@ def test_repeated_identical_function_calls_share_one_generator() -> None:
     assert len(compilation.tower.levels) == 2
     assert len(compilation.generator_substitutions) == 1
     assert cancel(compilation.reconstructed_expression() - expression) == 0
+
+
+@pytest.mark.parametrize(
+    "expression",
+    (
+        sqrt(x),
+        (x + 1) ** Rational(2, 3),
+        sqrt(x + log(x)),
+        sqrt(exp(x) + 1),
+        exp(log(x) / 2, evaluate=False),
+    ),
+)
+def test_compiler_constructs_pure_and_mixed_algebraic_towers(expression) -> None:
+    compilation = compile_expression(expression, x)
+
+    assert compilation.compiled
+    assert compilation.tower is not None
+    assert isinstance(compilation.tower.levels[-1], AlgebraicExtension)
+    assert cancel(compilation.reconstructed_expression() - expression) == 0
+    assert (
+        cancel(
+            compilation.back_substitute(
+                compilation.tower.derivation()(compilation.element)
+            )
+            - diff(expression, x)
+        )
+        == 0
+    )
+
+
+def test_expression_integrator_handles_a_discovered_simple_radical() -> None:
+    result = integrate_expression(sqrt(x), x)
+
+    assert result.outcome is ExpressionIntegrationOutcome.ELEMENTARY
+    assert result.antiderivative == 2 * x ** Rational(3, 2) / 3
+    assert cancel(diff(result.antiderivative, x) - sqrt(x)) == 0
+
+
+def test_finite_power_exponential_is_reclassified_as_algebraic() -> None:
+    expression = exp(log(x) / 2, evaluate=False)
+
+    compilation = compile_expression(expression, x)
+    result = integrate_expression(expression, x)
+
+    assert compilation.compiled
+    assert compilation.tower is not None
+    assert isinstance(compilation.tower.levels[-1], AlgebraicExtension)
+    assert result.outcome is ExpressionIntegrationOutcome.ELEMENTARY
+    assert result.antiderivative == 2 * x ** Rational(3, 2) / 3
+
+
+@pytest.mark.parametrize(
+    "expression",
+    (
+        sqrt(x + log(x)),
+        sqrt(exp(x) + 1),
+    ),
+)
+def test_mixed_tower_discovery_is_separate_from_integration_support(
+    expression,
+) -> None:
+    compilation = compile_expression(expression, x)
+    result = integrate_expression(expression, x)
+
+    assert compilation.compiled
+    assert result.outcome is ExpressionIntegrationOutcome.UNSUPPORTED
+    assert result.reason is ExpressionUnsupportedReason.INTEGRATION_BACKEND
 
 
 def _forged_tower() -> DifferentialTower:
@@ -424,8 +504,8 @@ def test_integration_constructor_rejects_a_forged_boundary_reason() -> None:
 
 
 def test_integration_constructor_retains_the_compilation_boundary_reason() -> None:
-    compilation = compile_expression(sqrt(x), x)
-    assert compilation.reason is ExpressionUnsupportedReason.NONINTEGER_POWER
+    compilation = compile_expression(sin(x), x)
+    assert compilation.reason is ExpressionUnsupportedReason.UNSUPPORTED_FUNCTION
 
     with pytest.raises(ValueError, match="retain its boundary reason"):
         ExpressionIntegralResult(

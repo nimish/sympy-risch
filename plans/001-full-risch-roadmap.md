@@ -148,11 +148,12 @@ The current implementation already has a strong exact-arithmetic kernel:
   primitive-PLogD examples retain the explicit boundary. General algebraic
   levels and polynomial monomials whose special structure has not been
   decided remain unsupported.
-- `src/sympy_risch/expression.py` compiles a conservative one-variable
-  `QQ`-constant grammar of rational arithmetic and nested P/E/T calls into
-  that certified explicit tower, returning either a local presented answer, a
-  native obstruction, or a structured compiler boundary. It intentionally
-  does not minimize general expression generators or resolve global branches.
+- `src/sympy_risch/expression_discovery.py` discovers a one-variable candidate
+  DAG for rational powers and nested P/E/T calls, including both mixed
+  algebraic/transcendental orders. The native expression compiler constructs
+  rational-power and terminal algebraic-over-P/E/T levels and reclassifies
+  certified finite-power exponentials as algebraic. Algebraic composita,
+  `RootOf`, monomial-over-algebraic execution, and global branches remain open.
 - `src/sympy_risch/algebraic/` validates algebraic extensions and implements
   algebraic Hermite reduction, all-place residues, displayed-constant
   logarithmic reconstruction, and complete in-field exactness for supported
@@ -219,7 +220,7 @@ The existing design conventions to preserve are:
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, Hess Riemann--Roch spaces, reduced classes, complete principality, and good-prime finite Jacobian order decisions over `QQ` now exist; algebraic-number-field reduction remains. |
 | 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and automatic verified `QQ` torsion decisions, continues through compatible constant composita, and solves residue-free exactness through complete Riemann--Roch spaces; general splitting fields and arbitrary second-kind elementary decisions remain. |
 | 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic relations, coupled/parametric RDEs, and relative residue/logarithmic reduction remain. |
-| 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
+| 8. Automatic expression towers | Active through Plan 014: a backend-independent candidate DAG covers rational powers and P/E/T calls in either mixed order; the native compiler executes rational-power and terminal algebraic-over-P/E/T towers and finite-power exponential reclassification. General algebraic objects/composita, monomial-over-algebraic execution, canonical minimization, and branch metadata remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
 | 10. Completeness evidence | Partial: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; algebraic, mixed, and automatic-tower coverage remains. |
 | 11. SymPy upstreaming | Not started. |
@@ -948,8 +949,16 @@ separate commit after focused and full-suite verification.
     `log`/`exp`/`tan`. It replays checked extension factories and returns only
     local back-substituted presentations; dependent and branch-sensitive
     forms are structured boundaries rather than rewrites.
-15. [ ] Expand expression construction to algebraic/mixed expressions only
-    after the corresponding mathematical cells are total.
+15. [ ] **Plan 014**: expand expression construction to algebraic/mixed
+    expressions while keeping discovery separate from integration support.
+    - [x] Discover rational-power and P/E/T candidates as a dependency DAG in
+      either mixed order.
+    - [x] Construct rational-power and terminal algebraic-over-P/E/T towers.
+    - [x] Reclassify a certified finite-power exponential dependency as an
+      algebraic level.
+    - [ ] Add `RootOf`/general algebraic relations and algebraic composita.
+    - [ ] Execute monomial-over-algebraic and arbitrarily interleaved native
+      towers after their relation and coercion backends are complete.
 16. [ ] Broaden back-substitution to complex-local versus
     assumption-scoped-real presentation, branch metadata, and a small stable
     SymPy-facing facade.

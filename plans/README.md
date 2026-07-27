@@ -23,6 +23,10 @@ plan with exact file scope, tests, and a separate commit.
 | 008 | Add certified Riccati Möbius normalization | P1 | M | 002, special-factor certificates | DONE |
 | 009 | Consume a certified linear special factor locally | P1 | S | 002, special-factor certificates, scalar RDEs | DONE |
 | 010 | Admit finite algebraic constants at the rational P/E boundary | P1 | S | 003, native AlgebraicField arithmetic | DONE |
+| 011 | Build reusable algebraic constant composita | P1 | M | 004, 010 | DONE |
+| 012 | Decide general divisor torsion by exact reduction | P1 | L | 005, 011 | DONE |
+| 013 | Bound torsion with good finite-prime reductions | P1 | M | 012 | DONE |
+| 014 | Discover algebraic and mixed expression towers | P1 | L | 007, 010-013 | IN PROGRESS |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -92,6 +96,12 @@ Plan 010 adds exact `QQ`-coordinate expansion for native finite algebraic
 constant fields at the standard rational base. It deliberately stops before
 recursive general-constant towers, whose no-new-constants evidence must be
 made proof-carrying rather than inherited from caller metadata.
+Plans 011-013 complete the first exact divisor-torsion path over `QQ`, including
+compatible displayed-constant composita and good-prime order bounds. Plan 014
+uses that algebraic foundation at the expression boundary: it discovers
+algebraic and P/E/T candidates as a dependency graph, constructs mixed towers
+where the native domain backend permits them, and keeps successful structural
+discovery separate from the set of integration backends implemented so far.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.

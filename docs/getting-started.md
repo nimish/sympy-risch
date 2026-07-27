@@ -5,17 +5,20 @@ tower. The library works with native SymPy domain elements: the tower records
 what each formal generator means to the derivation, while ordinary field
 arithmetic remains SymPy arithmetic.
 
-For a deliberately narrow, checked fragment, it can also start from a SymPy
-expression and construct that tower for you. General expression discovery,
-algebraic extensions, and global branch-aware presentation remain future work.
+For a checked one-variable fragment, it can also start from a SymPy expression
+and construct the tower for you. Rational powers now create algebraic levels,
+including algebraic-over-transcendental towers. General algebraic objects,
+arbitrarily interleaved mixed backends, and global branch-aware presentation
+remain future work.
 
 ## Start from a SymPy expression
 
 `integrate_expression` is the smallest user-facing entry point. It accepts one
-integration symbol, rational constants, addition, multiplication, integer
-powers, and nested `log`, `exp`, and `tan` calls. Every function call is made
-into a new formal P/E/T level only after the existing checked extension factory
-certifies that it preserves constants.
+integration symbol, rational constants, addition, multiplication, rational
+powers, and nested `log`, `exp`, and `tan` calls. A nonintegral rational power
+proposes an algebraic relation; a transcendental call becomes a P/E/T level
+only after the existing checked extension factory certifies it. The compiler
+can also reclassify a finite-power exponential dependency as algebraic.
 
 ```python
 from sympy import log, symbols
@@ -43,6 +46,46 @@ call is already dependent on the lower tower, such as `log(exp(x))` after
 obstruction in the compiled P/E/T tower. `UNSUPPORTED` instead means that the
 expression grammar, constant field, dependency decision, or dispatcher does
 not yet cover the request; it is never a non-elementarity claim.
+
+Tower discovery can be inspected independently of integration:
+
+```python
+from sympy import exp, log, sqrt, symbols
+
+from sympy_risch import discover_expression_tower
+
+x = symbols("x")
+discovery = discover_expression_tower(
+    sqrt(x + log(x)) + exp(sqrt(x)),
+    x,
+)
+
+assert discovery.discovered
+assert [candidate.kind.value for candidate in discovery.candidates] == [
+    "primitive",
+    "algebraic",
+    "algebraic",
+    "hyperexponential",
+]
+```
+
+Sibling order follows SymPy's deterministic expression order; dependencies
+always precede their users. The first mixed term can already compile as
+`QQ(x)(log(x))[sqrt(x + log(x))]`. The second demonstrates the opposite
+algebraic-then-exponential order: discovery succeeds, while its lower
+algebraic logarithmic-derivative decision is still an explicit backend
+boundary. This distinction lets callers inspect the right mathematical tower
+without mistaking an unfinished integrator for failed structure discovery.
+
+A simple algebraic expression already runs end to end:
+
+```python
+from sympy import Rational, sqrt
+
+radical = integrate_expression(sqrt(x), x)
+assert radical.outcome is ExpressionIntegrationOutcome.ELEMENTARY
+assert radical.antiderivative == 2 * x ** Rational(3, 2) / 3
+```
 
 ## Construct the rational base
 
@@ -1157,7 +1200,7 @@ boundary, not a mathematical claim about the integral.
 | Terminal pure simple-radical algebraic level | Constructive positive route in `integrate_elementary`: exact nonconstant power-basis modes descend to lower scalar RDEs, then the lower coordinate is integrated recursively; general algebraic logarithmic/residue cases remain unsupported |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |
-| General automatic tower discovery and canonical back-substitution | Not implemented; algebraic, arbitrary constants/functions, dependency minimization, and branch-aware normalization remain outside the narrow expression frontend |
+| Automatic expression tower discovery and back-substitution | Candidate DAGs cover rational powers and nested P/E/T calls in either mixed order; the native compiler supports rational-power algebraic levels, terminal algebraic-over-P/E/T towers, and finite-power exponential reclassification. Algebraic `RootOf`, algebraic composita, monomial-over-algebraic execution, full minimization, and branch metadata remain open |
 | Complete global real branch management | Not implemented |
 
 ## Low-level entry points
@@ -1170,6 +1213,7 @@ principal groups are:
 | Polynomial integration | `integrate_polynomial` |
 | Rational reduction and integration | `hermite_reduce_rational`, `integrate_rational`, `integrate_rational_real` |
 | Rational logarithmic analysis | `lazard_rioboo_trager`, `rothstein_trager_residue_polynomial`, `solve_rational_logarithmic_derivative` |
+| Expression tower discovery | `discover_expression_tower`, `ExpressionTowerDiscovery`, `ExpressionTowerCandidate` |
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
 | Algorithm admission | `assess_elementary_admission`, `assess_scalar_rde_admission`, `TowerAdmission`, `TowerAdmissionOutcome`, `TowerAdmissionReason` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |

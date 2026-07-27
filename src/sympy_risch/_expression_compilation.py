@@ -1,8 +1,8 @@
-r"""Compile SymPy expressions into certified P/E/T towers.
+r"""Compile SymPy expressions into certified differential towers.
 
 The elementary dispatcher deliberately works with an explicit differential
 tower.  This module supplies a small, sound discovery boundary for the useful
-syntactic fragment generated from rational arithmetic, integer powers, and
+syntactic fragment generated from rational arithmetic, rational powers, and
 ``log``, ``exp``, and ``tan``.  It does *not* apply identities such as
 ``exp(log(a)) = a`` or ``log(a*b) = log(a) + log(b)``: doing so would silently
 choose principal branches and can change constants.  Instead each accepted
@@ -20,11 +20,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import NoReturn, cast
 
-from sympy import cancel, diff
+from sympy import cancel
 from sympy.core.add import Add
 from sympy.core.expr import Expr
 from sympy.core.mul import Mul
-from sympy.core.numbers import Integer
+from sympy.core.numbers import Integer, Rational
 from sympy.core.power import Pow
 from sympy.core.symbol import Dummy, Symbol
 from sympy.functions.elementary.exponential import exp, log
@@ -32,14 +32,25 @@ from sympy.functions.elementary.trigonometric import tan
 from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
+from ._expression_validation import (
+    source_derivative_in_native,
+    source_value_in_native,
+    validate_compiled_extension_sources,
+)
 from ._typing import FieldElement, SupportsAsExpr
 from .admission import assess_elementary_admission
 from .dependency import (
+    TranscendentalExtensionAnalysis,
     certify_hyperexponential_extension,
     certify_hypertangent_extension,
     certify_primitive_extension,
 )
-from .tower.core import ConstantFieldStatus, DifferentialTower, MonomialExtension
+from .tower.core import (
+    AlgebraicExtension,
+    ConstantFieldStatus,
+    DifferentialTower,
+    MonomialExtension,
+)
 
 
 class ExpressionCompilationOutcome(Enum):
@@ -262,270 +273,23 @@ def _unary_function_argument(expression: Expr) -> Expr:
     return argument
 
 
-def _source_value_in_native(
-    expression: Expr,
-    compilation: ExpressionCompilation,
-    source_generators: dict[Expr, Symbol],
-) -> FieldElement:
-    """Evaluate an accepted source tree in the compiled native top field."""
-    tower, _element = compilation._require_compiled()
-    field = tower.field()
-    generator = source_generators.get(expression)
-    if generator is not None:
-        return cast(FieldElement, field.from_sympy(generator))
-    if expression == compilation.variable or expression.is_Rational is True:
-        return cast(FieldElement, field.from_sympy(expression))
-    if isinstance(expression, Add):
-        value = field.zero
-        for term in expression.args:
-            value += _source_value_in_native(term, compilation, source_generators)
-        return cast(FieldElement, value)
-    if isinstance(expression, Mul):
-        value = field.one
-        for factor in expression.args:
-            value *= _source_value_in_native(factor, compilation, source_generators)
-        return cast(FieldElement, value)
-    if isinstance(expression, Pow) and isinstance(expression.exp, Integer):
-        return _source_value_in_native(
-            expression.base,
-            compilation,
-            source_generators,
-        ) ** int(expression.exp)
-    raise ValueError("the source contains syntax outside the compiled grammar")
-
-
-def _source_derivative_in_native(
-    expression: Expr,
-    compilation: ExpressionCompilation,
-    source_generators: dict[Expr, Symbol],
-) -> FieldElement:
-    """Apply the source-tree chain rule without inventing new function calls."""
-    tower, _element = compilation._require_compiled()
-    field = tower.field()
-    if expression == compilation.variable:
-        return cast(FieldElement, field.one)
-    if expression.is_Rational is True:
-        return cast(FieldElement, field.zero)
-    if isinstance(expression, Add):
-        value = field.zero
-        for term in expression.args:
-            value += _source_derivative_in_native(term, compilation, source_generators)
-        return cast(FieldElement, value)
-    if isinstance(expression, Mul):
-        factors = tuple(
-            _source_value_in_native(factor, compilation, source_generators)
-            for factor in expression.args
-        )
-        value = field.zero
-        for index, _factor in enumerate(factors):
-            term = _source_derivative_in_native(
-                expression.args[index],
-                compilation,
-                source_generators,
-            )
-            for other_index, other_factor in enumerate(factors):
-                if other_index != index:
-                    term *= other_factor
-            value += term
-        return cast(FieldElement, value)
-    if isinstance(expression, Pow) and isinstance(expression.exp, Integer):
-        exponent = int(expression.exp)
-        if exponent == 0:
-            return cast(FieldElement, field.zero)
-        base = _source_value_in_native(
-            expression.base,
-            compilation,
-            source_generators,
-        )
-        return (
-            exponent
-            * base ** (exponent - 1)
-            * _source_derivative_in_native(
-                expression.base,
-                compilation,
-                source_generators,
-            )
-        )
-    if expression.func not in {log, exp, tan} or len(expression.args) != 1:
-        raise ValueError("the source contains an unsupported function call")
-    generator = source_generators.get(expression)
-    if generator is None:
-        raise ValueError("a source function has no native generator")
-    argument_expression = _unary_function_argument(expression)
-    argument = _source_value_in_native(
-        argument_expression,
-        compilation,
-        source_generators,
-    )
-    argument_derivative = _source_derivative_in_native(
-        argument_expression,
-        compilation,
-        source_generators,
-    )
-    native_generator = cast(FieldElement, field.from_sympy(generator))
-    if expression.func is log:
-        return argument_derivative / argument
-    if expression.func is exp:
-        return argument_derivative * native_generator
-    return argument_derivative * (field.one + native_generator**2)
-
-
-def _validate_compiled_extension_sources(
-    compilation: ExpressionCompilation,
-    substitutions: dict[Symbol, Expr],
-) -> None:
-    """Replay every source extension through its checked factory.
-
-    This prevents callers from forging ``PRESERVED`` metadata on a dependent
-    function call.  For example, a manually declared generator for
-    ``log(exp(x))`` has the right derivative locally, but its primitive
-    extension is dependent and the factory must reject its claimed status.
-    """
-    tower, _element = compilation._require_compiled()
-    if not tower.levels:
-        raise ValueError("a compiled expression needs the QQ(x) base level")
-
-    constants = DifferentialTower(QQ)
-    base_analysis = certify_primitive_extension(
-        Poly(1, compilation.variable, domain=QQ),
-        constants.derivation(),
-    )
-    base_extension = tower.levels[0]
-    if (
-        not isinstance(base_extension, MonomialExtension)
-        or base_extension.generator_derivative
-        != base_analysis.extension.generator_derivative
-    ):
-        raise ValueError("the compiled base is not the certified standard QQ(x) tower")
-
-    level_indices = {
-        extension.generator: index for index, extension in enumerate(tower.levels)
-    }
-    expected_generators = set(level_indices) - {tower.levels[0].generator}
-    if set(substitutions) != expected_generators:
-        raise ValueError(
-            "compiled source substitutions must cover exactly the non-base generators"
-        )
-
-    source_generators = {
-        source: generator for generator, source in substitutions.items()
-    }
-    if len(source_generators) != len(substitutions):
-        raise ValueError("each source function call needs at most one native generator")
-    native_generators = expected_generators
-    for generator, source in substitutions.items():
-        index = level_indices[generator]
-        extension = tower.levels[index]
-        if not isinstance(extension, MonomialExtension):
-            raise ValueError("the compiled grammar permits only monomial extensions")
-        if source.free_symbols & native_generators:
-            raise ValueError("a source substitution cannot contain native generators")
-        if (
-            source.func not in {log, exp, tan}
-            or len(source.args) != 1
-            or source.free_symbols - {compilation.variable}
-        ):
-            raise ValueError("a source substitution is outside the accepted grammar")
-        if not compilation.expression.has(source):
-            raise ValueError(
-                "every source substitution must occur in the compiled expression"
-            )
-
-        lower_derivation = tower.derivation(index - 1)
-        lower_replacements = {
-            prior_source: prior_generator
-            for prior_generator, prior_source in substitutions.items()
-            if level_indices[prior_generator] < index
-        }
-        native_argument_expression = source.args[0].xreplace(lower_replacements)
-        try:
-            argument = cast(
-                FieldElement,
-                lower_derivation.field.from_sympy(native_argument_expression),
-            )
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                "a source extension argument does not belong to its lower tower"
-            ) from exc
-        argument_derivative = lower_derivation(argument)
-        if source.func is log:
-            if argument == lower_derivation.field.zero:
-                raise ValueError("a logarithmic source extension has zero argument")
-            eta = argument_derivative / argument
-            analysis = certify_primitive_extension(
-                Poly(
-                    lower_derivation.field.to_sympy(eta),
-                    generator,
-                    domain=lower_derivation.field,
-                ),
-                lower_derivation,
-            )
-        elif source.func is exp:
-            analysis = certify_hyperexponential_extension(
-                Poly(
-                    lower_derivation.field.to_sympy(argument_derivative) * generator,
-                    generator,
-                    domain=lower_derivation.field,
-                ),
-                lower_derivation,
-            )
-        else:
-            analysis = certify_hypertangent_extension(
-                Poly(
-                    lower_derivation.field.to_sympy(argument_derivative)
-                    * (1 + generator**2),
-                    generator,
-                    domain=lower_derivation.field,
-                ),
-                lower_derivation,
-            )
-        if (
-            analysis.status is not ConstantFieldStatus.PRESERVED
-            or analysis.extension.generator_derivative != extension.generator_derivative
-        ):
-            raise ValueError(
-                "a source extension is not independently certified with "
-                "preserved constants"
-            )
-
-        native_generator = cast(FieldElement, tower.field().from_sympy(generator))
-        source_derivative = _source_derivative_in_native(
-            source,
-            compilation,
-            source_generators,
-        )
-        if tower.derivation()(native_generator) != source_derivative:
-            raise ValueError(
-                "a native generator derivative disagrees with its source function"
-            )
-        presented_derivative = compilation.back_substitute_expression(
-            tower.field().to_sympy(tower.derivation()(native_generator)),
-        )
-        if not _local_expression_equal(
-            presented_derivative,
-            diff(source, compilation.variable),
-        ):
-            raise ValueError(
-                "a native generator derivative fails its back-substituted "
-                "local chain-rule check"
-            )
-
-
 def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
     """Validate public certificate invariants independently of the builder."""
     tower, element = compilation._require_compiled()
     substitutions = dict(compilation.generator_substitutions)
-    _validate_compiled_extension_sources(compilation, substitutions)
-    admission = assess_elementary_admission(tower.derivation())
-    if not admission.accepted:
-        raise ValueError(
-            "a compiled expression needs an admitted certified P/E/T tower"
-        )
+    validate_compiled_extension_sources(compilation, substitutions)
+    if all(isinstance(level, MonomialExtension) for level in tower.levels):
+        admission = assess_elementary_admission(tower.derivation())
+        if not admission.accepted:
+            raise ValueError(
+                "a compiled transcendental expression needs an admitted "
+                "certified P/E/T tower"
+            )
     normalized_element = _embed_native_element(tower, element)
     source_generators = {
         source: generator for generator, source in substitutions.items()
     }
-    source_value = _source_value_in_native(
+    source_value = source_value_in_native(
         compilation.expression,
         compilation,
         source_generators,
@@ -537,7 +301,7 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
         compilation.expression,
     ):
         raise ValueError("the native element fails source round-trip validation")
-    if tower.derivation()(normalized_element) != _source_derivative_in_native(
+    if tower.derivation()(normalized_element) != source_derivative_in_native(
         compilation.expression,
         compilation,
         source_generators,
@@ -564,14 +328,14 @@ class _ExpressionCompiler:
 
         self.variable = variable
         self.tower = constants.extend(base_analysis.extension)
-        self.function_elements: dict[Expr, FieldElement] = {}
+        self.source_elements: dict[Expr, FieldElement] = {}
         self.generator_substitutions: dict[Symbol, Expr] = {}
         self.next_generator_index = 0
 
     def compile(self, expression: Expr) -> FieldElement:
         """Compile one expression, embedding prior results at the current top."""
-        if expression in self.function_elements:
-            return self._embed_current(self.function_elements[expression])
+        if expression in self.source_elements:
+            return self._embed_current(self.source_elements[expression])
         if expression == self.variable:
             return self._from_sympy(expression)
         if expression.is_Rational is True:
@@ -596,14 +360,16 @@ class _ExpressionCompiler:
                 value = self._embed_current(value) * self._embed_current(factor_value)
             return self._embed_current(value)
         if isinstance(expression, Pow):
-            if not isinstance(expression.exp, Integer):
-                self._unsupported(
-                    ExpressionUnsupportedReason.NONINTEGER_POWER,
-                    f"{expression} has a noninteger power and may require "
-                    "an algebraic extension",
+            if isinstance(expression.exp, Integer):
+                return self._embed_current(
+                    self.compile(expression.base) ** int(expression.exp)
                 )
-            return self._embed_current(
-                self.compile(expression.base) ** int(expression.exp)
+            if isinstance(expression.exp, Rational):
+                return self._compile_algebraic_power(expression)
+            self._unsupported(
+                ExpressionUnsupportedReason.NONINTEGER_POWER,
+                f"{expression} has a non-rational power outside the "
+                "algebraic-power frontend",
             )
         if expression.func.__name__ in _BRANCH_SENSITIVE_FUNCTION_NAMES:
             self._unsupported(
@@ -669,6 +435,20 @@ class _ExpressionCompiler:
             )
 
         if analysis.status is ConstantFieldStatus.ENLARGED:
+            if expression.func is exp:
+                dependency = cast(
+                    TranscendentalExtensionAnalysis,
+                    analysis,
+                ).dependency
+                if (
+                    dependency is not None
+                    and dependency.is_algebraically_dependent
+                    and dependency.minimal_power is not None
+                ):
+                    return self._compile_algebraic_exponential(
+                        expression,
+                        dependency.minimal_power,
+                    )
             self._unsupported(
                 ExpressionUnsupportedReason.DEPENDENT_EXTENSION,
                 f"{expression} is dependent over the lower tower: "
@@ -683,7 +463,85 @@ class _ExpressionCompiler:
 
         self.tower = self.tower.extend(analysis.extension)
         element = self._from_sympy(generator)
-        self.function_elements[expression] = element
+        self.source_elements[expression] = element
+        self.generator_substitutions[generator] = expression
+        return element
+
+    def _compile_algebraic_exponential(
+        self,
+        expression: Expr,
+        relation_degree: int,
+    ) -> FieldElement:
+        r"""Represent a certified finite-power exponential relation algebraically."""
+        argument = _unary_function_argument(expression)
+        powered_source = exp(relation_degree * argument)
+        native_powered_source = powered_source.xreplace(
+            {
+                source: generator
+                for generator, source in self.generator_substitutions.items()
+            }
+        )
+        parent_field = self.tower.field()
+        try:
+            relation_value = parent_field.from_sympy(native_powered_source)
+        except (TypeError, ValueError) as exc:
+            self._unsupported(
+                ExpressionUnsupportedReason.UNCERTIFIED_EXTENSION,
+                "the finite-power exponential relation was certified, but its "
+                f"source normalization is not in the lower field: {exc}",
+            )
+
+        generator = self._fresh_generator("algebraic_exp")
+        modulus = Poly(
+            generator**relation_degree - parent_field.to_sympy(relation_value),
+            generator,
+            domain=parent_field,
+        )
+        try:
+            extension = AlgebraicExtension(modulus)
+        except (NotImplementedError, ValueError) as exc:
+            self._unsupported(
+                ExpressionUnsupportedReason.UNCERTIFIED_EXTENSION,
+                "the certified finite-power exponential relation could not be "
+                f"normalized as an algebraic extension: {exc}",
+            )
+        self.tower = self.tower.extend(extension)
+        element = self._from_sympy(generator)
+        self.source_elements[expression] = element
+        self.generator_substitutions[generator] = expression
+        return element
+
+    def _compile_algebraic_power(self, expression: Pow) -> FieldElement:
+        """Adjoin the local branch selected by a nonintegral rational power."""
+        exponent = expression.exp
+        if not isinstance(exponent, Rational) or isinstance(exponent, Integer):
+            raise TypeError("algebraic power compilation needs a rational exponent")
+        base = self._embed_current(self.compile(expression.base))
+        if base == self.tower.field().zero and exponent.p < 0:
+            self._unsupported(
+                ExpressionUnsupportedReason.SINGULAR_FUNCTION_ARGUMENT,
+                f"{expression} divides by a zero algebraic base",
+            )
+
+        generator = self._fresh_generator("algebraic")
+        parent_field = self.tower.field()
+        modulus = Poly(
+            generator ** int(exponent.q)
+            - parent_field.to_sympy(base ** int(exponent.p)),
+            generator,
+            domain=parent_field,
+        )
+        try:
+            extension = AlgebraicExtension(modulus)
+        except (NotImplementedError, ValueError) as exc:
+            self._unsupported(
+                ExpressionUnsupportedReason.UNCERTIFIED_EXTENSION,
+                f"the algebraic relation proposed by {expression} could not "
+                f"be normalized over the lower tower: {exc}",
+            )
+        self.tower = self.tower.extend(extension)
+        element = self._from_sympy(generator)
+        self.source_elements[expression] = element
         self.generator_substitutions[generator] = expression
         return element
 
@@ -730,14 +588,15 @@ def compile_expression(
     expression: Expr,
     variable: Symbol,
 ) -> ExpressionCompilation:
-    r"""Compile a conservative SymPy P/E/T expression into a native tower.
+    r"""Compile a conservative SymPy expression into a native tower.
 
     Accepted expressions use only the supplied symbol, rational constants,
-    addition, multiplication, integer powers, and nested unary ``log``,
-    ``exp``, and ``tan`` calls.  Each function extension is independently
-    certified by the existing primitive, hyperexponential, or hypertangent
-    factory.  No unsupported input is converted into a negative mathematical
-    integration claim.
+    addition, multiplication, rational powers, and nested unary ``log``,
+    ``exp``, and ``tan`` calls. Rational powers propose finite algebraic
+    extensions; each transcendental extension is independently certified by
+    the existing primitive, hyperexponential, or hypertangent factory. No
+    unsupported input is converted into a negative mathematical integration
+    claim.
     """
     if not isinstance(expression, Expr):
         raise TypeError("expression compilation requires a SymPy Expr")
@@ -770,23 +629,24 @@ def compile_expression(
             failure.detail,
         )
 
-    admission = assess_elementary_admission(compiler.tower.derivation())
-    if not admission.accepted:
-        if admission.reason is None:
-            raise RuntimeError("an unsupported tower admission omitted its reason")
-        return _unsupported_compilation(
-            expression,
-            variable,
-            ExpressionUnsupportedReason.TOWER_ADMISSION,
-            f"the compiled tower is outside elementary admission: "
-            f"{admission.reason.value}: {admission.detail}",
-        )
+    if all(isinstance(level, MonomialExtension) for level in compiler.tower.levels):
+        admission = assess_elementary_admission(compiler.tower.derivation())
+        if not admission.accepted:
+            if admission.reason is None:
+                raise RuntimeError("an unsupported tower admission omitted its reason")
+            return _unsupported_compilation(
+                expression,
+                variable,
+                ExpressionUnsupportedReason.TOWER_ADMISSION,
+                f"the compiled tower is outside elementary admission: "
+                f"{admission.reason.value}: {admission.detail}",
+            )
     return ExpressionCompilation(
         expression,
         variable,
         ExpressionCompilationOutcome.COMPILED,
         None,
-        "the expression was compiled into a certified P/E/T tower",
+        "the expression was compiled into a certified differential tower",
         compiler.tower,
         compiler._embed_current(element),
         tuple(compiler.generator_substitutions.items()),

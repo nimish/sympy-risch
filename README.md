@@ -40,9 +40,13 @@ Chapter 8 cancellation recurrences for hyperexponential Laurent modes and
 hypertangent polynomial systems. Together with the immutable Gaussian Cayley
 normal form, those solvers close the declared explicit P/E/T tower contract.
 The expression frontend reuses its checked extension factories and returns
-only local, branch-preserving presentations. Complete general-polynomial
-special-factor reduction, algebraic/mixed expression discovery, and global
-branch-aware expression normalization remain future work.
+only local, branch-preserving presentations. Its separate candidate-DAG pass
+now recognizes rational-power algebraic levels and both mixed
+algebraic/transcendental orders; the native compiler executes terminal
+algebraic-over-P/E/T towers and reports still-missing opposite-order backends
+separately. Complete general-polynomial special-factor reduction, algebraic
+composita, and global branch-aware expression normalization remain future
+work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

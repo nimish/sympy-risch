@@ -1,9 +1,9 @@
-r"""Expression-level integration over conservatively compiled P/E/T towers.
+r"""Expression-level integration over conservatively compiled towers.
 
-The compiler accepts rational arithmetic, integer powers, and nested ``log``,
-``exp``, and ``tan`` calls without applying branch-changing identities.  A
-successful elementary result is therefore a local differential presentation,
-not a claim about globally chosen principal branches.
+The compiler accepts rational arithmetic, rational powers, and nested
+``log``, ``exp``, and ``tan`` calls without applying branch-changing
+identities. A successful elementary result is therefore a local differential
+presentation, not a claim about globally chosen principal branches.
 """
 
 from __future__ import annotations
@@ -24,6 +24,13 @@ from ._expression_compilation import (
     compile_expression,
 )
 from .elementary import ElementaryIntegralResult, integrate_elementary
+from .expression_discovery import (
+    ExpressionDiscoveryOutcome,
+    ExpressionGeneratorKind,
+    ExpressionTowerCandidate,
+    ExpressionTowerDiscovery,
+    discover_expression_tower,
+)
 from .tower.core import MonomialExtension
 
 
@@ -200,7 +207,7 @@ def integrate_expression(
     expression: Expr,
     variable: Symbol,
 ) -> ExpressionIntegralResult:
-    r"""Integrate a conservative SymPy P/E/T expression through the Risch core.
+    r"""Integrate a conservative SymPy expression through the Risch core.
 
     The elementary presentation is back-substituted only syntactically.  In
     particular, it is a local derivative identity and does not assert global
@@ -242,7 +249,7 @@ def integrate_expression(
         compilation,
         ExpressionIntegrationOutcome.ELEMENTARY,
         None,
-        "the certified P/E/T dispatcher found a local elementary presentation",
+        "the certified differential dispatcher found a local elementary presentation",
         elementary_result,
         compilation.back_substitute_expression(
             native_antiderivative,
@@ -253,9 +260,14 @@ def integrate_expression(
 __all__ = [
     "ExpressionCompilation",
     "ExpressionCompilationOutcome",
+    "ExpressionDiscoveryOutcome",
+    "ExpressionGeneratorKind",
     "ExpressionIntegralResult",
     "ExpressionIntegrationOutcome",
+    "ExpressionTowerCandidate",
+    "ExpressionTowerDiscovery",
     "ExpressionUnsupportedReason",
     "compile_expression",
+    "discover_expression_tower",
     "integrate_expression",
 ]
