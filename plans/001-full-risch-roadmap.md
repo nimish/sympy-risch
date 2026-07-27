@@ -213,7 +213,7 @@ The existing design conventions to preserve are:
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`. Native finite `QQ`-algebraic constants now support the base relation kernel and direct P/E factory proposals; proof-carrying recursive constant evidence, general effective constants, and automatic non-generator special-factor decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
-| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, exact finite valuation kernels, and a bounded principal-divisor semialgorithm now exist; constant normalization and general global-space/divisor-class decisions remain. |
+| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, Hess Riemann--Roch spaces, exact finite valuation kernels, and complete supported principality decisions now exist; constant normalization and divisor-class work remain. |
 | 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality decisions and solves residue-free exactness through complete Riemann--Roch spaces; compatible constant descent and torsion/divisor-class work remain. |
 | 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic relations, coupled/parametric RDEs, and relative residue/logarithmic reduction remain. |
 | 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
@@ -913,9 +913,14 @@ separate commit after focused and full-suite verification.
    - [x] Decide direct residue-free exactness using the complete `L(E)` from
      the generic Riemann--Roch service. A complete failed solve proves only no
      primitive in the current algebraic function field.
-   - [ ] Generalize compatible constant descent and place splitting to
-     composita and iterative extensions, and solve the remaining
-     principal/torsion divisor cases.
+   - [ ] **Plan 007**: factor the one-step `QQ -> QQ(alpha)` base-change
+     presentation into a reusable algebraic-constant extension map, then add
+     certified composita and iterative target-field integration. Each step
+     must rebuild the function-field relation, re-prove preserved constants,
+     and recollect all target places; it must not transport a source residue
+     list through an assumed embedding. This unlocks compatible residue-basis
+     descent for multiple independent factors.
+   - [ ] Solve the remaining torsion/divisor-class cases.
 13. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.
     - [x] Add the direct-curve integrating-factor cell: when a verified
