@@ -130,6 +130,7 @@ def test_algebraic_geometry_public_annotations_are_runtime_resolvable() -> None:
 
 def test_algebraic_integration_public_annotations_are_runtime_resolvable() -> None:
     get_type_hints(sympy_risch.AlgebraicIntegrationResult)
+    get_type_hints(sympy_risch.AlgebraicLogarithmicTerm)
 
 
 def test_tower_facade_has_an_intentional_advanced_surface() -> None:

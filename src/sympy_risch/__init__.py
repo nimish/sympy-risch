@@ -36,8 +36,9 @@ from .algebraic import (
 from .algebraic.logarithmic import (
     AlgebraicIntegrationResult,
     AlgebraicIntegrationStatus,
+    AlgebraicLogarithmicTerm,
     integrate_algebraic,
-    reconstruct_rational_residue_logarithms,
+    reconstruct_constant_residue_logarithms,
 )
 from .algebraic_geometry import (
     AlgebraicDifferential,
@@ -262,6 +263,7 @@ __all__ = [
     "AlgebraicIntegrationResult",
     "AlgebraicIntegrationStatus",
     "AlgebraicLocalDifferentialResidue",
+    "AlgebraicLogarithmicTerm",
     "AlgebraicNonspecialLatticeSearch",
     "AlgebraicNonspecialSearchStatus",
     "AlgebraicOrder",
@@ -422,7 +424,7 @@ __all__ = [
     "primitive_logarithmic_derivative_signature",
     "rebase_derivation_constants",
     "recognize_simple_radical",
-    "reconstruct_rational_residue_logarithms",
+    "reconstruct_constant_residue_logarithms",
     "reduce_certified_linear_special_poles",
     "reduce_hyperexponential_laurent",
     "reduce_hyperexponential_monomial",

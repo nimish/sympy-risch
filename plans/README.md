@@ -112,5 +112,5 @@ made proof-carrying rather than inherited from caller metadata.
   established design deliberately uses native SymPy domains and immutable tower
   metadata.
 - Treating the current partial algebraic integrator as complete was rejected:
-  its direct-`QQ` rational-residue slice still lacks compatible constant
-  descent, general logarithmic reconstruction, and second-kind exactness.
+  its displayed-constant logarithmic slice still lacks compatible constant
+  descent, complete divisor-class work, and second-kind exactness.

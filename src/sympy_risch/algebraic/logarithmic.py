@@ -1,11 +1,11 @@
 r"""First logarithmic reconstruction step for algebraic differentials.
 
 The all-place collector gives each residue in its own closed residue field.
-Before compatible algebraic constant base change is implemented, there is one
-useful locally decidable case: every residue is already a rational constant. In
-that case their primitive rational scale turns the residues into an integral
-degree-zero divisor.  A verified principal witness for that divisor produces
-one exact logarithmic derivative.
+When every residue is already in the displayed constant field, its exact
+coordinates over ``QQ`` turn the residue data into finitely many integral
+degree-zero divisors.  A verified principal witness for each divisor produces
+the corresponding logarithmic terms.  Residues that live only in a closed
+residue extension still need compatible algebraic constant base change.
 
 This module keeps that narrow result separate from the general elementary
 dispatcher.  A residual differential with zero residues is explicitly retained
@@ -23,6 +23,8 @@ from sympy.core.expr import Expr
 from sympy.functions.elementary.exponential import log
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.domains import QQ
+from sympy.polys.domains.algebraicfield import AlgebraicField
+from sympy.polys.domains.domain import Domain
 from sympy.polys.polyerrors import CoercionFailed
 
 from .._typing import FieldElement
@@ -55,6 +57,55 @@ class AlgebraicIntegrationStatus(Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class AlgebraicLogarithmicTerm:
+    r"""One verified term ``c * log(f)`` in an algebraic integral.
+
+    ``divisor`` is the integral divisor carrying the rational coordinate of
+    the residues, while ``coefficient`` is its displayed algebraic-constant
+    basis factor.  The principal-divisor witness therefore verifies the
+    field-level identity ``c * D(f) / f`` without choosing logarithm branches.
+    """
+
+    coefficient: FieldElement
+    divisor: AlgebraicDivisor
+    principal_search: AlgebraicPrincipalDivisorSearch
+    argument: ExtensionElement
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.divisor, AlgebraicDivisor):
+            raise TypeError("a logarithmic term needs an algebraic divisor")
+        if not isinstance(self.principal_search, AlgebraicPrincipalDivisorSearch):
+            raise TypeError("a logarithmic term needs a principal-divisor search")
+        if self.principal_search.model is not self.divisor.model:
+            raise ValueError("the principal search belongs to another model")
+        if self.principal_search.divisor != self.divisor:
+            raise ValueError("the principal search has another residue divisor")
+        if (
+            self.principal_search.status
+            is not AlgebraicPrincipalDivisorStatus.PRINCIPAL
+        ):
+            raise ValueError("a logarithmic term needs a principal divisor witness")
+        if self.principal_search.witness is None:
+            raise ValueError("a principal logarithmic term needs its witness")
+
+        extension = self.divisor.model.extension
+        _parent, constants, _variable = _base_polynomial_ring(extension)
+        try:
+            coefficient = constants.convert(self.coefficient)
+        except (CoercionFailed, TypeError, ValueError) as exc:
+            raise ValueError(
+                "a logarithmic coefficient must lie in the displayed constants"
+            ) from exc
+        argument = _extension_element(extension, self.argument)
+        if argument == extension.field.zero:
+            raise ValueError("a logarithmic argument must be nonzero")
+        if argument - self.principal_search.witness != extension.field.zero:
+            raise ValueError("a logarithmic argument differs from its witness")
+        object.__setattr__(self, "coefficient", coefficient)
+        object.__setattr__(self, "argument", argument)
+
+
+@dataclass(frozen=True, slots=True)
 class AlgebraicIntegrationResult:
     r"""One exact algebraic Hermite/logarithmic reduction result.
 
@@ -63,19 +114,17 @@ class AlgebraicIntegrationResult:
     ``integrand = D(exact_part) + logarithmic_derivative + remainder``.
 
     ``ELEMENTARY`` and ``EXACT`` are constructive successes. A
-    ``RESIDUE_FREE_REMAINDER`` has had every rational logarithmic residue
-    removed, but still needs the later exactness decision for first- and
-    second-kind differentials. ``INCOMPLETE`` means only that the requested
-    finite principal-divisor search bound did not find a witness.
+    ``RESIDUE_FREE_REMAINDER`` has had every displayed-constant logarithmic
+    residue removed, but still needs the later exactness decision for first-
+    and second-kind differentials. ``INCOMPLETE`` means only that the
+    requested finite principal-divisor search bound did not find every
+    witness.
     """
 
     collection: AlgebraicAllPlaceResidueResult
     status: AlgebraicIntegrationStatus
-    logarithmic_coefficient: FieldElement | None
-    residue_divisor: AlgebraicDivisor | None
-    principal_search: AlgebraicPrincipalDivisorSearch | None
-    logarithmic_argument: ExtensionElement | None
-    logarithmic_derivative: ExtensionElement
+    logarithmic_terms: tuple[AlgebraicLogarithmicTerm, ...]
+    principal_searches: tuple[AlgebraicPrincipalDivisorSearch, ...]
     remainder: ExtensionElement
     detail: str
 
@@ -88,32 +137,41 @@ class AlgebraicIntegrationResult:
             raise ValueError("an algebraic integration result needs a detail")
 
         extension = self.collection.basis.extension
-        logarithmic_derivative = _extension_element(
-            extension,
-            self.logarithmic_derivative,
-        )
+        terms = tuple(self.logarithmic_terms)
+        if not all(isinstance(term, AlgebraicLogarithmicTerm) for term in terms):
+            raise TypeError("an algebraic integration result needs logarithmic terms")
+        if any(term.divisor.model is not self.collection.model for term in terms):
+            raise ValueError("a logarithmic term belongs to another function field")
+        searches = tuple(self.principal_searches)
+        if not all(
+            isinstance(search, AlgebraicPrincipalDivisorSearch) for search in searches
+        ):
+            raise TypeError("an algebraic integration result needs principal searches")
+        if self.collection.model is not None and any(
+            search.model is not self.collection.model for search in searches
+        ):
+            raise ValueError("a principal search belongs to another function field")
+        if any(term.principal_search not in searches for term in terms):
+            raise ValueError("a logarithmic term lacks its recorded principal search")
+        object.__setattr__(self, "logarithmic_terms", terms)
+        object.__setattr__(self, "principal_searches", searches)
+
         remainder = _extension_element(extension, self.remainder)
-        object.__setattr__(self, "logarithmic_derivative", logarithmic_derivative)
         object.__setattr__(self, "remainder", remainder)
         reconstructed = (
             self.collection.derivation(self.collection.exact_part)
-            + logarithmic_derivative
+            + self.logarithmic_derivative
             + remainder
         )
         if reconstructed - self.collection.integrand != extension.field.zero:
             raise ValueError("the algebraic integration result does not reconstruct")
 
-        argument = self.logarithmic_argument
-        if argument is not None:
-            argument = _extension_element(extension, argument)
-            if argument == extension.field.zero:
-                raise ValueError("a logarithmic argument must be nonzero")
-            object.__setattr__(self, "logarithmic_argument", argument)
-
         if self.status is AlgebraicIntegrationStatus.EXACT:
             if (
                 self.collection.status is not AlgebraicAllPlaceResidueStatus.EXACT
                 or remainder != extension.field.zero
+                or terms
+                or searches
             ):
                 raise ValueError("an exact result needs an exact zero-remainder input")
             return
@@ -122,15 +180,8 @@ class AlgebraicIntegrationResult:
             if (
                 self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
                 or remainder != extension.field.zero
-                or any(
-                    value is None
-                    for value in (
-                        self.logarithmic_coefficient,
-                        self.residue_divisor,
-                        self.principal_search,
-                        argument,
-                    )
-                )
+                or not terms
+                or len(searches) != len(terms)
             ):
                 raise ValueError("an elementary result needs a logarithmic witness")
             return
@@ -138,23 +189,31 @@ class AlgebraicIntegrationResult:
         if self.status is AlgebraicIntegrationStatus.INCOMPLETE:
             if (
                 self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
-                or self.residue_divisor is None
-                or self.principal_search is None
-                or argument is not None
-                or logarithmic_derivative != extension.field.zero
+                or terms
+                or not searches
+                or not any(
+                    search.status is AlgebraicPrincipalDivisorStatus.INCOMPLETE
+                    for search in searches
+                )
             ):
                 raise ValueError("an incomplete result needs its failed divisor search")
             return
 
         if self.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE:
-            if argument is not None or logarithmic_derivative != extension.field.zero:
+            if terms or searches:
                 raise ValueError("a base-change boundary cannot carry a logarithm")
             return
 
-        if self.status in {
-            AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER,
-            AlgebraicIntegrationStatus.UNSUPPORTED,
-        }:
+        if self.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER:
+            if remainder == extension.field.zero:
+                raise ValueError("a residue-free remainder result needs a remainder")
+            if len(searches) != len(terms):
+                raise ValueError("a reconstructed logarithmic term needs its search")
+            return
+
+        if self.status is AlgebraicIntegrationStatus.UNSUPPORTED:
+            if terms:
+                raise ValueError("an unsupported result cannot carry logarithmic terms")
             return
         raise ValueError("the algebraic integration result has an unknown status")
 
@@ -180,6 +239,49 @@ class AlgebraicIntegrationResult:
         )
 
     @property
+    def logarithmic_derivative(self) -> ExtensionElement:
+        """Return the field derivative represented by every logarithmic term."""
+        extension = self.collection.basis.extension
+        _parent, constants, _variable = _base_polynomial_ring(extension)
+        result = extension.field.zero
+        for term in self.logarithmic_terms:
+            coefficient = extension.field.from_sympy(
+                constants.to_sympy(constants.convert(term.coefficient)),
+            )
+            result += (
+                coefficient * self.collection.derivation(term.argument) / term.argument
+            )
+        return result
+
+    @property
+    def logarithmic_coefficient(self) -> FieldElement | None:
+        """Return the coefficient when the result has exactly one log term."""
+        if len(self.logarithmic_terms) != 1:
+            return None
+        return self.logarithmic_terms[0].coefficient
+
+    @property
+    def residue_divisor(self) -> AlgebraicDivisor | None:
+        """Return the divisor when the result has exactly one log term."""
+        if len(self.logarithmic_terms) != 1:
+            return None
+        return self.logarithmic_terms[0].divisor
+
+    @property
+    def principal_search(self) -> AlgebraicPrincipalDivisorSearch | None:
+        """Return the search when the result has exactly one divisor search."""
+        if len(self.principal_searches) != 1:
+            return None
+        return self.principal_searches[0]
+
+    @property
+    def logarithmic_argument(self) -> ExtensionElement | None:
+        """Return the argument when the result has exactly one log term."""
+        if len(self.logarithmic_terms) != 1:
+            return None
+        return self.logarithmic_terms[0].argument
+
+    @property
     def antiderivative(self) -> Expr | None:
         r"""Return the displayed antiderivative on constructive success.
 
@@ -190,24 +292,37 @@ class AlgebraicIntegrationResult:
         if not self.is_elementary:
             return None
         field = self.collection.basis.extension.field
+        _parent, constants, _variable = _base_polynomial_ring(
+            self.collection.basis.extension,
+        )
         exact_part = field.to_sympy(self.collection.exact_part)
-        if self.logarithmic_argument is None:
-            return exact_part
-        if self.logarithmic_coefficient is None:
-            raise ValueError("a logarithmic argument lacks its coefficient")
-        coefficient = QQ.to_sympy(QQ.convert(self.logarithmic_coefficient))
-        return exact_part + coefficient * log(field.to_sympy(self.logarithmic_argument))
+        return exact_part + sum(
+            constants.to_sympy(constants.convert(term.coefficient))
+            * log(field.to_sympy(term.argument))
+            for term in self.logarithmic_terms
+        )
 
 
-def _rational_residue(
+def _displayed_constant_residue(
     local_residue: AlgebraicLocalDifferentialResidue,
+    constants: Domain,
 ) -> FieldElement | None:
-    """Return a residue in ``QQ``, or ``None`` when it needs base change."""
+    """Return a residue in the displayed constants, if it has one.
+
+    A closed-place coordinate tuple begins with the base constant and then
+    uses positive powers of the local residue generators.  Thus precisely
+    ``(c, 0, ..., 0)`` represents a value already in the displayed constant
+    field; any other coordinate needs a compatible constant-base change.
+    """
     coordinates = local_residue.constant_coordinates
-    if not coordinates or any(coordinate != QQ.zero for coordinate in coordinates[1:]):
+    try:
+        zero = constants.zero
+    except AttributeError:
+        return None
+    if not coordinates or any(coordinate != zero for coordinate in coordinates[1:]):
         return None
     try:
-        return QQ.convert(coordinates[0])
+        return constants.convert(coordinates[0])
     except (CoercionFailed, TypeError, ValueError):
         return None
 
@@ -233,18 +348,58 @@ def _integer_multiple(residue: FieldElement, scale: FieldElement) -> int:
     return int(QQ.numer(quotient))
 
 
-def reconstruct_rational_residue_logarithms(
+def _constant_coordinate_basis(
+    constants: Domain,
+) -> tuple[FieldElement, ...] | None:
+    """Return the exact ``QQ`` power basis of supported displayed constants."""
+    if constants == QQ:
+        return (QQ.one,)
+    if not isinstance(constants, AlgebraicField) or constants.dom != QQ:
+        return None
+    degree = constants.ext.minpoly.degree()
+    return tuple(constants.unit**power for power in range(degree))
+
+
+def _rational_coordinates_of_constant(
+    constants: Domain,
+    value: FieldElement,
+) -> tuple[FieldElement, ...] | None:
+    """Express one displayed constant in its exact ``QQ`` power basis."""
+    if constants == QQ:
+        try:
+            return (QQ.convert(value),)
+        except (CoercionFailed, TypeError, ValueError):
+            return None
+    if not isinstance(constants, AlgebraicField) or constants.dom != QQ:
+        return None
+    try:
+        converted = constants.convert(value)
+        coefficients = tuple(QQ.convert(coefficient) for coefficient in converted.rep)
+    except (AttributeError, CoercionFailed, TypeError, ValueError):
+        return None
+    degree = constants.ext.minpoly.degree()
+    if len(coefficients) > degree:
+        raise ValueError("an algebraic constant has an overlong power representation")
+    # SymPy stores ANP coefficients from highest to lowest power.  Pad on the
+    # high side, then reverse to match (1, alpha, ..., alpha**(d - 1)).
+    return tuple(reversed((QQ.zero,) * (degree - len(coefficients)) + coefficients))
+
+
+def reconstruct_constant_residue_logarithms(
     collection: AlgebraicAllPlaceResidueResult,
     *,
     max_x_degree: int,
 ) -> AlgebraicIntegrationResult:
-    r"""Reconstruct rational-residue logarithms from all-place data.
+    r"""Reconstruct displayed-constant logarithms from all-place data.
 
-    This first scope requires displayed constants exactly ``QQ`` and every
-    local residue to have constant-coordinate form ``(q, 0, ..., 0)``. It
-    then searches for a principal witness of the integral residue divisor.
-    Other algebraic residues need compatible constant base change and
-    split-place maps, which are intentionally not guessed here.
+    Each local residue must have constant-coordinate form ``(c, 0, ..., 0)``.
+    Over ``QQ(alpha)`` the values ``c`` are then expanded in the exact power
+    basis ``(1, alpha, ..., alpha**(d - 1))``.  Every rational coordinate
+    gives an integral residue divisor and, when that divisor has a verified
+    principal witness, one term in the logarithmic part.  This is constructive
+    descent over the *displayed* algebraic constants; local residues outside
+    that field still require compatible constant base change and place
+    splitting.
     """
     if not isinstance(collection, AlgebraicAllPlaceResidueResult):
         raise TypeError("logarithmic reconstruction needs all-place residue data")
@@ -257,11 +412,8 @@ def reconstruct_rational_residue_logarithms(
         return AlgebraicIntegrationResult(
             collection,
             AlgebraicIntegrationStatus.EXACT,
-            None,
-            None,
-            None,
-            None,
-            zero,
+            (),
+            (),
             zero,
             "Hermite reduction already produced an exact antiderivative",
         )
@@ -269,11 +421,8 @@ def reconstruct_rational_residue_logarithms(
         return AlgebraicIntegrationResult(
             collection,
             AlgebraicIntegrationStatus.UNSUPPORTED,
-            None,
-            None,
-            None,
-            None,
-            zero,
+            (),
+            (),
             collection.remainder,
             "all-place residue collection is unsupported: " + collection.detail,
         )
@@ -281,103 +430,139 @@ def reconstruct_rational_residue_logarithms(
         raise ValueError("a collected algebraic differential lacks global data")
 
     _parent, constants, _variable = _base_polynomial_ring(extension)
-    if constants != QQ:
+    constant_basis = _constant_coordinate_basis(constants)
+    if constant_basis is None:
         return AlgebraicIntegrationResult(
             collection,
             AlgebraicIntegrationStatus.UNSUPPORTED,
-            None,
-            None,
-            None,
-            None,
-            zero,
+            (),
+            (),
             collection.remainder,
-            "rational-residue reconstruction currently requires displayed constants QQ",
+            "constant-residue reconstruction currently requires QQ or a finite "
+            "algebraic extension of QQ",
         )
 
-    rational_records: list[tuple[AlgebraicLocalDifferentialResidue, FieldElement]] = []
+    constant_records: list[
+        tuple[AlgebraicLocalDifferentialResidue, tuple[FieldElement, ...]]
+    ] = []
     for record in collection.residues:
-        residue = _rational_residue(record)
+        residue = _displayed_constant_residue(record, constants)
         if residue is None:
             return AlgebraicIntegrationResult(
                 collection,
                 AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE,
-                None,
-                None,
-                None,
-                None,
-                zero,
+                (),
+                (),
                 collection.remainder,
-                "a local residue is not a rational displayed constant; "
+                "a local residue is not a displayed constant; "
                 "compatible constant base change is required",
             )
-        if residue != QQ.zero:
-            rational_records.append((record, residue))
+        coordinates = _rational_coordinates_of_constant(constants, residue)
+        if coordinates is None:
+            return AlgebraicIntegrationResult(
+                collection,
+                AlgebraicIntegrationStatus.UNSUPPORTED,
+                (),
+                (),
+                collection.remainder,
+                "the displayed constant could not be expanded over QQ",
+            )
+        if len(coordinates) != len(constant_basis):
+            raise ValueError("a displayed constant has the wrong coordinate dimension")
+        if any(coordinate != QQ.zero for coordinate in coordinates):
+            constant_records.append((record, coordinates))
 
-    if not rational_records:
+    if not constant_records:
         return AlgebraicIntegrationResult(
             collection,
             AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER,
-            None,
-            None,
-            None,
-            None,
-            zero,
+            (),
+            (),
             collection.remainder,
             "all collected residues vanish; first- and second-kind exactness "
             "remains to be decided",
         )
 
-    scale = _primitive_rational_scale(
-        tuple(residue for _record, residue in rational_records),
-    )
-    divisor = AlgebraicDivisor(
-        collection.model,
-        tuple(
-            (record.place, _integer_multiple(residue, scale))
-            for record, residue in rational_records
-        ),
-    )
-    if divisor.degree != 0:
-        raise ValueError("rational residues violated the global residue theorem")
+    plans: list[
+        tuple[FieldElement, AlgebraicDivisor, AlgebraicPrincipalDivisorSearch]
+    ] = []
+    for coordinate_index, basis_element in enumerate(constant_basis):
+        coordinate_records = tuple(
+            (record, coordinates[coordinate_index])
+            for record, coordinates in constant_records
+            if coordinates[coordinate_index] != QQ.zero
+        )
+        if not coordinate_records:
+            continue
+        scale = _primitive_rational_scale(
+            tuple(residue for _record, residue in coordinate_records),
+        )
+        divisor = AlgebraicDivisor(
+            collection.model,
+            tuple(
+                (record.place, _integer_multiple(residue, scale))
+                for record, residue in coordinate_records
+            ),
+        )
+        if divisor.degree != 0:
+            raise ValueError(
+                "displayed-constant residue coordinates violated the global "
+                "residue theorem",
+            )
+        search = search_algebraic_principal_divisor(
+            collection.model,
+            divisor,
+            collection.constant_field_analysis,
+            max_x_degree=max_x_degree,
+        )
+        coefficient = constants.convert(basis_element * scale)
+        plans.append((coefficient, divisor, search))
 
-    search = search_algebraic_principal_divisor(
-        collection.model,
-        divisor,
-        collection.constant_field_analysis,
-        max_x_degree=max_x_degree,
-    )
-    if search.status is AlgebraicPrincipalDivisorStatus.INCOMPLETE:
+    searches = tuple(search for _coefficient, _divisor, search in plans)
+    if any(
+        search.status is AlgebraicPrincipalDivisorStatus.INCOMPLETE
+        for search in searches
+    ):
         return AlgebraicIntegrationResult(
             collection,
             AlgebraicIntegrationStatus.INCOMPLETE,
-            scale,
-            divisor,
-            search,
-            None,
-            zero,
+            (),
+            searches,
             collection.remainder,
-            "the rational residue divisor needs a larger principal-divisor "
-            "search bound",
+            "one displayed-constant residue divisor needs a larger "
+            "principal-divisor search bound",
         )
-    if search.status is not AlgebraicPrincipalDivisorStatus.PRINCIPAL:
+    if any(
+        search.status is not AlgebraicPrincipalDivisorStatus.PRINCIPAL
+        for search in searches
+    ):
         return AlgebraicIntegrationResult(
             collection,
             AlgebraicIntegrationStatus.UNSUPPORTED,
-            scale,
-            divisor,
-            search,
-            None,
-            zero,
+            (),
+            searches,
             collection.remainder,
-            "the rational residue divisor could not be reconstructed in the "
-            "current principal-divisor kernel: " + search.detail,
+            "a displayed-constant residue divisor could not be reconstructed "
+            "in the current principal-divisor kernel",
         )
-    if search.witness is None:
+    terms = tuple(
+        AlgebraicLogarithmicTerm(coefficient, divisor, search, search.witness)
+        for coefficient, divisor, search in plans
+        if search.witness is not None
+    )
+    if len(terms) != len(plans):
         raise ValueError("a principal-divisor search omitted its witness")
-
-    argument = search.witness
-    coefficient = extension.field.from_sympy(QQ.to_sympy(scale))
-    logarithmic_derivative = coefficient * collection.derivation(argument) / argument
+    logarithmic_derivative = sum(
+        (
+            extension.field.from_sympy(
+                constants.to_sympy(constants.convert(term.coefficient)),
+            )
+            * collection.derivation(term.argument)
+            / term.argument
+            for term in terms
+        ),
+        extension.field.zero,
+    )
     remainder = collection.remainder - logarithmic_derivative
     status = (
         AlgebraicIntegrationStatus.ELEMENTARY
@@ -385,19 +570,17 @@ def reconstruct_rational_residue_logarithms(
         else AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
     )
     detail = (
-        "rational residues were reconstructed by a verified principal divisor"
+        "displayed-constant residues were reconstructed by verified principal divisors"
         if status is AlgebraicIntegrationStatus.ELEMENTARY
-        else "rational residues were reconstructed; the remaining residue-free "
+        else "displayed-constant residues were reconstructed; the remaining "
+        "residue-free "
         "differential needs first- and second-kind exactness"
     )
     return AlgebraicIntegrationResult(
         collection,
         status,
-        scale,
-        divisor,
-        search,
-        argument,
-        logarithmic_derivative,
+        terms,
+        searches,
         remainder,
         detail,
     )
@@ -411,13 +594,13 @@ def integrate_algebraic(
     max_x_degree: int = 1,
     lazy: bool = False,
 ) -> AlgebraicIntegrationResult:
-    r"""Run the current algebraic Hermite/rational-residue integration slice.
+    r"""Run the current algebraic Hermite/constant-residue integration slice.
 
     The function is constructive for exact differentials and for the
-    rational-residue cases whose divisor has a witness within the requested
-    finite lattice bound. It returns structured boundaries for algebraic
-    residue base change, bounded misses, and the residue-free exactness work
-    that remains outside this first slice.
+    displayed-constant residue cases whose divisors have witnesses within the
+    requested finite lattice bound. It returns structured boundaries for
+    algebraic residue base change, bounded misses, and the residue-free
+    exactness work that remains outside this first slice.
     """
     collection = collect_algebraic_all_place_residues(
         integrand,
@@ -425,7 +608,7 @@ def integrate_algebraic(
         basis,
         lazy=lazy,
     )
-    return reconstruct_rational_residue_logarithms(
+    return reconstruct_constant_residue_logarithms(
         collection,
         max_x_degree=max_x_degree,
     )

@@ -182,26 +182,30 @@ maps from every relevant residue field, base-change and split the places, and
 only then attach residue coefficients to divisors. This distinction prevents a
 locally correct but globally inconsistent logarithmic reconstruction.
 
-## Rational-residue logarithmic reconstruction
+## Displayed-constant logarithmic reconstruction
 
 `integrate_algebraic` is the first integration-facing use of the global data.
 It currently handles a narrow, useful cell: the displayed constant field is
-`QQ`, every collected residue has local coordinate form `(q, 0, ..., 0)`, and
-the resulting divisor has a principal witness within a caller-selected finite
-lattice bound. It does not guess compatible conjugates for a non-rational
-closed residue.
+`QQ` or a finite algebraic extension of `QQ`, every collected residue has
+local coordinate form `(c, 0, ..., 0)`, and every resulting divisor has a
+principal witness within a caller-selected finite lattice bound. It does not
+guess compatible conjugates for a residue outside the displayed constant
+field.
 
-For the nonzero rational residues `r_P`, it first takes their positive
-rational content `lambda` and forms
+For a displayed constant field with exact `QQ` basis
+`(b_0, ..., b_(d-1))`, write each local residue as
+`r_P = sum_i b_i q_(i,P)`. For every nonzero rational coordinate family, it
+takes positive rational content `lambda_i` and forms
 
 ```text
-D_lambda = sum_P (r_P / lambda) P.
+D_i = sum_P (q_(i,P) / lambda_i) P.
 ```
 
 The coefficients are integral and the global residue theorem gives
-`deg(D_lambda) = 0`. If the bounded principal-divisor search verifies
-`div(f) = D_lambda`, the returned native logarithmic derivative is
-`lambda * D(f) / f`, with displayed term `lambda * log(f)`. The result checks
+`deg(D_i) = 0` coordinatewise. If the bounded principal-divisor search
+verifies `div(f_i) = D_i`, the returned native logarithmic derivative includes
+`b_i * lambda_i * D(f_i) / f_i`, with displayed term
+`b_i * lambda_i * log(f_i)`. The result checks
 
 ```text
 integrand = D(exact_part) + logarithmic_derivative + remainder.
@@ -209,9 +213,9 @@ integrand = D(exact_part) + logarithmic_derivative + remainder.
 
 `EXACT` and `ELEMENTARY` are constructive answers. `INCOMPLETE` means only
 that the requested finite principal-divisor bound missed a witness;
-`NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a non-rational local
-residue; and `RESIDUE_FREE_REMAINDER` is passed to the future first-/second-
-kind exactness decision. None is a non-elementarity claim.
+`NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a residue outside the
+displayed constants; and `RESIDUE_FREE_REMAINDER` is passed to the future
+first-/second-kind exactness decision. None is a non-elementarity claim.
 
 ## Certified first global spaces
 
@@ -313,7 +317,8 @@ algorithms; the bounded routine deliberately does not claim either.
 | `AlgebraicPrincipalDivisorSearch` | Verified witness or honest bounded principal-divisor search outcome |
 | `search_algebraic_principal_divisor` | Search a finite `L(-D)` slice for an exact principal witness |
 | `AlgebraicIntegrationResult` | Native Hermite/logarithmic decomposition and an honest algebraic status |
-| `integrate_algebraic` | Current `QQ` rational-residue algebraic integration slice |
+| `AlgebraicLogarithmicTerm` | One coefficient, verified residue divisor, and log argument |
+| `integrate_algebraic` | Current displayed-constant algebraic integration slice |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from

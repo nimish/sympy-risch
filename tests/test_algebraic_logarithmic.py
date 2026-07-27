@@ -1,6 +1,6 @@
-"""First rational-residue logarithmic reconstruction cases."""
+"""First displayed-constant logarithmic reconstruction cases."""
 
-from sympy import Poly, log, symbols
+from sympy import Poly, log, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -15,10 +15,10 @@ from sympy_risch import (
 x, y = symbols("x y")
 
 
-def algebraic_tower(modulus):
-    """Return the standard ``QQ(x)(y)`` tower and its power basis."""
-    rational = DifferentialTower(QQ).extend(
-        MonomialExtension(Poly(1, x, domain=QQ)),
+def algebraic_tower(modulus, constants=QQ):
+    """Return the standard ``C(x)(y)`` tower and its power basis."""
+    rational = DifferentialTower(constants).extend(
+        MonomialExtension(Poly(1, x, domain=constants)),
     )
     extension = AlgebraicExtension(Poly(modulus, y, domain=rational.field()))
     tower = rational.extend(extension)
@@ -91,6 +91,29 @@ def test_fractional_rational_content_scales_the_logarithmic_term() -> None:
     assert result.reconstructs
     assert result.logarithmic_coefficient == QQ.convert(1 / 3)
     assert result.antiderivative == log(y) / 3
+
+
+def test_displayed_algebraic_constants_produce_multiple_logarithmic_terms() -> None:
+    """Coordinate descent over QQ(sqrt(2)) keeps independent log directions."""
+    constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, basis = algebraic_tower(y**2 - x, constants)
+
+    result = integrate_algebraic(
+        extension.field.from_sympy(sqrt(2) / x + 1 / (x - 1)),
+        tower.derivation(),
+        basis,
+        max_x_degree=1,
+    )
+
+    assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
+    assert result.reconstructs
+    assert result.remainder == extension.field.zero
+    assert len(result.logarithmic_terms) == 2
+    assert result.logarithmic_coefficient is None
+    assert {
+        constants.to_sympy(term.coefficient) for term in result.logarithmic_terms
+    } == {1, 2 * sqrt(2)}
+    assert result.antiderivative is not None
 
 
 def test_logarithmic_reconstruction_retains_a_residue_free_remainder() -> None:

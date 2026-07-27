@@ -157,10 +157,11 @@ The current implementation already has a strong exact-arithmetic kernel:
   constant-field analyzer and all-place collector are implemented for admitted
   direct `C(x)` simple-radical presentations. A theorem-limited global-space
   kernel now certifies explicit complete Riemann--Roch cases and exact
-  finite-dimensional valuation intersections. A first direct-`QQ`
-  rational-residue logarithmic slice is constructive; general lattice
-  intersection, exact presentation normalization, compatible residue descent,
-  and second-kind exactness remain open.
+  finite-dimensional valuation intersections. A first direct-
+  `C(x)`, `C/QQ` finite algebraic, displayed-constant logarithmic slice is
+  constructive; general lattice intersection, exact presentation
+  normalization, compatible residue descent, and second-kind exactness remain
+  open.
 
 The implementation checkpoints since this roadmap was created are:
 
@@ -209,7 +210,7 @@ The existing design conventions to preserve are:
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, exact finite valuation kernels, and a bounded principal-divisor semialgorithm now exist; constant normalization and general global-space/divisor-class decisions remain. |
-| 6. Pure algebraic integration | Partial: direct-`QQ` rational-residue cases with a bounded-search principal witness now return verified logarithmic answers; compatible constant descent, torsion/divisor-class work, and residue-free exactness remain. |
+| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, now reconstructs displayed-constant residues with bounded-search principal witnesses; compatible constant descent, torsion/divisor-class work, and residue-free exactness remain. |
 | 7. Mixed algebraic/transcendental towers | Not started. |
 | 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
@@ -866,8 +867,9 @@ separate commit after focused and full-suite verification.
    - [x] Add a bounded, globally verified principal-divisor semialgorithm for
      degree-zero divisors; exhaustion is incomplete, while nonzero degree is
      the complete obstruction.
-   - [x] Integrate direct-`QQ` rational-residue cases when their integral
-     residue divisor has a verified bounded-search principal witness.
+   - [x] Integrate direct displayed-constant residues over `QQ` or a finite
+     algebraic extension of `QQ` when every coordinate divisor has a verified
+     bounded-search principal witness.
    - [ ] Construct compatible constant base changes and split-place maps, then
      turn profile roots into residue-basis/divisor candidates.
 12. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
