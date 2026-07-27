@@ -943,8 +943,7 @@ assert decision.antiderivative == 2 * log(y)
 assert decision.reconstructs
 ```
 
-Non-rational local residues return `NEEDS_CONSTANT_BASE_CHANGE`, a bounded
-principal-divisor miss returns `INCOMPLETE`, and a nonzero residue-free
+Non-rational local residues return `NEEDS_CONSTANT_BASE_CHANGE`, and a nonzero residue-free
 remainder is tested for an algebraic primitive. If its primitive-pole space
 has a complete Riemann--Roch certificate, `integrate_algebraic` either adds
 that primitive or retains `RESIDUE_FREE_REMAINDER` with an exact in-field
@@ -1133,10 +1132,10 @@ boundary, not a mathematical claim about the integral.
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
-| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, and degree-one-pole rational parameters; arbitrary divisors return `UNSUPPORTED` |
+| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; unavailable ideal arithmetic returns `UNSUPPORTED` |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
-| Bounded algebraic principal-divisor search | Low-level exact semialgorithm: verifies a supplied-bound witness for degree-zero `D`, returns `INCOMPLETE` on finite-slice exhaustion, and proves only the nonzero-degree obstruction |
-| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor has a bounded-search principal witness; residue-free remainders also receive the certified in-field exactness step |
+| Algebraic principality decision | Generic AFF decision from complete `L(-D)`: constructs a witness, proves nonprincipality, or retains an explicit unavailable-space boundary |
+| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor is decided principal; residue-free remainders also receive the certified in-field exactness step |
 | Algebraic residue-free exactness | Complete only when the primitive-pole Riemann--Roch space is certified; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |
@@ -1179,7 +1178,7 @@ principal groups are:
 | Relative simple-radical integration | `integrate_relative_simple_radical` and the corresponding terminal-algebraic `integrate_elementary` route |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
-| Bounded principal-divisor search | `AlgebraicPrincipalDivisorSearch`, `search_algebraic_principal_divisor` |
+| Algebraic principality decision | `AlgebraicPrincipalityDecision`, `decide_algebraic_principality` |
 | Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |
 | Mixed-prefix backend feasibility | `TowerRepresentationProposal`, `analyze_tower_representation`, `TowerRepresentationOutcome` |
 

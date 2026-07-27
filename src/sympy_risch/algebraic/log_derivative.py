@@ -24,9 +24,9 @@ from ..algebraic_geometry.function_field import (
     AlgebraicPlace,
 )
 from ..algebraic_geometry.principal import (
-    AlgebraicPrincipalDivisorSearch,
-    AlgebraicPrincipalDivisorStatus,
-    search_algebraic_principal_divisor,
+    AlgebraicPrincipalityDecision,
+    AlgebraicPrincipalityStatus,
+    decide_algebraic_principality,
 )
 from ..tower import Derivation
 from ._field import (
@@ -45,7 +45,6 @@ class AlgebraicIntegratingFactorStatus(Enum):
 
     FOUND = "found"
     NO_FACTOR = "no_factor"
-    INCOMPLETE = "incomplete"
     UNSUPPORTED = "unsupported"
 
 
@@ -77,8 +76,7 @@ class AlgebraicIntegratingFactorResult:
     certificate: AlgebraicIntegratingFactorCertificate | None
     factor: ExtensionElement | None
     residue_divisor: AlgebraicDivisor | None
-    principal_search: AlgebraicPrincipalDivisorSearch | None
-    max_x_degree: int
+    principality: AlgebraicPrincipalityDecision | None
     detail: str
 
     def __post_init__(self) -> None:
@@ -115,10 +113,6 @@ class AlgebraicIntegratingFactorResult:
             AlgebraicIntegratingFactorCertificate,
         ):
             raise TypeError("the integrating-factor certificate has the wrong type")
-        if not isinstance(self.max_x_degree, int) or self.max_x_degree < 0:
-            raise ValueError(
-                "the integrating-factor lattice degree must be nonnegative"
-            )
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("an integrating-factor result needs a detail")
 
@@ -136,12 +130,14 @@ class AlgebraicIntegratingFactorResult:
             or self.residue_divisor.model is not self.model
         ):
             raise ValueError("the residue divisor belongs to another model")
-        if self.principal_search is not None and (
-            not isinstance(self.principal_search, AlgebraicPrincipalDivisorSearch)
-            or self.principal_search.model is not self.model
-            or self.principal_search.divisor != self.residue_divisor
+        if self.principality is not None and (
+            not isinstance(self.principality, AlgebraicPrincipalityDecision)
+            or self.principality.model is not self.model
+            or self.principality.divisor != self.residue_divisor
         ):
-            raise ValueError("the principal search belongs to another residue divisor")
+            raise ValueError(
+                "the principality decision belongs to another residue divisor"
+            )
 
         if self.status is AlgebraicIntegratingFactorStatus.FOUND:
             if factor is None or factor == self.model.extension.field.zero:
@@ -198,8 +194,7 @@ def _result(
     certificate: AlgebraicIntegratingFactorCertificate | None,
     factor: ExtensionElement | None,
     residue_divisor: AlgebraicDivisor | None,
-    principal_search: AlgebraicPrincipalDivisorSearch | None,
-    max_x_degree: int,
+    principality: AlgebraicPrincipalityDecision | None,
     detail: str,
 ) -> AlgebraicIntegratingFactorResult:
     """Build one compact result while keeping the public constructor uniform."""
@@ -212,8 +207,7 @@ def _result(
         certificate,
         factor,
         residue_divisor,
-        principal_search,
-        max_x_degree,
+        principality,
         detail,
     )
 
@@ -223,14 +217,11 @@ def find_algebraic_integrating_factor(
     derivation: Derivation,
     model: AlgebraicFunctionField,
     constant_field_analysis: AlgebraicConstantFieldAnalysis,
-    *,
-    max_x_degree: int = 1,
 ) -> AlgebraicIntegratingFactorResult:
     r"""Recognize a verified ``h`` satisfying ``D(h)/h = coefficient``.
 
-    This is a bounded principal-divisor semialgorithm only at the global
-    divisor step.  A failed finite principal search is ``INCOMPLETE``; all
-    other negative outcomes are complete for the integrating-factor question.
+    The global divisor step is complete whenever the underlying algebraic
+    function-field Riemann--Roch computation is available.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("an algebraic integrating factor needs a derivation")
@@ -248,9 +239,6 @@ def find_algebraic_integrating_factor(
         derivation.tower.levels[derivation.level] is not model.extension
     ):
         raise ValueError("the integrating-factor derivation is not bound to the model")
-    if not isinstance(max_x_degree, int) or max_x_degree < 0:
-        raise ValueError("the integrating-factor lattice degree must be nonnegative")
-
     value = _extension_element(model.extension, coefficient)
     zero = model.extension.field.zero
     if value == zero:
@@ -264,7 +252,6 @@ def find_algebraic_integrating_factor(
             model.extension.field.one,
             AlgebraicDivisor(model),
             None,
-            max_x_degree,
             "the zero coefficient has constant integrating factor one",
         )
 
@@ -283,7 +270,6 @@ def find_algebraic_integrating_factor(
             None,
             None,
             None,
-            max_x_degree,
             "the differential data needed for an integrating factor is unavailable: "
             + str(exc),
         )
@@ -302,7 +288,6 @@ def find_algebraic_integrating_factor(
                     None,
                     None,
                     None,
-                    max_x_degree,
                     "a logarithmic derivative cannot have a pole of order greater than one",
                 )
             if order == -1:
@@ -322,7 +307,6 @@ def find_algebraic_integrating_factor(
                         None,
                         None,
                         None,
-                        max_x_degree,
                         "a logarithmic-derivative residue is not a displayed integer",
                     )
                 if residue:
@@ -338,7 +322,6 @@ def find_algebraic_integrating_factor(
             None,
             None,
             None,
-            max_x_degree,
             "the local residue data needed for an integrating factor is unavailable: "
             + str(exc),
         )
@@ -355,33 +338,13 @@ def find_algebraic_integrating_factor(
             None,
             residue_divisor,
             None,
-            max_x_degree,
             "integrating-factor reconstruction requires a certified preserved "
             f"constant field; the current presentation is "
             f"{constant_field_analysis.status.value}",
         )
 
-    search = search_algebraic_principal_divisor(
-        model,
-        residue_divisor,
-        constant_field_analysis,
-        max_x_degree=max_x_degree,
-    )
-    if search.status is AlgebraicPrincipalDivisorStatus.INCOMPLETE:
-        return _result(
-            model,
-            derivation,
-            value,
-            constant_field_analysis,
-            AlgebraicIntegratingFactorStatus.INCOMPLETE,
-            None,
-            None,
-            residue_divisor,
-            search,
-            max_x_degree,
-            search.detail,
-        )
-    if search.status is AlgebraicPrincipalDivisorStatus.UNSUPPORTED:
+    principality = decide_algebraic_principality(model, residue_divisor)
+    if principality.status is AlgebraicPrincipalityStatus.UNSUPPORTED:
         return _result(
             model,
             derivation,
@@ -391,11 +354,10 @@ def find_algebraic_integrating_factor(
             None,
             None,
             residue_divisor,
-            search,
-            max_x_degree,
-            search.detail,
+            principality,
+            principality.detail,
         )
-    if search.status is AlgebraicPrincipalDivisorStatus.NONPRINCIPAL:
+    if principality.status is AlgebraicPrincipalityStatus.NONPRINCIPAL:
         return _result(
             model,
             derivation,
@@ -405,18 +367,17 @@ def find_algebraic_integrating_factor(
             AlgebraicIntegratingFactorCertificate.NONPRINCIPAL_RESIDUE_DIVISOR,
             None,
             residue_divisor,
-            search,
-            max_x_degree,
+            principality,
             "the integral residue divisor cannot be the divisor of an integrating factor",
         )
-    if search.witness is None:
-        raise ValueError("a principal integrating-factor search lacks its witness")
+    if principality.witness is None:
+        raise ValueError("a principal integrating-factor decision lacks its witness")
 
     try:
         logarithmic_derivative = _quotient_extension_elements(
             model.extension,
-            derivation(search.witness),
-            search.witness,
+            derivation(principality.witness),
+            principality.witness,
         )
     except (HeuristicGCDFailed, NotImplementedError, TypeError, ValueError) as exc:
         return _result(
@@ -428,8 +389,7 @@ def find_algebraic_integrating_factor(
             None,
             None,
             residue_divisor,
-            search,
-            max_x_degree,
+            principality,
             "the principal witness could not be differentiated exactly: " + str(exc),
         )
     if logarithmic_derivative != value:
@@ -442,8 +402,7 @@ def find_algebraic_integrating_factor(
             AlgebraicIntegratingFactorCertificate.RESIDUAL_DIFFERENTIAL,
             None,
             residue_divisor,
-            search,
-            max_x_degree,
+            principality,
             "the residue-compatible principal divisor leaves a nonzero differential",
         )
     return _result(
@@ -453,9 +412,8 @@ def find_algebraic_integrating_factor(
         constant_field_analysis,
         AlgebraicIntegratingFactorStatus.FOUND,
         AlgebraicIntegratingFactorCertificate.PRINCIPAL_RESIDUE_DIVISOR,
-        search.witness,
+        principality.witness,
         residue_divisor,
-        search,
-        max_x_degree,
+        principality,
         "a verified principal residue divisor reconstructs the logarithmic derivative",
     )

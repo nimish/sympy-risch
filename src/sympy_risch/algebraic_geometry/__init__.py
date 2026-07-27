@@ -11,9 +11,9 @@ from .hess import HessDivisorIdeals, hess_divisor_ideals
 from .infinity import InfiniteAlgebraicPlace
 from .orders import AlgebraicFractionalIdeal, AlgebraicOrder
 from .principal import (
-    AlgebraicPrincipalDivisorSearch,
-    AlgebraicPrincipalDivisorStatus,
-    search_algebraic_principal_divisor,
+    AlgebraicPrincipalityDecision,
+    AlgebraicPrincipalityStatus,
+    decide_algebraic_principality,
 )
 
 __all__ = [
@@ -22,15 +22,15 @@ __all__ = [
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",
     "AlgebraicOrder",
-    "AlgebraicPrincipalDivisorSearch",
-    "AlgebraicPrincipalDivisorStatus",
+    "AlgebraicPrincipalityDecision",
+    "AlgebraicPrincipalityStatus",
     "FiniteAlgebraicPlace",
     "HessDivisorIdeals",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
+    "decide_algebraic_principality",
     "hess_divisor_ideals",
     "integral_closure",
     "polynomial_order",
-    "search_algebraic_principal_divisor",
 ]

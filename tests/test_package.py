@@ -126,8 +126,8 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "AlgebraicFractionalIdeal",
         "AlgebraicFunctionField",
         "AlgebraicOrder",
-        "AlgebraicPrincipalDivisorSearch",
-        "AlgebraicPrincipalDivisorStatus",
+        "AlgebraicPrincipalityDecision",
+        "AlgebraicPrincipalityStatus",
         "FiniteAlgebraicPlace",
         "HessDivisorIdeals",
         "InfiniteAlgebraicPlace",
@@ -136,7 +136,7 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "integral_closure",
         "hess_divisor_ideals",
         "polynomial_order",
-        "search_algebraic_principal_divisor",
+        "decide_algebraic_principality",
     }
     assert all(hasattr(algebraic_geometry, name) for name in algebraic_geometry.__all__)
     assert not hasattr(algebraic_geometry, "AlgebraicPlace")

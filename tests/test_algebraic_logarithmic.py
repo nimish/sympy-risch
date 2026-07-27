@@ -288,7 +288,7 @@ def test_nonrational_residues_request_compatible_constant_base_change() -> None:
     )
 
 
-def test_principal_bound_miss_is_not_an_integration_obstruction() -> None:
+def test_nonprincipal_residue_divisor_is_an_integration_obstruction() -> None:
     tower, extension, basis = algebraic_tower(y**2 - x**3 + x - 1)
 
     result = integrate_algebraic(
@@ -298,9 +298,10 @@ def test_principal_bound_miss_is_not_an_integration_obstruction() -> None:
         max_x_degree=0,
     )
 
-    assert result.status is AlgebraicIntegrationStatus.INCOMPLETE
+    assert result.status is AlgebraicIntegrationStatus.UNSUPPORTED
     assert not result.is_elementary
     assert result.reconstructs
-    assert result.principal_search is not None
+    assert result.principality_decision is not None
+    assert result.principality_decision.complete_negative
     assert result.logarithmic_argument is None
     assert result.remainder == extension.field.from_sympy(y / x)

@@ -886,8 +886,14 @@ separate commit after focused and full-suite verification.
    **Plan 006** adds exact all-place valuation constraints for any declared
    finite constant subspace and a bounded nonspecial ideal-lattice search;
    only a reached Riemann--Roch dimension certifies a complete global space.
-11. [ ] Use it for residue-basis descent and principal/torsion divisor solving
-   (algebraic logarithmic reconstruction) and, in parallel, exactness of
+11. [x] **Plan 006**: consume complete Riemann--Roch spaces for generic
+   principal-divisor decisions. Algebraic logarithmic reconstruction and
+   integrating-factor recognition now use this AFF service after their
+   consumer-side preserved-constant check; a degree-zero empty `L(-D)` is a
+   complete nonprincipality result, not a bounded-search miss. Torsion and
+   residue-basis descent remain separate work.
+12. [ ] Implement residue-basis descent, torsion/divisor-class solving, and
+   exactness of
    second-kind differentials. Test genus-zero and positive-genus cases.
    - [x] Build the all-place closed-residue profile
      `product_P Norm_{k(P)/C}(Z-res_P)`, including branch and infinity places,

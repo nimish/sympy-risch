@@ -160,11 +160,11 @@ def _weak_popov_reduce(
 class HessDivisorIdeals:
     r"""The finite/infinite inverted-ideal representation of one divisor.
 
-    ``finite_ideal`` and ``infinite_ideal`` consist exactly of functions that
-    satisfy the respective finite and infinite inequalities for ``L(D)``.
-    The latter is held in the reciprocal chart's maximal order; callers use
-    :meth:`contains` to test an original-field element without converting it
-    themselves.
+    ``finite_ideal`` is a global representative of the finite conditions and
+    ``infinite_ideal`` is one for the reciprocal-chart conditions. Their
+    transition matrix is used in Hess reduction; ordinary ideal membership in
+    the reciprocal chart is intentionally *not* an ``L(D)`` membership test,
+    because its coefficients are localized away from the infinity primes.
     """
 
     model: AlgebraicFunctionField
@@ -185,11 +185,12 @@ class HessDivisorIdeals:
             raise ValueError("the infinite ideal belongs to another reciprocal order")
 
     def contains(self, element: object) -> bool:
-        """Whether ``element`` satisfies every divisor inequality in ``L(D)``."""
+        """Whether ``element`` satisfies every global inequality in ``L(D)``."""
         try:
-            return self.finite_ideal.contains(element) and self.infinite_ideal.contains(
-                self.model.reciprocal_chart.forward(element),
-            )
+            value = self.model.extension.field.convert(element)
+            if value == self.model.extension.field.zero:
+                return True
+            return (self.model.principal_divisor(value) + self.divisor).is_effective
         except (TypeError, ValueError):
             return False
 

@@ -30,9 +30,9 @@ from sympy.polys.polyerrors import CoercionFailed
 from .._typing import FieldElement
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ..algebraic_geometry.principal import (
-    AlgebraicPrincipalDivisorSearch,
-    AlgebraicPrincipalDivisorStatus,
-    search_algebraic_principal_divisor,
+    AlgebraicPrincipalityDecision,
+    AlgebraicPrincipalityStatus,
+    decide_algebraic_principality,
 )
 from ..tower import Derivation
 from ._field import (
@@ -47,6 +47,7 @@ from .all_places import (
     collect_algebraic_all_place_residues,
 )
 from .basis import IntegralBasis
+from .constant_analysis import AlgebraicConstantFieldStatus
 from .exactness import (
     AlgebraicExactnessResult,
     AlgebraicExactnessStatus,
@@ -61,7 +62,6 @@ class AlgebraicIntegrationStatus(Enum):
     ELEMENTARY = "elementary"
     RESIDUE_FREE_REMAINDER = "residue_free_remainder"
     NEEDS_CONSTANT_BASE_CHANGE = "needs_constant_base_change"
-    INCOMPLETE = "incomplete"
     UNSUPPORTED = "unsupported"
 
 
@@ -77,24 +77,21 @@ class AlgebraicLogarithmicTerm:
 
     coefficient: FieldElement
     divisor: AlgebraicDivisor
-    principal_search: AlgebraicPrincipalDivisorSearch
+    principality: AlgebraicPrincipalityDecision
     argument: ExtensionElement
 
     def __post_init__(self) -> None:
         if not isinstance(self.divisor, AlgebraicDivisor):
             raise TypeError("a logarithmic term needs an algebraic divisor")
-        if not isinstance(self.principal_search, AlgebraicPrincipalDivisorSearch):
-            raise TypeError("a logarithmic term needs a principal-divisor search")
-        if self.principal_search.model is not self.divisor.model:
-            raise ValueError("the principal search belongs to another model")
-        if self.principal_search.divisor != self.divisor:
-            raise ValueError("the principal search has another residue divisor")
-        if (
-            self.principal_search.status
-            is not AlgebraicPrincipalDivisorStatus.PRINCIPAL
-        ):
+        if not isinstance(self.principality, AlgebraicPrincipalityDecision):
+            raise TypeError("a logarithmic term needs a principality decision")
+        if self.principality.model is not self.divisor.model:
+            raise ValueError("the principality decision belongs to another model")
+        if self.principality.divisor != self.divisor:
+            raise ValueError("the principality decision has another residue divisor")
+        if self.principality.status is not AlgebraicPrincipalityStatus.PRINCIPAL:
             raise ValueError("a logarithmic term needs a principal divisor witness")
-        if self.principal_search.witness is None:
+        if self.principality.witness is None:
             raise ValueError("a principal logarithmic term needs its witness")
 
         extension = self.divisor.model.extension
@@ -108,7 +105,7 @@ class AlgebraicLogarithmicTerm:
         argument = _extension_element(extension, self.argument)
         if argument == extension.field.zero:
             raise ValueError("a logarithmic argument must be nonzero")
-        if argument - self.principal_search.witness != extension.field.zero:
+        if argument - self.principality.witness != extension.field.zero:
             raise ValueError("a logarithmic argument differs from its witness")
         object.__setattr__(self, "coefficient", coefficient)
         object.__setattr__(self, "argument", argument)
@@ -129,14 +126,15 @@ class AlgebraicIntegrationResult:
     ``RESIDUE_FREE_REMAINDER`` has had every displayed-constant logarithmic
     residue removed. Its optional ``exactness`` record says whether the
     remaining first-/second-kind differential was decided in the current
-    algebraic field. ``INCOMPLETE`` means only that the requested finite
-    principal-divisor search bound did not find every witness.
+    algebraic field. ``INCOMPLETE`` is reserved for a later bounded exactness
+    subproblem; principal-divisor reconstruction itself is complete when
+    supported.
     """
 
     collection: AlgebraicAllPlaceResidueResult
     status: AlgebraicIntegrationStatus
     logarithmic_terms: tuple[AlgebraicLogarithmicTerm, ...]
-    principal_searches: tuple[AlgebraicPrincipalDivisorSearch, ...]
+    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...]
     remainder: ExtensionElement
     detail: str
     exact_correction: ExtensionElement | None = None
@@ -156,19 +154,26 @@ class AlgebraicIntegrationResult:
             raise TypeError("an algebraic integration result needs logarithmic terms")
         if any(term.divisor.model is not self.collection.model for term in terms):
             raise ValueError("a logarithmic term belongs to another function field")
-        searches = tuple(self.principal_searches)
+        decisions = tuple(self.principality_decisions)
         if not all(
-            isinstance(search, AlgebraicPrincipalDivisorSearch) for search in searches
+            isinstance(decision, AlgebraicPrincipalityDecision)
+            for decision in decisions
         ):
-            raise TypeError("an algebraic integration result needs principal searches")
+            raise TypeError(
+                "an algebraic integration result needs principality decisions"
+            )
         if self.collection.model is not None and any(
-            search.model is not self.collection.model for search in searches
+            decision.model is not self.collection.model for decision in decisions
         ):
-            raise ValueError("a principal search belongs to another function field")
-        if any(term.principal_search not in searches for term in terms):
-            raise ValueError("a logarithmic term lacks its recorded principal search")
+            raise ValueError(
+                "a principality decision belongs to another function field"
+            )
+        if any(term.principality not in decisions for term in terms):
+            raise ValueError(
+                "a logarithmic term lacks its recorded principality decision"
+            )
         object.__setattr__(self, "logarithmic_terms", terms)
-        object.__setattr__(self, "principal_searches", searches)
+        object.__setattr__(self, "principality_decisions", decisions)
 
         remainder = _extension_element(extension, self.remainder)
         correction = (
@@ -224,7 +229,7 @@ class AlgebraicIntegrationResult:
                 }
                 or remainder != extension.field.zero
                 or terms
-                or searches
+                or decisions
             ):
                 raise ValueError("an exact result needs an exact zero-remainder input")
             if self.collection.status is AlgebraicAllPlaceResidueStatus.COLLECTED and (
@@ -238,34 +243,21 @@ class AlgebraicIntegrationResult:
                 self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
                 or remainder != extension.field.zero
                 or not terms
-                or len(searches) != len(terms)
+                or len(decisions) != len(terms)
             ):
                 raise ValueError("an elementary result needs a logarithmic witness")
             return
 
-        if self.status is AlgebraicIntegrationStatus.INCOMPLETE:
-            if (
-                self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
-                or terms
-                or not searches
-                or not any(
-                    search.status is AlgebraicPrincipalDivisorStatus.INCOMPLETE
-                    for search in searches
-                )
-            ):
-                raise ValueError("an incomplete result needs its failed divisor search")
-            return
-
         if self.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE:
-            if terms or searches:
+            if terms or decisions:
                 raise ValueError("a base-change boundary cannot carry a logarithm")
             return
 
         if self.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER:
             if remainder == extension.field.zero:
                 raise ValueError("a residue-free remainder result needs a remainder")
-            if len(searches) != len(terms):
-                raise ValueError("a reconstructed logarithmic term needs its search")
+            if len(decisions) != len(terms):
+                raise ValueError("a reconstructed logarithmic term needs its decision")
             if (
                 exactness is not None
                 and exactness.status is AlgebraicExactnessStatus.EXACT
@@ -339,11 +331,11 @@ class AlgebraicIntegrationResult:
         return self.logarithmic_terms[0].divisor
 
     @property
-    def principal_search(self) -> AlgebraicPrincipalDivisorSearch | None:
-        """Return the search when the result has exactly one divisor search."""
-        if len(self.principal_searches) != 1:
+    def principality_decision(self) -> AlgebraicPrincipalityDecision | None:
+        """Return the decision when the result has exactly one residue divisor."""
+        if len(self.principality_decisions) != 1:
             return None
-        return self.principal_searches[0]
+        return self.principality_decisions[0]
 
     @property
     def logarithmic_argument(self) -> ExtensionElement | None:
@@ -458,8 +450,6 @@ def _rational_coordinates_of_constant(
 
 def reconstruct_constant_residue_logarithms(
     collection: AlgebraicAllPlaceResidueResult,
-    *,
-    max_x_degree: int,
 ) -> AlgebraicIntegrationResult:
     r"""Reconstruct displayed-constant logarithms from all-place data.
 
@@ -474,9 +464,6 @@ def reconstruct_constant_residue_logarithms(
     """
     if not isinstance(collection, AlgebraicAllPlaceResidueResult):
         raise TypeError("logarithmic reconstruction needs all-place residue data")
-    if not isinstance(max_x_degree, int) or max_x_degree < 0:
-        raise ValueError("the finite lattice degree bound must be nonnegative")
-
     extension = collection.basis.extension
     zero = extension.field.zero
     if collection.status is AlgebraicAllPlaceResidueStatus.EXACT:
@@ -499,6 +486,19 @@ def reconstruct_constant_residue_logarithms(
         )
     if collection.model is None or collection.constant_field_analysis is None:
         raise ValueError("a collected algebraic differential lacks global data")
+    if (
+        collection.constant_field_analysis.status
+        is not AlgebraicConstantFieldStatus.PRESERVED
+    ):
+        return AlgebraicIntegrationResult(
+            collection,
+            AlgebraicIntegrationStatus.UNSUPPORTED,
+            (),
+            (),
+            collection.remainder,
+            "displayed-constant logarithmic reconstruction requires a certified "
+            "preserved constant field",
+        )
 
     _parent, constants, _variable = _base_polynomial_ring(extension)
     constant_basis = _constant_coordinate_basis(constants)
@@ -555,7 +555,7 @@ def reconstruct_constant_residue_logarithms(
         )
 
     plans: list[
-        tuple[FieldElement, AlgebraicDivisor, AlgebraicPrincipalDivisorSearch]
+        tuple[FieldElement, AlgebraicDivisor, AlgebraicPrincipalityDecision]
     ] = []
     for coordinate_index, basis_element in enumerate(constant_basis):
         coordinate_records = tuple(
@@ -580,49 +580,31 @@ def reconstruct_constant_residue_logarithms(
                 "displayed-constant residue coordinates violated the global "
                 "residue theorem",
             )
-        search = search_algebraic_principal_divisor(
-            collection.model,
-            divisor,
-            collection.constant_field_analysis,
-            max_x_degree=max_x_degree,
-        )
+        decision = decide_algebraic_principality(collection.model, divisor)
         coefficient = constants.convert(basis_element * scale)
-        plans.append((coefficient, divisor, search))
+        plans.append((coefficient, divisor, decision))
 
-    searches = tuple(search for _coefficient, _divisor, search in plans)
+    decisions = tuple(decision for _coefficient, _divisor, decision in plans)
     if any(
-        search.status is AlgebraicPrincipalDivisorStatus.INCOMPLETE
-        for search in searches
-    ):
-        return AlgebraicIntegrationResult(
-            collection,
-            AlgebraicIntegrationStatus.INCOMPLETE,
-            (),
-            searches,
-            collection.remainder,
-            "one displayed-constant residue divisor needs a larger "
-            "principal-divisor search bound",
-        )
-    if any(
-        search.status is not AlgebraicPrincipalDivisorStatus.PRINCIPAL
-        for search in searches
+        decision.status is not AlgebraicPrincipalityStatus.PRINCIPAL
+        for decision in decisions
     ):
         return AlgebraicIntegrationResult(
             collection,
             AlgebraicIntegrationStatus.UNSUPPORTED,
             (),
-            searches,
+            decisions,
             collection.remainder,
             "a displayed-constant residue divisor could not be reconstructed "
-            "in the current principal-divisor kernel",
+            "by the current complete principality service",
         )
     terms = tuple(
-        AlgebraicLogarithmicTerm(coefficient, divisor, search, search.witness)
-        for coefficient, divisor, search in plans
-        if search.witness is not None
+        AlgebraicLogarithmicTerm(coefficient, divisor, decision, decision.witness)
+        for coefficient, divisor, decision in plans
+        if decision.witness is not None
     )
     if len(terms) != len(plans):
-        raise ValueError("a principal-divisor search omitted its witness")
+        raise ValueError("a principality decision omitted its witness")
     logarithmic_derivative = sum(
         (
             extension.field.from_sympy(
@@ -654,7 +636,7 @@ def reconstruct_constant_residue_logarithms(
         collection,
         status,
         terms,
-        searches,
+        decisions,
         remainder,
         detail,
     )
@@ -670,12 +652,12 @@ def integrate_algebraic(
 ) -> AlgebraicIntegrationResult:
     r"""Run the current algebraic Hermite/constant-residue integration slice.
 
-    The function is constructive for exact differentials and for the
-    displayed-constant residue cases whose divisors have witnesses within the
-    requested finite lattice bound. A residue-free remainder is then tested
+    The function is constructive for exact differentials and for
+    displayed-constant residues whose divisors are decided principal by the
+    complete function-field service. A residue-free remainder is then tested
     for an algebraic primitive using a complete certified Riemann--Roch space.
-    It returns structured boundaries for algebraic residue base change,
-    bounded misses, and unsupported exactness spaces.
+    It returns structured boundaries for algebraic residue base change and
+    unsupported exactness spaces.
     """
     collection = collect_algebraic_all_place_residues(
         integrand,
@@ -683,10 +665,7 @@ def integrate_algebraic(
         basis,
         lazy=lazy,
     )
-    result = reconstruct_constant_residue_logarithms(
-        collection,
-        max_x_degree=max_x_degree,
-    )
+    result = reconstruct_constant_residue_logarithms(collection)
     if result.status is not AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER:
         return result
 
@@ -713,7 +692,7 @@ def integrate_algebraic(
             collection,
             status,
             result.logarithmic_terms,
-            result.principal_searches,
+            result.principality_decisions,
             collection.basis.extension.field.zero,
             "the residue-free remainder has a verified algebraic primitive",
             exactness.primitive,
@@ -723,7 +702,7 @@ def integrate_algebraic(
         collection,
         result.status,
         result.logarithmic_terms,
-        result.principal_searches,
+        result.principality_decisions,
         result.remainder,
         result.detail + "; " + exactness.detail,
         None,

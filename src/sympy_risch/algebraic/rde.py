@@ -29,7 +29,6 @@ from .exactness import (
 )
 from .log_derivative import (
     AlgebraicIntegratingFactorResult,
-    AlgebraicIntegratingFactorStatus,
     find_algebraic_integrating_factor,
 )
 
@@ -174,20 +173,14 @@ def solve_algebraic_integrating_factor_rde(
         derivation,
         model,
         constant_field_analysis,
-        max_x_degree=max_x_degree,
     )
     if not factor.found:
-        status = (
-            AlgebraicIntegratingFactorRDEStatus.INCOMPLETE
-            if factor.status is AlgebraicIntegratingFactorStatus.INCOMPLETE
-            else AlgebraicIntegratingFactorRDEStatus.UNSUPPORTED
-        )
         return AlgebraicIntegratingFactorRDEResult(
             model,
             derivation,
             a,
             b,
-            status,
+            AlgebraicIntegratingFactorRDEStatus.UNSUPPORTED,
             None,
             factor,
             None,

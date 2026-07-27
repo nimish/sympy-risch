@@ -203,8 +203,8 @@ D_i = sum_P (q_(i,P) / lambda_i) P.
 ```
 
 The coefficients are integral and the global residue theorem gives
-`deg(D_i) = 0` coordinatewise. If the bounded principal-divisor search
-verifies `div(f_i) = D_i`, the returned native logarithmic derivative includes
+`deg(D_i) = 0` coordinatewise. If the complete principality decision
+constructs `div(f_i) = D_i`, the returned native logarithmic derivative includes
 `b_i * lambda_i * D(f_i) / f_i`, with displayed term
 `b_i * lambda_i * log(f_i)`. The result checks
 
@@ -212,8 +212,7 @@ verifies `div(f_i) = D_i`, the returned native logarithmic derivative includes
 integrand = D(exact_part) + logarithmic_derivative + remainder.
 ```
 
-`EXACT` and `ELEMENTARY` are constructive answers. `INCOMPLETE` means only
-that the requested finite principal-divisor bound missed a witness;
+`EXACT` and `ELEMENTARY` are constructive answers.
 `NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a residue outside the
 displayed constants; and `RESIDUE_FREE_REMAINDER` carries the current
 first-/second-kind exactness decision. None is a non-elementarity claim.
@@ -257,10 +256,9 @@ a = D(h) / h,  h in L^*.
 ```
 
 It requires every pole of `a*dx` to be simple with an integral residue,
-searches for the corresponding principal residue divisor, and verifies the
-field identity after finding a witness. A bounded principal-divisor miss stays
-`INCOMPLETE`; a coefficient that is not a logarithmic derivative is a complete
-negative only for this factor-recognition question.
+decides the corresponding principal residue divisor, and verifies the field
+identity after finding a witness. A coefficient that is not a logarithmic
+derivative is a complete negative only for this factor-recognition question.
 
 `solve_algebraic_integrating_factor_rde` then solves
 
@@ -511,25 +509,19 @@ search into a complete global space only after its dimension reaches the
 nonspecial Riemann--Roch value. A smaller slice is `INCOMPLETE`, never a
 negative integration or global-space decision.
 
-### Bounded principal-divisor search
+### Complete principal-divisor decisions
 
-`search_algebraic_principal_divisor(model, D, analysis, max_x_degree=n)` is a
-separate, exact semialgorithm for the one global task needed by a logarithmic
-term. For a degree-zero divisor `D`, it groups places over each base prime
-`p` and shifts the integral order by
-`p**min_P floor(D(P) / e(P|p))`. The bounded products of that shifted order
-basis with `1, x, ..., x**n` are an exact finite prefix of `L(-D)` before the
-remaining finite and infinite valuation conditions are imposed. A nonzero
-candidate `f` has
-`div(f) - D >= 0`; both divisors have degree zero, so the implementation then
-checks the full divisor identity `div(f) = D`. This is a constructive
-principal-divisor certificate, not a heuristic guess.
+`decide_algebraic_principality(model, D)` is the reusable global task needed
+by logarithmic reconstruction. A nonzero-degree divisor is immediately
+nonprincipal. For degree zero, it computes the complete space `L(-D)`. A
+nonzero `f` in that space satisfies `div(f) - D >= 0`; this divisor has degree
+zero and therefore vanishes, so `div(f) = D`. Conversely, an empty complete
+space proves `D` nonprincipal. The result retains the Riemann--Roch certificate
+or an explicit unsupported boundary.
 
-An empty slice is reported as `INCOMPLETE`: a larger bound may contain a
-witness. The only complete negative result is the elementary degree
-obstruction `deg(D) != 0`, since every principal divisor has degree zero.
-General degree-zero non-principality and torsion still require divisor-class
-algorithms; the bounded routine deliberately does not claim either.
+Risch callers separately establish preserved differential constants before
+using this geometric result in an elementary-integrability decision. The
+underlying function-field operation has no Risch derivation or bound argument.
 
 ### Pell--Abel target example
 
@@ -591,8 +583,8 @@ slow search is an implementation boundary, never a non-elementarity claim.
 | `compute_riemann_roch_space` | Certified first-scope global-space service |
 | `AlgebraicValuationKernel` | Exact `V ∩ L(D)` in a declared finite subspace |
 | `search_nonspecial_lattice_slice` | Bounded lattice search with a theorem-backed completion check |
-| `AlgebraicPrincipalDivisorSearch` | Verified witness or honest bounded principal-divisor search outcome |
-| `search_algebraic_principal_divisor` | Search a finite `L(-D)` slice for an exact principal witness |
+| `AlgebraicPrincipalityDecision` | Verified principal witness, complete negative, or AFF boundary |
+| `decide_algebraic_principality` | Decide principality using complete `L(-D)` |
 | `AlgebraicIntegrationResult` | Native Hermite/logarithmic decomposition and an honest algebraic status |
 | `AlgebraicLogarithmicTerm` | One coefficient, verified residue divisor, and log argument |
 | `integrate_algebraic` | Current displayed-constant algebraic integration slice |

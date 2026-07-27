@@ -322,7 +322,6 @@ def integrate_algebraic_with_constant_base_change(
                 AlgebraicIntegrationStatus.EXACT,
                 AlgebraicIntegrationStatus.ELEMENTARY,
                 AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER,
-                AlgebraicIntegrationStatus.INCOMPLETE,
             }:
                 return continued
 
