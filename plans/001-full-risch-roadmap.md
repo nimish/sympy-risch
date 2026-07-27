@@ -25,7 +25,9 @@
   Riccati Möbius normalization, 009 local linear-special-pole reduction, and
   010 finite algebraic constant bases, plus Plan 011 reusable algebraic
   constant composita, Plan 012 general divisor-class reduction, and Plan 013
-  good-prime finite Jacobian torsion decisions, 2026-07-27
+  good-prime finite Jacobian torsion decisions; Plan 014 mixed expression
+  discovery; and Plan 015's reconciled algebraic-completion program,
+  2026-07-27
 
 ## Why this matters
 
@@ -159,7 +161,11 @@ The current implementation already has a strong exact-arithmetic kernel:
   logarithmic reconstruction, and complete in-field exactness for supported
   direct curves. `src/sympy_risch/algebraic_geometry/` provides certified
   maximal orders, ramified and infinite places, residue fields, divisors,
-  Hess ideal arithmetic, complete Riemann--Roch spaces, and principality.
+  Hess ideal arithmetic, complete long-basis Riemann--Roch spaces for admitted
+  direct models, and principality. Its Hess implementation is currently the
+  Algorithm 13 ideal-intersection core: it does not yet expose Theorem 7's
+  reusable parametric basis or Algorithms 21 and 24 for height-efficient
+  divisor reduction and large spaces.
   Constant base change now lifts exact number-field embeddings coefficientwise
   through `C(x)[y]/(f)` and iterates through compatible rationally defined
   residue factors, rebuilding and rechecking every target. Independent
@@ -217,10 +223,10 @@ The existing design conventions to preserve are:
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`. Native finite `QQ`-algebraic constants now support the base relation kernel and direct P/E factory proposals; proof-carrying recursive constant evidence, general effective constants, and automatic non-generator special-factor decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
-| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, Hess Riemann--Roch spaces, reduced classes, complete principality, and good-prime finite Jacobian order decisions over `QQ` now exist; algebraic-number-field reduction remains. |
-| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and automatic verified `QQ` torsion decisions, continues through compatible constant composita, and solves residue-free exactness through complete Riemann--Roch spaces; general splitting fields and arbitrary second-kind elementary decisions remain. |
-| 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic relations, coupled/parametric RDEs, and relative residue/logarithmic reduction remain. |
-| 8. Automatic expression towers | Active through Plan 014: a backend-independent candidate DAG covers rational powers and P/E/T calls in either mixed order; the native compiler executes rational-power and terminal algebraic-over-P/E/T towers and finite-power exponential reclassification. General algebraic objects/composita, monomial-over-algebraic execution, canonical minimization, and branch metadata remain. |
+| 5. Algebraic-function-field kernel | Partial, expanded in Plan 015 A0-A6: direct admitted models have maximal orders, places, local expansions, divisors, complete long-basis Hess spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess parametric/large-divisor algorithms, scalable class operations, and algebraic-number-field good reduction remain. |
+| 6. Pure algebraic integration | Partial, expanded in Plan 015 A7-A8: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and verified `QQ` torsion decisions, continues through compatible constant composita, and solves an in-field residue-free exactness problem. General compatible residue descent and divisor combinations, full second-kind cohomology, normalization, and automatic dispatch remain. |
+| 7. Mixed algebraic/transcendental towers | Started, expanded in Plan 015 A9-A10: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic scalar/parametric RDEs, relative geometry, residue/logarithmic reduction, and arbitrary interleavings remain. |
+| 8. Automatic expression towers | Active through Plan 014 and completed by Plan 015 A1/A11: a backend-independent candidate DAG covers rational powers and P/E/T calls in either mixed order; the native compiler executes rational-power and terminal algebraic-over-P/E/T towers and finite-power exponential reclassification. General `RootOf` normalization/composita, monomial-over-algebraic execution, canonical minimization, and branch metadata remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
 | 10. Completeness evidence | Partial: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; algebraic, mixed, and automatic-tower coverage remains. |
 | 11. SymPy upstreaming | Not started. |
@@ -236,7 +242,9 @@ The existing design conventions to preserve are:
 | Parametric RDE, limited integration, parametric logarithmic derivative | Bronstein, Chapter 7 |
 | Coupled differential systems, including real tangent | Bronstein, Chapter 8 |
 | Complex and real Risch structure theorems | Bronstein, Chapter 9 |
+| Function-field spaces and divisor reduction | Hess, *Computing Riemann--Roch Spaces in Algebraic Function Fields and Related Topics* |
 | General algebraic-function integration | Trager, *Integration of Algebraic Functions*; Davenport, *On the Integration of Algebraic Functions* |
+| Algebraic logarithmic part | Trager; Miller, *Computing the Logarithmic Part*; Schultz, *Trager's Algorithm Revisited* |
 | Mixed algebraic/logarithmic/exponential extensions | Bronstein, "Integration of elementary functions," JSC 9 (1990), 117-173 |
 | Lazy integral-basis refinement | Bronstein, *The Lazy Hermite Reduction* |
 
@@ -557,16 +565,26 @@ Risch**, before automatic expression discovery.
 This milestone supplies the geometry currently absent from
 `src/sympy_risch/algebraic.py`.
 
-Status: the local geometry substrate is implemented. Finite extensions,
-implicit differentiation, integral-basis coordinates, simple-radical bases,
-lazy refinement, algebraic Hermite reduction over `QQ(x)`, and Trager's
-nested-resultant finite-residue polynomial are implemented. Certified maximal
-orders, ramified/infinite places, exact residue fields, uniformizers,
-valuations, local expansions, differents, and divisor arithmetic now exist in
-`algebraic_geometry.py`. A narrow constant-field gate and an all-place residue
-collector already consume that canonical geometry API for admitted preserved
-presentations. The immediate gate is now global divisor/cohomology work, plus
-actual presentation normalization when constants enlarge.
+Status: the local geometry substrate is substantially implemented. Finite
+extensions, implicit differentiation, integral-basis coordinates,
+simple-radical bases, lazy refinement, algebraic Hermite reduction over
+`QQ(x)`, and Trager's nested-resultant finite-residue polynomial are
+implemented. Certified maximal orders, ramified/infinite places, exact residue
+fields, uniformizers, valuations, local expansions, differents, and divisor
+arithmetic now exist in `algebraic_geometry/`. Its current Hess routine
+computes a verified complete long basis for `L(D)` by finite/infinite ideal
+intersection on the direct models whose maximal orders are available. A
+narrow constant-field gate and an all-place residue collector already consume
+that canonical geometry API for admitted preserved presentations.
+
+Plan 015 records the larger remaining Hess/function-field program. The current
+space routine is Hess's Algorithm 13 core, not the whole infrastructure:
+Theorem 7's reusable parametric basis, Algorithm 21's logarithmic-height
+divisor reduction, Algorithm 24's short large-divisor spaces, general
+presentation normalization, total maximal-order arithmetic, differential
+spaces, and scalable class arithmetic remain. Those services precede the
+complete algebraic logarithmic, second-kind, algebraic-RDE, and mixed-tower
+branches.
 
 ### 5.1 Integral closure and bases
 
@@ -599,7 +617,8 @@ general-purpose computer-algebra system.
 ### Exit gate
 
 The library can compute the local and global invariants needed by Trager's
-algebraic integration algorithm for a nonsingular algebraic function field.
+algebraic integration algorithm for every admitted nonsingular algebraic
+function field. See Plan 015 A0-A6 for the executable checkpoint order.
 
 ## Milestone 6: Complete pure algebraic integration
 
@@ -626,7 +645,7 @@ Required cases include:
 ### Exit gate
 
 Every element of a supported algebraic function field over `C(x)` receives a
-complete elementary-integrability decision.
+complete elementary-integrability decision. See Plan 015 A7-A8.
 
 ## Milestone 7: Complete mixed algebraic/transcendental towers
 
@@ -678,6 +697,9 @@ logarithmic, exponential, and real tangent/arctangent levels.
 
 This is the core mathematical definition of a **complete explicit full Risch
 implementation**.
+
+Plan 015 A9-A10 makes the algebraic RDE and relative-geometry dependencies of
+this milestone explicit.
 
 ## Milestone 8: Construct minimal towers from SymPy expressions
 
@@ -933,23 +955,31 @@ separate commit after focused and full-suite verification.
      bound; reconcile two primes; and verify the unique candidate over
      characteristic zero. The degree-29 regression no longer supplies its
      order.
-13. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
-    the exactness result as its `a=0` slice.
+13. [ ] **Plan 015 A0-A6**: complete the reusable Hess/function-field
+    engine: normalize presentations and exact constants, totalize maximal
+    orders and ideal arithmetic, retain Algorithm 13 as a short parametric
+    basis, add Algorithms 21 and 24, differential spaces, and scalable
+    divisor-class operations.
+14. [ ] **Plan 015 A7-A8**: complete pure algebraic logarithmic reconstruction
+    and second-kind exactness, including compatible residue fields and
+    constant-linear combinations of residue divisors.
+15. [ ] **Plan 015 A9**: generalize the scalar and parametric RDE to algebraic
+    curves, reusing the exactness result as its `a=0` slice.
     - [x] Add the direct-curve integrating-factor cell: when a verified
       `h` satisfies `a = D(h)/h`, reduce `D(u) + a*u = b` to exactness of
       `h*b`. This is not a general algebraic RDE solver.
-13. [ ] Compose the completed algebraic and transcendental solvers over the
-    proven mixed-tower representation. This is the exit gate for a complete
-    *explicit* Risch tower.
+16. [ ] **Plan 015 A10**: compose the completed algebraic and transcendental
+    solvers over the proven mixed-tower representation. This is the exit gate
+    for a complete *explicit* Risch tower.
 
 ### User-facing and upstream path
 
-14. [x] **Plan 007**: build a narrow reversible P/E/T expression compiler for
+17. [x] **Plan 007**: build a narrow reversible P/E/T expression compiler for
     one `QQ`-constant symbol, rational arithmetic, integer powers, and nested
     `log`/`exp`/`tan`. It replays checked extension factories and returns only
     local back-substituted presentations; dependent and branch-sensitive
     forms are structured boundaries rather than rewrites.
-15. [ ] **Plan 014**: expand expression construction to algebraic/mixed
+18. [ ] **Plan 014**: expand expression construction to algebraic/mixed
     expressions while keeping discovery separate from integration support.
     - [x] Discover rational-power and P/E/T candidates as a dependency DAG in
       either mixed order.
@@ -958,11 +988,14 @@ separate commit after focused and full-suite verification.
       algebraic level.
     - [ ] Add `RootOf`/general algebraic relations and algebraic composita.
     - [ ] Execute monomial-over-algebraic and arbitrarily interleaved native
-      towers after their relation and coercion backends are complete.
-16. [ ] Broaden back-substitution to complex-local versus
+      towers after Plan 015 A1/A10 provide their normalization and relative
+      backends.
+19. [ ] **Plan 015 A11**: finish automatic algebraic/mixed execution, including
+    source-model isomorphisms and automatic integral-basis construction.
+20. [ ] Broaden back-substitution to complex-local versus
     assumption-scoped-real presentation, branch metadata, and a small stable
     SymPy-facing facade.
-17. [ ] Expand the coverage matrix to every declared mixed-tower and expression
+21. [ ] Expand the coverage matrix to every declared mixed-tower and expression
     cell, then upstream independently mature domain, reduction, RDE, and
     frontend components.
 

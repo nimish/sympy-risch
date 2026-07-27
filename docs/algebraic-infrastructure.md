@@ -481,7 +481,19 @@ successful `RiemannRochSpace` rechecks every basis element through its full
 principal divisor, so finite, ramified, and infinite valuation bounds are
 exact.
 
-The current complete cases are deliberately narrow:
+This is the complete long-basis form of Hess's Algorithm 13 for the direct
+models admitted by the current order implementation. It is not yet the full
+Hess computational stack. In particular, the library does not expose
+Theorem 7's short parametric data `(v_i, d_i)`, Algorithm 21's
+height-efficient divisor reduction, or Algorithm 24's short power-product
+construction for large divisors. Presentation normalization, more general
+maximal-order computation, and those algorithms are ordered in
+`plans/015-algebraic-completion-program.md`. The distinction is about domain
+coverage and scalable representation, not a bounded-search qualification on a
+successfully returned current space.
+
+Before invoking the general Hess route, the public service retains these
+smaller theorem-backed constructions:
 
 - `deg(D) < 0`, where `L(D)` is zero;
 - `D = 0`, where `L(D)` is the constant span of `1`;
@@ -1013,10 +1025,12 @@ The next algebraic Risch implementation may assume all of the following:
 6. principal and canonical divisor construction; and
 7. finite divisor/fractional-ideal conversion.
 
-It now also has complete Hess Riemann--Roch spaces, reduced divisor-class
-arithmetic, good-prime finite Jacobian order selection over `QQ`, verified
-torsion/nontorsion decisions, displayed-constant logarithmic reconstruction,
-residue-free exactness, and an integrating-factor RDE endpoint. It must still
-implement general splitting-field residue descent, algebraic-number-field
-prime reduction, and general algebraic RDEs. Those are intentionally separate
-algorithms.
+It now also has complete long-basis Hess Riemann--Roch spaces for its admitted
+direct models, reduced divisor-class arithmetic, good-prime finite Jacobian
+order selection over `QQ`, verified torsion/nontorsion decisions,
+displayed-constant logarithmic reconstruction, residue-free exactness, and an
+integrating-factor RDE endpoint. Plan 015 records the remaining function-field
+and integration program: general presentation and constant-field
+normalization, total maximal orders, Hess parametric and large-divisor
+algorithms, scalable class arithmetic, compatible residue descent,
+second-kind cohomology, algebraic RDEs, and relative mixed-tower forms.

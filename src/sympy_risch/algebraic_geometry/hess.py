@@ -9,9 +9,10 @@ Popov reduction over ``C[x]``.
 
 This module is deliberately a function-field service: it knows about
 divisors, orders, ideals, and reciprocal charts, but nothing about Risch
-derivations or elementary integration.  It follows Algorithm 6.1 of Hess,
-``Computing Riemann--Roch Spaces in Algebraic Function Fields and Related
-Topics``, JSC 33 (2002), Sections 4 and 6.
+derivations or elementary integration.  It implements the long-basis branch
+of Algorithm 13 in Hess, ``Computing Riemann--Roch Spaces in Algebraic
+Function Fields and Related Topics``, JSC 33 (2002).  Theorem 7's reusable
+parametric representation and Algorithms 21 and 24 are separate future work.
 """
 
 from __future__ import annotations

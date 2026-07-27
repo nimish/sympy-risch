@@ -10,7 +10,8 @@
 - **Priority**: P1
 - **Effort**: L
 - **Risk**: HIGH
-- **Depends on**: Plans 007, 010, 011, 012, and 013
+- **Depends on**: Plans 007, 010, 011, 012, and 013; its remaining general
+  algebraic execution cells depend on Plan 015 A1 and A10
 - **Category**: automatic tower construction / mixed integration
 - **Started**: 2026-07-27
 - **Status**: IN PROGRESS
@@ -80,11 +81,13 @@ The representation must cover both directions:
 If SymPy's domain coercion cannot represent an otherwise valid ordering, the
 discovery result remains successful and records an
 `INTEGRATION_BACKEND`/representation boundary. It must not pretend that tower
-identification failed.
+identification failed. General execution waits for Plan 015 A10's relative
+algebraic backend.
 
 Multiple algebraic candidates require a compositum or primitive-element
 normalization rather than indefinitely nesting unrelated finite-extension
-wrappers.
+wrappers. Plan 015 A1 owns that normalization service; this plan should consume
+it rather than grow a second expression-specific function-field model.
 
 ### 4. Integration dispatch
 

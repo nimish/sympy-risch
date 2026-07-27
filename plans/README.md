@@ -27,6 +27,7 @@ plan with exact file scope, tests, and a separate commit.
 | 012 | Decide general divisor torsion by exact reduction | P1 | L | 005, 011 | DONE |
 | 013 | Bound torsion with good finite-prime reductions | P1 | M | 012 | DONE |
 | 014 | Discover algebraic and mixed expression towers | P1 | L | 007, 010-013 | IN PROGRESS |
+| 015 | Complete the algebraic and mixed Risch program | P1 | XL | 004-006, 010-014 | TODO |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED` with a reason, or
 `REJECTED` with a rationale.
@@ -102,6 +103,14 @@ uses that algebraic foundation at the expression boundary: it discovers
 algebraic and P/E/T candidates as a dependency graph, constructs mixed towers
 where the native domain backend permits them, and keeps successful structural
 discovery separate from the set of integration backends implemented so far.
+Plan 015 expands the algebraic path into its actual dependency program. The
+current Hess ideal-intersection routine remains a complete Riemann--Roch
+algorithm for the direct models it admits, but the full engine still needs
+presentation normalization, total maximal-order arithmetic, Hess's parametric
+and large-divisor algorithms, scalable class arithmetic, complete algebraic
+integration, algebraic RDEs, and their relative mixed-tower forms. Plan 014's
+remaining execution cells depend on those services rather than on more
+syntax-directed special cases.
 
 - Plan 003 must land before a complete special-polynomial/Darboux decision or
   any claim of general effective constants.
