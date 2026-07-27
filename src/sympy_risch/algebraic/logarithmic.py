@@ -35,7 +35,11 @@ from ..algebraic_geometry.principal import (
     search_algebraic_principal_divisor,
 )
 from ..tower import Derivation
-from ._field import _base_polynomial_ring, _extension_element
+from ._field import (
+    _base_polynomial_ring,
+    _extension_element,
+    _quotient_extension_elements,
+)
 from .all_places import (
     AlgebraicAllPlaceResidueResult,
     AlgebraicAllPlaceResidueStatus,
@@ -248,8 +252,10 @@ class AlgebraicIntegrationResult:
             coefficient = extension.field.from_sympy(
                 constants.to_sympy(constants.convert(term.coefficient)),
             )
-            result += (
-                coefficient * self.collection.derivation(term.argument) / term.argument
+            result += coefficient * _quotient_extension_elements(
+                extension,
+                self.collection.derivation(term.argument),
+                term.argument,
             )
         return result
 
@@ -557,8 +563,11 @@ def reconstruct_constant_residue_logarithms(
             extension.field.from_sympy(
                 constants.to_sympy(constants.convert(term.coefficient)),
             )
-            * collection.derivation(term.argument)
-            / term.argument
+            * _quotient_extension_elements(
+                extension,
+                collection.derivation(term.argument),
+                term.argument,
+            )
             for term in terms
         ),
         extension.field.zero,

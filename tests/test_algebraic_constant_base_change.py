@@ -174,8 +174,8 @@ def test_unramified_target_places_use_the_base_prime_for_local_residues() -> Non
     )
 
 
-def test_higher_degree_target_residue_field_boundary_is_structured() -> None:
-    """Do not leak SymPy's missing algebraic-compositum embedding as a crash."""
+def test_higher_degree_target_residue_field_splits_over_algebraic_constants() -> None:
+    """The target residue compositum retains its exact constant embedding."""
     tower, _extension, model = _source_model()
     change = build_algebraic_constant_base_change(
         model,
@@ -186,5 +186,8 @@ def test_higher_degree_target_residue_field_boundary_is_structured() -> None:
 
     split = split_algebraic_place(change, source_place)
 
-    assert split.status is AlgebraicPlaceSplitStatus.UNSUPPORTED
-    assert "could not be certified" in split.detail
+    assert split.status is AlgebraicPlaceSplitStatus.SPLIT
+    assert split.split
+    assert len(split.target_places) == 2
+    assert split.ramification_indices == (1, 1)
+    assert sum(place.degree for place in split.target_places) == source_place.degree

@@ -1,15 +1,19 @@
 """First displayed-constant logarithmic reconstruction cases."""
 
-from sympy import Poly, log, sqrt, symbols
+from sympy import Poly, Rational, log, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
     AlgebraicExtension,
+    AlgebraicFunctionField,
     AlgebraicIntegrationStatus,
     DifferentialTower,
     IntegralBasis,
     MonomialExtension,
     integrate_algebraic,
+)
+from sympy_risch.algebraic_geometry.base_change import (
+    build_algebraic_constant_base_change,
 )
 
 x, y = symbols("x y")
@@ -114,6 +118,34 @@ def test_displayed_algebraic_constants_produce_multiple_logarithmic_terms() -> N
         constants.to_sympy(term.coefficient) for term in result.logarithmic_terms
     } == {1, 2 * sqrt(2)}
     assert result.antiderivative is not None
+
+
+def test_target_algebraic_constant_logarithm_uses_exact_field_quotient() -> None:
+    """A certified principal witness remains usable over QQ(alpha)(x)."""
+    source_tower, source_extension, _source_basis = algebraic_tower(y**2 - x)
+    constant = symbols("constant")
+    change = build_algebraic_constant_base_change(
+        AlgebraicFunctionField(source_extension),
+        source_tower.derivation(),
+        Poly(constant**2 - Rational(1, 18), constant, domain=QQ),
+    )
+    assert change.certified
+    assert change.target_extension is not None
+    assert change.target_derivation is not None
+
+    target = change.target_extension
+    result = integrate_algebraic(
+        change.embed(source_extension.field.from_sympy(y / (x - 2))),
+        change.target_derivation,
+        IntegralBasis.power_basis(target),
+        max_x_degree=1,
+    )
+
+    assert result.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
+    assert result.reconstructs
+    assert len(result.logarithmic_terms) == 1
+    assert result.logarithmic_derivative != target.field.zero
+    assert result.remainder - target.field.from_sympy(y / x) == target.field.zero
 
 
 def test_logarithmic_reconstruction_retains_a_residue_free_remainder() -> None:

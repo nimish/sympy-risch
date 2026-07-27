@@ -27,6 +27,49 @@ def _extension_element(
     return cast(ExtensionElement, extension.field.from_sympy(value))
 
 
+def _quotient_extension_elements(
+    extension: AlgebraicExtension,
+    numerator: object,
+    denominator: object,
+) -> ExtensionElement:
+    r"""Return ``numerator / denominator`` using exact polynomial Euclid.
+
+    A separable algebraic extension is a field, but SymPy's native
+    ``FiniteExtension`` inverse can incorrectly report a zero divisor when
+    its rational-function parent has a general algebraic constant field.
+    Working modulo the minimal polynomial over the parent field is the same
+    operation, without that backend path.  This mirrors the construction used
+    for :meth:`AlgebraicExtension.generator_derivative`.
+    """
+    top = _extension_element(extension, numerator)
+    bottom = _extension_element(extension, denominator)
+    if bottom == extension.field.zero:
+        raise ZeroDivisionError("division by zero in an algebraic function field")
+
+    numerator_polynomial = Poly(
+        extension.field.to_sympy(top),
+        extension.generator,
+        domain=extension.parent_field,
+    )
+    denominator_polynomial = Poly(
+        extension.field.to_sympy(bottom),
+        extension.generator,
+        domain=extension.parent_field,
+    )
+    inverse, _cofactor, gcd = denominator_polynomial.gcdex(
+        extension.minimal_polynomial,
+    )
+    if gcd.degree() != 0:
+        raise ZeroDivisionError("a nonzero algebraic field element was not invertible")
+    inverse = inverse.mul_ground(
+        extension.parent_field.one / extension.parent_field.convert(gcd.nth(0)),
+    )
+    return cast(
+        ExtensionElement,
+        extension._from_polynomial(numerator_polynomial * inverse),
+    )
+
+
 def _evaluate_constant_polynomial(
     extension: AlgebraicExtension,
     polynomial: Poly,
