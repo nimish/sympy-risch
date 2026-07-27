@@ -37,6 +37,15 @@ from .rde import (
     AlgebraicIntegratingFactorRDEStatus,
     solve_algebraic_integrating_factor_rde,
 )
+from .relative import (
+    RelativeSimpleRadicalData,
+    RelativeSimpleRadicalRDEComponent,
+    RelativeSimpleRadicalRDEResult,
+    RelativeSimpleRadicalRDEStatus,
+    recognize_relative_simple_radical,
+    solve_relative_simple_radical_exact_derivative,
+    solve_relative_simple_radical_rde,
+)
 from .residue_profile import (
     AlgebraicResidueProfile,
     AlgebraicResidueProfileFactor,
@@ -71,6 +80,10 @@ __all__ = [
     "AlgebraicResidueProfileFactor",
     "AlgebraicResidueProfileStatus",
     "IntegralBasis",
+    "RelativeSimpleRadicalData",
+    "RelativeSimpleRadicalRDEComponent",
+    "RelativeSimpleRadicalRDEResult",
+    "RelativeSimpleRadicalRDEStatus",
     "SimpleRadicalData",
     "TragerAlgebraicResidueResult",
     "analyze_algebraic_constant_field",
@@ -79,10 +92,13 @@ __all__ = [
     "find_algebraic_integrating_factor",
     "hermite_reduce_algebraic",
     "lazy_hermite_reduce_algebraic",
+    "recognize_relative_simple_radical",
     "recognize_simple_radical",
     "simple_radical_integral_basis",
     "solve_algebraic_exactness",
     "solve_algebraic_integrating_factor_rde",
+    "solve_relative_simple_radical_exact_derivative",
+    "solve_relative_simple_radical_rde",
     "trager_algebraic_place_residues",
     "trager_algebraic_residue_polynomial",
 ]

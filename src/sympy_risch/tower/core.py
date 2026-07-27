@@ -419,6 +419,40 @@ class AlgebraicExtension:
         """Coerce ``value`` to this finite extension."""
         return cast(ExtensionElement, _coerce(self.field, value))
 
+    def power_basis_coordinates(self, element: object) -> tuple[FieldElement, ...]:
+        r"""Return ``element`` in the native basis ``(1, y, ..., y**(n-1))``.
+
+        The coordinates belong to :attr:`parent_field`; this is the exact
+        bridge needed by relative algebraic algorithms without converting a
+        finite extension through SymPy expressions.
+        """
+        value = self._element(element)
+        return tuple(
+            cast(FieldElement, self.parent_field.convert(value.rep.nth(power)))
+            for power in range(self.field.rank)
+        )
+
+    def from_power_basis_coordinates(
+        self,
+        coordinates: tuple[object, ...],
+    ) -> ExtensionElement:
+        r"""Build an element from coordinates in ``(1, y, ..., y**(n-1))``."""
+        if len(coordinates) != self.field.rank:
+            raise ValueError(
+                f"a power-basis element needs {self.field.rank} coordinates"
+            )
+        terms = {}
+        for power, coordinate in enumerate(coordinates):
+            value = self.parent_field.convert(coordinate)
+            if value != self.parent_field.zero:
+                terms[(power,)] = value
+        polynomial = Poly.from_dict(
+            terms,
+            self.generator,
+            domain=self.parent_field,
+        )
+        return cast(ExtensionElement, self._from_polynomial(polynomial))
+
     def multiplication_matrix(self, element: object) -> DomainMatrix:
         r"""Return the parent-linear matrix of multiplication by ``element``.
 

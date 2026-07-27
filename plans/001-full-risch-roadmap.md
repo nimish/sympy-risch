@@ -138,7 +138,8 @@ The current implementation already has a strong exact-arithmetic kernel:
   recursive prefix before a local linear-special-pole consumer invokes it;
   general polynomial special-factor RDEs and parametric RDEs remain open.
 - `src/sympy_risch/exact.py` dispatches exact derivatives at rational and
-  normalized P/E/T levels.
+  normalized P/E/T levels, plus a terminal pure-radical algebraic level when
+  its power-basis coordinates reduce to implemented scalar lower RDEs.
 - `src/sympy_risch/elementary.py` recursively integrates documented explicit
   P/E/T shapes with certified preserved constants. Structurally admitted
   Some PTE primitive-PLogD examples retain the explicit boundary. It
@@ -211,8 +212,8 @@ The existing design conventions to preserve are:
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, exact finite valuation kernels, and a bounded principal-divisor semialgorithm now exist; constant normalization and general global-space/divisor-class decisions remain. |
-| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, now reconstructs displayed-constant residues with bounded-search principal witnesses; compatible constant descent, torsion/divisor-class work, and residue-free exactness remain. |
-| 7. Mixed algebraic/transcendental towers | Not started. |
+| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues with bounded-search principal witnesses, and has a theorem-limited residue-free exactness and integrating-factor RDE route; compatible constant descent, torsion/divisor-class work, and arbitrary second-kind exactness remain. |
+| 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent reduces lower-field coefficients to existing scalar P/E/T RDEs. General algebraic relations, coupled/parametric RDEs, and relative Hermite/residue/logarithmic reduction remain. |
 | 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
 | 10. Completeness evidence | Partial: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; algebraic, mixed, and automatic-tower coverage remains. |
@@ -622,6 +623,22 @@ Every element of a supported algebraic function field over `C(x)` receives a
 complete elementary-integrability decision.
 
 ## Milestone 7: Complete mixed algebraic/transcendental towers
+
+### Implemented first cell
+
+For a representable terminal extension `K(theta)` with
+`theta**n = u in K`, a lower-field coefficient `a in K`, and an implemented
+scalar RDE on `K`, the library now decomposes the RDE in the power basis:
+
+```text
+D(c_j) + (a + j*D(u)/(n*u))*c_j = b_j.
+```
+
+This gives certified terminal simple-radical exactness (`a = 0`) and scalar
+RDE solutions over primitive, hyperexponential, or hypertangent lower towers.
+It is a deliberately separate low-level endpoint, not a claim that the
+generic scalar dispatcher or `integrate_elementary` supports arbitrary
+algebraic levels.
 
 Implement the generalization in Bronstein's 1990 "Integration of elementary
 functions":

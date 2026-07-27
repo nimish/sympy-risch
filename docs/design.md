@@ -87,6 +87,8 @@ The lower-level library additionally implements:
 - validated finite algebraic extensions, implicit differentiation, exact
   multiplication matrices, trace, norm, element polynomials, and trace
   pairings;
+- native power-basis coordinates and terminal simple-radical RDE descent over
+  an implemented primitive, hyperexponential, or hypertangent lower tower;
 - exact constant-field rebasing through algebraic tower levels;
 - algebraic Hermite reduction over `QQ(x)` with explicit or lazily refined
   integral bases;
@@ -351,6 +353,12 @@ their `AlgebraicExtension` object is constructed, before a representation
 proposal can exist. The proposal deliberately stores only the existing
 immutable extension metadata: it does not introduce a parallel element
 hierarchy merely to emulate unsupported fields.
+
+The terminal simple-radical RDE cell is the first consumer of that
+representable shape. It works with native power-basis coordinates and calls
+the existing lower scalar RDE only after verifying that the top coefficient is
+in the lower field. It does not make relative Hermite reduction, residues, or
+logarithmic reconstruction over a Liouvillian ground field available yet.
 
 ### Derivation
 
@@ -671,6 +679,15 @@ hyperexponential level it reduces every nonzero Laurent mode through
 each conjugate Cayley pair. Those coupled equations recurse through the
 documented P/E/T lower tower. The power-zero mode is passed recursively to the
 lower exact-derivative decision.
+
+For a terminal pure radical `L = K(theta)` with `theta**n = u`, the dispatcher
+also supports the diagonal exact-derivative slice. The power basis is unique,
+and `D(theta) = eta*theta` turns `D(sum(c_j*theta**j)) = b` into one scalar
+lower RDE per coordinate, with coefficient `j*eta`. The nonzero-coefficient
+entry point applies the same construction to `D(v) + a*v = b` when `a` is in
+`K`. This is deliberately not a general algebraic dispatcher: a coefficient
+outside `K` requires a coupled system, and a nonradical algebraic relation
+requires a matrix/parametric RDE.
 
 Constant normal residues and the hypertangent residue at infinity are
 logarithmic derivatives, not in-field derivatives, so they remain exactness

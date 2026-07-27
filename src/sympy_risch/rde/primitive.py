@@ -278,8 +278,12 @@ def _primitive_rde_degree_bound(
             transformed = derivative_coefficient.mul_ground(
                 dz
             ) + solution_coefficient.mul_ground(z)
-            beta = parent.convert(
-                -transformed.LC() / (z * parent.convert(derivative_coefficient.LC()))
+            # ``mul_ground`` can expose the leading coefficient as a SymPy
+            # expression even though this polynomial lives over ``parent``.
+            # Normalize it before field division: otherwise an
+            # ``Expr / FracElement`` operation leaks out for valid primitive RDEs.
+            beta = -parent.convert(transformed.LC()) / (
+                z * parent.convert(derivative_coefficient.LC())
             )
             relation = _primitive_limited_integration_relation(
                 beta,

@@ -950,7 +950,9 @@ has a complete Riemann--Roch certificate, `integrate_algebraic` either adds
 that primitive or retains `RESIDUE_FREE_REMAINDER` with an exact in-field
 `NO_PRIMITIVE` decision. Those are honest algorithmic boundaries, not
 non-elementarity certificates. Algebraic levels are not yet part of the
-recursive `integrate_elementary` dispatcher or the algebraic RDE.
+recursive `integrate_elementary` dispatcher. The direct-`C(x)`
+integrating-factor RDE and the narrower terminal simple-radical RDE descent
+below are separate low-level endpoints.
 
 For example, on the same curve `y**2 = x`, the residue-free differential
 `dx / y` is `D(2*y)`, so the integration result is now constructive without
@@ -968,6 +970,58 @@ assert exact_decision.is_elementary
 assert exact_decision.exact_part == 2 * sqrt_x_extension.field.generator
 assert exact_decision.reconstructs
 ```
+
+## Solve a first mixed algebraic--monomial RDE
+
+For a terminal pure radical `theta**n = u` over an implemented lower P/E/T
+tower, `solve_relative_simple_radical_rde` descends the equation
+`D(v) + a*v = b` when `a` lies in the lower field. With
+`D(theta) = eta*theta`, it solves one scalar lower RDE for each power-basis
+coordinate, using the shifted coefficients `a + j*eta`. The returned result
+reconstructs in the full algebraic field.
+
+The generic exact-derivative dispatcher uses this path when `a = 0`, so a
+planted derivative at the terminal algebraic level is available through the
+usual entry point:
+
+```python
+from sympy import Poly, symbols
+from sympy.polys.domains import QQ
+from sympy_risch import (
+    AlgebraicExtension,
+    ConstantFieldStatus,
+    DifferentialTower,
+    MonomialExtension,
+    solve_exact_derivative,
+)
+
+x, t, theta = symbols("x t theta")
+mixed_base = DifferentialTower(QQ).extend(
+    MonomialExtension(Poly(1, x, domain=QQ), ConstantFieldStatus.PRESERVED)
+)
+mixed_lower = mixed_base.extend(
+    MonomialExtension(
+        Poly(1 / x, t, domain=mixed_base.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+mixed = mixed_lower.extend(
+    AlgebraicExtension(Poly(theta**2 - t, theta, domain=mixed_lower.field()))
+)
+v = mixed.field().from_sympy(x + theta)
+exact = solve_exact_derivative(mixed.derivation()(v), mixed.derivation())
+
+assert exact.has_solution
+assert exact.antiderivative == v
+```
+
+This terminal tower has `Dt = 1/x` and `theta**2 = t`. The lower field is used
+only for the coordinate equations; the library does not treat it as `C(x)`.
+Non-radical terminal extensions, non-lower coefficients, relative
+Hermite/residue work, and recursive elementary integration remain explicit
+boundaries. See
+[the algebraic infrastructure contract](algebraic-infrastructure.md#relative-simple-radical-rde-descent)
+for the complete current scope and a nonzero-coefficient example.
 
 ### Continue through a profile-selected algebraic constant extension
 
@@ -999,7 +1053,7 @@ assert continued.reconstructs
 Pass an explicit `Poly` as `factor` when a particular constant field is
 desired. Automatic selection currently starts from `QQ`, uses only one
 profile factor, and has deliberately narrow finite-place splitting support.
-General constant descent, composita, and the residue-free exactness step
+General constant descent, composita, and arbitrary second-kind exactness
 remain future algebraic work.
 
 ## Certify a first global algebraic space
@@ -1078,7 +1132,7 @@ boundary, not a mathematical claim about the integral.
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |
 | General rational coupled RDE over a hypertangent level | Complete for the documented dispatch shapes |
-| Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete for the documented recursive shapes |
+| Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete for the documented recursive shapes; a terminal pure-radical algebraic level also descends to implemented lower scalar RDEs |
 | General nonlinear monomial with absence of special polynomials | Not implemented; positive special-factor certificates support only their documented local reductions |
 | Radical and parametric logarithmic derivatives in the supported P/E/T tower contract | Complete for their documented recursive shapes; an unsupported lower-field branch is explicit, never a negative decision |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
@@ -1091,6 +1145,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor has a bounded-search principal witness; residue-free remainders also receive the certified in-field exactness step |
 | Algebraic residue-free exactness | Complete only when the primitive-pole Riemann--Roch space is certified; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
+| Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |
 | One-step algebraic constant-base-change integration | Constructive `QQ(x, y) -> QQ(alpha)(x, y)` continuation for an explicit or profile-selected factor that splits in its root field; a returned elementary answer is explicitly target-field-valued |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
@@ -1124,6 +1179,7 @@ principal groups are:
 | Algebraic all-place residue profiles | `build_algebraic_residue_profile` |
 | Algebraic displayed-constant residue integration | `AlgebraicIntegrationResult`, `AlgebraicLogarithmicTerm`, `integrate_algebraic`, `reconstruct_constant_residue_logarithms` |
 | Algebraic integrating-factor RDE | `find_algebraic_integrating_factor`, `solve_algebraic_integrating_factor_rde` |
+| Relative simple-radical RDE | `recognize_relative_simple_radical`, `solve_relative_simple_radical_rde`, `solve_relative_simple_radical_exact_derivative` |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
 | Bounded principal-divisor search | `AlgebraicPrincipalDivisorSearch`, `search_algebraic_principal_divisor` |

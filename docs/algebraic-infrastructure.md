@@ -274,6 +274,86 @@ certificate when the transformed exactness decision is complete. It does not
 claim to solve a general algebraic RDE: arbitrary coefficients require local
 resonance analysis and a global pole bound for `u`.
 
+## Relative simple-radical RDE descent
+
+The direct-curve algorithms above work over `C(x)`. A terminal algebraic
+level above a transcendental lower field instead has the form
+
+```text
+L = K(theta),  theta**n = u in K.
+```
+
+It must be treated as an extension of `K`, not incorrectly as a new curve over
+the constant field. The first mixed cell is implemented by
+`solve_relative_simple_radical_rde`. When its coefficient `a` lies in `K`,
+implicit differentiation gives
+
+```text
+D(theta) = eta*theta,  eta = D(u)/(n*u),
+```
+
+and the power-basis representation is unique. Thus an equation
+
+```text
+D(v) + a*v = b,  v = sum(c_j*theta**j),
+```
+
+splits into the independent lower-field equations
+
+```text
+D(c_j) + (a + j*eta)*c_j = b_j.
+```
+
+The implementation solves those equations with the existing scalar P/E/T RDE
+dispatcher, recombines the verified coordinates, and checks the original
+equation in `L`. `solve_exact_derivative` uses the same descent for the
+special case `a = 0`.
+
+For example, take `Dt = 1/x` and `theta**2 = t`. The lower coefficient
+`a = 1/x` keeps the equations diagonal:
+
+```python
+from sympy import Poly, symbols
+from sympy.polys.domains import QQ
+from sympy_risch import (
+    AlgebraicExtension,
+    ConstantFieldStatus,
+    DifferentialTower,
+    MonomialExtension,
+    solve_relative_simple_radical_rde,
+)
+
+x, t, theta = symbols("x t theta")
+base = DifferentialTower(QQ).extend(
+    MonomialExtension(Poly(1, x, domain=QQ), ConstantFieldStatus.PRESERVED)
+)
+lower = base.extend(
+    MonomialExtension(
+        Poly(1 / x, t, domain=base.field()),
+        ConstantFieldStatus.PRESERVED,
+    )
+)
+tower = lower.extend(
+    AlgebraicExtension(Poly(theta**2 - t, theta, domain=lower.field()))
+)
+field = tower.field()
+derivation = tower.derivation()
+
+v = field.from_sympy((x + 1) + (t + 1) * theta)
+a = field.from_sympy(1 / x)
+decision = solve_relative_simple_radical_rde(a, derivation(v) + a * v, derivation)
+
+assert decision.has_solution
+assert decision.solution == v
+assert decision.logarithmic_derivative == lower.field().from_sympy(1 / (2 * x * t))
+```
+
+This is deliberately a narrow first mixed-algebraic result. A coefficient
+outside `K` mixes power-basis coordinates and therefore needs a coupled RDE;
+general algebraic defining polynomials need a matrix/parametric RDE; and
+relative Hermite reduction, place/residue computation, and logarithmic
+reconstruction over `K` are later work.
+
 ## One-step profile-selected algebraic constant base change
 
 `integrate_algebraic_with_constant_base_change` continues the displayed-

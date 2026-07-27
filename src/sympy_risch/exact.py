@@ -9,6 +9,10 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly
 
 from ._typing import FieldElement, is_field_zero
+from .algebraic.relative import (
+    RelativeSimpleRadicalRDEResult,
+    solve_relative_simple_radical_exact_derivative,
+)
 from .constant_fields import is_supported_finite_constant_field
 from .monomial import (
     HyperexponentialMonomialReduction,
@@ -23,7 +27,13 @@ from .rational import (
     _solve_rational_exact_derivative_over_domain,
 )
 from .reduction.fractions import _normal_fraction_part
-from .tower.core import Derivation, MonomialExtension, MonomialFamily, _coerce
+from .tower.core import (
+    AlgebraicExtension,
+    Derivation,
+    MonomialExtension,
+    MonomialFamily,
+    _coerce,
+)
 
 if TYPE_CHECKING:
     from .rde import RischDifferentialEquationResult
@@ -56,6 +66,7 @@ class HypertangentGaussianExactDerivativeCertificate:
 ExactDerivativeCertificate = (
     RationalExactDerivativeResult
     | PrimitiveExactDerivativeResult
+    | RelativeSimpleRadicalRDEResult
     | TranscendentalExactDerivativeCertificate
     | HypertangentGaussianExactDerivativeCertificate
 )
@@ -247,9 +258,34 @@ def solve_exact_derivative(
         return ExactDerivativeResult(field.zero, element, None)
 
     extension = derivation.tower.levels[derivation.level]
+    if isinstance(extension, AlgebraicExtension):
+        if derivation.level == 0:
+            # A finite algebraic extension of the constant base still has
+            # zero derivation.  It is not a relative function-field problem.
+            return ExactDerivativeResult(field.zero, element, None)
+        relative_result = solve_relative_simple_radical_exact_derivative(
+            element,
+            derivation,
+        )
+        if relative_result.has_solution:
+            if relative_result.solution is None:
+                raise ValueError("a solved relative radical RDE lacks its solution")
+            return ExactDerivativeResult(
+                relative_result.solution,
+                field.zero,
+                relative_result,
+            )
+        if relative_result.complete_negative:
+            return ExactDerivativeResult(field.zero, element, relative_result)
+        raise NotImplementedError(
+            "exact-derivative dispatch supports terminal simple-radical "
+            "algebraic levels only when their scalar coordinate RDEs are "
+            f"implemented: {relative_result.detail}"
+        )
+
     if not isinstance(extension, MonomialExtension):
         raise NotImplementedError(
-            "exact-derivative dispatch does not yet support algebraic levels"
+            "exact-derivative dispatch does not support this tower level"
         )
 
     constant_field = _standard_rational_constant_field(extension)
@@ -286,7 +322,8 @@ def solve_exact_derivative(
     else:
         raise NotImplementedError(
             "exact-derivative dispatch currently supports rational, "
-            "primitive, hyperexponential, and hypertangent levels"
+            "primitive, hyperexponential, hypertangent, and terminal "
+            "simple-radical algebraic levels"
         )
 
     return ExactDerivativeResult(

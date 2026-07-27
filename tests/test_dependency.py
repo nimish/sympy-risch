@@ -146,7 +146,7 @@ def test_primitive_factory_finds_a_direct_lower_field_antiderivative() -> None:
     assert dependent.constant_relation is not None
 
 
-def test_primitive_factory_keeps_unsupported_parents_unknown() -> None:
+def test_primitive_factory_detects_an_exact_derivative_over_a_simple_radical() -> None:
     base = rational_base()
     algebraic = base.extend(
         AlgebraicExtension(
@@ -159,10 +159,32 @@ def test_primitive_factory_keeps_unsupported_parents_unknown() -> None:
         algebraic.derivation(),
     )
 
+    assert analysis.status is ConstantFieldStatus.ENLARGED
+    assert analysis.exact_result is not None
+    assert analysis.exact_result.has_solution
+    assert analysis.dependency_witness is not None
+    assert algebraic.derivation()(
+        analysis.dependency_witness
+    ) == algebraic.field().from_sympy(y)
+
+
+def test_primitive_factory_keeps_nondiagonal_algebraic_parents_unknown() -> None:
+    base = rational_base()
+    algebraic = base.extend(
+        AlgebraicExtension(
+            Poly(y**3 + y - x, y, domain=base.field()),
+        )
+    )
+
+    analysis = certify_primitive_extension(
+        Poly(y, z, domain=algebraic.field()),
+        algebraic.derivation(),
+    )
+
     assert analysis.status is ConstantFieldStatus.UNKNOWN
     assert analysis.exact_result is None
     assert analysis.detail is not None
-    assert "algebraic levels" in analysis.detail
+    assert "pure simple radical" in analysis.detail
     assert analysis.lower_fundamental_signature is None
 
 

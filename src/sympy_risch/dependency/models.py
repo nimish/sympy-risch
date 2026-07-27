@@ -22,6 +22,7 @@ from ._common import (
 )
 
 if TYPE_CHECKING:
+    from ..algebraic.relative import RelativeSimpleRadicalRDEResult
     from ..exact import (
         ExactDerivativeResult,
         HypertangentGaussianExactDerivativeCertificate,
@@ -513,6 +514,7 @@ class HyperexponentialDependency:
     exact_result: (
         RationalExactDerivativeResult
         | PrimitiveExactDerivativeResult
+        | RelativeSimpleRadicalRDEResult
         | TranscendentalExactDerivativeCertificate
         | HypertangentGaussianExactDerivativeCertificate
         | ExactDerivativeResult

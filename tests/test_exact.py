@@ -674,7 +674,25 @@ def test_exact_result_recognizes_zero_in_a_finite_algebraic_field() -> None:
         assert result.antiderivative == zero
 
 
-def test_generic_dispatch_rejects_unimplemented_tower_families() -> None:
+def test_generic_dispatch_handles_a_finite_algebraic_constant_field() -> None:
+    constants = DifferentialTower(QQ).extend(
+        AlgebraicExtension(Poly(y**2 - 2, y, domain=QQ)),
+    )
+    field = constants.field()
+    derivation = constants.derivation()
+
+    zero = solve_exact_derivative(field.zero, derivation)
+    nonzero = solve_exact_derivative(field.one, derivation)
+
+    assert zero.has_solution
+    assert zero.antiderivative == field.zero
+    assert not nonzero.has_solution
+    assert nonzero.obstruction == field.one
+
+
+def test_generic_dispatch_handles_terminal_simple_radicals_and_rejects_other_families() -> (
+    None
+):
     base = DifferentialTower(QQ).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ),
@@ -686,11 +704,20 @@ def test_generic_dispatch_rejects_unimplemented_tower_families() -> None:
             Poly(y**2 - x, y, domain=base.field()),
         ),
     )
-    with pytest.raises(NotImplementedError, match="algebraic levels"):
-        solve_exact_derivative(
-            algebraic.field().one,
-            algebraic.derivation(),
-        )
+    algebraic_result = solve_exact_derivative(
+        algebraic.field().one,
+        algebraic.derivation(),
+    )
+    assert algebraic_result.has_solution
+    assert algebraic.derivation()(algebraic_result.exact_part) == algebraic.field().one
+
+    nonradical = base.extend(
+        AlgebraicExtension(
+            Poly(y**3 + y - x, y, domain=base.field()),
+        ),
+    )
+    with pytest.raises(NotImplementedError, match="pure simple radical"):
+        solve_exact_derivative(nonradical.field().one, nonradical.derivation())
 
     scaled_base = DifferentialTower(QQ).extend(
         MonomialExtension(
