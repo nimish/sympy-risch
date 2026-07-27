@@ -174,13 +174,14 @@ slice and is tested against that independent implementation. The full profile
 also covers branch and infinity cases where the plane-model shortcut is
 correctly inapplicable.
 
-It is deliberately **not** a common algebraic constant field or a logarithmic
-residue basis. The native coordinate systems of two closed places do not choose
-compatible conjugates in a common algebraic closure. The next descent layer
-must factor `R_omega`, construct a compatible constant extension together with
-maps from every relevant residue field, base-change and split the places, and
-only then attach residue coefficients to divisors. This distinction prevents a
-locally correct but globally inconsistent logarithmic reconstruction.
+It is deliberately **not** itself a common algebraic constant field or a
+logarithmic residue basis. The native coordinate systems of two closed places
+do not choose compatible conjugates in a common algebraic closure. A first
+narrow continuation now accepts a caller-selected factor and constructs the
+compatible `QQ -> QQ(alpha)` target, but profile-driven factor planning and
+general common-residue-field descent remain later work. This distinction
+prevents a locally correct but globally inconsistent logarithmic
+reconstruction.
 
 ## Displayed-constant logarithmic reconstruction
 
@@ -216,6 +217,26 @@ that the requested finite principal-divisor bound missed a witness;
 `NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a residue outside the
 displayed constants; and `RESIDUE_FREE_REMAINDER` is passed to the future
 first-/second-kind exactness decision. None is a non-elementarity claim.
+
+## Selected algebraic constant base change
+
+`integrate_algebraic_with_constant_base_change` continues the displayed-
+constant boundary when the caller supplies a selected irreducible factor
+`q(alpha)`. Its current certified scope is a source over `QQ(x)`, a target
+`QQ(alpha)(x, y)` in which `q` splits completely, and finite-place splitting
+with ramification index one. The target relation and constant field are
+rebuilt and checked, then the **original** differential is embedded and
+collected again at every target place. Recollecting is required: transported
+source finite residues alone would miss target infinity and other descendants.
+
+The result keeps both fields visible. Its `source_result` records why the
+source needed a base change; when present, `target_result` and
+`antiderivative` belong to the target field, never silently to the source.
+For example, on `y**2 = x`, the source differential
+`y / (x * (x - 2))` has residues outside `QQ`; selecting
+`q(Z) = Z**2 - 1/18` gives an elementary target-field logarithmic answer.
+This is an explicit constructive route, not yet automatic selection from the
+residue profile or a general constant-extension algorithm.
 
 ## Certified first global spaces
 
@@ -277,8 +298,12 @@ negative integration or global-space decision.
 
 `search_algebraic_principal_divisor(model, D, analysis, max_x_degree=n)` is a
 separate, exact semialgorithm for the one global task needed by a logarithmic
-term. For a degree-zero divisor `D`, it searches the finite ideal-lattice
-slice of `L(-D)`. A nonzero candidate `f` has
+term. For a degree-zero divisor `D`, it groups places over each base prime
+`p` and shifts the integral order by
+`p**min_P floor(D(P) / e(P|p))`. The bounded products of that shifted order
+basis with `1, x, ..., x**n` are an exact finite prefix of `L(-D)` before the
+remaining finite and infinite valuation conditions are imposed. A nonzero
+candidate `f` has
 `div(f) - D >= 0`; both divisors have degree zero, so the implementation then
 checks the full divisor identity `div(f) = D`. This is a constructive
 principal-divisor certificate, not a heuristic guess.
@@ -319,6 +344,8 @@ algorithms; the bounded routine deliberately does not claim either.
 | `AlgebraicIntegrationResult` | Native Hermite/logarithmic decomposition and an honest algebraic status |
 | `AlgebraicLogarithmicTerm` | One coefficient, verified residue divisor, and log argument |
 | `integrate_algebraic` | Current displayed-constant algebraic integration slice |
+| `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus explicit target-field continuation |
+| `integrate_algebraic_with_constant_base_change` | Recollect and integrate after a caller-selected compatible factor |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from

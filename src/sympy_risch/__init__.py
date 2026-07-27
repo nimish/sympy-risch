@@ -33,6 +33,10 @@ from .algebraic import (
     trager_algebraic_place_residues,
     trager_algebraic_residue_polynomial,
 )
+from .algebraic.constant_base_change import (
+    AlgebraicConstantBaseChangeIntegrationResult,
+    integrate_algebraic_with_constant_base_change,
+)
 from .algebraic.logarithmic import (
     AlgebraicIntegrationResult,
     AlgebraicIntegrationStatus,
@@ -251,6 +255,7 @@ from .tower import (
 __all__ = [
     "AlgebraicAllPlaceResidueResult",
     "AlgebraicAllPlaceResidueStatus",
+    "AlgebraicConstantBaseChangeIntegrationResult",
     "AlgebraicConstantEmbedding",
     "AlgebraicConstantFieldAnalysis",
     "AlgebraicConstantFieldStatus",
@@ -410,6 +415,7 @@ __all__ = [
     "hermite_reduce_rational_recursive",
     "integral_closure",
     "integrate_algebraic",
+    "integrate_algebraic_with_constant_base_change",
     "integrate_elementary",
     "integrate_expression",
     "integrate_polynomial",

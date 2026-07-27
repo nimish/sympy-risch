@@ -54,7 +54,7 @@ def test_principal_search_finds_a_verified_genus_zero_witness() -> None:
 
 def test_principal_search_is_bounded_not_a_false_degree_zero_negative() -> None:
     model, extension, analysis = algebraic_model(y**2 - x**3 + x)
-    divisor = model.principal_divisor(extension.field.from_sympy(x))
+    divisor = model.principal_divisor(extension.field.from_sympy(x + y))
 
     incomplete = search_algebraic_principal_divisor(
         model,
@@ -66,7 +66,7 @@ def test_principal_search_is_bounded_not_a_false_degree_zero_negative() -> None:
         model,
         divisor,
         analysis,
-        max_x_degree=2,
+        max_x_degree=1,
     )
 
     assert incomplete.status is AlgebraicPrincipalDivisorStatus.INCOMPLETE

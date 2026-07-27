@@ -11,6 +11,7 @@ from sympy_risch import (
     IntegralBasis,
     MonomialExtension,
     integrate_algebraic,
+    integrate_algebraic_with_constant_base_change,
 )
 from sympy_risch.algebraic_geometry.base_change import (
     build_algebraic_constant_base_change,
@@ -146,6 +147,38 @@ def test_target_algebraic_constant_logarithm_uses_exact_field_quotient() -> None
     assert len(result.logarithmic_terms) == 1
     assert result.logarithmic_derivative != target.field.zero
     assert result.remainder - target.field.from_sympy(y / x) == target.field.zero
+
+
+def test_selected_constant_base_change_can_finish_an_algebraic_log_integral() -> None:
+    """Recollecting the target places yields an elementary answer in C'(x, y)."""
+    source_tower, source_extension, source_basis = algebraic_tower(y**2 - x)
+    constant = symbols("constant")
+
+    result = integrate_algebraic_with_constant_base_change(
+        source_extension.field.from_sympy(y / (x * (x - 2))),
+        source_tower.derivation(),
+        source_basis,
+        Poly(constant**2 - Rational(1, 18), constant, domain=QQ),
+        max_x_degree=1,
+    )
+
+    assert (
+        result.source_result.status
+        is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+    )
+    assert result.source_reconstructs
+    assert result.base_change is not None
+    assert result.base_change.certified
+    assert result.base_change.target_extension is not None
+    assert result.target_result is not None
+    assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
+    assert result.is_elementary
+    assert result.reconstructs
+    assert (
+        result.target_result.remainder == result.base_change.target_extension.field.zero
+    )
+    assert len(result.target_result.logarithmic_terms) == 1
+    assert result.antiderivative is not None
 
 
 def test_logarithmic_reconstruction_retains_a_residue_free_remainder() -> None:

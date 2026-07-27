@@ -949,6 +949,39 @@ remainder returns `RESIDUE_FREE_REMAINDER`. Those are honest algorithmic
 boundaries, not non-elementarity certificates. Algebraic levels are not yet
 part of the recursive `integrate_elementary` dispatcher or the algebraic RDE.
 
+### Continue a selected algebraic constant extension
+
+For the first compatible constant-extension cell, provide a factor whose root
+is needed by the residues. The result makes the field change explicit: an
+elementary target answer is an answer in `QQ(alpha)(x, y)`, not automatically
+one in the original `QQ(x, y)`.
+
+```python
+from sympy import Poly, Rational, symbols
+from sympy.polys.domains import QQ
+from sympy_risch import integrate_algebraic_with_constant_base_change
+
+Z = symbols("Z")
+continued = integrate_algebraic_with_constant_base_change(
+    y / (x * (x - 2)),
+    sqrt_x.derivation(),
+    basis,
+    Poly(Z**2 - Rational(1, 18), Z, domain=QQ),
+    max_x_degree=1,
+)
+
+assert continued.source_result.status.value == "needs_constant_base_change"
+assert continued.base_change is not None and continued.base_change.certified
+assert continued.target_result is not None
+assert continued.is_elementary
+assert continued.reconstructs
+```
+
+The selected-factor route currently starts from `QQ` and has deliberately
+narrow finite-place splitting support. Profile-driven factor selection,
+general constant descent, and the residue-free exactness step remain future
+algebraic work.
+
 ## Certify a first global algebraic space
 
 The global-space kernel deliberately certifies only cases with a direct
@@ -1036,6 +1069,7 @@ boundary, not a mathematical claim about the integral.
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Bounded algebraic principal-divisor search | Low-level exact semialgorithm: verifies a supplied-bound witness for degree-zero `D`, returns `INCOMPLETE` on finite-slice exhaustion, and proves only the nonzero-degree obstruction |
 | Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor has a bounded-search principal witness; other cases retain explicit boundaries |
+| Selected algebraic constant-base-change integration | Constructive `QQ(x, y) -> QQ(alpha)(x, y)` continuation for an explicit factor that splits in its root field; a returned elementary answer is explicitly target-field-valued |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |
