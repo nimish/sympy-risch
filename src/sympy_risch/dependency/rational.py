@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import cast
 
 from sympy.core.symbol import Symbol
-from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains import QQ
 from sympy.polys.domains.domain import Domain
 from sympy.polys.fields import FracElement
 from sympy.polys.polytools import Poly, invert
 
 from .._typing import FieldElement
+from ..constant_fields import rational_constant_coordinates
 from ..rational import (
     RationalLogDerivativeResult,
     _solve_rational_logarithmic_derivative_over_domain,
@@ -69,8 +70,8 @@ def _rational_coefficient_ratio(
     The boolean distinguishes an inconsistent system from a consistent one.
     A ``None`` ratio means that every compared coefficient vanishes, so the
     system is consistent but does not determine ``c``.  Although the
-    coefficients may live in ``QQ_I``, the parameter ``c=m/n`` is required
-    to belong to ``QQ``.
+    coefficients may live in a finite extension of ``QQ``, the parameter
+    ``c=m/n`` is required to belong to ``QQ``.
     """
     constraints = tuple(
         (
@@ -100,7 +101,7 @@ def solve_parametric_logarithmic_derivative_heuristic(
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
-    r"""Run Bronstein's Section 7.3 heuristic over ``QQ(x)`` or ``QQ_I(x)``.
+    r"""Run Bronstein's Section 7.3 heuristic over a supported ``C(x)``.
 
     Given ``Dtheta/theta = eta``, seek integers ``n != 0`` and ``m`` and a
     nonzero ``v`` in ``QQ(x)`` such that
@@ -382,19 +383,17 @@ def _rational_residue_rationality_constraints(
 
     A local logarithmic-derivative coefficient is a valuation after a
     positive integer scaling, hence it must be rational even after the base
-    constants are enlarged to ``QQ_I``.  The ordinary projection only says
-    that the coefficient lies in the Gaussian field; its imaginary coordinate
-    gives the missing linear equation for the rational parameter ``c=m/n``.
+    constants are enlarged to a finite extension of ``QQ``. Every non-rational
+    power-basis coordinate therefore supplies a linear equation for the
+    rational parameter ``c=m/n``.
     """
     if constant_field == QQ:
         return ()
-    if constant_field != QQ_I:
-        raise ValueError("rational residue constraints require QQ or QQ_I constants")
-    _, f_imaginary = constant_field.to_sympy(f_residue).as_real_imag()
-    _, eta_imaginary = constant_field.to_sympy(
-        eta_residue,
-    ).as_real_imag()
-    return ((QQ.from_sympy(f_imaginary), QQ.from_sympy(eta_imaginary)),)
+    f_coordinates = rational_constant_coordinates(constant_field, f_residue)
+    eta_coordinates = rational_constant_coordinates(constant_field, eta_residue)
+    if len(f_coordinates) != len(eta_coordinates):
+        raise ValueError("residue coordinates have inconsistent dimensions")
+    return tuple(zip(f_coordinates[1:], eta_coordinates[1:], strict=True))
 
 
 def _solve_rational_parametric_logarithmic_derivative_fallback(
@@ -412,9 +411,9 @@ def _solve_rational_parametric_logarithmic_derivative_fallback(
       rational multiple of the factor derivative.
 
     Removing each factor-derivative direction leaves an exact scalar linear
-    system for the rational parameter ``c``.  The coefficient field may be
-    ``QQ_I``; a non-rational Gaussian quotient is an inconsistency, never a
-    candidate parameter.
+    system for the rational parameter ``c``. The coefficient field may be a
+    finite extension of ``QQ``; a non-rational quotient is an inconsistency,
+    never a candidate parameter.
     """
     if not heuristic_result.is_inconclusive:
         raise ValueError(

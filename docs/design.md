@@ -620,17 +620,16 @@ monomial lower levels remain `UNSUPPORTED`, never negative decisions.
 
 `relations.signature.build_fundamental_signature` owns the certified part of
 that Chapter 9 route; the `relations` facade keeps the public import stable.
-For the standard `QQ(x)` or `QQ_I(x)` base, it
-records P/E/T immutable native-field directions in tower order: `Dt` for
+For the standard `C(x)` base over an admitted finite algebraic constant field
+`C/QQ`, it records P/E/T immutable native-field directions in tower order: `Dt` for
 primitive levels, `Dt/t` for hyperexponential levels, and the real `eta` in
-`Dt = eta*(1 + t**2)` for hypertangent levels. A native finite-algebraic
-`C(x)` base with `C/QQ` is also represented, with constants expanded into
-exact `QQ` power-basis coordinates for relation constraints; its recursive
-P/E signature remains unsupported until no-new-constants evidence can be
-replayed. The rational base variable is the initial primitive direction. A
-supported signature requires replayed constant preservation for every
-non-base active level; otherwise it returns an explicit `UNSUPPORTED` boundary
-result rather than a mathematical negative.
+`Dt = eta*(1 + t**2)` for hypertangent levels. Constants are expanded into
+exact `QQ` power-basis coordinates for relation constraints. The rational
+base variable is the initial primitive direction. A supported signature
+requires replayed constant preservation for every non-base active level;
+otherwise it returns an explicit `UNSUPPORTED` boundary result rather than a
+mathematical negative. Real finite algebraic constants use the exact
+compositum `C(i)` for the Cayley tangent oracle.
 
 The relation compiler consults the signature for the active family and the
 canonical hyperexponential direction, but it still performs normal-factor

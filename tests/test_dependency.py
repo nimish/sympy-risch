@@ -865,7 +865,7 @@ def test_hypertangent_dependency_validates_shape_parent_and_base() -> None:
         1 / x,
         base=nonstandard_base,
     )
-    with pytest.raises(NotImplementedError, match=r"QQ\(x\) with Dx = 1"):
+    with pytest.raises(NotImplementedError, match=r"C\(x\) with Dx = 1"):
         analyze_hypertangent_extension(
             nonstandard_extension,
             nonstandard_base.derivation(),

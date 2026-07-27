@@ -220,8 +220,8 @@ The existing design conventions to preserve are:
 | Milestone | Current status |
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Partial, completed by Plans 016 T0 and 017 F0/F7: structural P/E/T admission distinguishes unsupported towers from theorem-backed obstructions, but the operation-specific totality matrix and full expression-cell corpus remain. |
-| 1. Effective field and tower kernel | Partial, shared by Plans 015 A0-A2 and 016 T0-T1: exact `QQ` towers, native finite algebraic number-field constants at a standard rational base, and finite extensions exist. General effective-field capabilities, recursive proof transport, presentation normalization, and canonical mixed towers remain. |
-| 2. Dependency and structure decisions | Partial, expanded in Plan 016 T1-T2/T6: normalized P/E/T relations, fundamental signatures, Gaussian fallbacks, Riccati normalization, and local linear-special-factor evidence are checked. General recursive effective constants, every P/E/T ordering, and automatic non-generator special-polynomial decisions remain. |
+| 1. Effective field and tower kernel | Partial, shared by Plans 015 A0-A2 and 016 T0-T1: exact `QQ` towers, recursively checked P/E/T towers over native finite algebraic number-field constants, exact `C(i)` tangent normalization for provably real `C`, and finite extensions exist. General effective-field capabilities, algebraic-function-field proof transport, presentation normalization, and canonical mixed towers remain. |
+| 2. Dependency and structure decisions | Partial, expanded in Plan 016 T1-T2/T6: normalized P/E/T relations, fundamental signatures, Gaussian fallbacks, Riccati normalization, and local linear-special-factor evidence are checked, including recursive finite algebraic constants. General effective constants, every P/E/T ordering, and automatic non-generator special-polynomial decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial, expanded in Plan 016 T3-T5: scalar and coupled RDEs cover documented normalized P/E/T shapes and one local special-pole consumer. Missing recursive cells, public parametric RDE/limited integration, and complete real coupled coverage remain. |
 | 4. Transcendental integration | Partial, expanded in Plan 016 T6-T8: explicit P/E/T integration covers documented shapes rather than every family ordering. Complete P/E/T totality and the admitted general-polynomial special-factor/denominator branch remain. |
 | 5. Algebraic-function-field kernel | Partial, expanded in Plan 015 A0-A6: direct admitted models have maximal orders, places, local expansions, divisors, complete long-basis Hess spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess parametric/large-divisor algorithms, scalable class operations, and algebraic-number-field good reduction remain. |
@@ -401,10 +401,12 @@ implemented mixed relation-system and Gaussian fallback shapes, including the fa
 hypertangent Gaussian normalization, integer normalization, exact witness
 reconstruction, generated planted witnesses, and independent global
 linear-system oracles. Plan 003 exposes those already-certified P/E/T
-directions as immutable signatures. Plan 010 also gives a standard
-`C(x)` base for native finite algebraic `C/QQ`, but deliberately does not
-trust caller metadata to recurse through such towers. The remaining work is
-proof-carrying general-constant recursion and non-generator special factors.
+directions as immutable signatures. Plan 010 also gives a standard `C(x)`
+base for native finite algebraic `C/QQ`. The recursive constant-profile
+follow-up now replays checked P/E/T prefixes over that base and uses exact
+`C(i)` tangent normalization for provably real `C`; caller metadata is not the
+proof. The remaining work is general effective-constant recursion and
+non-generator special factors.
 
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.

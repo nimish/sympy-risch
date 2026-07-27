@@ -17,6 +17,15 @@
 - **Completed**: 2026-07-26
 - **Status**: DONE
 
+## Recursive follow-up (2026-07-27)
+
+The later constant-profile checkpoint removes the deliberate base-only
+boundary below. Checked constant-preservation replay, fundamental signatures,
+relation compilation, and parametric logarithmic-derivative constraints now
+work recursively over finite algebraic `C/QQ`. For provably real `C`, the
+hypertangent oracle constructs and verifies the exact compositum `C(i)`.
+The original boundary is retained here as the historical scope of Plan 010.
+
 ## Delivered contract
 
 For a standard rational base

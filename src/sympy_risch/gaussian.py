@@ -19,11 +19,14 @@ from dataclasses import dataclass
 from sympy.core.expr import Expr
 from sympy.core.numbers import I
 from sympy.core.symbol import Symbol
-from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from ._typing import FieldElement
+from .constant_fields import (
+    finite_constant_field_profile,
+    gaussian_constant_field,
+)
 from .constant_proofs import require_preserved_constant_field
 from .relations.signature import (
     FundamentalSignature,
@@ -59,12 +62,12 @@ def _substitute_once(
 class HypertangentGaussianNormalForm:
     r"""An immutable Cayley isomorphism for a real monomial tower.
 
-    ``target_derivation`` has constants ``QQ_I`` and replaces every active
-    hypertangent level by a hyperexponential level in the *same symbol*.  The
+    ``target_derivation`` has constants ``C(i)`` and replaces every active
+    hypertangent level by a hyperexponential level in the *same symbol*. The
     symbol is intentionally reused because source and target live in separate
-    SymPy domains.  ``forward_substitutions`` maps the source interpretation
-    of each such symbol to its target expression; ``inverse_substitutions``
-    maps target expressions back to the original real interpretation.
+    SymPy domains. ``forward_substitutions`` maps the source interpretation of
+    each such symbol to its target expression; ``inverse_substitutions`` maps
+    target expressions back to the original real interpretation.
     """
 
     source_derivation: Derivation
@@ -150,20 +153,23 @@ def _validate_source_tower(derivation: Derivation) -> None:
         raise TypeError("Gaussian normal form requires a Derivation")
     if derivation.level < 1:
         raise ValueError(
-            "Gaussian normal form requires a hypertangent extension above QQ(x)"
+            "Gaussian normal form requires a hypertangent extension above C(x)"
         )
-    if derivation.tower.constants != QQ:
+    constants = derivation.tower.constants
+    profile = finite_constant_field_profile(constants)
+    if profile is None or not profile.is_real:
         raise NotImplementedError(
-            "Gaussian normal form currently requires a QQ(x) base"
+            "Gaussian normal form requires a provably real finite algebraic "
+            "constant field",
         )
     base = derivation.tower.levels[0]
     if (
         not isinstance(base, MonomialExtension)
-        or base.parent_field != QQ
-        or base.generator_derivative != Poly(1, base.generator, domain=QQ)
+        or base.parent_field != constants
+        or base.generator_derivative != Poly(1, base.generator, domain=constants)
     ):
         raise NotImplementedError(
-            "Gaussian normal form currently requires QQ(x) with Dx = 1"
+            "Gaussian normal form requires C(x) with Dx = 1",
         )
 
     has_hypertangent = False
@@ -208,7 +214,9 @@ def build_hypertangent_gaussian_normal_form(
     """
     _validate_source_tower(derivation)
 
-    target_tower = DifferentialTower(QQ_I)
+    target_tower = DifferentialTower(
+        gaussian_constant_field(derivation.tower.constants),
+    )
     forward_substitutions: dict[Symbol, Expr] = {}
     inverse_substitutions: dict[Symbol, Expr] = {}
 

@@ -5,14 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sympy.core.symbol import Symbol
-from sympy.polys.domains import QQ
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel, invert
 
 from .._typing import FieldElement
 from ..constant_proofs import require_preserved_constant_field
 from ..rational import (
-    solve_rational_exact_derivative,
+    _solve_rational_exact_derivative_over_domain,
 )
 from ..reduction.fractions import (
     _reduced_polynomial_fraction,
@@ -74,19 +73,20 @@ class _PrimitiveObstructionPivot:
     value: FieldElement
 
 
-def _qq_reduced_fraction(
+def _reduced_fraction_over_constants(
     expression: object,
     variable: Symbol,
+    constants: Domain,
 ) -> tuple[Poly, Poly]:
-    """Return a fraction over ``QQ`` with a monic denominator."""
+    """Return a fraction over ``constants`` with a monic denominator."""
     numerator_expression, denominator_expression = cancel(
         expression,
     ).as_numer_denom()
-    numerator = Poly(numerator_expression, variable, domain=QQ)
-    denominator = Poly(denominator_expression, variable, domain=QQ)
+    numerator = Poly(numerator_expression, variable, domain=constants)
+    denominator = Poly(denominator_expression, variable, domain=constants)
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(coefficient)
-    leading_inverse = QQ.one / denominator.LC()
+    leading_inverse = constants.one / denominator.LC()
     return numerator.mul_ground(leading_inverse), denominator.monic()
 
 
@@ -95,11 +95,13 @@ def _partial_numerator(
     factor: Poly,
     field: Domain,
     variable: Symbol,
+    constants: Domain,
 ) -> Poly:
     r"""Return the numerator of the ``1/factor`` partial-fraction component."""
-    numerator, denominator = _qq_reduced_fraction(
+    numerator, denominator = _reduced_fraction_over_constants(
         field.to_sympy(obstruction),
         variable,
+        constants,
     )
     if not denominator.rem(factor).is_zero:
         return factor.zero
@@ -111,11 +113,13 @@ def _rational_obstruction_pivot(
     eta_obstruction: FieldElement,
     field: Domain,
     variable: Symbol,
+    constants: Domain,
 ) -> _RationalObstructionPivot:
     """Choose a deterministic nonzero coordinate of the class of ``eta``."""
-    _, denominator = _qq_reduced_fraction(
+    _, denominator = _reduced_fraction_over_constants(
         field.to_sympy(eta_obstruction),
         variable,
+        constants,
     )
     factors = denominator.factor_list()[1]
     if not factors:
@@ -126,12 +130,13 @@ def _rational_obstruction_pivot(
         factor,
         field,
         variable,
+        constants,
     )
     (degree,), value = partial_numerator.terms()[0]
     return _RationalObstructionPivot(
         factor,
         degree,
-        QQ.convert(value),
+        constants.convert(value),
     )
 
 
@@ -142,35 +147,35 @@ def _rational_coefficient_reduction(
     pivot: _RationalObstructionPivot,
     parent: Domain,
     variable: Symbol,
+    constants: Domain,
 ) -> tuple[FieldElement, FieldElement, FieldElement]:
     r"""Return ``b, c, r`` such that ``a = Db + c*eta + r``."""
-    result = solve_rational_exact_derivative(
+    result = _solve_rational_exact_derivative_over_domain(
         parent.to_sympy(coefficient),
         variable,
+        constants,
     )
     coefficient_exact_part = _coerce(parent, result.exact_part)
     coefficient_obstruction = _coerce(parent, result.obstruction)
 
     if coefficient_obstruction == parent.zero:
-        eta_multiple = QQ.zero
+        eta_multiple = constants.zero
     else:
         coordinate = _partial_numerator(
             coefficient_obstruction,
             pivot.factor,
             parent,
             variable,
+            constants,
         ).nth(pivot.degree)
-        eta_multiple = QQ.exquo(
-            QQ.convert(coordinate),
+        eta_multiple = constants.exquo(
+            constants.convert(coordinate),
             pivot.value,
         )
 
-    exact_coefficient = (
-        coefficient_exact_part - parent.convert(eta_multiple) * eta_exact_part
-    )
-    obstruction = (
-        coefficient_obstruction - parent.convert(eta_multiple) * eta_obstruction
-    )
+    embedded_multiple = _coerce(parent, constants.to_sympy(eta_multiple))
+    exact_coefficient = coefficient_exact_part - embedded_multiple * eta_exact_part
+    obstruction = coefficient_obstruction - embedded_multiple * eta_obstruction
     return exact_coefficient, eta_multiple, obstruction
 
 
@@ -332,12 +337,9 @@ def _recursive_coefficient_reduction(
         pivot,
     )
     eta_multiple = constants.exquo(coordinate, pivot.value)
-    exact_coefficient = (
-        coefficient_exact_part - parent.convert(eta_multiple) * eta_exact_part
-    )
-    obstruction = (
-        coefficient_obstruction - parent.convert(eta_multiple) * eta_obstruction
-    )
+    embedded_multiple = _coerce(parent, constants.to_sympy(eta_multiple))
+    exact_coefficient = coefficient_exact_part - embedded_multiple * eta_exact_part
+    obstruction = coefficient_obstruction - embedded_multiple * eta_obstruction
     if (
         _primitive_obstruction_coordinate(
             obstruction,
@@ -349,9 +351,7 @@ def _recursive_coefficient_reduction(
         raise ValueError("primitive obstruction projection did not remove its pivot")
 
     if (
-        lower_derivation(exact_coefficient)
-        + parent.convert(eta_multiple) * eta
-        + obstruction
+        lower_derivation(exact_coefficient) + embedded_multiple * eta + obstruction
         != coefficient
     ):
         raise ValueError(
@@ -403,6 +403,7 @@ def polynomial_reduce_primitive(
 
     lower_derivation = derivation.lower()
     parent = extension.parent_field
+    constants = derivation.tower.constants
     eta = parent.convert(extension.generator_derivative.nth(0))
 
     variable = None
@@ -410,9 +411,10 @@ def polynomial_reduce_primitive(
         variable = _standard_rational_base_variable(lower_derivation)
     require_preserved_constant_field(derivation, "primitive polynomial reduction")
     if variable is not None:
-        eta_result = solve_rational_exact_derivative(
-            eta.as_expr(),
+        eta_result = _solve_rational_exact_derivative_over_domain(
+            parent.to_sympy(eta),
             variable,
+            constants,
         )
     else:
         # See the local-import note in _recursive_coefficient_reduction.
@@ -427,7 +429,12 @@ def polynomial_reduce_primitive(
     eta_exact_part = _coerce(parent, eta_result.exact_part)
     eta_obstruction = _coerce(parent, eta_result.obstruction)
     pivot = (
-        _rational_obstruction_pivot(eta_obstruction, parent, variable)
+        _rational_obstruction_pivot(
+            eta_obstruction,
+            parent,
+            variable,
+            constants,
+        )
         if variable is not None
         else _primitive_obstruction_pivot(
             eta_obstruction,
@@ -454,6 +461,7 @@ def polynomial_reduce_primitive(
                     pivot,
                     parent,
                     variable,
+                    constants,
                 )
             )
         else:
@@ -473,8 +481,9 @@ def polynomial_reduce_primitive(
         correction = Poly.from_dict(
             {
                 (degree,): exact_coefficient,
-                (degree + 1,): parent.convert(
-                    eta_multiple / derivation.tower.constants.convert(degree + 1)
+                (degree + 1,): _coerce(
+                    parent,
+                    constants.to_sympy(eta_multiple / constants.convert(degree + 1)),
                 ),
             },
             extension.generator,

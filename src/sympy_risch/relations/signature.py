@@ -10,11 +10,14 @@ from dataclasses import dataclass
 from enum import Enum
 
 from sympy.core.symbol import Symbol
-from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains import QQ_I
 from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
-from ..constant_fields import is_supported_finite_constant_field
+from ..constant_fields import (
+    finite_constant_field_profile,
+    is_supported_finite_constant_field,
+)
 from ..tower import (
     AlgebraicExtension,
     ConstantFieldStatus,
@@ -218,14 +221,18 @@ class FundamentalSignature:
                     "a supported signature requires C(x) with Dx = 1 over an "
                     "effective finite constant field C"
                 )
-            if base.parent_field not in {QQ, QQ_I} and self.hypertangent_directions:
+            profile = finite_constant_field_profile(base.parent_field)
+            if profile is None:
                 raise ValueError(
-                    "hypertangent directions currently require QQ or QQ_I constants"
+                    "a supported signature requires effective finite constants",
                 )
-            if base.parent_field not in {QQ, QQ_I} and self.derivation.level > 0:
+            if (
+                self.hypertangent_directions
+                and not profile.is_real
+                and base.parent_field != QQ_I
+            ):
                 raise ValueError(
-                    "finite algebraic constant signatures currently certify only "
-                    "the standard rational base"
+                    "hypertangent directions require real constants or QQ_I",
                 )
             for direction in self.directions:
                 extension = self.derivation.tower.levels[direction.level]
@@ -369,14 +376,15 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
     ]
     hyperexponential_directions: list[HyperexponentialFundamentalDirection] = []
     hypertangent_directions: list[HypertangentFundamentalDirection] = []
-    constant_failure = None
-    if base.parent_field in {QQ, QQ_I}:
-        # Replay the full prefix once. The result cache is bottom-up and
-        # identity-safe, so later factories and signatures reuse this check
-        # instead of each rescanning every lower level.
-        from ..constant_proofs import first_nonpreserved_constant_level
+    # Replay the full prefix once. The result cache is bottom-up and
+    # identity-safe, so later factories and signatures reuse this check
+    # instead of each rescanning every lower level.
+    from ..constant_proofs import first_nonpreserved_constant_level
 
-        constant_failure = first_nonpreserved_constant_level(derivation)
+    constant_failure = first_nonpreserved_constant_level(derivation)
+    profile = finite_constant_field_profile(base.parent_field)
+    if profile is None:
+        raise ValueError("the validated relation base lost its constant profile")
 
     for level, extension in enumerate(active_levels[1:], start=1):
         if not isinstance(extension, MonomialExtension):
@@ -399,20 +407,16 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
                 FundamentalSignatureReason.UNSUPPORTED_MONOMIAL_FAMILY,
                 f"level {level} has unsupported monomial family {extension.family.value}",
             )
-        if base.parent_field not in {QQ, QQ_I}:
-            if extension.family is MonomialFamily.HYPERTANGENT:
-                return _unsupported_fundamental_signature(
-                    derivation,
-                    FundamentalSignatureReason.UNSUPPORTED_MONOMIAL_FAMILY,
-                    "hypertangent fundamental directions over finite algebraic "
-                    "constant fields are not yet supported",
-                )
+        if (
+            extension.family is MonomialFamily.HYPERTANGENT
+            and not profile.is_real
+            and base.parent_field != QQ_I
+        ):
             return _unsupported_fundamental_signature(
                 derivation,
-                FundamentalSignatureReason.CONSTANT_FIELD_PROVENANCE,
-                "finite algebraic constant towers need proof-carrying "
-                "no-new-constants evidence before recursive P/E signatures "
-                "can be certified",
+                FundamentalSignatureReason.UNSUPPORTED_MONOMIAL_FAMILY,
+                "hypertangent fundamental directions require a provably real "
+                "constant field or QQ_I",
             )
         if (
             constant_failure is not None

@@ -13,6 +13,10 @@ from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.polytools import Poly, cancel, invert
 
 from .._typing import FieldElement
+from ..constant_fields import (
+    finite_constant_field_profile,
+    gaussian_constant_field,
+)
 from ..tower.core import (
     ConstantFieldStatus,
     Derivation,
@@ -111,7 +115,7 @@ def analyze_hypertangent_extension(
     The Cayley coordinate has logarithmic derivative ``2*i*eta``. Over the
     rational base the direct Gaussian residue test remains the fast path.
     Over recursively primitive towers, the tower is immutably rebased over
-    ``QQ_I`` and the recursive radical logarithmic-derivative decision is
+    ``C(i)`` and the recursive radical logarithmic-derivative decision is
     applied there.
     """
     if not isinstance(extension, MonomialExtension):
@@ -127,8 +131,16 @@ def analyze_hypertangent_extension(
     if extension.parent_field != lower_derivation.field:
         raise ValueError("extension parent field does not match the lower derivation")
 
+    constants = lower_derivation.tower.constants
+    profile = finite_constant_field_profile(constants)
+    if profile is None or (not profile.is_real and constants != QQ_I):
+        raise NotImplementedError(
+            "hypertangent dependency analysis requires a provably real finite "
+            "constant field or QQ_I",
+        )
+
     eta = extension.parent_field.convert(extension.generator_derivative.nth(2))
-    if lower_derivation.level == 0:
+    if lower_derivation.level == 0 and constants in {QQ, QQ_I}:
         variable = _standard_rational_variable(lower_derivation)
         relation = _gaussian_logarithmic_relation(
             2 * I * extension.parent_field.to_sympy(eta),
@@ -156,7 +168,7 @@ def analyze_hypertangent_extension(
         else:
             gaussian_derivation = _rebase_monomial_derivation(
                 lower_derivation,
-                QQ_I,
+                gaussian_constant_field(constants),
             )
         gaussian_field = gaussian_derivation.field
         eta_expression = extension.parent_field.to_sympy(eta)

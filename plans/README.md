@@ -97,9 +97,9 @@ principal parts at one supplied linear special factor by solving lower-field
 RDEs. An unsolved local equation remains an explicit boundary rather than an
 elementary-integration or non-elementarity conclusion.
 Plan 010 adds exact `QQ`-coordinate expansion for native finite algebraic
-constant fields at the standard rational base. It deliberately stops before
-recursive general-constant towers, whose no-new-constants evidence must be
-made proof-carrying rather than inherited from caller metadata.
+constant fields at the standard rational base. The subsequent recursive
+constant-profile checkpoint carries this through checked P/E/T prefixes,
+including an exact `C(i)` tangent oracle for provably real `C`.
 Plans 011-013 complete the first exact divisor-torsion path over `QQ`, including
 compatible displayed-constant composita and good-prime order bounds. Plan 014
 uses that algebraic foundation at the expression boundary: it discovers

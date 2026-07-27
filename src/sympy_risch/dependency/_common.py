@@ -6,12 +6,13 @@ from operator import index as integer_index
 from typing import SupportsIndex
 
 from sympy.core.symbol import Symbol
-from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains import QQ
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
+from ..constant_fields import is_supported_finite_constant_field
 from ..relations.signature import FundamentalSignature, build_fundamental_signature
 from ..tower.core import (
     Derivation,
@@ -134,29 +135,29 @@ def _certified_lower_fundamental_signature(
 
 
 def _standard_rational_variable(derivation: Derivation) -> Symbol:
-    """Return ``x`` for the standard derivation on ``QQ(x)`` or ``QQ_I(x)``.
+    """Return ``x`` for the standard derivation on a supported ``C(x)``.
 
     The integer parameters in a parametric logarithmic derivative are still
-    rational when the constants have been enlarged by ``i``.  Supporting the
-    Gaussian rational base is therefore a genuine extension of the same
-    decision problem, not a relaxation to arbitrary complex parameters.
+    rational when the constants are a finite extension of ``QQ``. Supporting
+    ``C`` is therefore an exact coordinate expansion of the same decision
+    problem, not a relaxation to arbitrary constants.
     """
     if derivation.level != 0:
         raise NotImplementedError(
-            "rational-base dependency analysis currently requires QQ(x) or QQ_I(x)"
+            "rational-base dependency analysis requires a standard C(x) base",
         )
     constants = derivation.tower.constants
     extension = derivation.tower.levels[0]
     if (
         not isinstance(extension, MonomialExtension)
-        or constants not in {QQ, QQ_I}
+        or not is_supported_finite_constant_field(constants)
         or extension.parent_field != constants
         or extension.generator_derivative
         != Poly(1, extension.generator, domain=constants)
     ):
         raise NotImplementedError(
-            "rational-base dependency analysis currently requires QQ(x) "
-            "with Dx = 1 or QQ_I(x) with Dx = 1"
+            "rational-base dependency analysis requires C(x) with Dx = 1 "
+            "over an effective finite constant field C",
         )
     return extension.generator
 

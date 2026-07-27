@@ -98,6 +98,11 @@ not import the public dispatcher or a global engine to recurse.
 
 ### T0. Define the effective constant-field and solver matrix
 
+**Progress:** the finite-number-field half now has one shared
+`FiniteConstantFieldProfile` for exact arithmetic, rational coordinates,
+degree, reality, and the presence of `i`. The full per-operation solver matrix
+and the algebraic-function-field capability half remain open.
+
 Replace scattered domain checks with one small capability boundary shared with
 Plan 015. It must state whether the current constant field supplies:
 
@@ -126,6 +131,12 @@ to a total solver cell, and every refusal identifies the missing effective
 operation.
 
 ### T1. Complete checked recursive tower construction
+
+**Progress:** complete for recursively checked P/E/T prefixes over `QQ`,
+`QQ_I`, and native finite algebraic number fields over `QQ`. Tangent replay
+uses the exact `C(i)` compositum when `C` is provably real. General effective
+constant fields and mixed algebraic-function/transcendental levels remain
+owned by Plan 015.
 
 Generalize constant-field preservation and dependency replay beyond the
 current `QQ(x)`-centered recursive cases:

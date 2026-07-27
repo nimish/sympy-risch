@@ -712,7 +712,7 @@ def test_nonrational_lower_field_is_reported_as_unsupported() -> None:
 
     assert result.is_unsupported
     assert not result.proves_no_solution
-    assert "requires QQ(x)" in result.detail
+    assert "standard C(x) base" in result.detail
 
 
 @settings(max_examples=50, deadline=None)

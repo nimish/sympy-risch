@@ -99,12 +99,15 @@ coordinate is a negative certificate in the supported tower scope.
 At the standard base `C(x)`, `Dx = 1`, the same relation kernel also accepts
 native finite algebraic number fields `C/QQ`. It expands every constant in
 SymPy's fixed primitive power basis over `QQ`, so valuations and source
-relations remain rational rather than accidentally becoming `C`-linear. This
-finite-constant support currently stops at the base: recursive general-`C`
-P/E signatures wait for proof-carrying no-new-constants evidence.
+relations remain rational rather than accidentally becoming `C`-linear.
+Checked P/E/T extensions over that base are replayed recursively, so the same
+kernel applies above several certified monomial levels.
 
-Tangent lower levels enter this same calculation through the Gaussian normal
-form. The integer valuation lattice remains over `QQ`, not `QQ(i)`.
+Tangent lower levels enter this same calculation through the exact Gaussian
+compositum `C(i)` and Cayley normal form. This is currently restricted to
+constant fields that are provably real (plus the native `QQ_I` case), because
+splitting a Gaussian answer into real coordinates must fix every element of
+`C`. The integer valuation lattice remains over `QQ`, not `C(i)`.
 
 ## Certified fundamental signatures
 
@@ -118,13 +121,12 @@ directions are ordered by tower level and retain native parent-field elements:
 | hyperexponential | `Dt/t` |
 | hypertangent | `eta` in `Dt = eta*(1 + t**2)` |
 
-The signature is supported for the standard `QQ(x)` or `QQ_I(x)` P/E/T base,
-and also for a native finite-algebraic `C(x)` base with `C/QQ`. The latter
-currently covers only that base and direct factory proposals: a non-base
-general-`C` signature reports `CONSTANT_FIELD_PROVENANCE` until its
-no-new-constants criterion can be replayed at that tower position. An unsupported
-signature records why the narrow representation is unavailable; it is not a
-negative theorem about a relation or an integral.
+The signature is supported for a standard finite-constant `C(x)` P/E/T
+prefix, provided every active level passes the library's recursive
+no-new-constants replay. Hypertangent directions additionally require the
+real/Gaussian condition above. An unsupported signature records why the
+narrow representation is unavailable; it is not a negative theorem about a
+relation or an integral.
 
 The owner entry point is
 `sympy_risch.relations.signature.build_fundamental_signature`; the

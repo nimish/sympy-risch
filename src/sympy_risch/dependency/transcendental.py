@@ -179,15 +179,17 @@ def solve_parametric_logarithmic_derivative(
 ) -> ParametricLogarithmicDerivativeResult:
     r"""Decide the parametric logarithmic derivative in supported fields.
 
-    Over ``QQ(x)`` or ``QQ_I(x)``, the Section 7.3 coefficient heuristic is
-    the fast path and a complete rational structure fallback handles its
-    inconclusive exit.  In the Gaussian case the integer ratio ``m/n`` and
-    all radical-logarithmic residues remain rational.
+    Over ``C(x)`` for an admitted finite algebraic constant field ``C/QQ``,
+    the Section 7.3 coefficient heuristic is the fast path and a complete
+    rational structure fallback handles its inconclusive exit. The integer
+    ratio ``m/n`` and all radical-logarithmic valuation relations remain
+    rational, even though field coefficients lie in ``C``.
 
     Over a recursive primitive tower, the solver compares positive-degree
     polynomial coordinates, repeated principal parts, and simple residues
-    modulo ``QQ*Dp`` at each level.  If the current coordinates leave ``m/n``
-    free, the same complete decision descends to the lower component.
+    modulo ``C*Dp`` at each level. If the current rational-coordinate system
+    leaves ``m/n`` free, the same complete decision descends to the lower
+    component.
     """
     eta = _parametric_logarithmic_derivative_eta(
         extension,

@@ -82,9 +82,10 @@ def solve_radical_logarithmic_derivative(
     r"""Decide ``n*f = D(v)/v`` recursively in a supported tower.
 
     The base case is the complete rational logarithmic-derivative decision in
-    ``C(x)`` for ``C = QQ`` or ``QQ_I``. Primitive levels use their principal
-    part signature. A hyperexponential level separates normal logarithmic
-    factors and descends through its special generator exponent.
+    ``C(x)`` for an admitted finite algebraic constant field ``C/QQ``.
+    Primitive levels use their principal-part signature. A hyperexponential
+    level separates normal logarithmic factors and descends through its
+    special generator exponent.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("radical logarithmic derivatives require a Derivation")

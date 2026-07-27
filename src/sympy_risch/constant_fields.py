@@ -9,11 +9,14 @@ relations with *rational* coefficients, so they need an exact fixed
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol, cast
 
+from sympy.core.numbers import I
 from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
+from sympy.polys.polyerrors import CoercionFailed
 
 from ._typing import FieldElement
 
@@ -22,6 +25,42 @@ class _PowerBasisElement(Protocol):
     """Native algebraic-number element with canonical power coordinates."""
 
     def to_list(self) -> list[object]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class FiniteConstantFieldProfile:
+    """Effective data shared by the finite-constant Risch kernels."""
+
+    constants: Domain
+    degree_over_qq: int
+    is_real: bool
+    contains_i: bool
+
+
+def finite_constant_field_profile(
+    constants: Domain,
+) -> FiniteConstantFieldProfile | None:
+    r"""Describe an effective finite extension of ``QQ``, if supported."""
+    if constants == QQ:
+        return FiniteConstantFieldProfile(constants, 1, True, False)
+    if constants == QQ_I:
+        return FiniteConstantFieldProfile(constants, 2, False, True)
+    if not isinstance(constants, AlgebraicField) or constants.domain != QQ:
+        return None
+
+    try:
+        constants.from_sympy(I)
+    except CoercionFailed:
+        contains_i = False
+    else:
+        contains_i = True
+    is_real = all(extension.is_real is True for extension in constants.orig_ext)
+    return FiniteConstantFieldProfile(
+        constants,
+        int(constants.mod.degree()),
+        is_real,
+        contains_i,
+    )
 
 
 def is_supported_finite_constant_field(constants: Domain) -> bool:
@@ -33,9 +72,30 @@ def is_supported_finite_constant_field(constants: Domain) -> bool:
     ground field ``QQ`` excludes algebraic *function* fields from this
     constant-field admission rule.
     """
-    return constants in {QQ, QQ_I} or (
-        isinstance(constants, AlgebraicField) and constants.domain == QQ
-    )
+    return finite_constant_field_profile(constants) is not None
+
+
+def gaussian_constant_field(constants: Domain) -> Domain:
+    r"""Return the exact compositum ``C(i)`` for a supported real field ``C``."""
+    profile = finite_constant_field_profile(constants)
+    if profile is None:
+        raise NotImplementedError(
+            "Gaussian constants require QQ, QQ_I, or an algebraic number field over QQ",
+        )
+    if profile.contains_i:
+        return constants
+    if constants == QQ:
+        return QQ_I
+    if not profile.is_real or not isinstance(constants, AlgebraicField):
+        raise NotImplementedError(
+            "Gaussian tangent conversion requires a provably real algebraic "
+            "constant field or a field already containing i",
+        )
+
+    target = QQ.algebraic_field(*constants.orig_ext, I)
+    if constants.unify(target) != target:
+        raise ValueError("the Gaussian compositum lost the source constant field")
+    return target
 
 
 def rational_constant_coordinates(

@@ -427,7 +427,7 @@ def test_replayed_lower_constants_enable_linear_special_reduction() -> None:
     assert result.unsupported_detail is None
 
 
-def test_nested_replay_unavailable_constants_are_a_structured_rde_boundary() -> None:
+def test_nested_replay_certifies_constants_before_special_pole_reduction() -> None:
     base = rational_base()
     primitive = base.extend(
         MonomialExtension(
@@ -460,14 +460,12 @@ def test_nested_replay_unavailable_constants_are_a_structured_rde_boundary() -> 
         certificate,
     )
 
-    assert result.status is LinearSpecialPoleReductionStatus.UNSUPPORTED_LOWER_RDE
+    assert result.status is LinearSpecialPoleReductionStatus.REDUCED
     assert result.reconstructs
-    assert result.exact_part == tower.field().zero
-    assert result.remainder == integrand
-    assert result.unsupported_detail is not None
-    assert "constant-field replay is unavailable" in result.unsupported_detail
-    assert result.unresolved_step is not None
-    assert result.unresolved_step.rde_result is None
+    assert result.exact_part == tower.field().from_sympy(-1 / u)
+    assert result.remainder == tower.field().zero
+    assert result.unsupported_detail is None
+    assert result.unresolved_step is None
 
 
 def test_solver_value_errors_are_not_reclassified_as_unsupported(
