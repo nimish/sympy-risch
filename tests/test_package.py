@@ -4,9 +4,11 @@ from typing import get_type_hints
 import sympy_risch
 import sympy_risch.algebraic as algebraic
 import sympy_risch.algebraic_geometry as algebraic_geometry
+import sympy_risch.rde as rde
 import sympy_risch.relations as relations
 import sympy_risch.tower as tower
 from sympy_risch import __version__
+from sympy_risch.rde import models as rde_models
 
 
 def test_package_import() -> None:
@@ -16,6 +18,18 @@ def test_package_import() -> None:
 def test_public_exports_are_defined_once() -> None:
     assert len(sympy_risch.__all__) == len(set(sympy_risch.__all__))
     assert all(hasattr(sympy_risch, name) for name in sympy_risch.__all__)
+
+
+def test_rde_facade_keeps_the_scalar_solver_surface() -> None:
+    assert all(hasattr(rde, name) for name in rde.__all__)
+    assert (
+        rde.PolynomialRischDifferentialEquationResult
+        is rde_models.PolynomialRischDifferentialEquationResult
+    )
+    assert (
+        rde.solve_risch_differential_equation
+        is sympy_risch.solve_risch_differential_equation
+    )
 
 
 def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:

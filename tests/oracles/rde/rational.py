@@ -8,7 +8,7 @@ from sympy.polys.domains import QQ
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polytools import Poly, cancel
 
-from sympy_risch.rde import _as_qq_rational
+from sympy_risch.rde.rational import _as_qq_rational
 
 from .models import BoundedCoupledRDEMatrixResult, BoundedRationalRDEMatrixResult
 

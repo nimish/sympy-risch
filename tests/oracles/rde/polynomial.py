@@ -9,9 +9,11 @@ from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
 from sympy.polys.polytools import Poly
 
-from sympy_risch.rde import (
+from sympy_risch.rde.models import (
     PolynomialRDEObstruction,
     PolynomialRischDifferentialEquationResult,
+)
+from sympy_risch.rde.rational import (
     _coerce_polynomial_rde_inputs,
     _solve_trivial_polynomial_rde,
 )

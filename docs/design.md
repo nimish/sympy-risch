@@ -193,7 +193,7 @@ The current implementation is organized by mathematical responsibility:
 | `reduction/fractions.py` | Shared monomial fraction normal forms and normal/special decomposition |
 | `monomial.py` | Primitive signatures, radical logarithmic decisions, and family reducers |
 | `dependency.py` | Parametric logarithmic decisions and generator-dependency certificates |
-| `rde.py` | Scalar and coupled Risch differential equations by tower family |
+| `rde/` | Scalar and coupled Risch differential equations, split by theorem family behind one facade |
 | `elementary.py` | Recursive elementary integration and obstruction propagation |
 
 These modules form a descending recursion, not a mutable solver context. Every
@@ -218,11 +218,11 @@ global solver object or mutable ambient context.  A function-local import is
 therefore acceptable at a genuine recursive boundary, but shared algebraic
 normal forms belong in a neutral module such as `reduction/fractions.py`.
 
-The next physical splits should follow theorem families rather than a generic
-service layer:
+Physical splits follow theorem families rather than a generic service layer:
 
-1. split `rde.py` into rational, primitive, hyperexponential, coupled, and
-   dispatch modules behind an `rde` facade;
+1. `rde/` now separates base rational, finite-constant, primitive,
+   hyperexponential, coupled, certificate, and dispatch code while preserving
+   the `sympy_risch.rde` facade;
 2. split `dependency.py` into parametric logarithmic-derivative and
    extension-certification modules; then
 3. split `monomial.py` into primitive/logarithmic, common fraction reduction,

@@ -8,10 +8,8 @@ from sympy.polys.domains import QQ
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polytools import Poly
 
-from sympy_risch.rde import (
-    _is_standard_rational_derivation,
-    _primitive_rde_extension,
-)
+from sympy_risch.rde._tower_polynomials import _is_standard_rational_derivation
+from sympy_risch.rde.primitive import _primitive_rde_extension
 from sympy_risch.tower import Derivation, MonomialExtension, _coerce
 
 from ._common import as_qq_bivariate_fraction

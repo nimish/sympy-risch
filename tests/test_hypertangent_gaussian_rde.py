@@ -16,8 +16,8 @@ from sympy_risch.exact import (
 from sympy_risch.gaussian import build_hypertangent_gaussian_normal_form
 from sympy_risch.rde import (
     HypertangentGaussianRischDifferentialEquationResult,
-    _as_primitive_fraction,
 )
+from sympy_risch.rde._tower_polynomials import _as_primitive_fraction
 
 x, t, u = symbols("x t u")
 
