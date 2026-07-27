@@ -15,7 +15,6 @@ from sympy_risch import (
     decide_algebraic_principality,
 )
 from sympy_risch.algebraic_geometry.function_field import AlgebraicDivisor
-from sympy_risch.algebraic_geometry.riemann_roch import RiemannRochSpaceStatus
 
 x, y = symbols("x y")
 
@@ -39,8 +38,8 @@ def test_principality_finds_a_verified_genus_zero_witness() -> None:
     assert result.principal
     assert result.witness is not None
     assert model.principal_divisor(result.witness) == divisor
-    assert result.riemann_roch_space is not None
-    assert result.riemann_roch_space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert result.divisor_class_search is not None
+    assert result.divisor_class_search.order == 1
 
 
 def test_principality_finds_a_witness_without_a_degree_bound() -> None:
@@ -54,7 +53,7 @@ def test_principality_finds_a_witness_without_a_degree_bound() -> None:
     assert model.principal_divisor(result.witness) == divisor
 
 
-def test_degree_zero_empty_riemann_roch_space_proves_nonprincipality() -> None:
+def test_degree_zero_reduced_class_proves_nonprincipality() -> None:
     model, _extension = algebraic_model(y**2 - x**3 + x)
     finite_place = model.finite_places(Poly(x, x, domain=QQ))[0]
     infinity_place = model.infinite_places()[0]
@@ -65,8 +64,10 @@ def test_degree_zero_empty_riemann_roch_space_proves_nonprincipality() -> None:
     assert result.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
     assert result.complete_negative
     assert result.witness is None
-    assert result.riemann_roch_space is not None
-    assert result.riemann_roch_space.basis == ()
+    assert result.riemann_roch_space is None
+    assert result.divisor_class_search is not None
+    assert result.divisor_class_search.last_representative is not None
+    assert not result.divisor_class_search.last_representative.is_zero
 
 
 def test_nonzero_degree_is_a_complete_nonprincipality_certificate() -> None:
@@ -80,5 +81,5 @@ def test_nonzero_degree_is_a_complete_nonprincipality_certificate() -> None:
     assert result.witness is None
     assert result.riemann_roch_space is None
 
-    with pytest.raises(ValueError, match="certified empty"):
+    with pytest.raises(ValueError, match="complete class proof"):
         replace(result, divisor=model.principal_divisor(extension.field.one))

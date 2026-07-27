@@ -919,7 +919,7 @@ finite ideal/divisor conversion. See the
 ## Integrate the first algebraic logarithmic cases
 
 `integrate_algebraic` combines algebraic Hermite reduction, all-place
-residues, and the bounded principal-divisor search. Its current constructive
+residues, and complete reduced divisor-class arithmetic. Its current constructive
 scope is a direct `C(x)` presentation with `C = QQ` or a finite algebraic
 extension of `QQ`, provided every local residue already lies in the displayed
 constant field. The algorithm expands those constants in an exact `QQ` basis
@@ -941,6 +941,13 @@ assert decision.is_elementary
 assert decision.antiderivative == 2 * log(y)
 assert decision.reconstructs
 ```
+
+For a nonprincipal coordinate divisor whose class is torsion, pass a positive
+`torsion_order_bound`. The search is general divisor-class iteration; it does
+not special-case hyperelliptic or Pell--Abel curves. A found relation is exact,
+while an exhausted bound leaves the result unsupported. The genus-2
+degree-29 example in the algebraic infrastructure guide is integrated with
+`torsion_order_bound=29`.
 
 Non-rational local residues return `NEEDS_CONSTANT_BASE_CHANGE`, and a nonzero residue-free
 remainder is tested for an algebraic primitive. If its primitive-pole space
@@ -1051,8 +1058,10 @@ desired; that requests one step. Automatic selection can build successive
 composita from `QQ` and existing SymPy algebraic number fields. It currently
 adjoins only factors defined over `QQ` and retains deliberately narrow
 finite-place splitting support. Factors with genuinely algebraic
-coefficients, general splitting fields, divisor-class torsion, and arbitrary
-second-kind exactness remain future algebraic work.
+coefficients and general splitting fields remain future algebraic work.
+Positive divisor-class torsion is available with an explicit search bound;
+finite-prime Jacobian reduction is still needed to choose that bound
+algorithmically and prove nontorsion.
 
 ## Certify a first global algebraic space
 
@@ -1133,8 +1142,9 @@ boundary, not a mathematical claim about the integral.
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
 | Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; unavailable ideal arithmetic returns `UNSUPPORTED` |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
-| Algebraic principality decision | Generic AFF decision from complete `L(-D)`: constructs a witness, proves nonprincipality, or retains an explicit unavailable-space boundary |
-| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor is decided principal; residue-free remainders also receive the certified in-field exactness step |
+| Algebraic divisor classes and positive torsion | General Riemann--Roch reduction relative to any effective positive-degree anchor; bounded searches reconstruct exact torsion witnesses, while exhaustion remains inconclusive |
+| Algebraic principality decision | Generic AFF decision through primitive coefficient content and reduced class addition, with complete direct `L(-D)` fallback |
+| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension; principal coordinate divisors are automatic and positive torsion relations can be searched through an explicit order bound |
 | Algebraic residue-free exactness | Uses the generic complete primitive-pole Riemann--Roch space; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |
@@ -1177,6 +1187,7 @@ principal groups are:
 | Relative simple-radical integration | `integrate_relative_simple_radical` and the corresponding terminal-algebraic `integrate_elementary` route |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
+| Algebraic divisor classes | `ReducedAlgebraicDivisorClass`, `reduce_algebraic_divisor_class`, `AlgebraicTorsionSearch`, `search_algebraic_divisor_torsion` |
 | Algebraic principality decision | `AlgebraicPrincipalityDecision`, `decide_algebraic_principality` |
 | Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |
 | Mixed-prefix backend feasibility | `TowerRepresentationProposal`, `analyze_tower_representation`, `TowerRepresentationOutcome` |

@@ -163,7 +163,9 @@ The current implementation already has a strong exact-arithmetic kernel:
   through `C(x)[y]/(f)` and iterates through compatible rationally defined
   residue factors, rebuilding and rechecking every target. Independent
   quadratic residue fields can therefore be combined in a certified
-  compositum. Divisor-class torsion, factors genuinely defined over the
+  compositum. General reduced divisor-class arithmetic now finds and
+  reconstructs positive torsion relations through an explicit bound.
+  Finite-prime Jacobian order selection, factors genuinely defined over the
   current algebraic constants, general splitting fields, and arbitrary
   algebraic-curve RDEs remain open.
 
@@ -213,8 +215,8 @@ The existing design conventions to preserve are:
 | 2. Dependency and structure decisions | Partial: the normalized P/E/T relation, fundamental signatures, Gaussian fallbacks, an explicit two-linear-factor Riccati normalizer, and positive-evidence local linear-special-pole reduction are checked over `QQ(x)`. Native finite `QQ`-algebraic constants now support the base relation kernel and direct P/E factory proposals; proof-carrying recursive constant evidence, general effective constants, and automatic non-generator special-factor decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
-| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, Hess Riemann--Roch spaces, exact finite valuation kernels, and complete supported principality decisions now exist; constant normalization and divisor-class work remain. |
-| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality decisions and solves residue-free exactness through complete Riemann--Roch spaces; compatible constant descent and torsion/divisor-class work remain. |
+| 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, Hess Riemann--Roch spaces, reduced class arithmetic, positive torsion reconstruction, exact finite valuation kernels, and complete principality decisions now exist; finite-prime Jacobian reduction remains. |
+| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and bounded positive torsion, continues through compatible constant composita, and solves residue-free exactness through complete Riemann--Roch spaces; total torsion order selection and general splitting fields remain. |
 | 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic relations, coupled/parametric RDEs, and relative residue/logarithmic reduction remain. |
 | 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
@@ -890,8 +892,8 @@ separate commit after focused and full-suite verification.
    principal-divisor decisions. Algebraic logarithmic reconstruction and
    integrating-factor recognition now use this AFF service after their
    consumer-side preserved-constant check; a degree-zero empty `L(-D)` is a
-   complete nonprincipality result, not a bounded-search miss. Torsion and
-   residue-basis descent remain separate work.
+   complete nonprincipality result, not a bounded-search miss. Plan 012 later
+   replaces large direct spaces with reduced class arithmetic.
 12. [ ] Implement residue-basis descent, torsion/divisor-class solving, and
    exactness of
    second-kind differentials. Test genus-zero and positive-genus cases.
@@ -920,7 +922,12 @@ separate commit after focused and full-suite verification.
      and recollect all target places; it must not transport a source residue
      list through an assumed embedding. This unlocks compatible residue-basis
      descent for multiple independent factors.
-   - [ ] Solve the remaining torsion/divisor-class cases.
+   - [x] **Plan 012**: implement general Riemann--Roch divisor-class
+     reduction, bounded positive torsion search, witness reconstruction, and
+     content-bounded complete principality. The degree-29 genus-2 integral is
+     now an end-to-end regression without a Pell-specific algorithm.
+   - [ ] Add good-prime finite Jacobian reductions to select candidate orders
+     and make standalone torsion/nontorsion decisions total.
 13. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.
     - [x] Add the direct-curve integrating-factor cell: when a verified

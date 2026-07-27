@@ -1103,26 +1103,26 @@ returns an `EXACT` certificate without needing a constant analysis or global
 model. The collector now feeds a closed-place residue profile whose roots are
 the full finite/ramified/infinite residue multiset. The next algebraic
 decisions are global: compatible base change and place splitting, a residue
-basis over the necessary algebraic constant extension, and principal/torsion
-divisor-class solving for general logarithmic reconstruction. A first direct
-`QQ` slice now turns local residues already equal to rational constants into
-an integral divisor, searches for a verified principal witness, and returns
-its native logarithmic derivative. A bounded exact principal-divisor
-semialgorithm searches `L(-D)` for a degree-zero divisor and verifies any
-witness through its full divisor; exhausting the requested finite lattice
-slice is intentionally only incomplete. In
+basis over the necessary algebraic constant extension, and divisor-class
+relations for logarithmic reconstruction. Displayed constants over `QQ` or a
+finite algebraic extension are expanded in an exact rational basis. Each
+coordinate divisor is reduced through complete Riemann--Roch spaces; its
+coefficient content gives a complete principality bound, and an optional
+positive torsion search can reconstruct a larger principal multiple. A found
+torsion relation is exact, while exhausting an arbitrary torsion bound is
+only an unsupported boundary. In
 parallel, the nonzero zero-residue branch needs exactness decisions for
 second-kind differentials and the Risch equation on an algebraic curve.
 Recursive composition with transcendental levels comes after those field-level
 decisions and an exact backend representation for the mixed tower.
 
-The first global-space service is intentionally theorem-limited.
-`compute_riemann_roch_space` certifies `L(D)` only for negative and zero
-divisors, a degree-zero principal witness, a verified nonspecial candidate
-basis, or powers of a degree-one-pole rational parameter. It rechecks full
-principal divisors and constant-field linear independence, and otherwise
-returns no basis. General finite/infinite lattice intersection, principal and
-torsion divisor solving, and second-kind exactness remain separate decisions.
+The global-space service computes complete `L(D)` spaces by Hess's
+finite/infinite ideal intersection, with smaller theorem-backed shortcuts for
+negative and zero divisors, supplied degree-zero witnesses, nonspecial bases,
+and powers of a degree-one-pole rational parameter. Reduced divisor-class
+arithmetic uses these spaces relative to any effective positive-degree
+anchor. A standalone total torsion decision still requires finite-prime
+Jacobian reduction to select or exclude a characteristic-zero order.
 
 The next layer computes an exact intersection `V ∩ L(D)` for a supplied finite
 constant subspace `V`, using all-place Laurent-coefficient constraints. Each
@@ -1401,10 +1401,12 @@ divisor stage; they are not yet a logarithmic answer.
   `QQ` when the associated divisor has a verified bounded-search witness;
   retain non-rational residues and residue-free remainders as explicit
   boundaries.
-- [ ] Compute a rational basis for the algebraic residues in their minimal
-  constant extension.
-- [ ] Construct the divisor associated with each residue-basis coefficient
-  and solve the required principal/torsion divisor problem.
+- [x] Compute rational coordinate bases for displayed algebraic constants and
+  continue through compatible exact constant-field composita.
+- [x] Reduce degree-zero divisor classes generally and reconstruct positive
+  torsion relations through an explicit order bound.
+- [ ] Add finite-prime Jacobian reductions for total torsion/nontorsion order
+  selection.
 - [ ] Implement exactness testing for differentials of the second kind.
 - [ ] Solve the Risch differential equation on an algebraic curve.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.

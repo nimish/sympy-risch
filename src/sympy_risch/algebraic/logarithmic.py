@@ -28,12 +28,17 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polyerrors import CoercionFailed
 
 from .._typing import FieldElement
+from ..algebraic_geometry.divisor_classes import (
+    AlgebraicTorsionStatus,
+    search_algebraic_divisor_torsion,
+)
 from ..algebraic_geometry.finite_places import FiniteAlgebraicPlace
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ..algebraic_geometry.principal import (
     AlgebraicPrincipalityDecision,
     AlgebraicPrincipalityStatus,
     decide_algebraic_principality,
+    principality_from_torsion_search,
 )
 from ..tower import Derivation
 from ._field import (
@@ -532,6 +537,8 @@ def _rational_parameter_plans(
 
 def reconstruct_constant_residue_logarithms(
     collection: AlgebraicAllPlaceResidueResult,
+    *,
+    torsion_order_bound: int | None = None,
 ) -> AlgebraicIntegrationResult:
     r"""Reconstruct displayed-constant logarithms from all-place data.
 
@@ -539,10 +546,15 @@ def reconstruct_constant_residue_logarithms(
     Over ``QQ(alpha)`` the values ``c`` are then expanded in the exact power
     basis ``(1, alpha, ..., alpha**(d - 1))``.  Every rational coordinate
     gives an integral residue divisor and, when that divisor has a verified
-    principal witness, one term in the logarithmic part.  This is constructive
-    descent over the *displayed* algebraic constants; local residues outside
-    that field still require compatible constant base change and place
-    splitting.
+    principal witness, one term in the logarithmic part.  If the primitive
+    coordinate divisor is nonprincipal, reduced divisor-class arithmetic
+    searches for a positive torsion relation through ``torsion_order_bound``.
+    A found relation is exact; exhausting the bound remains an unsupported
+    boundary rather than a non-elementarity result.
+
+    This is constructive descent over the *displayed* algebraic constants;
+    local residues outside that field still require compatible constant base
+    change and place splitting.
     """
     if not isinstance(collection, AlgebraicAllPlaceResidueResult):
         raise TypeError("logarithmic reconstruction needs all-place residue data")
@@ -682,6 +694,27 @@ def reconstruct_constant_residue_logarithms(
                 )
             decision = decide_algebraic_principality(collection.model, divisor)
             coefficient = constants.convert(basis_element * scale)
+            if (
+                decision.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
+                and torsion_order_bound is not None
+            ):
+                search = search_algebraic_divisor_torsion(
+                    collection.model,
+                    divisor,
+                    max_order=torsion_order_bound,
+                )
+                if search.status is AlgebraicTorsionStatus.TORSION:
+                    if search.order is None:
+                        raise ValueError("a torsion relation omitted its order")
+                    divisor = divisor.scale(search.order)
+                    decision = principality_from_torsion_search(
+                        search,
+                        search.order,
+                    )
+                    coefficient = constants.quo(
+                        coefficient,
+                        constants.convert(search.order),
+                    )
             plans.append((coefficient, divisor, decision))
 
     decisions = tuple(decision for _coefficient, _divisor, decision in plans)
@@ -748,6 +781,7 @@ def integrate_algebraic(
     basis: IntegralBasis,
     *,
     lazy: bool = False,
+    torsion_order_bound: int | None = None,
 ) -> AlgebraicIntegrationResult:
     r"""Run the current algebraic Hermite/constant-residue integration slice.
 
@@ -756,7 +790,9 @@ def integrate_algebraic(
     complete function-field service. A residue-free remainder is then tested
     for an algebraic primitive using a complete certified Riemann--Roch space.
     It returns structured boundaries for algebraic residue base change and
-    unsupported exactness spaces.
+    unsupported exactness spaces.  Positive divisor-class torsion is searched
+    through ``torsion_order_bound``; ``None`` disables that optional
+    semidecision.
     """
     collection = collect_algebraic_all_place_residues(
         integrand,
@@ -764,7 +800,10 @@ def integrate_algebraic(
         basis,
         lazy=lazy,
     )
-    result = reconstruct_constant_residue_logarithms(collection)
+    result = reconstruct_constant_residue_logarithms(
+        collection,
+        torsion_order_bound=torsion_order_bound,
+    )
     if result.status is not AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER:
         return result
 

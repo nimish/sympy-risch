@@ -494,11 +494,9 @@ The current complete cases are deliberately narrow:
 
 If the exact order or ideal arithmetic needed by Hess is unavailable, the API
 returns an empty `UNSUPPORTED` result rather than a partial basis. Computing
-`L(-D)` is now enough to test a degree-zero divisor `D` for principality once
-the corresponding principal-divisor consumer adopts it: a nonzero basis
-member must have divisor exactly `D`. Divisor-class reduction and torsion
-arithmetic are still needed for efficient relation discovery and for scaling
-to high-degree examples.
+`L(-D)` is enough to test a degree-zero divisor `D` for principality: a
+nonzero basis member must have divisor exactly `D`. The divisor-class layer
+below now avoids constructing this potentially large space directly.
 
 ### Finite-dimensional valuation kernels
 
@@ -532,15 +530,40 @@ negative integration or global-space decision.
 
 `decide_algebraic_principality(model, D)` is the reusable global task needed
 by logarithmic reconstruction. A nonzero-degree divisor is immediately
-nonprincipal. For degree zero, it computes the complete space `L(-D)`. A
-nonzero `f` in that space satisfies `div(f) - D >= 0`; this divisor has degree
-zero and therefore vanishes, so `div(f) = D`. Conversely, an empty complete
-space proves `D` nonprincipal. The result retains the Riemann--Roch certificate
-or an explicit unsupported boundary.
+nonprincipal. For nonzero degree-zero `D`, write `D = c*D0`, where `c` is the
+gcd of its coefficients. Reduced class addition tests the first `c` multiples
+of `D0`. If its first positive order is `n`, then `D` is principal exactly
+when `n` divides `c`; if no multiple through `c` is zero, `D` is
+nonprincipal. This is a complete decision for the supplied divisor, not a
+claim about whether `D0` has infinite order. Direct `L(-D)` computation is
+retained only as an exact fallback when class reduction is unavailable.
 
 Risch callers separately establish preserved differential constants before
 using this geometric result in an elementary-integrability decision. The
 underlying function-field operation has no Risch derivation or bound argument.
+
+### Reduced classes and positive torsion
+
+`reduce_algebraic_divisor_class(model, D, anchor=A)` finds the least
+nonnegative `n` for which the complete space `L(n*A - D)` is nonzero. For a
+chosen `f` in that space it returns
+
+```text
+D = (D - div(f)) + div(f).
+```
+
+Riemann--Roch guarantees termination once `n*deg(A) >= genus`. The anchor can
+be any effective positive-degree divisor; by default one closed place at
+infinity is used. This is general algebraic-function-field arithmetic and
+does not inspect a hyperelliptic equation.
+
+`search_algebraic_divisor_torsion` repeatedly adds and reduces a degree-zero
+class. Reaching zero returns the first positive order and a reconstructed
+field element `v` with `div(v) = n*D`. Exhausting `max_order` is
+`INCONCLUSIVE`, because characteristic-zero iteration alone cannot prove that
+the order is infinite. A total standalone torsion decision still needs
+Trager's finite-prime Jacobian reductions to obtain or exclude a candidate
+order.
 
 ### Pell--Abel target example
 
@@ -567,14 +590,12 @@ Thus `v = A + B*y` is a Pell--Abel unit and
 Equivalently, the degree-zero divisor of residues is a 29-torsion
 principal-divisor relation between the two infinite places.
 
-This example is intentionally not a normal test-suite input. The older
-bounded search spent most of its time imposing local expansions. The Hess
-route instead reaches a separate current bottleneck: high powers of a
-reciprocal prime ideal trigger repeated Smith normal-form normalization in
-SymPy's exact polynomial arithmetic. A reduced-ideal implementation should
-remove that cost; a complete divisor-class or Pell--Abel solver should then
-recognize and construct the relation directly. Until then, an impractically
-slow search is an implementation boundary, never a non-elementarity claim.
+This is now a normal end-to-end regression. Calling `integrate_algebraic`
+with `torsion_order_bound=29` reduces the primitive infinity-place class,
+finds its first zero multiple at 29, reconstructs `v`, and verifies the
+original differential as `D(v)/v`. No Pell equation or hyperelliptic
+continued fraction is special-cased. Omitting the bound leaves positive
+torsion search disabled until finite-prime order selection is implemented.
 
 ## Public API
 
@@ -588,6 +609,8 @@ slow search is an implementation boundary, never a non-elementarity claim.
 | `InfiniteAlgebraicPlace` | Closed place above infinity, with the reciprocal place's local coordinates |
 | `LocalLaurentExpansion` | Certified finite Laurent segment |
 | `AlgebraicDivisor` | Immutable formal sum of closed places |
+| `ReducedAlgebraicDivisorClass` | Bounded representative plus its Riemann--Roch correction |
+| `AlgebraicTorsionSearch` | Exact positive torsion relation or an explicit bounded-search boundary |
 | `AlgebraicDifferential` | Differential represented as `h dx` |
 | `AlgebraicFunctionField` | Cached global owner for orders and places |
 | `AlgebraicConstantFieldAnalysis` | Narrow, witnessed constant-field decision |
@@ -963,10 +986,9 @@ The next algebraic Risch implementation may assume all of the following:
 6. principal and canonical divisor construction; and
 7. finite divisor/fractional-ideal conversion.
 
-It now also has a small set of certified global Riemann--Roch spaces and a
-bounded direct-`QQ` logarithmic reconstruction cell, residue-free exactness,
-and an integrating-factor RDE endpoint. It must still implement general
-finite/infinite lattice intersection, compatible residue descent,
-divisor-class/torsion solving, general logarithmic reconstruction, complete
-second-kind exactness, and general algebraic RDEs. Those are intentionally not
-infrastructure methods.
+It now also has complete Hess Riemann--Roch spaces, reduced divisor-class
+arithmetic, positive torsion witness recovery, displayed-constant logarithmic
+reconstruction, residue-free exactness, and an integrating-factor RDE
+endpoint. It must still implement finite-prime Jacobian order selection for a
+total torsion decision, general splitting-field residue descent, and general
+algebraic RDEs. Those are intentionally separate algorithms.

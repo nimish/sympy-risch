@@ -5,6 +5,13 @@ from .constant_extensions import (
     AlgebraicConstantFieldExtension,
     extend_algebraic_constants,
 )
+from .divisor_classes import (
+    AlgebraicTorsionSearch,
+    AlgebraicTorsionStatus,
+    ReducedAlgebraicDivisorClass,
+    reduce_algebraic_divisor_class,
+    search_algebraic_divisor_torsion,
+)
 from .finite_places import FiniteAlgebraicPlace, LocalLaurentExpansion
 from .function_field import (
     AlgebraicDifferential,
@@ -29,14 +36,19 @@ __all__ = [
     "AlgebraicOrder",
     "AlgebraicPrincipalityDecision",
     "AlgebraicPrincipalityStatus",
+    "AlgebraicTorsionSearch",
+    "AlgebraicTorsionStatus",
     "FiniteAlgebraicPlace",
     "HessDivisorIdeals",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
+    "ReducedAlgebraicDivisorClass",
     "decide_algebraic_principality",
     "extend_algebraic_constants",
     "hess_divisor_ideals",
     "integral_closure",
     "polynomial_order",
+    "reduce_algebraic_divisor_class",
+    "search_algebraic_divisor_torsion",
 ]

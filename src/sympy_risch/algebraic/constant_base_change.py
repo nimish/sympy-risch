@@ -240,6 +240,7 @@ def _continue_source_result(
     factor: Poly,
     *,
     lazy: bool,
+    torsion_order_bound: int | None,
 ) -> tuple[AlgebraicConstantBaseChangeStep | None, str]:
     """Reintegrate one boundary over a caller- or profile-chosen factor."""
     source_model = source_result.collection.model
@@ -266,6 +267,7 @@ def _continue_source_result(
         target_derivation,
         target_model.order.basis,
         lazy=lazy,
+        torsion_order_bound=torsion_order_bound,
     )
     return (
         AlgebraicConstantBaseChangeStep(change, target_result),
@@ -281,6 +283,7 @@ def integrate_algebraic_with_constant_base_change(
     factor: Poly | None = None,
     *,
     lazy: bool = False,
+    torsion_order_bound: int | None = None,
 ) -> AlgebraicConstantBaseChangeIntegrationResult:
     r"""Continue an algebraic integral through compatible constant fields.
 
@@ -298,12 +301,17 @@ def integrate_algebraic_with_constant_base_change(
     source residue list would omit target infinity and split descendants.
     Factors with genuinely algebraic coefficients and nonsplitting root
     fields remain explicit unsupported boundaries.
+
+    ``torsion_order_bound`` is forwarded unchanged at the source and every
+    rebuilt target field. A found relation is exact; exhaustion is not a
+    nontorsion certificate.
     """
     source_result = integrate_algebraic(
         integrand,
         derivation,
         basis,
         lazy=lazy,
+        torsion_order_bound=torsion_order_bound,
     )
     if (
         source_result.status
@@ -320,6 +328,7 @@ def integrate_algebraic_with_constant_base_change(
             source_result,
             factor,
             lazy=lazy,
+            torsion_order_bound=torsion_order_bound,
         )
         return AlgebraicConstantBaseChangeIntegrationResult(
             source_result,
@@ -346,6 +355,7 @@ def integrate_algebraic_with_constant_base_change(
                 current,
                 candidate,
                 lazy=lazy,
+                torsion_order_bound=torsion_order_bound,
             )
             if step is None:
                 final_detail = attempt_detail
