@@ -1034,6 +1034,15 @@ index one, and base-prime uniformizer; the local residue is evaluated exactly
 as `(G/D')(P)`. This is an internal Trager helper rather than a second public
 place abstraction.
 
+The canonical all-place layer also builds a closed-place residue profile: the
+product of the characteristic polynomials of multiplication by every local
+residue over the displayed constants. Unlike the Trager shortcut, it includes
+branch and infinity places. It is deliberately only a global invariant—not a
+claimed common residue field—because local closed residue fields have no
+compatible embeddings until a later base-change and place-splitting algorithm
+supplies them. Its finite unramified simple-pole slice is cross-checked against
+the Trager resultant.
+
 The general algebraic-curve substrate is separate from that plane-model
 shortcut. `AlgebraicFunctionField` computes a certified maximal `C[x]` order
 by trace-radical idealizers, supplies full fractional-ideal arithmetic, and
@@ -1068,9 +1077,11 @@ maximal-order geometry API to enumerate every finite and infinite pole with
 its true uniformizer and exact local residue; an unproved or rebasing-required
 constant field yields no partial place list. A zero Hermite remainder instead
 returns an `EXACT` certificate without needing a constant analysis or global
-model. The next algebraic decisions are global: branch-place residue descent,
-a residue basis over the minimal algebraic constant extension, and
-principal/torsion divisor-class solving for logarithmic reconstruction. In
+model. The collector now feeds a closed-place residue profile whose roots are
+the full finite/ramified/infinite residue multiset. The next algebraic
+decisions are global: compatible base change and place splitting, a residue
+basis over the necessary algebraic constant extension, and principal/torsion
+divisor-class solving for logarithmic reconstruction. In
 parallel, the nonzero zero-residue branch needs exactness decisions for
 second-kind differentials and the Risch equation on an algebraic curve.
 Recursive composition with transcendental levels comes after those field-level
@@ -1311,6 +1322,19 @@ places. At branch places the same computation contains rational branch-index
 scalings, so the model check is part of the certificate rather than an
 implicit genericity assumption.
 
+For a full all-place collection, the new profile records instead
+
+```text
+R_omega(Z) = product_P Norm_{k(P)/C}(Z - res_P).
+```
+
+Each factor comes from the exact multiplication matrix in the native closed
+residue field. This keeps conjugate multiplicities and includes zero residues,
+ramification, and infinity without choosing arbitrary embeddings of different
+residue fields into a would-be compositum. Following the Trager/Miller descent
+route, roots of the profile are input to the later constant-extension and
+divisor stage; they are not yet a logarithmic answer.
+
 - [x] Compute exact multiplication matrices, trace, norm, characteristic and
   element-minimal polynomials, trace pairings, and basis discriminants.
 - [x] Rebase derivations through algebraic levels over larger exact constant
@@ -1332,8 +1356,9 @@ implicit genericity assumption.
 - [x] Certify displayed constants for the admitted simple-radical cases and
   bridge Hermite remainders in every admitted `PRESERVED` presentation to
   every ramified, unramified, and infinite pole through the canonical global
-  model. The old plane-model route remains an independent unramified finite
-  oracle.
+  model. Build and certify the all-place closed-residue profile from that
+  data, while retaining the old plane-model route as an independent
+  unramified finite oracle.
 - [ ] Compute a rational basis for the algebraic residues in their minimal
   constant extension.
 - [ ] Construct the divisor associated with each residue-basis coefficient
@@ -1398,6 +1423,8 @@ exist.
 - Manuel Bronstein,
   [*The Lazy Hermite Reduction*](https://inria.hal.science/inria-00073121),
   INRIA RR-3562, 1998.
+- Brian L. Miller, *On the Integration of Elementary Functions: Computing the
+  Logarithmic Part*, PhD dissertation, Texas Tech University, 2012.
 - Robert Risch, *The Problem of Integration in Finite Terms*.
 - Daniel Lazard and Renaud Rioboo, *Integration of Rational Functions:
   Rational Computation of the Logarithmic Part*.

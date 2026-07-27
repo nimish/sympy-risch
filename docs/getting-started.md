@@ -1033,6 +1033,7 @@ principal groups are:
 | Algebraic Hermite reduction | `hermite_reduce_algebraic`, `lazy_hermite_reduce_algebraic`, `simple_radical_integral_basis` |
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
 | Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |
+| Algebraic all-place residue profiles | `build_algebraic_residue_profile` |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
 | Algebraic function-field infrastructure | `AlgebraicFunctionField`, `integral_closure`, `AlgebraicFractionalIdeal`, `AlgebraicDivisor`, `AlgebraicDifferential` |

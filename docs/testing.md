@@ -125,6 +125,13 @@ checks that an exact Hermite result bypasses constant-field/global-geometry
 work, that enlarged or unproved constant fields return no partial place list,
 that each local residue belongs to its own residue field, and that the
 collector reuses its already verified divisor and local-residue computations.
+`tests/test_algebraic_residue_profile.py` builds the all-place
+characteristic-polynomial profile from that data. It exercises a ramified
+branch pole together with infinity, compares the unramified finite slice to
+Trager's independent resultant, keeps degree-two and degree-four closed-place
+factors exact (including a degree-two infinity factor), distinguishes a unit
+profile from exactness, and preserves exact versus unsupported collection
+outcomes.
 `tests/test_riemann_roch.py` checks the first certified global-space cases,
 including a genus-zero parameter basis, a genus-one nonspecial basis, an exact
 algebraic constant field, degree-zero principal witnesses, and forged or

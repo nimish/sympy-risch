@@ -858,6 +858,12 @@ separate commit after focused and full-suite verification.
 11. [ ] Use it for residue-basis descent and principal/torsion divisor solving
    (algebraic logarithmic reconstruction) and, in parallel, exactness of
    second-kind differentials. Test genus-zero and positive-genus cases.
+   - [x] Build the all-place closed-residue profile
+     `product_P Norm_{k(P)/C}(Z-res_P)`, including branch and infinity places,
+     without pretending independent local residue fields are already a common
+     constant extension.
+   - [ ] Construct compatible constant base changes and split-place maps, then
+     turn profile roots into residue-basis/divisor candidates.
 12. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.
 13. [ ] Compose the completed algebraic and transcendental solvers over the

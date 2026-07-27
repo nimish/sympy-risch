@@ -20,6 +20,12 @@ from .constant_analysis import (
     analyze_algebraic_constant_field,
 )
 from .hermite import hermite_reduce_algebraic, lazy_hermite_reduce_algebraic
+from .residue_profile import (
+    AlgebraicResidueProfile,
+    AlgebraicResidueProfileFactor,
+    AlgebraicResidueProfileStatus,
+    build_algebraic_residue_profile,
+)
 from .trager import (
     AlgebraicPlaceResidue,
     TragerAlgebraicResidueResult,
@@ -36,10 +42,14 @@ __all__ = [
     "AlgebraicFraction",
     "AlgebraicLocalDifferentialResidue",
     "AlgebraicPlaceResidue",
+    "AlgebraicResidueProfile",
+    "AlgebraicResidueProfileFactor",
+    "AlgebraicResidueProfileStatus",
     "IntegralBasis",
     "SimpleRadicalData",
     "TragerAlgebraicResidueResult",
     "analyze_algebraic_constant_field",
+    "build_algebraic_residue_profile",
     "collect_algebraic_all_place_residues",
     "hermite_reduce_algebraic",
     "lazy_hermite_reduce_algebraic",

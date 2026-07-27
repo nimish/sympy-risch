@@ -144,6 +144,43 @@ belong to its record's exact residue field. It is a residue collection
 boundary, not an integrator: it neither reconstructs logarithms from residues
 nor decides whether a nonzero zero-residue differential is exact.
 
+## Closed-place residue profiles
+
+`build_algebraic_residue_profile(collection, Z)` turns a complete all-place
+collection into the canonical residue polynomial available *before* any
+constant-field base change. For every pole place `P`, it builds the exact
+matrix of multiplication by the local residue on `k(P)` over `C`, using that
+place's native constant-coordinate basis. The resulting factor is
+
+```text
+charpoly_C(m_res_P) = Norm_{k(P)/C}(Z - res_P),
+```
+
+and their product is the closed-place profile `R_omega(Z)`. It contains every
+finite, ramified, and infinity pole. A zero residue contributes its expected
+power of `Z`, so the profile retains the information needed later to separate
+logarithmic from second-kind work. `EXACT` gives the unit polynomial; an
+unsupported all-place collection, or unavailable local coordinate operation,
+gives an all-or-nothing `UNSUPPORTED` result rather than a partial product.
+A unit profile from a nonzero `PROFILED` collection is not an exactness proof:
+a holomorphic or second-kind differential can have no residues at all. The
+status retains that distinction.
+
+The profile generalizes the finite unramified polynomial computed by Trager's
+plane-model resultant. Its
+`finite_unramified_simple_pole_polynomial` property is the directly comparable
+slice and is tested against that independent implementation. The full profile
+also covers branch and infinity cases where the plane-model shortcut is
+correctly inapplicable.
+
+It is deliberately **not** a common algebraic constant field or a logarithmic
+residue basis. The native coordinate systems of two closed places do not choose
+compatible conjugates in a common algebraic closure. The next descent layer
+must factor `R_omega`, construct a compatible constant extension together with
+maps from every relevant residue field, base-change and split the places, and
+only then attach residue coefficients to divisors. This distinction prevents a
+locally correct but globally inconsistent logarithmic reconstruction.
+
 ## Certified first global spaces
 
 `compute_riemann_roch_space(model, divisor, constant_field_analysis)` is a
@@ -218,6 +255,9 @@ negative integration or global-space decision.
 | `AlgebraicLocalDifferentialResidue` | One pole, uniformizer, and local residue |
 | `AlgebraicAllPlaceResidueResult` | Hermite result plus complete all-place data |
 | `collect_algebraic_all_place_residues` | Guarded global residue collector |
+| `AlgebraicResidueProfileFactor` | `Norm_{k(P)/C}(Z-res_P)` at one closed pole |
+| `AlgebraicResidueProfile` | All-place residue polynomial before base change |
+| `build_algebraic_residue_profile` | Construct the exact closed-place profile |
 | `RiemannRochSpace` | Immutable complete basis with its proving theorem |
 | `compute_riemann_roch_space` | Certified first-scope global-space service |
 | `AlgebraicValuationKernel` | Exact `V ∩ L(D)` in a declared finite subspace |
@@ -538,14 +578,15 @@ No divisor-class or principal-divisor solver is hidden in these operations.
 - genus-zero and genus-one canonical divisors.
 
 The broader test suite continues to cover the older plane-model Trager
-resultant independently. That code remains useful for the aggregate
-unramified logarithmic coefficient polynomial; the new place layer is the
-general local substrate for its future ramified extension.
+resultant independently. The closed-place profile now cross-checks its finite
+unramified slice while also exercising branch and infinity residues. The
+plane-model route remains useful as an independent oracle; the canonical place
+layer is the general local substrate for its future ramified extension.
 
 ## Literature mapping
 
-No paper was downloaded while implementing this module. The primary sources
-were already present locally:
+The primary sources for this module were the locally available references plus
+Brian L. Miller's 2012 dissertation:
 
 - `references/books/integration-in-finite-terms-fundamental-sources-2022.pdf`,
   Trager thesis reprint, especially the integral-basis, idealizer, place, and
@@ -554,8 +595,12 @@ were already present locally:
 - `references/papers/davenport-1984-integration-on-an-algebraic-curve.pdf`;
   and
 - `references/papers/bronstein-1991-risch-differential-equation-algebraic-curve.pdf`.
+- Brian L. Miller, [*On the Integration of Elementary Functions: Computing
+  the Logarithmic Part*](https://ttu-ir.tdl.org/server/api/core/bitstreams/6a1324fa-b43d-4efe-9cfe-a95480f2dc86/content)
+  (Texas Tech University, 2012), especially its residue polynomial and divisor
+  reconstruction route.
 
-See `references/README.md` for provenance and source links.
+See `references/README.md` for the locally available sources and provenance.
 
 ## Remaining algorithm boundary
 
