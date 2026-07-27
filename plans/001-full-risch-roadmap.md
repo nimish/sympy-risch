@@ -878,10 +878,11 @@ separate commit after focused and full-suite verification.
 
 ### Algebraic completion path
 
-10. [x] **Plan 005**: establish a first certified Riemann--Roch/global-space
-   service on admitted preserved presentations. It proves only theorem-backed
-   complete cases and returns no partial basis outside them; general
-   finite/infinite lattice intersection remains the next extension.
+10. [x] **Plan 005**: establish a generic algebraic-function-field
+   Riemann--Roch/global-space service. The Hess finite/infinite ideal
+   representation and weak-Popov intersection now compute complete spaces
+   without local-expansion enumeration; Risch admission remains a separate
+   consumer-side constant-field proof.
    **Plan 006** adds exact all-place valuation constraints for any declared
    finite constant subspace and a bounded nonspecial ideal-lattice search;
    only a reached Riemann--Roch dimension certifies a complete global space.

@@ -1,4 +1,4 @@
-"""Theorem-backed first Riemann--Roch-space certificates."""
+"""Generic Riemann--Roch spaces, including Hess ideal reduction."""
 
 from dataclasses import replace
 
@@ -12,7 +12,6 @@ from sympy_risch import (
     AlgebraicFunctionField,
     DifferentialTower,
     MonomialExtension,
-    analyze_algebraic_constant_field,
 )
 from sympy_risch.algebraic_geometry.riemann_roch import (
     RiemannRochCertificate,
@@ -35,15 +34,13 @@ def algebraic_model(modulus, constants=QQ):
 
 
 def test_degree_one_parameter_constructs_a_complete_rational_space() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     parameter = extension.field.generator
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     pole_divisor = model.principal_divisor(parameter).negative_part
 
     space = compute_riemann_roch_space(
         model,
         pole_divisor.scale(3),
-        analysis,
         parameter=parameter,
     )
 
@@ -57,15 +54,13 @@ def test_degree_one_parameter_constructs_a_complete_rational_space() -> None:
 
 def test_constant_linear_independence_uses_an_exact_algebraic_constant_field() -> None:
     constants = QQ.algebraic_field(sqrt(2))
-    model, extension, derivation = algebraic_model(y**2 - x, constants)
+    model, extension, _derivation = algebraic_model(y**2 - x, constants)
     parameter = extension.field.generator
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     divisor = model.principal_divisor(parameter).negative_part
 
     space = compute_riemann_roch_space(
         model,
         divisor,
-        analysis,
         parameter=parameter,
     )
 
@@ -76,22 +71,19 @@ def test_constant_linear_independence_uses_an_exact_algebraic_constant_field() -
         compute_riemann_roch_space(
             model,
             divisor,
-            analysis,
             candidate_basis=(extension.field.one, extension.field.from_sympy(sqrt(2))),
         )
 
 
 def test_nonspecial_certificate_uses_all_place_membership_on_genus_one_curve() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x**3 + x)
+    model, extension, _derivation = algebraic_model(y**2 - x**3 + x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     x_element = field.from_sympy(x)
     divisor = model.principal_divisor(x_element).negative_part
 
     space = compute_riemann_roch_space(
         model,
         divisor,
-        analysis,
         candidate_basis=(field.one, x_element),
     )
 
@@ -104,15 +96,13 @@ def test_nonspecial_certificate_uses_all_place_membership_on_genus_one_curve() -
 
 
 def test_degree_zero_principal_witness_is_exactly_one_dimensional() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     parameter = extension.field.generator
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     divisor = -model.principal_divisor(parameter)
 
     space = compute_riemann_roch_space(
         model,
         divisor,
-        analysis,
         candidate_basis=(parameter,),
     )
 
@@ -123,21 +113,18 @@ def test_degree_zero_principal_witness_is_exactly_one_dimensional() -> None:
 
 
 def test_negative_degree_and_zero_divisor_have_canonical_complete_spaces() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     (finite_place,) = model.finite_places(Poly(x, x, domain=QQ))
     negative_divisor = AlgebraicDivisor(model, ((finite_place, -1),))
 
     zero_space = compute_riemann_roch_space(
         model,
         AlgebraicDivisor(model),
-        analysis,
     )
     negative_space = compute_riemann_roch_space(
         model,
         negative_divisor,
-        analysis,
     )
 
     assert zero_space.status is RiemannRochSpaceStatus.CERTIFIED
@@ -149,51 +136,30 @@ def test_negative_degree_and_zero_divisor_have_canonical_complete_spaces() -> No
     assert negative_space.dimension == 0
 
 
-def test_rebasing_required_constants_never_yield_partial_global_spaces() -> None:
-    model, extension, derivation = algebraic_model(y**4 - 2 * x**2)
-    analysis = analyze_algebraic_constant_field(extension, derivation)
-
-    space = compute_riemann_roch_space(
-        model,
-        AlgebraicDivisor(model),
-        analysis,
-    )
-
-    assert space.status is RiemannRochSpaceStatus.UNSUPPORTED
-    assert space.basis == ()
-    assert space.dimension is None
-    assert space.certificate is None
-    assert "preserved constant field" in space.detail
-
-
-def test_positive_genus_special_range_is_explicitly_unsupported_without_a_basis() -> (
-    None
-):
-    model, extension, derivation = algebraic_model(y**2 - x**5 + x)
+def test_positive_genus_special_range_uses_hess_ideal_intersection() -> None:
+    model, extension, _derivation = algebraic_model(y**2 - x**5 + x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     divisor = model.principal_divisor(field.from_sympy(x)).negative_part
 
-    space = compute_riemann_roch_space(model, divisor, analysis)
+    space = compute_riemann_roch_space(model, divisor)
 
     assert model.genus == 2
     assert divisor.degree == 2
-    assert space.status is RiemannRochSpaceStatus.UNSUPPORTED
-    assert space.basis == ()
-    assert "lattice intersection" in space.detail
+    assert space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert space.certificate is RiemannRochCertificate.HESS_IDEAL_INTERSECTION
+    assert space.dimension == 2
+    assert all(space.contains(element) for element in space.basis)
 
 
 def test_candidate_cannot_forge_nonspecial_completeness_or_skip_valuations() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x**3 + x)
+    model, extension, _derivation = algebraic_model(y**2 - x**3 + x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     divisor = model.principal_divisor(field.from_sympy(x)).negative_part
 
     with pytest.raises(ValueError, match=r"outside L\(D\)"):
         compute_riemann_roch_space(
             model,
             divisor,
-            analysis,
             candidate_basis=(field.one, field.generator),
         )
 
@@ -201,23 +167,20 @@ def test_candidate_cannot_forge_nonspecial_completeness_or_skip_valuations() -> 
 def test_candidate_constant_linear_dependence_and_dataclass_tampering_are_rejected() -> (
     None
 ):
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     divisor = model.principal_divisor(field.generator).negative_part
 
     with pytest.raises(ValueError, match="constant-linearly dependent"):
         compute_riemann_roch_space(
             model,
             divisor,
-            analysis,
             candidate_basis=(field.one, field.from_sympy(2)),
         )
 
     space = compute_riemann_roch_space(
         model,
         divisor,
-        analysis,
         parameter=field.generator,
     )
     with pytest.raises(ValueError, match="consecutive parameter powers"):
@@ -225,16 +188,14 @@ def test_candidate_constant_linear_dependence_and_dataclass_tampering_are_reject
 
 
 def test_parameter_of_higher_pole_degree_is_explicitly_unsupported() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     x_element = field.from_sympy(x)
     divisor = model.principal_divisor(x_element).negative_part
 
     space = compute_riemann_roch_space(
         model,
         divisor,
-        analysis,
         parameter=x_element,
     )
 
@@ -244,45 +205,39 @@ def test_parameter_of_higher_pole_degree_is_explicitly_unsupported() -> None:
 
 
 def test_parameter_and_candidate_basis_are_deliberately_mutually_exclusive() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     divisor = model.principal_divisor(field.generator).negative_part
 
     with pytest.raises(ValueError, match="alternative completeness inputs"):
         compute_riemann_roch_space(
             model,
             divisor,
-            analysis,
             parameter=field.generator,
             candidate_basis=(field.one, field.generator),
         )
 
 
 def test_zero_divisor_rejects_an_ignored_rational_parameter() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
-    analysis = analyze_algebraic_constant_field(extension, derivation)
+    model, _extension, _derivation = algebraic_model(y**2 - x)
 
     with pytest.raises(ValueError, match="unnecessary for the zero divisor"):
         compute_riemann_roch_space(
             model,
             AlgebraicDivisor(model),
-            analysis,
             parameter=object(),
         )
 
 
 def test_public_constructor_rejects_a_forged_complete_certificate() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     divisor = model.principal_divisor(field.generator).negative_part
 
     with pytest.raises(ValueError, match="wrong dimension"):
         RiemannRochSpace(
             model,
             divisor,
-            analysis,
             RiemannRochSpaceStatus.CERTIFIED,
             (field.one,),
             RiemannRochCertificate.NONSPECIAL,
@@ -291,16 +246,14 @@ def test_public_constructor_rejects_a_forged_complete_certificate() -> None:
 
 
 def test_result_rejects_partial_unsupported_data_and_wrong_divisor_ownership() -> None:
-    model, extension, derivation = algebraic_model(y**2 - x)
+    model, extension, _derivation = algebraic_model(y**2 - x)
     field = extension.field
-    analysis = analyze_algebraic_constant_field(extension, derivation)
     other_model = AlgebraicFunctionField(extension)
 
     with pytest.raises(ValueError, match="partial data"):
         RiemannRochSpace(
             model,
             AlgebraicDivisor(model),
-            analysis,
             RiemannRochSpaceStatus.UNSUPPORTED,
             (field.one,),
             None,
@@ -310,5 +263,4 @@ def test_result_rejects_partial_unsupported_data_and_wrong_divisor_ownership() -
         compute_riemann_roch_space(
             model,
             AlgebraicDivisor(other_model),
-            analysis,
         )

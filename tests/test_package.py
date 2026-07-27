@@ -129,10 +129,12 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "AlgebraicPrincipalDivisorSearch",
         "AlgebraicPrincipalDivisorStatus",
         "FiniteAlgebraicPlace",
+        "HessDivisorIdeals",
         "InfiniteAlgebraicPlace",
         "IntegralClosureResult",
         "LocalLaurentExpansion",
         "integral_closure",
+        "hess_divisor_ideals",
         "polynomial_order",
         "search_algebraic_principal_divisor",
     }

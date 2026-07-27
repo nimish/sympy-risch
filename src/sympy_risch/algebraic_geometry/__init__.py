@@ -7,6 +7,7 @@ from .function_field import (
     AlgebraicDivisor,
     AlgebraicFunctionField,
 )
+from .hess import HessDivisorIdeals, hess_divisor_ideals
 from .infinity import InfiniteAlgebraicPlace
 from .orders import AlgebraicFractionalIdeal, AlgebraicOrder
 from .principal import (
@@ -24,9 +25,11 @@ __all__ = [
     "AlgebraicPrincipalDivisorSearch",
     "AlgebraicPrincipalDivisorStatus",
     "FiniteAlgebraicPlace",
+    "HessDivisorIdeals",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
+    "hess_divisor_ideals",
     "integral_closure",
     "polynomial_order",
     "search_algebraic_principal_divisor",

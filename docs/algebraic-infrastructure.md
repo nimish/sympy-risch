@@ -445,14 +445,22 @@ For example, on `y**2 = x`, the source differential
 answer. This is a one-step constructive route, not general constant descent
 or a constant-compositum algorithm.
 
-## Certified first global spaces
+## Riemann--Roch spaces
 
-`compute_riemann_roch_space(model, divisor, constant_field_analysis)` is a
-small theorem-backed Riemann--Roch kernel, not yet a general basis algorithm.
-It first requires the same `PRESERVED` constant-field certificate used by the
-all-place collector. A successful `RiemannRochSpace` is immutable and checks
-every supplied basis element through its full principal divisor, so its finite,
-ramified, and infinite valuation bounds are all exact.
+`compute_riemann_roch_space(model, divisor)` is a generic function-field
+operation. It has no Risch admission or constant-field dependency: other
+clients can reuse it for a presented algebraic function field. Risch callers
+must establish `PRESERVED` constants before they use its basis in an
+elementarity decision.
+
+For a general divisor it uses the Hess finite/infinite ideal representation.
+`hess_divisor_ideals` builds inverted ideals in the maximal finite order and
+the reciprocal-chart maximal order; weak Popov reduction of their transition
+matrix then computes their intersection. This replaces the former
+expansion-per-candidate path and has no caller-selected degree bound. A
+successful `RiemannRochSpace` rechecks every basis element through its full
+principal divisor, so finite, ramified, and infinite valuation bounds are
+exact.
 
 The current complete cases are deliberately narrow:
 
@@ -467,11 +475,13 @@ The current complete cases are deliberately narrow:
   degree-one pole divisor, where the certified basis is
   `1, u, ..., u**m`.
 
-All other cases return an empty `UNSUPPORTED` result rather than a partial
-basis. In particular, the kernel does not yet perform the general
-finite/infinite lattice intersection needed for arbitrary divisors, nor does
-it solve principal or torsion divisor problems. Those remain the global
-inputs for algebraic logarithmic reconstruction and second-kind exactness.
+If the exact order or ideal arithmetic needed by Hess is unavailable, the API
+returns an empty `UNSUPPORTED` result rather than a partial basis. Computing
+`L(-D)` is now enough to test a degree-zero divisor `D` for principality once
+the corresponding principal-divisor consumer adopts it: a nonzero basis
+member must have divisor exactly `D`. Divisor-class reduction and torsion
+arithmetic are still needed for efficient relation discovery and for scaling
+to high-degree examples.
 
 ### Finite-dimensional valuation kernels
 
@@ -546,16 +556,14 @@ Thus `v = A + B*y` is a Pell--Abel unit and
 Equivalently, the degree-zero divisor of residues is a 29-torsion
 principal-divisor relation between the two infinite places.
 
-This example is intentionally not a normal test-suite input.  Supplying the
-degree-29 bound to the current semialgorithm makes it enumerate a large
-candidate lattice and impose local Laurent conditions on every candidate.  In
-the present SymPy representation, the dominant work is repeated exact
-valuation/local-expansion arithmetic (including rational-function GCD and
-cancellation), rather than the final constant-field linear algebra.  A
-complete divisor-class or Pell--Abel solver should recognize and construct
-this relation directly; until then, a bounded miss or an impractically slow
-search is an `INCOMPLETE` implementation boundary, never a non-elementarity
-claim.
+This example is intentionally not a normal test-suite input. The older
+bounded search spent most of its time imposing local expansions. The Hess
+route instead reaches a separate current bottleneck: high powers of a
+reciprocal prime ideal trigger repeated Smith normal-form normalization in
+SymPy's exact polynomial arithmetic. A reduced-ideal implementation should
+remove that cost; a complete divisor-class or Pell--Abel solver should then
+recognize and construct the relation directly. Until then, an impractically
+slow search is an implementation boundary, never a non-elementarity claim.
 
 ## Public API
 
@@ -563,6 +571,7 @@ claim.
 | --- | --- |
 | `AlgebraicOrder` | Certified full-rank `C[x]` subring of `L` |
 | `AlgebraicFractionalIdeal` | Nonzero full-rank fractional ideal |
+| `HessDivisorIdeals` | Finite and reciprocal-chart ideals representing one divisor |
 | `IntegralClosureResult` | Maximal order plus all refinement evidence |
 | `FiniteAlgebraicPlace` | Closed finite place, including ramified places and local `C` coordinates |
 | `InfiniteAlgebraicPlace` | Closed place above infinity, with the reciprocal place's local coordinates |

@@ -1,10 +1,9 @@
-r"""Certified first Riemann--Roch spaces for algebraic function fields.
+r"""Complete Riemann--Roch spaces for algebraic function fields.
 
-This is intentionally a *certificate kernel*, not yet a general
-Riemann--Roch basis algorithm.  The geometry layer supplies exact orders,
-places, valuations, and divisors; this module turns those local facts into a
-small collection of globally complete spaces only when a standard theorem
-proves completeness.
+The geometry layer supplies exact orders, places, valuations, divisors, and
+Hess's finite/infinite ideal representation. This module owns the generic
+Riemann--Roch result type; it does not depend on Risch derivations or
+elementary integration.
 
 For a divisor ``D`` on a smooth function field ``L/C``,
 
@@ -16,21 +15,18 @@ The implemented certificates are:
 * ``D = 0``: ``L(D) = C``;
 * a degree-zero principal witness ``f`` with ``div(f) + D = 0``:
   ``L(D) = C*f``;
+* Hess's ideal-intersection algorithm for a general divisor;
 * the nonspecial range ``deg(D) > 2*g - 2``: a caller-provided basis with
   ``deg(D) + 1 - g`` exact, constant-linearly independent members is complete
   by Riemann--Roch; and
 * a rational parameter ``t`` with pole divisor of degree one:
   ``L(m*(t)_infinity) = span_C(1, t, ..., t**m)``.
 
-The last case is an executable seed for the eventual lattice-intersection
-solver.  A degree-one pole divisor implies ``L = C(t)``; it is not guessed
-from the displayed plane equation.  Every successful result rechecks every
-candidate through the full global principal divisor, so finite, ramified, and
-infinite valuation bounds are all enforced.
-
-The module requires the existing algebraic constant-field proof.  It never
-treats a displayed coefficient field as the true constant field merely
-because SymPy can perform arithmetic in it.
+The Hess route avoids local Laurent expansions and a caller-selected degree
+bound. It computes the intersection of finite and reciprocal-chart ideals by
+weak Popov reduction of their transition matrix. Applications such as Risch
+must separately establish that the displayed coefficient field is the true
+constant field before using a result in a decision.
 """
 
 from __future__ import annotations
@@ -50,10 +46,6 @@ from ..algebraic._field import (
     _extension_element,
     _parent_element_polynomial,
     _polynomial_parent_element,
-)
-from ..algebraic.constant_analysis import (
-    AlgebraicConstantFieldAnalysis,
-    AlgebraicConstantFieldStatus,
 )
 from .function_field import (
     AlgebraicDivisor,
@@ -76,6 +68,7 @@ class RiemannRochCertificate(Enum):
     DEGREE_ZERO_WITNESS = "degree_zero_witness"
     NONSPECIAL = "nonspecial"
     RATIONAL_PARAMETER = "rational_parameter"
+    HESS_IDEAL_INTERSECTION = "hess_ideal_intersection"
 
 
 def constant_coordinate_matrix(
@@ -176,15 +169,14 @@ def _rational_parameter_pole_divisor(
 class RiemannRochSpace:
     r"""An immutable complete basis of one certified ``L(D)``.
 
-    ``basis`` is a basis over the *true* constant field certified by
-    ``constant_field_analysis``.  ``UNSUPPORTED`` is intentionally
-    information-poor: it carries no candidate basis that a downstream solver
-    could accidentally mistake for a complete space.
+    ``basis`` is over the function field's displayed constant field.
+    ``UNSUPPORTED`` is intentionally information-poor: it carries no
+    candidate basis that a downstream solver could accidentally mistake for a
+    complete space.
     """
 
     model: AlgebraicFunctionField
     divisor: AlgebraicDivisor
-    constant_field_analysis: AlgebraicConstantFieldAnalysis
     status: RiemannRochSpaceStatus
     basis: tuple[ExtensionElement, ...]
     certificate: RiemannRochCertificate | None
@@ -198,13 +190,6 @@ class RiemannRochSpace:
             raise TypeError("a Riemann--Roch space needs an algebraic divisor")
         if self.divisor.model is not self.model:
             raise ValueError("the divisor belongs to another function field")
-        if not isinstance(
-            self.constant_field_analysis,
-            AlgebraicConstantFieldAnalysis,
-        ):
-            raise TypeError("a Riemann--Roch space needs constant-field analysis")
-        if self.constant_field_analysis.extension is not self.model.extension:
-            raise ValueError("the constant-field analysis belongs to another field")
         if not isinstance(self.status, RiemannRochSpaceStatus):
             raise TypeError("the Riemann--Roch status has the wrong type")
         if not isinstance(self.detail, str) or not self.detail:
@@ -229,13 +214,6 @@ class RiemannRochSpace:
 
         if self.status is not RiemannRochSpaceStatus.CERTIFIED:
             raise ValueError("a Riemann--Roch result has an unknown status")
-        if (
-            self.constant_field_analysis.status
-            is not AlgebraicConstantFieldStatus.PRESERVED
-        ):
-            raise ValueError(
-                "a complete Riemann--Roch space needs a preserved constant field",
-            )
         if not isinstance(self.certificate, RiemannRochCertificate):
             raise ValueError(
                 "a complete Riemann--Roch space needs a theorem certificate"
@@ -328,6 +306,12 @@ class RiemannRochSpace:
             self._verify_basis(basis)
             return
 
+        if certificate is RiemannRochCertificate.HESS_IDEAL_INTERSECTION:
+            if parameter is not None:
+                raise ValueError("a Hess basis cannot carry a rational parameter")
+            self._verify_basis(basis)
+            return
+
         raise ValueError("the Riemann--Roch certificate has an unknown kind")
 
     def _verify_basis(self, basis: tuple[ExtensionElement, ...]) -> None:
@@ -340,14 +324,12 @@ class RiemannRochSpace:
 def _unsupported_space(
     model: AlgebraicFunctionField,
     divisor: AlgebraicDivisor,
-    constant_field_analysis: AlgebraicConstantFieldAnalysis,
     detail: str,
 ) -> RiemannRochSpace:
     """Build the deliberately empty boundary result."""
     return RiemannRochSpace(
         model,
         divisor,
-        constant_field_analysis,
         RiemannRochSpaceStatus.UNSUPPORTED,
         (),
         None,
@@ -358,18 +340,15 @@ def _unsupported_space(
 def compute_riemann_roch_space(
     model: AlgebraicFunctionField,
     divisor: AlgebraicDivisor,
-    constant_field_analysis: AlgebraicConstantFieldAnalysis,
     *,
     parameter: object | None = None,
     candidate_basis: tuple[object, ...] | None = None,
 ) -> RiemannRochSpace:
-    r"""Construct a complete ``L(D)`` only in one proved first-scope case.
+    r"""Construct a complete ``L(D)`` in the displayed function field.
 
-    ``constant_field_analysis`` must be the existing ``PRESERVED`` proof for
-    the same direct algebraic ``C(x)`` presentation.  The function returns an
-    explicit empty ``UNSUPPORTED`` result rather than a partial candidate list
-    whenever its finite/infinite lattice-intersection algorithm is not yet
-    implemented.
+    Exact Hess ideal reduction is the general route. The optional inputs keep
+    the smaller theorem-backed constructions useful for callers that already
+    have a basis or a rational parameter.
 
     Supplying ``candidate_basis`` enables the theorem-backed nonspecial and
     degree-zero-witness certificates.  It never bypasses validation: every
@@ -384,22 +363,9 @@ def compute_riemann_roch_space(
         raise TypeError("Riemann--Roch construction needs an algebraic divisor")
     if divisor.model is not model:
         raise ValueError("the divisor belongs to another function field")
-    if not isinstance(constant_field_analysis, AlgebraicConstantFieldAnalysis):
-        raise TypeError("Riemann--Roch construction needs constant-field analysis")
-    if constant_field_analysis.extension is not model.extension:
-        raise ValueError("the constant-field analysis belongs to another field")
     if parameter is not None and candidate_basis is not None:
         raise ValueError(
             "parameter and candidate_basis are alternative completeness inputs",
-        )
-
-    if constant_field_analysis.status is not AlgebraicConstantFieldStatus.PRESERVED:
-        return _unsupported_space(
-            model,
-            divisor,
-            constant_field_analysis,
-            "Riemann--Roch spaces require a certified preserved constant field; "
-            f"the current presentation is {constant_field_analysis.status.value}",
         )
 
     candidates = (
@@ -415,14 +381,12 @@ def compute_riemann_roch_space(
             return _unsupported_space(
                 model,
                 divisor,
-                constant_field_analysis,
                 "a negative-degree divisor has L(D) = 0; supplied candidate data "
                 "does not describe that space",
             )
         return RiemannRochSpace(
             model,
             divisor,
-            constant_field_analysis,
             RiemannRochSpaceStatus.CERTIFIED,
             (),
             RiemannRochCertificate.NEGATIVE_DEGREE,
@@ -436,7 +400,6 @@ def compute_riemann_roch_space(
         return RiemannRochSpace(
             model,
             divisor,
-            constant_field_analysis,
             RiemannRochSpaceStatus.CERTIFIED,
             basis,
             RiemannRochCertificate.ZERO_DIVISOR,
@@ -451,7 +414,6 @@ def compute_riemann_roch_space(
             return _unsupported_space(
                 model,
                 divisor,
-                constant_field_analysis,
                 f"the proposed rational parameter is not certified: {exc}",
             )
         place, _pole_order = pole_divisor.terms[0]
@@ -465,7 +427,6 @@ def compute_riemann_roch_space(
             return RiemannRochSpace(
                 model,
                 divisor,
-                constant_field_analysis,
                 RiemannRochSpaceStatus.CERTIFIED,
                 basis,
                 RiemannRochCertificate.RATIONAL_PARAMETER,
@@ -475,7 +436,6 @@ def compute_riemann_roch_space(
         return _unsupported_space(
             model,
             divisor,
-            constant_field_analysis,
             "the divisor is not a nonnegative multiple of the parameter pole divisor",
         )
 
@@ -483,7 +443,6 @@ def compute_riemann_roch_space(
         return RiemannRochSpace(
             model,
             divisor,
-            constant_field_analysis,
             RiemannRochSpaceStatus.CERTIFIED,
             candidates,
             RiemannRochCertificate.DEGREE_ZERO_WITNESS,
@@ -497,24 +456,33 @@ def compute_riemann_roch_space(
             return _unsupported_space(
                 model,
                 divisor,
-                constant_field_analysis,
                 f"the genus needed for the nonspecial theorem is unavailable: {exc}",
             )
         if divisor.degree > 2 * genus - 2:
             return RiemannRochSpace(
                 model,
                 divisor,
-                constant_field_analysis,
                 RiemannRochSpaceStatus.CERTIFIED,
                 candidates,
                 RiemannRochCertificate.NONSPECIAL,
                 "Riemann--Roch gives l(D) = deg(D) + 1 - genus in this range",
             )
 
-    return _unsupported_space(
+    try:
+        from .hess import hess_riemann_roch_basis
+
+        basis = hess_riemann_roch_basis(model, divisor)
+    except (NotImplementedError, TypeError, ValueError) as exc:
+        return _unsupported_space(
+            model,
+            divisor,
+            f"Hess ideal-intersection computation is unavailable: {exc}",
+        )
+    return RiemannRochSpace(
         model,
         divisor,
-        constant_field_analysis,
-        "general finite/infinite lattice intersection for Riemann--Roch bases "
-        "is not implemented yet",
+        RiemannRochSpaceStatus.CERTIFIED,
+        basis,
+        RiemannRochCertificate.HESS_IDEAL_INTERSECTION,
+        "Hess ideal-intersection reduction computed a complete Riemann--Roch basis",
     )

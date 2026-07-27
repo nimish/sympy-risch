@@ -1064,19 +1064,13 @@ completeness theorem. For the same rational curve `y**2 = x`, the generator
 corresponding Riemann--Roch space:
 
 ```python
-from sympy_risch import analyze_algebraic_constant_field
 from sympy_risch.algebraic_geometry.riemann_roch import compute_riemann_roch_space
 
 parameter = sqrt_x_extension.field.generator
-constant_field = analyze_algebraic_constant_field(
-    sqrt_x_extension,
-    sqrt_x.derivation(),
-)
 pole_divisor = curve.principal_divisor(parameter).negative_part
 space = compute_riemann_roch_space(
     curve,
     pole_divisor.scale(3),
-    constant_field,
     parameter=parameter,
 )
 

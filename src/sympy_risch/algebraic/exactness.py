@@ -265,7 +265,6 @@ class AlgebraicExactnessResult:
             if (
                 space.model is not self.model
                 or space.divisor != pole_divisor
-                or space.constant_field_analysis is not self.constant_field_analysis
                 or space.status is not RiemannRochSpaceStatus.CERTIFIED
             ):
                 raise ValueError("the primitive space is inconsistent")
@@ -478,7 +477,6 @@ def solve_algebraic_exactness(
         space = compute_riemann_roch_space(
             model,
             pole_divisor,
-            constant_field_analysis,
         )
         if space.status is not RiemannRochSpaceStatus.CERTIFIED:
             return _unsupported_exactness(

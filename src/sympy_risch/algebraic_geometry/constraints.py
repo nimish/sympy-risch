@@ -616,7 +616,6 @@ class AlgebraicNonspecialLatticeSearch:
         if (
             self.space.model is not self.model
             or self.space.divisor is not self.divisor
-            or self.space.constant_field_analysis is not self.constant_field_analysis
             or self.space.status is not RiemannRochSpaceStatus.CERTIFIED
             or self.space.basis != kernel.basis
         ):
@@ -761,7 +760,6 @@ def search_nonspecial_lattice_slice(
         space = compute_riemann_roch_space(
             model,
             divisor,
-            constant_field_analysis,
             candidate_basis=kernel.basis,
         )
         if space.status is not RiemannRochSpaceStatus.CERTIFIED:
