@@ -192,7 +192,7 @@ The current implementation is organized by mathematical responsibility:
 | `exact.py` | Level-independent exact-derivative dispatch |
 | `reduction/fractions.py` | Shared monomial fraction normal forms and normal/special decomposition |
 | `monomial.py` | Primitive signatures, radical logarithmic decisions, and family reducers |
-| `dependency.py` | Parametric logarithmic decisions and generator-dependency certificates |
+| `dependency/` | Parametric logarithmic decisions and generator-dependency certificates by tower family |
 | `rde/` | Scalar and coupled Risch differential equations, split by theorem family behind one facade |
 | `elementary.py` | Recursive elementary integration and obstruction propagation |
 
@@ -223,8 +223,9 @@ Physical splits follow theorem families rather than a generic service layer:
 1. `rde/` now separates base rational, finite-constant, primitive,
    hyperexponential, coupled, certificate, and dispatch code while preserving
    the `sympy_risch.rde` facade;
-2. split `dependency.py` into parametric logarithmic-derivative and
-   extension-certification modules; then
+2. `dependency/` now separates rational, primitive, mixed-tower, and
+   extension-certification decisions while preserving the
+   `sympy_risch.dependency` facade;
 3. split `monomial.py` into primitive/logarithmic, common fraction reduction,
    hyperexponential, and hypertangent modules.
 

@@ -4,7 +4,7 @@ import pytest
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
-import sympy_risch.dependency as dependency_module
+import sympy_risch.dependency.transcendental as dependency_module
 from sympy_risch import (
     ConstantFieldStatus,
     DifferentialTower,
@@ -161,6 +161,7 @@ def test_universal_parametric_witnesses_precede_lower_tower_certification() -> N
     tower = _nested_hyperexponential_tower(ConstantFieldStatus.UNKNOWN)
     lower_derivation = tower.derivation().lower()
     extension = tower.levels[-1]
+    assert isinstance(extension, MonomialExtension)
 
     zero_result = solve_parametric_logarithmic_derivative(
         0,
@@ -189,6 +190,7 @@ def test_universal_parametric_witnesses_precede_hypertangent_normalization(
     tower = _hypertangent_lower_tower()
     lower_derivation = tower.derivation().lower()
     extension = tower.levels[-1]
+    assert isinstance(extension, MonomialExtension)
     monkeypatch.setattr(
         dependency_module,
         "_solve_hypertangent_parametric_logarithmic_derivative",
@@ -213,6 +215,7 @@ def test_hyperexponential_dependency_is_transcendental_only_after_a_proved_negat
     tower = _nested_hyperexponential_tower()
     lower_derivation = tower.derivation().lower()
     extension = tower.levels[-1]
+    assert isinstance(extension, MonomialExtension)
 
     dependency = analyze_hyperexponential_extension(
         extension,
@@ -241,6 +244,7 @@ def test_unsupported_nested_plogd_is_not_a_transcendence_certificate(
     tower = _adversarial_hyperexponential_tower()
     lower_derivation = tower.derivation().lower()
     extension = tower.levels[-1]
+    assert isinstance(extension, MonomialExtension)
     monkeypatch.setattr(
         dependency_module,
         "solve_logarithmic_relation_system",
