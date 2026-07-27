@@ -59,8 +59,8 @@ from .infinity import InfiniteAlgebraicPlace
 from .riemann_roch import (
     RiemannRochSpace,
     RiemannRochSpaceStatus,
-    _constant_coordinate_matrix,
     compute_riemann_roch_space,
+    constant_coordinate_matrix,
 )
 
 
@@ -96,7 +96,7 @@ def _independent_ambient_basis(
     )
     if not coerced:
         return ()
-    matrix = _constant_coordinate_matrix(model, coerced)
+    matrix = constant_coordinate_matrix(model, coerced)
     _reduced, pivots = matrix.rref()
     return tuple(coerced[index] for index in pivots)
 
@@ -364,9 +364,7 @@ class AlgebraicValuationKernel:
             raise ValueError("kernel basis does not match its constant coordinates")
         if any(not self.contains(element) for element in self.basis):
             raise ValueError("a valuation-kernel basis element lies outside L(D)")
-        if _constant_coordinate_matrix(self.model, self.basis).rank() != len(
-            self.basis
-        ):
+        if constant_coordinate_matrix(self.model, self.basis).rank() != len(self.basis):
             raise ValueError(
                 "the valuation-kernel basis is constant-linearly dependent"
             )

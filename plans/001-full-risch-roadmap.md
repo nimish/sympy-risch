@@ -877,6 +877,10 @@ separate commit after focused and full-suite verification.
      factor or the first compatible irreducible factor from the square-free
      all-place residue profile may select the target. This is deliberately
      limited to one factor that splits in its root field.
+   - [x] Decide direct residue-free exactness whenever `L(E)` is the certified
+     constant space or a bounded nonspecial lattice search reaches its
+     Riemann--Roch dimension. A complete failed solve proves only no
+     primitive in the current algebraic function field.
    - [ ] Generalize compatible constant descent and place splitting to
      composita and iterative extensions, and solve the remaining
      principal/torsion divisor cases.

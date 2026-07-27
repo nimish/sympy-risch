@@ -215,8 +215,37 @@ integrand = D(exact_part) + logarithmic_derivative + remainder.
 `EXACT` and `ELEMENTARY` are constructive answers. `INCOMPLETE` means only
 that the requested finite principal-divisor bound missed a witness;
 `NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a residue outside the
-displayed constants; and `RESIDUE_FREE_REMAINDER` is passed to the future
+displayed constants; and `RESIDUE_FREE_REMAINDER` carries the current
 first-/second-kind exactness decision. None is a non-elementarity claim.
+
+## Certified residue-free exactness
+
+After logarithmic terms have been removed, `solve_algebraic_exactness` builds
+a fresh differential from the **post-logarithmic** remainder. It does not
+reuse the original all-place divisor: subtraction of logarithmic derivatives
+can change both pole orders and residues.
+
+For a nonzero differential `omega`, any algebraic primitive belongs to the
+Riemann--Roch space `L(E)` with
+
+```text
+E = sum_(ord_P(omega) < -1) (-ord_P(omega) - 1) P.
+```
+
+The implementation first checks every fresh pole residue. A nonzero residue
+proves that no algebraic primitive exists. When all residues vanish, it uses
+the certified `L(0) = C` case or a bounded nonspecial lattice search that has
+reached the exact Riemann--Roch dimension. Only then does it solve
+`D(sum_i c_i b_i) = omega` as an exact linear system over the displayed
+constant field. A failed solve in a complete space is a complete statement
+that the current algebraic function field has no primitive; it is **not** an
+elementary-integrability conclusion.
+
+`integrate_algebraic` invokes this step automatically. On `y**2 = x`,
+`dx / y = D(2*y)`, and `y / (x - 1)` is completed by the same `2*y` exact
+correction after its logarithmic term is reconstructed. On an elliptic curve,
+a holomorphic differential such as `dx / y` correctly remains a residue-free
+remainder with a certified no-primitive exactness result.
 
 ## One-step profile-selected algebraic constant base change
 
@@ -348,6 +377,8 @@ algorithms; the bounded routine deliberately does not claim either.
 | `AlgebraicIntegrationResult` | Native Hermite/logarithmic decomposition and an honest algebraic status |
 | `AlgebraicLogarithmicTerm` | One coefficient, verified residue divisor, and log argument |
 | `integrate_algebraic` | Current displayed-constant algebraic integration slice |
+| `AlgebraicExactnessResult` | Verified primitive, complete in-field no-primitive decision, or bounded/unsupported exactness boundary |
+| `solve_algebraic_exactness` | Low-level residue-free exactness decision in a direct algebraic function field |
 | `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus explicit target-field continuation |
 | `integrate_algebraic_with_constant_base_change` | Recollect and integrate after an explicit or one-step profile-selected compatible factor |
 

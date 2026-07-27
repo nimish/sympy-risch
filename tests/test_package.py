@@ -73,6 +73,9 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "AlgebraicConstantEmbedding",
         "AlgebraicConstantFieldAnalysis",
         "AlgebraicConstantFieldStatus",
+        "AlgebraicExactnessCertificate",
+        "AlgebraicExactnessResult",
+        "AlgebraicExactnessStatus",
         "AlgebraicFraction",
         "AlgebraicLocalDifferentialResidue",
         "AlgebraicPlaceResidue",
@@ -88,6 +91,7 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "hermite_reduce_algebraic",
         "lazy_hermite_reduce_algebraic",
         "recognize_simple_radical",
+        "solve_algebraic_exactness",
         "simple_radical_integral_basis",
         "trager_algebraic_place_residues",
         "trager_algebraic_residue_polynomial",
@@ -130,6 +134,7 @@ def test_algebraic_geometry_public_annotations_are_runtime_resolvable() -> None:
 
 def test_algebraic_integration_public_annotations_are_runtime_resolvable() -> None:
     get_type_hints(sympy_risch.AlgebraicConstantBaseChangeIntegrationResult)
+    get_type_hints(sympy_risch.AlgebraicExactnessResult)
     get_type_hints(sympy_risch.AlgebraicIntegrationResult)
     get_type_hints(sympy_risch.AlgebraicLogarithmicTerm)
 

@@ -47,6 +47,11 @@ from .all_places import (
     collect_algebraic_all_place_residues,
 )
 from .basis import IntegralBasis
+from .exactness import (
+    AlgebraicExactnessResult,
+    AlgebraicExactnessStatus,
+    solve_algebraic_exactness,
+)
 
 
 class AlgebraicIntegrationStatus(Enum):
@@ -117,12 +122,15 @@ class AlgebraicIntegrationResult:
 
     ``integrand = D(exact_part) + logarithmic_derivative + remainder``.
 
+    Here ``exact_part`` is the Hermite exact part plus an optional exact
+    correction found after logarithmic residues have been removed.
+
     ``ELEMENTARY`` and ``EXACT`` are constructive successes. A
     ``RESIDUE_FREE_REMAINDER`` has had every displayed-constant logarithmic
-    residue removed, but still needs the later exactness decision for first-
-    and second-kind differentials. ``INCOMPLETE`` means only that the
-    requested finite principal-divisor search bound did not find every
-    witness.
+    residue removed. Its optional ``exactness`` record says whether the
+    remaining first-/second-kind differential was decided in the current
+    algebraic field. ``INCOMPLETE`` means only that the requested finite
+    principal-divisor search bound did not find every witness.
     """
 
     collection: AlgebraicAllPlaceResidueResult
@@ -131,6 +139,8 @@ class AlgebraicIntegrationResult:
     principal_searches: tuple[AlgebraicPrincipalDivisorSearch, ...]
     remainder: ExtensionElement
     detail: str
+    exact_correction: ExtensionElement | None = None
+    exactness: AlgebraicExactnessResult | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.collection, AlgebraicAllPlaceResidueResult):
@@ -161,9 +171,44 @@ class AlgebraicIntegrationResult:
         object.__setattr__(self, "principal_searches", searches)
 
         remainder = _extension_element(extension, self.remainder)
+        correction = (
+            extension.field.zero
+            if self.exact_correction is None
+            else _extension_element(extension, self.exact_correction)
+        )
         object.__setattr__(self, "remainder", remainder)
+        object.__setattr__(self, "exact_correction", correction)
+        exactness = self.exactness
+        if exactness is not None:
+            if not isinstance(exactness, AlgebraicExactnessResult):
+                raise TypeError("an algebraic integration result has invalid exactness")
+            if (
+                self.collection.model is None
+                or exactness.model is not self.collection.model
+            ):
+                raise ValueError("the exactness result belongs to another model")
+            if not exactness.derivation.has_same_position(self.collection.derivation):
+                raise ValueError("the exactness result belongs to another derivation")
+            if (
+                exactness.coefficient
+                - (self.collection.derivation(correction) + remainder)
+                != extension.field.zero
+            ):
+                raise ValueError("the exactness result has another remainder")
+            if exactness.is_exact:
+                if (
+                    correction != exactness.primitive
+                    or remainder != extension.field.zero
+                ):
+                    raise ValueError("an exactness witness was not applied completely")
+            elif correction != extension.field.zero:
+                raise ValueError(
+                    "only an exactness witness can add an exact correction"
+                )
+        elif correction != extension.field.zero:
+            raise ValueError("an exact correction needs its exactness result")
         reconstructed = (
-            self.collection.derivation(self.collection.exact_part)
+            self.collection.derivation(self.collection.exact_part + correction)
             + self.logarithmic_derivative
             + remainder
         )
@@ -172,12 +217,20 @@ class AlgebraicIntegrationResult:
 
         if self.status is AlgebraicIntegrationStatus.EXACT:
             if (
-                self.collection.status is not AlgebraicAllPlaceResidueStatus.EXACT
+                self.collection.status
+                not in {
+                    AlgebraicAllPlaceResidueStatus.EXACT,
+                    AlgebraicAllPlaceResidueStatus.COLLECTED,
+                }
                 or remainder != extension.field.zero
                 or terms
                 or searches
             ):
                 raise ValueError("an exact result needs an exact zero-remainder input")
+            if self.collection.status is AlgebraicAllPlaceResidueStatus.COLLECTED and (
+                exactness is None or not exactness.is_exact
+            ):
+                raise ValueError("a collected exact result needs an exactness witness")
             return
 
         if self.status is AlgebraicIntegrationStatus.ELEMENTARY:
@@ -213,6 +266,11 @@ class AlgebraicIntegrationResult:
                 raise ValueError("a residue-free remainder result needs a remainder")
             if len(searches) != len(terms):
                 raise ValueError("a reconstructed logarithmic term needs its search")
+            if (
+                exactness is not None
+                and exactness.status is AlgebraicExactnessStatus.EXACT
+            ):
+                raise ValueError("an exactness witness must promote the integration")
             return
 
         if self.status is AlgebraicIntegrationStatus.UNSUPPORTED:
@@ -233,7 +291,9 @@ class AlgebraicIntegrationResult:
     def reconstructs(self) -> bool:
         """Whether the retained native decomposition reconstructs the input."""
         reconstructed = (
-            self.collection.derivation(self.collection.exact_part)
+            self.collection.derivation(
+                self.collection.exact_part + self.exact_correction
+            )
             + self.logarithmic_derivative
             + self.remainder
         )
@@ -258,6 +318,11 @@ class AlgebraicIntegrationResult:
                 term.argument,
             )
         return result
+
+    @property
+    def exact_part(self) -> ExtensionElement:
+        """Return the complete algebraic exact part of the decomposition."""
+        return self.collection.exact_part + self.exact_correction
 
     @property
     def logarithmic_coefficient(self) -> FieldElement | None:
@@ -301,7 +366,7 @@ class AlgebraicIntegrationResult:
         _parent, constants, _variable = _base_polynomial_ring(
             self.collection.basis.extension,
         )
-        exact_part = field.to_sympy(self.collection.exact_part)
+        exact_part = field.to_sympy(self.exact_part)
         return exact_part + sum(
             constants.to_sympy(constants.convert(term.coefficient))
             * log(field.to_sympy(term.argument))
@@ -607,9 +672,10 @@ def integrate_algebraic(
 
     The function is constructive for exact differentials and for the
     displayed-constant residue cases whose divisors have witnesses within the
-    requested finite lattice bound. It returns structured boundaries for
-    algebraic residue base change, bounded misses, and the residue-free
-    exactness work that remains outside this first slice.
+    requested finite lattice bound. A residue-free remainder is then tested
+    for an algebraic primitive using a complete certified Riemann--Roch space.
+    It returns structured boundaries for algebraic residue base change,
+    bounded misses, and unsupported exactness spaces.
     """
     collection = collect_algebraic_all_place_residues(
         integrand,
@@ -617,7 +683,49 @@ def integrate_algebraic(
         basis,
         lazy=lazy,
     )
-    return reconstruct_constant_residue_logarithms(
+    result = reconstruct_constant_residue_logarithms(
         collection,
         max_x_degree=max_x_degree,
+    )
+    if result.status is not AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER:
+        return result
+
+    model = collection.model
+    analysis = collection.constant_field_analysis
+    if model is None or analysis is None:
+        raise ValueError("a residue-free algebraic result lacks global data")
+    exactness = solve_algebraic_exactness(
+        result.remainder,
+        collection.derivation,
+        model,
+        analysis,
+        max_x_degree=max_x_degree,
+    )
+    if exactness.is_exact:
+        if exactness.primitive is None:
+            raise ValueError("an exactness witness lacks its primitive")
+        status = (
+            AlgebraicIntegrationStatus.ELEMENTARY
+            if result.logarithmic_terms
+            else AlgebraicIntegrationStatus.EXACT
+        )
+        return AlgebraicIntegrationResult(
+            collection,
+            status,
+            result.logarithmic_terms,
+            result.principal_searches,
+            collection.basis.extension.field.zero,
+            "the residue-free remainder has a verified algebraic primitive",
+            exactness.primitive,
+            exactness,
+        )
+    return AlgebraicIntegrationResult(
+        collection,
+        result.status,
+        result.logarithmic_terms,
+        result.principal_searches,
+        result.remainder,
+        result.detail + "; " + exactness.detail,
+        None,
+        exactness,
     )

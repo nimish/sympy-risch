@@ -945,9 +945,29 @@ assert decision.reconstructs
 
 Non-rational local residues return `NEEDS_CONSTANT_BASE_CHANGE`, a bounded
 principal-divisor miss returns `INCOMPLETE`, and a nonzero residue-free
-remainder returns `RESIDUE_FREE_REMAINDER`. Those are honest algorithmic
-boundaries, not non-elementarity certificates. Algebraic levels are not yet
-part of the recursive `integrate_elementary` dispatcher or the algebraic RDE.
+remainder is tested for an algebraic primitive. If its primitive-pole space
+has a complete Riemann--Roch certificate, `integrate_algebraic` either adds
+that primitive or retains `RESIDUE_FREE_REMAINDER` with an exact in-field
+`NO_PRIMITIVE` decision. Those are honest algorithmic boundaries, not
+non-elementarity certificates. Algebraic levels are not yet part of the
+recursive `integrate_elementary` dispatcher or the algebraic RDE.
+
+For example, on the same curve `y**2 = x`, the residue-free differential
+`dx / y` is `D(2*y)`, so the integration result is now constructive without
+any manually supplied ansatz:
+
+```python
+exact_decision = integrate_algebraic(
+    sqrt_x_extension.field.one / sqrt_x_extension.field.generator,
+    sqrt_x.derivation(),
+    basis,
+    max_x_degree=0,
+)
+
+assert exact_decision.is_elementary
+assert exact_decision.exact_part == 2 * sqrt_x_extension.field.generator
+assert exact_decision.reconstructs
+```
 
 ### Continue through a profile-selected algebraic constant extension
 
@@ -1068,7 +1088,8 @@ boundary, not a mathematical claim about the integral.
 | Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, and degree-one-pole rational parameters; arbitrary divisors return `UNSUPPORTED` |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Bounded algebraic principal-divisor search | Low-level exact semialgorithm: verifies a supplied-bound witness for degree-zero `D`, returns `INCOMPLETE` on finite-slice exhaustion, and proves only the nonzero-degree obstruction |
-| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor has a bounded-search principal witness; other cases retain explicit boundaries |
+| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor has a bounded-search principal witness; residue-free remainders also receive the certified in-field exactness step |
+| Algebraic residue-free exactness | Complete only when the primitive-pole Riemann--Roch space is certified; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
 | One-step algebraic constant-base-change integration | Constructive `QQ(x, y) -> QQ(alpha)(x, y)` continuation for an explicit or profile-selected factor that splits in its root field; a returned elementary answer is explicitly target-field-valued |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |

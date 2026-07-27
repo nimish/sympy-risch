@@ -78,7 +78,7 @@ class RiemannRochCertificate(Enum):
     RATIONAL_PARAMETER = "rational_parameter"
 
 
-def _constant_coordinate_matrix(
+def constant_coordinate_matrix(
     model: AlgebraicFunctionField,
     elements: tuple[ExtensionElement, ...],
 ) -> DomainMatrix:
@@ -139,7 +139,7 @@ def _constant_linear_rank(
     elements: tuple[ExtensionElement, ...],
 ) -> int:
     """Return the rank of ``elements`` over the proved constant field."""
-    return _constant_coordinate_matrix(model, elements).rank()
+    return constant_coordinate_matrix(model, elements).rank()
 
 
 def _basis_membership_is_verified(

@@ -142,11 +142,13 @@ def test_target_algebraic_constant_logarithm_uses_exact_field_quotient() -> None
         max_x_degree=1,
     )
 
-    assert result.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
+    assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
     assert result.reconstructs
     assert len(result.logarithmic_terms) == 1
     assert result.logarithmic_derivative != target.field.zero
-    assert result.remainder - target.field.from_sympy(y / x) == target.field.zero
+    assert result.remainder == target.field.zero
+    assert result.exactness is not None and result.exactness.is_exact
+    assert result.exact_correction - target.field.from_sympy(2 * y) == target.field.zero
 
 
 def test_selected_constant_base_change_can_finish_an_algebraic_log_integral() -> None:
@@ -227,7 +229,7 @@ def test_profile_base_change_does_not_claim_two_independent_constants_resolved()
     assert result.reconstructs
 
 
-def test_logarithmic_reconstruction_retains_a_residue_free_remainder() -> None:
+def test_logarithmic_reconstruction_adds_an_exact_residue_free_correction() -> None:
     tower, extension, basis = algebraic_tower(y**2 - x)
 
     result = integrate_algebraic(
@@ -237,13 +239,15 @@ def test_logarithmic_reconstruction_retains_a_residue_free_remainder() -> None:
         max_x_degree=1,
     )
 
-    assert result.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
-    assert not result.is_elementary
+    assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
+    assert result.is_elementary
     assert result.reconstructs
     assert result.logarithmic_argument is not None
     assert result.logarithmic_derivative != extension.field.zero
-    assert result.remainder != extension.field.zero
-    assert result.antiderivative is None
+    assert result.remainder == extension.field.zero
+    assert result.exactness is not None and result.exactness.is_exact
+    assert result.exact_correction == 2 * extension.field.generator
+    assert result.antiderivative is not None
 
 
 def test_zero_residues_remain_for_first_and_second_kind_exactness() -> None:
@@ -261,6 +265,8 @@ def test_zero_residues_remain_for_first_and_second_kind_exactness() -> None:
     assert result.logarithmic_argument is None
     assert result.logarithmic_derivative == extension.field.zero
     assert result.remainder == extension.field.one / extension.field.generator
+    assert result.exactness is not None
+    assert result.exactness.complete_negative
 
 
 def test_nonrational_residues_request_compatible_constant_base_change() -> None:

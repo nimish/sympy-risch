@@ -155,6 +155,10 @@ residue-free remainder, residues requiring compatible base change, explicit
 and profile-selected target-field reconstruction over algebraic constants, and a
 bounded principal-divisor miss that is not misreported as a non-elementarity
 decision.
+`tests/test_algebraic_exactness.py` covers the residue-free exactness step:
+genus-zero primitives, first- and second-kind elliptic no-primitive decisions,
+and a bounded primitive-space search that remains incomplete until its
+Riemann--Roch dimension is reached.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

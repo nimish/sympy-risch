@@ -19,6 +19,12 @@ from .constant_analysis import (
     AlgebraicConstantFieldStatus,
     analyze_algebraic_constant_field,
 )
+from .exactness import (
+    AlgebraicExactnessCertificate,
+    AlgebraicExactnessResult,
+    AlgebraicExactnessStatus,
+    solve_algebraic_exactness,
+)
 from .hermite import hermite_reduce_algebraic, lazy_hermite_reduce_algebraic
 from .residue_profile import (
     AlgebraicResidueProfile,
@@ -39,6 +45,9 @@ __all__ = [
     "AlgebraicConstantEmbedding",
     "AlgebraicConstantFieldAnalysis",
     "AlgebraicConstantFieldStatus",
+    "AlgebraicExactnessCertificate",
+    "AlgebraicExactnessResult",
+    "AlgebraicExactnessStatus",
     "AlgebraicFraction",
     "AlgebraicLocalDifferentialResidue",
     "AlgebraicPlaceResidue",
@@ -55,6 +64,7 @@ __all__ = [
     "lazy_hermite_reduce_algebraic",
     "recognize_simple_radical",
     "simple_radical_integral_basis",
+    "solve_algebraic_exactness",
     "trager_algebraic_place_residues",
     "trager_algebraic_residue_polynomial",
 ]
