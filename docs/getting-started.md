@@ -1147,7 +1147,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |
 | One-step algebraic constant-base-change integration | Constructive `QQ(x, y) -> QQ(alpha)(x, y)` continuation for an explicit or profile-selected factor that splits in its root field; a returned elementary answer is explicitly target-field-valued |
-| Algebraic levels in `integrate_elementary` | Not implemented |
+| Terminal pure simple-radical algebraic level | Constructive positive route in `integrate_elementary`: exact nonconstant power-basis modes descend to lower scalar RDEs, then the lower coordinate is integrated recursively; general algebraic logarithmic/residue cases remain unsupported |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |
 | General automatic tower discovery and canonical back-substitution | Not implemented; algebraic, arbitrary constants/functions, dependency minimization, and branch-aware normalization remain outside the narrow expression frontend |
@@ -1180,6 +1180,7 @@ principal groups are:
 | Algebraic displayed-constant residue integration | `AlgebraicIntegrationResult`, `AlgebraicLogarithmicTerm`, `integrate_algebraic`, `reconstruct_constant_residue_logarithms` |
 | Algebraic integrating-factor RDE | `find_algebraic_integrating_factor`, `solve_algebraic_integrating_factor_rde` |
 | Relative simple-radical RDE | `recognize_relative_simple_radical`, `solve_relative_simple_radical_rde`, `solve_relative_simple_radical_exact_derivative` |
+| Relative simple-radical integration | `integrate_relative_simple_radical` and the corresponding terminal-algebraic `integrate_elementary` route |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
 | Bounded principal-divisor search | `AlgebraicPrincipalDivisorSearch`, `search_algebraic_principal_divisor` |

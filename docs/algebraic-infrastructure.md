@@ -313,7 +313,7 @@ For example, take `Dt = 1/x` and `theta**2 = t`. The lower coefficient
 `a = 1/x` keeps the equations diagonal:
 
 ```python
-from sympy import Poly, symbols
+from sympy import Poly, log, symbols
 from sympy.polys.domains import QQ
 from sympy_risch import (
     AlgebraicExtension,
@@ -353,6 +353,42 @@ outside `K` mixes power-basis coordinates and therefore needs a coupled RDE;
 general algebraic defining polynomials need a matrix/parametric RDE; and
 relative Hermite reduction, place/residue computation, and logarithmic
 reconstruction over `K` are later work.
+
+## Terminal simple-radical elementary integration
+
+`integrate_elementary` now uses this diagonal shape constructively.  For
+
+```text
+f = f_0 + sum(f_j*theta**j, j > 0),
+```
+
+it solves `D(c_j) + j*eta*c_j = f_j` for each nonzero upper coordinate.  If
+all of those RDEs have solutions, it reduces the problem to `f_0` in the
+lower tower.  The existing lower elementary integrator then supplies the
+logarithmic terms, so exact algebraic modes and lower logarithms compose in a
+single `ElementaryIntegralResult`.
+
+For the tower above, this produces a mixed answer directly:
+
+```python
+from sympy_risch import integrate_elementary
+
+integrand = derivation(field.from_sympy((x + 1) * theta)) + field.from_sympy(
+    1 / (x * t)
+)
+result = integrate_elementary(integrand, derivation)
+
+assert result.is_elementary
+assert result.antiderivative == (x + 1) * theta + log(t)
+assert result.reconstructs
+```
+
+This is a success-only route.  If an upper coordinate has no lower-field RDE
+solution, or if the lower integrator finds an obstruction, the dispatcher
+raises `NotImplementedError` rather than treating that fact as a top-level
+non-elementarity proof.  Algebraic logarithms can mix power-basis coordinates;
+relative Hermite/residue/logarithmic reconstruction is the next required
+algorithmic layer.
 
 ## One-step profile-selected algebraic constant base change
 

@@ -46,6 +46,7 @@ from .relative import (
     solve_relative_simple_radical_exact_derivative,
     solve_relative_simple_radical_rde,
 )
+from .relative_integration import RelativeSimpleRadicalIntegrationCertificate
 from .residue_profile import (
     AlgebraicResidueProfile,
     AlgebraicResidueProfileFactor,
@@ -81,6 +82,7 @@ __all__ = [
     "AlgebraicResidueProfileStatus",
     "IntegralBasis",
     "RelativeSimpleRadicalData",
+    "RelativeSimpleRadicalIntegrationCertificate",
     "RelativeSimpleRadicalRDEComponent",
     "RelativeSimpleRadicalRDEResult",
     "RelativeSimpleRadicalRDEStatus",

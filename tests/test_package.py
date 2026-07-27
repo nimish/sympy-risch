@@ -89,6 +89,7 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "AlgebraicResidueProfileStatus",
         "IntegralBasis",
         "RelativeSimpleRadicalData",
+        "RelativeSimpleRadicalIntegrationCertificate",
         "RelativeSimpleRadicalRDEComponent",
         "RelativeSimpleRadicalRDEResult",
         "RelativeSimpleRadicalRDEStatus",
@@ -153,6 +154,7 @@ def test_algebraic_integration_public_annotations_are_runtime_resolvable() -> No
     get_type_hints(sympy_risch.AlgebraicIntegratingFactorRDEResult)
     get_type_hints(sympy_risch.AlgebraicIntegrationResult)
     get_type_hints(sympy_risch.AlgebraicLogarithmicTerm)
+    get_type_hints(sympy_risch.ElementaryIntegralResult)
 
 
 def test_tower_facade_has_an_intentional_advanced_surface() -> None:

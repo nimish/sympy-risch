@@ -198,6 +198,23 @@ def _lower_scalar(
     return coordinates[0]
 
 
+def _diagonal_generator_logarithmic_derivative(
+    extension: AlgebraicExtension,
+    derivation: Derivation,
+) -> FieldElement | None:
+    """Return ``eta`` when ``D(theta) = eta*theta`` over the lower field."""
+    coordinates = extension.power_basis_coordinates(
+        derivation(extension.field.generator),
+    )
+    if coordinates[0] != extension.parent_field.zero or any(
+        coordinate != extension.parent_field.zero
+        for power, coordinate in enumerate(coordinates)
+        if power != 1
+    ):
+        return None
+    return coordinates[1]
+
+
 def solve_relative_simple_radical_rde(
     coefficient: object,
     right_hand_side: object,
@@ -247,14 +264,8 @@ def solve_relative_simple_radical_rde(
             "a non-lower algebraic RDE coefficient requires a coupled system",
         )
 
-    generator_derivative = extension.power_basis_coordinates(
-        derivation(extension.field.generator),
-    )
-    if generator_derivative[0] != extension.parent_field.zero or any(
-        coordinate != extension.parent_field.zero
-        for power, coordinate in enumerate(generator_derivative)
-        if power != 1
-    ):
+    eta = _diagonal_generator_logarithmic_derivative(extension, derivation)
+    if eta is None:
         return _unsupported(
             radical,
             derivation,
@@ -264,7 +275,6 @@ def solve_relative_simple_radical_rde(
             (),
             "the simple-radical generator derivative is not diagonal over the lower field",
         )
-    eta = generator_derivative[1]
     lower_derivation = derivation.lower()
     right_coordinates = extension.power_basis_coordinates(b)
     components: list[RelativeSimpleRadicalRDEComponent] = []

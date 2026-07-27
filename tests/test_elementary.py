@@ -332,13 +332,13 @@ def test_constant_field_call_distinguishes_zero_from_nonzero() -> None:
     assert nonzero.obstruction.kinds == (IntegrationObstructionKind.CONSTANT_FIELD,)
 
 
-def test_algebraic_top_level_is_rejected_without_losing_its_scope() -> None:
+def test_general_algebraic_top_level_remains_outside_simple_radical_scope() -> None:
     base = rational_tower()
-    tower = base.extend(AlgebraicExtension(Poly(y**2 - x, y, domain=base.field())))
+    tower = base.extend(AlgebraicExtension(Poly(y**3 + y - x, y, domain=base.field())))
 
     with pytest.raises(
         NotImplementedError,
-        match="does not yet support algebraic tower levels",
+        match="terminal pure simple-radical extension",
     ):
         integrate_elementary(tower.field().one, tower.derivation())
 

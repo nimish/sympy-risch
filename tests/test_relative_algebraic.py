@@ -1,7 +1,7 @@
 """Relative simple-radical descent over monomial lower towers."""
 
 import pytest
-from sympy import Poly, symbols
+from sympy import Poly, log, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -9,12 +9,17 @@ from sympy_risch import (
     ConstantFieldStatus,
     DifferentialTower,
     MonomialExtension,
+    integrate_elementary,
+    integrate_relative_simple_radical,
     solve_exact_derivative,
 )
 from sympy_risch.algebraic.relative import (
     RelativeSimpleRadicalRDEResult,
     RelativeSimpleRadicalRDEStatus,
     solve_relative_simple_radical_rde,
+)
+from sympy_risch.algebraic.relative_integration import (
+    RelativeSimpleRadicalIntegrationCertificate,
 )
 
 x, t, y = symbols("x t y")
@@ -173,3 +178,98 @@ def test_unsupported_lower_scalar_rde_stays_an_implementation_boundary() -> None
     assert not result.complete_negative
     with pytest.raises(NotImplementedError, match="lower scalar RDE"):
         solve_exact_derivative(derivation(planted), derivation)
+
+
+def test_relative_radical_elementary_integration_composes_lower_logarithms() -> None:
+    """Exact radical modes plus a lower log form one mixed antiderivative."""
+    tower = simple_radical_tower(derivative=1 / x)
+    field = tower.field()
+    derivation = tower.derivation()
+    algebraic_part = field.from_sympy((x + 1) * y)
+    integrand = derivation(algebraic_part) + field.from_sympy(1 / (x * t))
+
+    result = integrate_relative_simple_radical(integrand, derivation)
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.total_exact_part == algebraic_part
+    assert result.total_logarithmic_derivative == field.from_sympy(1 / (x * t))
+    assert result.antiderivative == (x + 1) * y + log(t)
+    assert isinstance(result.certificate, RelativeSimpleRadicalIntegrationCertificate)
+    assert [component.power for component in result.certificate.components] == [1]
+
+
+def test_elementary_dispatch_handles_a_direct_simple_radical() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = base.extend(AlgebraicExtension(Poly(y**2 - x, y, domain=base.field())))
+    field = tower.field()
+    derivation = tower.derivation()
+
+    result = integrate_elementary(derivation(field.generator) + field.one, derivation)
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.total_exact_part == field.from_sympy(x + y)
+    assert result.antiderivative == x + y
+    assert isinstance(result.certificate, RelativeSimpleRadicalIntegrationCertificate)
+    assert [component.power for component in result.certificate.components] == [1]
+
+
+def test_elementary_dispatch_integrates_a_cubic_radical_over_hyperexponential() -> None:
+    tower = simple_radical_tower(derivative=t, degree=3)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy((x + 1) * y + (t + 1) * y**2)
+
+    result = integrate_elementary(derivation(planted) + field.one, derivation)
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.total_exact_part == planted + field.from_sympy(x)
+    assert result.total_logarithmic_derivative == field.zero
+    assert result.antiderivative == x + (x + 1) * y + (t + 1) * y**2
+    assert isinstance(result.certificate, RelativeSimpleRadicalIntegrationCertificate)
+    assert [component.power for component in result.certificate.components] == [1, 2]
+
+
+def test_relative_radical_elementary_integration_skips_zero_upper_modes() -> None:
+    tower = simple_radical_tower(derivative=1 / x)
+    field = tower.field()
+    derivation = tower.derivation()
+
+    result = integrate_elementary(field.from_sympy(1 / (x * t)), derivation)
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.total_exact_part == field.zero
+    assert result.antiderivative == log(t)
+    assert isinstance(result.certificate, RelativeSimpleRadicalIntegrationCertificate)
+    assert result.certificate.components == ()
+
+
+def test_relative_radical_elementary_failure_is_not_a_non_elementarity_claim() -> None:
+    tower = simple_radical_tower(derivative=1 / x)
+    field = tower.field()
+
+    with pytest.raises(NotImplementedError, match="nonexact power-basis coordinate"):
+        integrate_elementary(field.from_sympy(y), tower.derivation())
+
+
+def test_relative_radical_does_not_lift_a_lower_obstruction() -> None:
+    tower = simple_radical_tower(derivative=1 / x)
+    field = tower.field()
+    derivation = tower.derivation()
+    exact_part = field.from_sympy((x + 1) * y)
+
+    with pytest.raises(
+        NotImplementedError, match="cannot lift a lower non-elementarity"
+    ):
+        integrate_elementary(
+            derivation(exact_part) + field.from_sympy(1 / (x * (t**2 + x))),
+            derivation,
+        )

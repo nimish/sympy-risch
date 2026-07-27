@@ -163,11 +163,12 @@ Riemann--Roch dimension is reached.
 it reduces a genus-zero algebraic equation to exactness, preserves a bounded
 exactness miss, proves a transformed no-solution case, and does not mistake a
 nonintegral logarithmic residue for a general-RDE negative result.
-`tests/test_relative_algebraic.py` covers the first mixed cell: terminal pure
+`tests/test_relative_algebraic.py` covers the first mixed cells: terminal pure
 radicals over primitive, hyperexponential, and hypertangent lower towers;
-quadratic and cubic power bases; nonzero lower coefficients; a lower-field
-obstruction lifted to the algebraic level; and both unsupported lower-RDE and
-non-lower-coefficient coupled-system boundaries.
+quadratic and cubic power bases; nonzero lower coefficients; exact radical
+modes composed with lower logarithms; zero upper coordinates; and boundaries
+for unsupported lower RDEs, non-lower coupled coefficients, nonexact upper
+coordinates, and lower obstructions that cannot yet be lifted safely.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

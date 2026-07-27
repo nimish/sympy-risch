@@ -30,6 +30,7 @@ from .algebraic import (
     AlgebraicResidueProfileStatus,
     IntegralBasis,
     RelativeSimpleRadicalData,
+    RelativeSimpleRadicalIntegrationCertificate,
     RelativeSimpleRadicalRDEComponent,
     RelativeSimpleRadicalRDEResult,
     RelativeSimpleRadicalRDEStatus,
@@ -123,6 +124,7 @@ from .elementary import (
     RationalElementaryReduction,
     RiccatiMobiusElementaryCertificate,
     integrate_elementary,
+    integrate_relative_simple_radical,
     integrate_riccati_mobius_normal_form,
 )
 from .exact import (
@@ -397,6 +399,7 @@ __all__ = [
     "RationalRischDifferentialEquationResult",
     "ReducedFunctionReduction",
     "RelativeSimpleRadicalData",
+    "RelativeSimpleRadicalIntegrationCertificate",
     "RelativeSimpleRadicalRDEComponent",
     "RelativeSimpleRadicalRDEResult",
     "RelativeSimpleRadicalRDEStatus",
@@ -452,6 +455,7 @@ __all__ = [
     "integrate_polynomial",
     "integrate_rational",
     "integrate_rational_real",
+    "integrate_relative_simple_radical",
     "integrate_riccati_mobius_normal_form",
     "lazard_rioboo_trager",
     "lazy_hermite_reduce_algebraic",

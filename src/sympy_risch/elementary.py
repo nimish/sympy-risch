@@ -33,6 +33,10 @@ from sympy.polys.rootoftools import RootSum
 
 from ._typing import FieldElement, is_field_zero
 from .admission import assess_elementary_admission, is_standard_rational_base
+from .algebraic.relative_integration import (
+    RelativeSimpleRadicalIntegrationCertificate,
+    reduce_relative_simple_radical,
+)
 from .hyperbolic import (
     HyperbolicMobiusNormalForm,
     RiccatiMobiusNormalForm,
@@ -163,6 +167,7 @@ class ElementaryIntegralResult:
         | MonomialLevelCertificate
         | HyperbolicMobiusElementaryCertificate
         | RiccatiMobiusElementaryCertificate
+        | RelativeSimpleRadicalIntegrationCertificate
         | None
     )
 
@@ -636,6 +641,64 @@ def integrate_riccati_mobius_normal_form(
     return _integrate_through_mobius_normal_form(element, derivation, normal_form)
 
 
+def integrate_relative_simple_radical(
+    integrand: object,
+    derivation: Derivation,
+) -> ElementaryIntegralResult:
+    r"""Integrate a terminal simple radical through verified lower RDE modes.
+
+    This success-only mixed route reduces every nonconstant power-basis mode
+    to an exact lower scalar RDE, then integrates the remaining lower-field
+    coordinate recursively.  A lower obstruction is not propagated through
+    the algebraic level: without relative logarithmic descent it might still
+    be removed by an algebraic logarithm, so the function raises
+    :class:`NotImplementedError` instead.
+    """
+    reduction = reduce_relative_simple_radical(integrand, derivation)
+    try:
+        lower_result = integrate_elementary(
+            reduction.lower_remainder,
+            derivation.lower(),
+        )
+    except NotImplementedError as exc:
+        raise NotImplementedError(
+            "relative simple-radical integration needs an implemented lower "
+            "elementary integrator: " + str(exc)
+        ) from exc
+    if not lower_result.is_elementary:
+        raise NotImplementedError(
+            "relative simple-radical integration cannot lift a lower "
+            "non-elementarity decision through an algebraic level before "
+            "relative logarithmic descent is implemented"
+        )
+
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, AlgebraicExtension):
+        raise TypeError(
+            "relative simple-radical integration needs an algebraic top level"
+        )
+    remainder = extension.from_power_basis_coordinates(
+        (
+            reduction.lower_remainder,
+            *(extension.parent_field.zero for _ in range(extension.field.rank - 1)),
+        ),
+    )
+    result = ElementaryIntegralResult(
+        derivation,
+        reduction.integrand,
+        reduction.exact_part,
+        (),
+        extension.field.zero,
+        remainder,
+        lower_result,
+        None,
+        reduction.certificate,
+    )
+    if not result.reconstructs:
+        raise ValueError("relative simple-radical integration failed to reconstruct")
+    return result
+
+
 def integrate_elementary(
     integrand: object,
     derivation: Derivation,
@@ -653,10 +716,13 @@ def integrate_elementary(
     coordinate. General nonlinear no-special reduction remains unavailable:
     a bare special-polynomial status is not an absence certificate.
 
-    Algebraic levels, generalized monomials without the needed structure
-    theorem, and automatic tower discovery remain deliberately unsupported.
-    An unsupported shape raises :class:`NotImplementedError`; it is never
-    presented as a proof of non-elementarity.
+    Terminal simple radicals have one constructive mixed route: exact
+    nonconstant power-basis modes descend to lower scalar RDEs, then the
+    lower coordinate is integrated recursively.  General algebraic levels,
+    generalized monomials without the needed structure theorem, and automatic
+    tower discovery remain deliberately unsupported.  An unsupported shape
+    raises :class:`NotImplementedError`; it is never presented as a proof of
+    non-elementarity.
     """
     field = derivation.field
     element = _coerce(field, integrand)
@@ -686,10 +752,7 @@ def integrate_elementary(
 
     extension = derivation.tower.levels[derivation.level]
     if isinstance(extension, AlgebraicExtension):
-        raise NotImplementedError(
-            "recursive elementary integration does not yet support "
-            "algebraic tower levels"
-        )
+        return integrate_relative_simple_radical(element, derivation)
     if not isinstance(extension, MonomialExtension):
         raise TypeError("elementary integration requires a differential extension")
 
