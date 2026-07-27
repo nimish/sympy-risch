@@ -481,7 +481,7 @@ def test_solver_value_errors_are_not_reclassified_as_unsupported(
         raise ValueError("deliberate lower-RDE invariant failure")
 
     monkeypatch.setattr(
-        "sympy_risch.monomial.solve_risch_differential_equation",
+        "sympy_risch.monomial.special_poles.solve_risch_differential_equation",
         fail_rde_solver,
     )
 

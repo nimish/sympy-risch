@@ -191,7 +191,7 @@ The current implementation is organized by mathematical responsibility:
 | `tower.py` | Immutable extension metadata and level-bound derivations |
 | `exact.py` | Level-independent exact-derivative dispatch |
 | `reduction/fractions.py` | Shared monomial fraction normal forms and normal/special decomposition |
-| `monomial.py` | Primitive signatures, radical logarithmic decisions, and family reducers |
+| `monomial/` | Monomial reduction facade, split by normal residues, Hermite reduction, primitive, hyperexponential, hypertangent, and special-pole theorem families |
 | `dependency/` | Parametric logarithmic decisions and generator-dependency certificates by tower family |
 | `rde/` | Scalar and coupled Risch differential equations, split by theorem family behind one facade |
 | `elementary.py` | Recursive elementary integration and obstruction propagation |
@@ -226,8 +226,11 @@ Physical splits follow theorem families rather than a generic service layer:
 2. `dependency/` now separates rational, primitive, mixed-tower, and
    extension-certification decisions while preserving the
    `sympy_risch.dependency` facade;
-3. split `monomial.py` into primitive/logarithmic, common fraction reduction,
-   hyperexponential, and hypertangent modules.
+3. `monomial/` now separates Hermite and normal-residue reduction,
+   primitive polynomial and logarithmic reductions, recursive
+   radical-logarithmic decisions, hyperexponential and hypertangent reducers,
+   and certified special-pole reduction behind the
+   `sympy_risch.monomial` facade.
 
 Each split keeps the existing public facade, moves one coherent algorithm at a
 time, and is verified by the affected behavioral tests plus an import smoke

@@ -5,11 +5,13 @@ import sympy_risch
 import sympy_risch.algebraic as algebraic
 import sympy_risch.algebraic_geometry as algebraic_geometry
 import sympy_risch.dependency as dependency
+import sympy_risch.monomial as monomial
 import sympy_risch.rde as rde
 import sympy_risch.relations as relations
 import sympy_risch.tower as tower
 from sympy_risch import __version__
 from sympy_risch.dependency import models as dependency_models
+from sympy_risch.monomial import primitive as monomial_primitive
 from sympy_risch.rde import models as rde_models
 
 
@@ -44,6 +46,24 @@ def test_dependency_facade_keeps_the_parametric_solver_surface() -> None:
         dependency.solve_parametric_logarithmic_derivative
         is sympy_risch.solve_parametric_logarithmic_derivative
     )
+
+
+def test_monomial_facade_keeps_the_family_reducer_surface() -> None:
+    assert all(hasattr(monomial, name) for name in monomial.__all__)
+    assert (
+        monomial.PrimitiveLogarithmicDerivativeSignature
+        is monomial_primitive.PrimitiveLogarithmicDerivativeSignature
+    )
+    assert monomial.solve_radical_logarithmic_derivative is (
+        sympy_risch.solve_radical_logarithmic_derivative
+    )
+
+
+def test_monomial_public_annotations_are_runtime_resolvable() -> None:
+    for name in monomial.__all__:
+        value = getattr(monomial, name)
+        if isinstance(value, type):
+            get_type_hints(value)
 
 
 def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
