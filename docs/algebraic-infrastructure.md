@@ -521,6 +521,42 @@ obstruction `deg(D) != 0`, since every principal divisor has degree zero.
 General degree-zero non-principality and torsion still require divisor-class
 algorithms; the bounded routine deliberately does not claim either.
 
+### Pell--Abel target example
+
+The following genus-2 differential is a useful regression target for the
+eventual global logarithmic-reconstruction algorithm:
+
+```text
+P(x) = x**6 + 4*x**5 + 6*x**4 - 12*x**3 + 33*x**2 - 16*x
+y**2 = P(x)
+omega = (29*x**2 + 18*x - 3) * dx / y
+```
+
+It has two simple poles at infinity, with residues `29` and `-29`.  It is
+elementary, but not by the terminal simple-radical exact-coordinate route:
+there are polynomials `A` and `B` of degrees 29 and 26 satisfying
+
+```text
+A**2 - P*B**2 = 2**54
+A' = (29*x**2 + 18*x - 3)*B
+```
+
+Thus `v = A + B*y` is a Pell--Abel unit and
+`D(v) / v = (29*x**2 + 18*x - 3) / y`; its integral is `log(v)`.
+Equivalently, the degree-zero divisor of residues is a 29-torsion
+principal-divisor relation between the two infinite places.
+
+This example is intentionally not a normal test-suite input.  Supplying the
+degree-29 bound to the current semialgorithm makes it enumerate a large
+candidate lattice and impose local Laurent conditions on every candidate.  In
+the present SymPy representation, the dominant work is repeated exact
+valuation/local-expansion arithmetic (including rational-function GCD and
+cancellation), rather than the final constant-field linear algebra.  A
+complete divisor-class or Pell--Abel solver should recognize and construct
+this relation directly; until then, a bounded miss or an impractically slow
+search is an `INCOMPLETE` implementation boundary, never a non-elementarity
+claim.
+
 ## Public API
 
 | Structure | Purpose |
