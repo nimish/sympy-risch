@@ -24,6 +24,7 @@ from ..algebraic._field import (
     _common_denominator,
     _embed_parent,
     _extension_element,
+    _parent_element_polynomial,
     _polynomial_parent_element,
 )
 from ..tower import AlgebraicExtension
@@ -69,16 +70,17 @@ def _reduce_polynomial_matrix(
     matrix: DomainMatrix,
     context: _BaseResidueContext,
 ) -> DomainMatrix:
-    variable = context.prime.gens[0]
+    variable = cast(Symbol, context.prime.gens[0])
     constants = context.prime.domain
     return DomainMatrix(
         [
             [
                 context.reduce_polynomial(
-                    Poly(
-                        matrix.domain.to_sympy(entry),
+                    _matrix_entry_polynomial(
+                        matrix,
+                        entry,
                         variable,
-                        domain=constants,
+                        constants,
                     )
                 )
                 for entry in row
@@ -88,6 +90,44 @@ def _reduce_polynomial_matrix(
         matrix.shape,
         context.field,
     )
+
+
+def _matrix_entry_polynomial(
+    matrix: DomainMatrix,
+    entry: object,
+    variable: Symbol,
+    constants: Domain,
+) -> Poly:
+    """Return a matrix entry as a base polynomial without symbolic coercion."""
+    if isinstance(matrix.domain, FractionField):
+        return _parent_element_polynomial(
+            cast(FracElement, entry),
+            matrix.domain,
+            constants,
+            variable,
+        )
+    to_dict = getattr(entry, "to_dict", None)
+    if to_dict is None:
+        return Poly.from_dict(
+            {(0,): constants.convert(entry)}, variable, domain=constants
+        )
+    return Poly.from_dict(
+        {
+            monomial: constants.convert(coefficient)
+            for monomial, coefficient in to_dict().items()
+        },
+        variable,
+        domain=constants,
+    )
+
+
+def _embed_base_residue_value(
+    residue_field: FiniteExtension,
+    value: object,
+) -> ExtensionElement:
+    """Embed a native base-residue-field value into a finite extension."""
+    coefficient = residue_field.domain.convert(value)
+    return residue_field.dtype(residue_field.ring.new(coefficient), residue_field)
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,17 +230,14 @@ def _residue_basis_images(
     inverse_rows = separator.power_nilradical_inverse.to_list()
     images = []
     for basis_index in range(order.rank):
-        expression = sum(
-            context.field.to_sympy(inverse_rows[power][basis_index])
-            * separator.symbol**power
-            for power in range(separator.reduced_rank)
-        )
-        images.append(
-            cast(
-                ExtensionElement,
-                residue_field.from_sympy(expression),
+        image = residue_field.zero
+        for power in range(separator.reduced_rank - 1, -1, -1):
+            image *= residue_field.generator
+            image += _embed_base_residue_value(
+                residue_field,
+                inverse_rows[power][basis_index],
             )
-        )
+        images.append(cast(ExtensionElement, image))
     return tuple(images)
 
 
@@ -364,8 +401,9 @@ class FiniteAlgebraicPlace:
             strict=True,
         ):
             base_value = self._context.reduce_polynomial(coordinate)
-            embedded_base_value = self.residue_field.from_sympy(
-                self.base_residue_field.to_sympy(base_value)
+            embedded_base_value = _embed_base_residue_value(
+                self.residue_field,
+                base_value,
             )
             result += embedded_base_value * image
         return cast(ExtensionElement, result)
@@ -454,8 +492,9 @@ class FiniteAlgebraicPlace:
             }
             polynomial = Poly.from_dict(coefficients, variable, domain=constants)
             base_coefficient = self._context.reduce_polynomial(polynomial)
-            embedded = self.residue_field.from_sympy(
-                self.base_residue_field.to_sympy(base_coefficient)
+            embedded = _embed_base_residue_value(
+                self.residue_field,
+                base_coefficient,
             )
             result += embedded * generator**relative_power
         reconstructed = cast(ExtensionElement, result)

@@ -97,13 +97,13 @@ def _row_lattice_basis(
     denominator_element = _polynomial_parent_element(denominator, parent)
     polynomial_rows = [
         [
-            polynomial_ring.from_sympy(
+            polynomial_ring.new(
                 _parent_element_polynomial(
                     entry * denominator_element,
                     parent,
                     constants,
                     variable,
-                ).as_expr()
+                ).rep.to_dict()
             )
             for entry in row
         ]
@@ -126,8 +126,8 @@ def _row_lattice_basis(
     return tuple(
         tuple(
             _polynomial_parent_element(
-                Poly(
-                    polynomial_ring.to_sympy(coefficient),
+                Poly.from_dict(
+                    coefficient.to_dict(),
                     variable,
                     domain=constants,
                 ),

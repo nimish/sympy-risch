@@ -3,7 +3,7 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, S, sqrt, symbols
+from sympy import Poly, Rational, S, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -25,7 +25,7 @@ from sympy_risch.algebraic_geometry.closure import (
     OrderMaximalityCertificate,
 )
 
-x, y, s = symbols("x y s")
+x, y, s, z = symbols("x y s z")
 distinct_shifts = st.tuples(
     st.integers(min_value=-3, max_value=3),
     st.integers(min_value=-3, max_value=3),
@@ -630,6 +630,39 @@ def test_algebraic_constant_field_survives_place_construction() -> None:
     assert place.ramification_index == 2
     assert place.valuation(field.generator) == 1
     assert place.residue_field.domain == constants
+
+
+def test_finite_places_preserve_native_high_degree_algebraic_constants() -> None:
+    """A native ANP coefficient must not take an ``as_expr`` round trip."""
+    constants = QQ.alg_field_from_poly(
+        Poly(z**4 + Rational(1, 16), z, domain=QQ),
+    )
+    extension = algebraic_extension(y**2 - x, constants)
+    model = AlgebraicFunctionField(extension)
+    alpha = constants.unit
+    prime = Poly.from_dict(
+        {(1,): constants.one, (0,): -4 * alpha**2},
+        x,
+        domain=constants,
+    )
+
+    places = model.finite_places(prime)
+    generator_values = {
+        place.constant_coordinates(place.reduce_integral(extension.field.generator))[0]
+        for place in places
+    }
+
+    assert len(places) == 2
+    assert {place.base_prime for place in places} == {prime}
+    assert generator_values == {-2 * alpha, 2 * alpha}
+    for place in places:
+        residue = place.reduce_integral(extension.field.generator)
+        assert (
+            place.from_constant_coordinates(
+                place.constant_coordinates(residue),
+            )
+            == residue
+        )
 
 
 def test_genus_rejects_an_unaccounted_constant_field_extension() -> None:
