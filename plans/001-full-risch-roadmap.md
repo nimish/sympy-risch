@@ -214,7 +214,7 @@ The existing design conventions to preserve are:
 | 3. Scalar, parametric, and coupled RDEs | Partial: scalar and coupled RDEs cover documented normalized P/E/T solver shapes, and scalar lower RDEs drive one explicit local special-pole consumer; parametric RDE/limited integration and general special-factor branches remain. |
 | 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, exact finite valuation kernels, and a bounded principal-divisor semialgorithm now exist; constant normalization and general global-space/divisor-class decisions remain. |
-| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues with bounded-search principal witnesses, and has a theorem-limited residue-free exactness and integrating-factor RDE route; compatible constant descent, torsion/divisor-class work, and arbitrary second-kind exactness remain. |
+| 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality decisions and solves residue-free exactness through complete Riemann--Roch spaces; compatible constant descent and torsion/divisor-class work remain. |
 | 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic relations, coupled/parametric RDEs, and relative residue/logarithmic reduction remain. |
 | 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
@@ -899,26 +899,24 @@ separate commit after focused and full-suite verification.
      `product_P Norm_{k(P)/C}(Z-res_P)`, including branch and infinity places,
      without pretending independent local residue fields are already a common
      constant extension.
-   - [x] Add a bounded, globally verified principal-divisor semialgorithm for
-     degree-zero divisors; exhaustion is incomplete, while nonzero degree is
-     the complete obstruction.
+   - [x] Decide degree-zero principality through complete `L(-D)` spaces;
+     an empty certified space proves nonprincipality while unavailable AFF
+     arithmetic remains an explicit boundary.
    - [x] Integrate direct displayed-constant residues over `QQ` or a finite
-     algebraic extension of `QQ` when every coordinate divisor has a verified
-     bounded-search principal witness.
+     algebraic extension of `QQ` when every coordinate divisor is principal.
    - [x] Construct the first compatible base change
      `QQ(x, y) -> QQ(alpha)(x, y)`, split finite places, recollect all target
      residues, and reconstruct a target-field logarithmic answer. An explicit
      factor or the first compatible irreducible factor from the square-free
      all-place residue profile may select the target. This is deliberately
      limited to one factor that splits in its root field.
-   - [x] Decide direct residue-free exactness whenever `L(E)` is the certified
-     constant space or a bounded nonspecial lattice search reaches its
-     Riemann--Roch dimension. A complete failed solve proves only no
+   - [x] Decide direct residue-free exactness using the complete `L(E)` from
+     the generic Riemann--Roch service. A complete failed solve proves only no
      primitive in the current algebraic function field.
    - [ ] Generalize compatible constant descent and place splitting to
      composita and iterative extensions, and solve the remaining
      principal/torsion divisor cases.
-12. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
+13. [ ] Generalize the scalar and parametric RDE to algebraic curves, reusing
     the exactness result as its `a=0` slice.
     - [x] Add the direct-curve integrating-factor cell: when a verified
       `h` satisfies `a = D(h)/h`, reduce `D(u) + a*u = b` to exactness of

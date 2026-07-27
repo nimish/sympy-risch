@@ -935,7 +935,6 @@ decision = integrate_algebraic(
     1 / x,
     sqrt_x.derivation(),
     basis,
-    max_x_degree=0,
 )
 
 assert decision.is_elementary
@@ -962,7 +961,6 @@ exact_decision = integrate_algebraic(
     sqrt_x_extension.field.one / sqrt_x_extension.field.generator,
     sqrt_x.derivation(),
     basis,
-    max_x_degree=0,
 )
 
 assert exact_decision.is_elementary
@@ -1039,7 +1037,6 @@ continued = integrate_algebraic_with_constant_base_change(
     y / (x * (x - 2)),
     sqrt_x.derivation(),
     basis,
-    max_x_degree=1,
 )
 
 assert continued.source_result.status.value == "needs_constant_base_change"
@@ -1136,7 +1133,7 @@ boundary, not a mathematical claim about the integral.
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Algebraic principality decision | Generic AFF decision from complete `L(-D)`: constructs a witness, proves nonprincipality, or retains an explicit unavailable-space boundary |
 | Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension when every local residue lies in `C` and each coordinate divisor is decided principal; residue-free remainders also receive the certified in-field exactness step |
-| Algebraic residue-free exactness | Complete only when the primitive-pole Riemann--Roch space is certified; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
+| Algebraic residue-free exactness | Uses the generic complete primitive-pole Riemann--Roch space; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |
 | Relative simple-radical normal Hermite reduction | Repeated normal poles are removed coordinatewise over the immediate lower monomial field; special poles and resonant leading equations remain explicit boundaries |

@@ -37,7 +37,6 @@ def test_integrate_algebraic_reconstructs_a_ramified_logarithm() -> None:
         1 / x,
         tower.derivation(),
         basis,
-        max_x_degree=0,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -56,7 +55,6 @@ def test_integrate_algebraic_reconstructs_split_finite_residues() -> None:
         1 / (x - 1),
         tower.derivation(),
         basis,
-        max_x_degree=0,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -72,7 +70,6 @@ def test_rational_residue_at_a_higher_degree_place_is_not_rejected() -> None:
         2 * x / (x**2 + 1),
         tower.derivation(),
         basis,
-        max_x_degree=0,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -89,7 +86,6 @@ def test_fractional_rational_content_scales_the_logarithmic_term() -> None:
         1 / (6 * x),
         tower.derivation(),
         basis,
-        max_x_degree=0,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -107,7 +103,6 @@ def test_displayed_algebraic_constants_produce_multiple_logarithmic_terms() -> N
         extension.field.from_sympy(sqrt(2) / x + 1 / (x - 1)),
         tower.derivation(),
         basis,
-        max_x_degree=1,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -139,7 +134,6 @@ def test_target_algebraic_constant_logarithm_uses_exact_field_quotient() -> None
         change.embed(source_extension.field.from_sympy(y / (x - 2))),
         change.target_derivation,
         IntegralBasis.power_basis(target),
-        max_x_degree=1,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -161,7 +155,6 @@ def test_selected_constant_base_change_can_finish_an_algebraic_log_integral() ->
         source_tower.derivation(),
         source_basis,
         Poly(constant**2 - Rational(1, 18), constant, domain=QQ),
-        max_x_degree=1,
     )
 
     assert (
@@ -191,7 +184,6 @@ def test_profile_base_change_selects_a_compatible_constant_factor() -> None:
         source_extension.field.from_sympy(y / (x * (x - 2))),
         source_tower.derivation(),
         source_basis,
-        max_x_degree=1,
     )
 
     assert result.base_change is not None
@@ -218,7 +210,6 @@ def test_profile_base_change_does_not_claim_two_independent_constants_resolved()
         source_extension.field.from_sympy(y / ((x - 2) * (x - 3))),
         source_tower.derivation(),
         source_basis,
-        max_x_degree=1,
     )
 
     assert result.base_change is not None
@@ -236,7 +227,6 @@ def test_logarithmic_reconstruction_adds_an_exact_residue_free_correction() -> N
         y / (x - 1),
         tower.derivation(),
         basis,
-        max_x_degree=1,
     )
 
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -295,7 +285,6 @@ def test_nonprincipal_residue_divisor_is_an_integration_obstruction() -> None:
         y / x,
         tower.derivation(),
         basis,
-        max_x_degree=0,
     )
 
     assert result.status is AlgebraicIntegrationStatus.UNSUPPORTED

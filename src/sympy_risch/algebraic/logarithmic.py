@@ -126,8 +126,8 @@ class AlgebraicIntegrationResult:
     ``RESIDUE_FREE_REMAINDER`` has had every displayed-constant logarithmic
     residue removed. Its optional ``exactness`` record says whether the
     remaining first-/second-kind differential was decided in the current
-    algebraic field. ``INCOMPLETE`` is reserved for a later bounded exactness
-    subproblem; principal-divisor reconstruction itself is complete when
+    algebraic field. Both logarithmic reconstruction and residue-free
+    exactness use complete function-field spaces when their AFF arithmetic is
     supported.
     """
 
@@ -647,7 +647,6 @@ def integrate_algebraic(
     derivation: Derivation,
     basis: IntegralBasis,
     *,
-    max_x_degree: int = 1,
     lazy: bool = False,
 ) -> AlgebraicIntegrationResult:
     r"""Run the current algebraic Hermite/constant-residue integration slice.
@@ -678,7 +677,6 @@ def integrate_algebraic(
         collection.derivation,
         model,
         analysis,
-        max_x_degree=max_x_degree,
     )
     if exactness.is_exact:
         if exactness.primitive is None:

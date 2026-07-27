@@ -42,7 +42,6 @@ def test_exactness_finds_a_genus_zero_primitive_from_a_complete_space() -> None:
         derivation,
         model,
         analysis,
-        max_x_degree=0,
     )
 
     assert result.status is AlgebraicExactnessStatus.EXACT
@@ -63,7 +62,6 @@ def test_exactness_solves_over_an_algebraic_constant_field() -> None:
         derivation,
         model,
         analysis,
-        max_x_degree=0,
     )
 
     assert result.status is AlgebraicExactnessStatus.EXACT
@@ -105,7 +103,7 @@ def test_nonzero_residue_is_an_immediate_no_primitive_certificate() -> None:
     assert result.space is None
 
 
-def test_second_kind_elliptic_differential_uses_a_complete_nonspecial_space() -> None:
+def test_second_kind_elliptic_differential_uses_a_complete_hess_space() -> None:
     extension, derivation, model, analysis = algebraic_model(y**2 - x**3 + x)
 
     result = solve_algebraic_exactness(
@@ -113,42 +111,30 @@ def test_second_kind_elliptic_differential_uses_a_complete_nonspecial_space() ->
         derivation,
         model,
         analysis,
-        max_x_degree=1,
     )
 
     assert result.status is AlgebraicExactnessStatus.NO_PRIMITIVE
     assert result.complete_negative
     assert result.primitive is None
-    assert result.nonspecial_search is not None
-    assert result.nonspecial_search.space is not None
+    assert result.space is not None and result.space.complete
 
 
-def test_bounded_primitive_space_miss_remains_incomplete() -> None:
+def test_complete_primitive_space_does_not_need_a_degree_bound() -> None:
     extension, derivation, model, analysis = algebraic_model(y**2 - x**3 + x)
 
-    incomplete = solve_algebraic_exactness(
-        extension.field.one,
-        derivation,
-        model,
-        analysis,
-        max_x_degree=0,
-    )
     exact = solve_algebraic_exactness(
         extension.field.one,
         derivation,
         model,
         analysis,
-        max_x_degree=1,
     )
 
-    assert incomplete.status is AlgebraicExactnessStatus.INCOMPLETE
-    assert not incomplete.complete_negative
     assert exact.status is AlgebraicExactnessStatus.EXACT
     assert exact.primitive == extension.field.from_sympy(x)
 
 
-def test_backend_local_arithmetic_gap_is_an_honest_unsupported_boundary() -> None:
-    """A valid second-kind differential must not leak a SymPy GCD failure."""
+def test_second_kind_primitive_is_found_from_a_complete_hess_space() -> None:
+    """Complete global spaces remove the old local-arithmetic boundary."""
     extension, derivation, model, analysis = algebraic_model(y**2 - x**3 + x)
     primitive = extension.field.from_sympy(x) / extension.field.generator
 
@@ -157,9 +143,8 @@ def test_backend_local_arithmetic_gap_is_an_honest_unsupported_boundary() -> Non
         derivation,
         model,
         analysis,
-        max_x_degree=5,
     )
 
-    assert result.status is AlgebraicExactnessStatus.UNSUPPORTED
-    assert result.primitive is None
-    assert not result.complete_negative
+    assert result.status is AlgebraicExactnessStatus.EXACT
+    assert result.primitive == primitive
+    assert result.reconstructs

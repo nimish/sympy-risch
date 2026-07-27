@@ -48,7 +48,6 @@ def test_integrating_factor_rde_reduces_to_exactness() -> None:
         derivation,
         model,
         analysis,
-        max_x_degree=1,
     )
 
     assert result.status is AlgebraicIntegratingFactorRDEStatus.SOLVED
@@ -58,23 +57,6 @@ def test_integrating_factor_rde_reduces_to_exactness() -> None:
     assert result.integrating_factor is not None
     assert result.integrating_factor.factor == extension.field.generator
     assert result.exactness is not None and result.exactness.is_exact
-
-
-def test_integrating_factor_rde_preserves_a_bounded_exactness_miss() -> None:
-    extension, derivation, model, analysis = algebraic_model()
-
-    result = solve_algebraic_integrating_factor_rde(
-        extension.field.from_sympy(1 / (2 * x)),
-        extension.field.one / extension.field.generator,
-        derivation,
-        model,
-        analysis,
-        max_x_degree=0,
-    )
-
-    assert result.status is AlgebraicIntegratingFactorRDEStatus.INCOMPLETE
-    assert result.solution is None
-    assert result.exactness is not None
 
 
 def test_integrating_factor_rde_can_prove_no_solution_after_exactness() -> None:
@@ -87,7 +69,6 @@ def test_integrating_factor_rde_can_prove_no_solution_after_exactness() -> None:
         derivation,
         model,
         analysis,
-        max_x_degree=1,
     )
 
     assert result.status is AlgebraicIntegratingFactorRDEStatus.NO_SOLUTION

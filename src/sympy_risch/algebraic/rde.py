@@ -129,8 +129,6 @@ def solve_algebraic_integrating_factor_rde(
     derivation: Derivation,
     model: AlgebraicFunctionField,
     constant_field_analysis: AlgebraicConstantFieldAnalysis,
-    *,
-    max_x_degree: int = 1,
 ) -> AlgebraicIntegratingFactorRDEResult:
     r"""Solve an algebraic RDE when its integrating factor is in the field."""
     if not isinstance(derivation, Derivation):
@@ -149,9 +147,6 @@ def solve_algebraic_integrating_factor_rde(
         derivation.tower.levels[derivation.level] is not model.extension
     ):
         raise ValueError("the algebraic RDE derivation is not bound to the model")
-    if not isinstance(max_x_degree, int) or max_x_degree < 0:
-        raise ValueError("the algebraic RDE lattice degree must be nonnegative")
-
     a = _extension_element(model.extension, coefficient)
     b = _extension_element(model.extension, right_hand_side)
     zero = model.extension.field.zero
@@ -194,7 +189,6 @@ def solve_algebraic_integrating_factor_rde(
         derivation,
         model,
         constant_field_analysis,
-        max_x_degree=max_x_degree,
     )
     if exactness.is_exact:
         if exactness.primitive is None:
@@ -227,17 +221,12 @@ def solve_algebraic_integrating_factor_rde(
             exactness,
             "the transformed differential has no primitive in the current algebraic field",
         )
-    status = (
-        AlgebraicIntegratingFactorRDEStatus.INCOMPLETE
-        if exactness.status is AlgebraicExactnessStatus.INCOMPLETE
-        else AlgebraicIntegratingFactorRDEStatus.UNSUPPORTED
-    )
     return AlgebraicIntegratingFactorRDEResult(
         model,
         derivation,
         a,
         b,
-        status,
+        AlgebraicIntegratingFactorRDEStatus.UNSUPPORTED,
         None,
         factor,
         exactness,

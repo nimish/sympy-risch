@@ -232,9 +232,9 @@ E = sum_(ord_P(omega) < -1) (-ord_P(omega) - 1) P.
 ```
 
 The implementation first checks every fresh pole residue. A nonzero residue
-proves that no algebraic primitive exists. When all residues vanish, it uses
-the certified `L(0) = C` case or a bounded nonspecial lattice search that has
-reached the exact Riemann--Roch dimension. Only then does it solve
+proves that no algebraic primitive exists. When all residues vanish, it
+computes the complete `L(E)` through the generic Riemann--Roch service. Only
+then does it solve
 `D(sum_i c_i b_i) = omega` as an exact linear system over the displayed
 constant field. A failed solve in a complete space is a complete statement
 that the current algebraic function field has no primitive; it is **not** an
@@ -588,7 +588,7 @@ slow search is an implementation boundary, never a non-elementarity claim.
 | `AlgebraicIntegrationResult` | Native Hermite/logarithmic decomposition and an honest algebraic status |
 | `AlgebraicLogarithmicTerm` | One coefficient, verified residue divisor, and log argument |
 | `integrate_algebraic` | Current displayed-constant algebraic integration slice |
-| `AlgebraicExactnessResult` | Verified primitive, complete in-field no-primitive decision, or bounded/unsupported exactness boundary |
+| `AlgebraicExactnessResult` | Verified primitive, complete in-field no-primitive decision, or unsupported AFF boundary |
 | `solve_algebraic_exactness` | Low-level residue-free exactness decision in a direct algebraic function field |
 | `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus explicit target-field continuation |
 | `integrate_algebraic_with_constant_base_change` | Recollect and integrate after an explicit or one-step profile-selected compatible factor |

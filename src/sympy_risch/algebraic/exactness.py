@@ -26,11 +26,6 @@ from ..algebraic.constant_analysis import (
     AlgebraicConstantFieldAnalysis,
     AlgebraicConstantFieldStatus,
 )
-from ..algebraic_geometry.constraints import (
-    AlgebraicNonspecialLatticeSearch,
-    AlgebraicNonspecialSearchStatus,
-    search_nonspecial_lattice_slice,
-)
 from ..algebraic_geometry.function_field import (
     AlgebraicDifferential,
     AlgebraicDivisor,
@@ -50,7 +45,6 @@ class AlgebraicExactnessStatus(Enum):
 
     EXACT = "exact"
     NO_PRIMITIVE = "no_primitive"
-    INCOMPLETE = "incomplete"
     UNSUPPORTED = "unsupported"
 
 
@@ -156,8 +150,6 @@ class AlgebraicExactnessResult:
     certificate: AlgebraicExactnessCertificate | None
     primitive: ExtensionElement | None
     space: RiemannRochSpace | None
-    nonspecial_search: AlgebraicNonspecialLatticeSearch | None
-    max_x_degree: int
     detail: str
 
     def __post_init__(self) -> None:
@@ -197,13 +189,6 @@ class AlgebraicExactnessResult:
             raise TypeError("the exactness certificate has the wrong type")
         if self.space is not None and not isinstance(self.space, RiemannRochSpace):
             raise TypeError("an exactness space needs a Riemann--Roch result")
-        if self.nonspecial_search is not None and not isinstance(
-            self.nonspecial_search,
-            AlgebraicNonspecialLatticeSearch,
-        ):
-            raise TypeError("an exactness search has the wrong type")
-        if not isinstance(self.max_x_degree, int) or self.max_x_degree < 0:
-            raise ValueError("the exactness lattice degree bound must be nonnegative")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("an exactness result needs a nonempty detail")
 
@@ -226,7 +211,6 @@ class AlgebraicExactnessResult:
                 or pole_divisor is None
                 or not pole_divisor.is_zero
                 or self.space is not None
-                or self.nonspecial_search is not None
             ):
                 raise ValueError(
                     "the zero differential has inconsistent exactness data"
@@ -238,7 +222,6 @@ class AlgebraicExactnessResult:
                 self.certificate is not None
                 or primitive is not None
                 or self.space is not None
-                or self.nonspecial_search is not None
             ):
                 raise ValueError("an unsupported exactness result has partial data")
             return
@@ -251,28 +234,13 @@ class AlgebraicExactnessResult:
             raise ValueError("the primitive pole divisor is inconsistent")
         has_nonzero_residue = _has_nonzero_residue(differential)
 
-        search = self.nonspecial_search
-        if search is not None and (
-            search.model is not self.model
-            or search.divisor != pole_divisor
-            or search.constant_field_analysis is not self.constant_field_analysis
-        ):
-            raise ValueError(
-                "the nonspecial search belongs to another exactness problem"
-            )
         space = self.space
-        if space is not None:
-            if (
-                space.model is not self.model
-                or space.divisor != pole_divisor
-                or space.status is not RiemannRochSpaceStatus.CERTIFIED
-            ):
-                raise ValueError("the primitive space is inconsistent")
-            if search is not None and (
-                search.status is not AlgebraicNonspecialSearchStatus.CERTIFIED
-                or search.space is not space
-            ):
-                raise ValueError("the exactness search does not certify its space")
+        if space is not None and (
+            space.model is not self.model
+            or space.divisor != pole_divisor
+            or space.status is not RiemannRochSpaceStatus.CERTIFIED
+        ):
+            raise ValueError("the primitive space is inconsistent")
 
         if self.status is AlgebraicExactnessStatus.EXACT:
             if (
@@ -291,7 +259,7 @@ class AlgebraicExactnessResult:
             if primitive is not None:
                 raise ValueError("a no-primitive result cannot carry a primitive")
             if self.certificate is AlgebraicExactnessCertificate.NONZERO_RESIDUE:
-                if has_nonzero_residue and space is None and search is None:
+                if has_nonzero_residue and space is None:
                     return
                 raise ValueError("a residue obstruction has no nonzero residue")
             if (
@@ -312,18 +280,6 @@ class AlgebraicExactnessResult:
                     raise ValueError("the complete primitive space has a solution")
                 return
             raise ValueError("a no-primitive result needs a complete certificate")
-
-        if self.status is AlgebraicExactnessStatus.INCOMPLETE:
-            if (
-                self.certificate is not None
-                or primitive is not None
-                or space is not None
-                or has_nonzero_residue
-                or search is None
-                or search.status is not AlgebraicNonspecialSearchStatus.INCOMPLETE
-            ):
-                raise ValueError("an incomplete exactness result has inconsistent data")
-            return
 
         raise ValueError("the exactness result has an unknown status")
 
@@ -354,7 +310,6 @@ def _unsupported_exactness(
     coefficient: ExtensionElement,
     analysis: AlgebraicConstantFieldAnalysis,
     pole_divisor: AlgebraicDivisor | None,
-    max_x_degree: int,
     detail: str,
 ) -> AlgebraicExactnessResult:
     """Construct an intentionally information-free unsupported result."""
@@ -368,8 +323,6 @@ def _unsupported_exactness(
         None,
         None,
         None,
-        None,
-        max_x_degree,
         detail,
     )
 
@@ -379,16 +332,12 @@ def solve_algebraic_exactness(
     derivation: Derivation,
     model: AlgebraicFunctionField,
     constant_field_analysis: AlgebraicConstantFieldAnalysis,
-    *,
-    max_x_degree: int = 1,
 ) -> AlgebraicExactnessResult:
     r"""Decide exactness of one algebraic differential in the current field.
 
     This is a complete exactness decision only when a complete
-    Riemann--Roch space for the primitive pole divisor is certified.  A
-    nonzero residue is an immediate complete no-primitive certificate.  A
-    bounded nonspecial lattice miss is returned as ``INCOMPLETE``; it never
-    becomes a claim about elementary integrability.
+    Riemann--Roch space for the primitive pole divisor is certified. A
+    nonzero residue is an immediate complete no-primitive certificate.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("algebraic exactness needs a derivation")
@@ -406,9 +355,6 @@ def solve_algebraic_exactness(
         derivation.tower.levels[derivation.level] is not model.extension
     ):
         raise ValueError("the exactness derivation is not bound to the model")
-    if not isinstance(max_x_degree, int) or max_x_degree < 0:
-        raise ValueError("the exactness lattice degree bound must be nonnegative")
-
     value = _extension_element(model.extension, coefficient)
     zero = model.extension.field.zero
     zero_divisor = AlgebraicDivisor(model)
@@ -423,8 +369,6 @@ def solve_algebraic_exactness(
             AlgebraicExactnessCertificate.ZERO_DIFFERENTIAL,
             zero,
             None,
-            None,
-            max_x_degree,
             "the zero differential has the zero primitive",
         )
 
@@ -439,7 +383,6 @@ def solve_algebraic_exactness(
             value,
             constant_field_analysis,
             None,
-            max_x_degree,
             "the algebraic differential data needed for exactness is unavailable: "
             + str(exc),
         )
@@ -455,8 +398,6 @@ def solve_algebraic_exactness(
             AlgebraicExactnessCertificate.NONZERO_RESIDUE,
             None,
             None,
-            None,
-            max_x_degree,
             "a nonzero residue proves that the differential has no algebraic primitive",
         )
 
@@ -467,73 +408,20 @@ def solve_algebraic_exactness(
             value,
             constant_field_analysis,
             pole_divisor,
-            max_x_degree,
             "algebraic exactness needs a certified preserved constant field; "
             f"the current presentation is {constant_field_analysis.status.value}",
         )
 
-    search: AlgebraicNonspecialLatticeSearch | None = None
-    if pole_divisor.is_zero:
-        space = compute_riemann_roch_space(
+    space = compute_riemann_roch_space(model, pole_divisor)
+    if space.status is not RiemannRochSpaceStatus.CERTIFIED:
+        return _unsupported_exactness(
             model,
+            derivation,
+            value,
+            constant_field_analysis,
             pole_divisor,
+            "the complete primitive space is unavailable: " + space.detail,
         )
-        if space.status is not RiemannRochSpaceStatus.CERTIFIED:
-            return _unsupported_exactness(
-                model,
-                derivation,
-                value,
-                constant_field_analysis,
-                pole_divisor,
-                max_x_degree,
-                "the constant primitive space is unavailable: " + space.detail,
-            )
-    else:
-        try:
-            search = search_nonspecial_lattice_slice(
-                model,
-                pole_divisor,
-                constant_field_analysis,
-                max_x_degree=max_x_degree,
-            )
-        except (HeuristicGCDFailed, NotImplementedError, TypeError, ValueError) as exc:
-            return _unsupported_exactness(
-                model,
-                derivation,
-                value,
-                constant_field_analysis,
-                pole_divisor,
-                max_x_degree,
-                "the primitive-space search is unavailable: " + str(exc),
-            )
-        if search.status is AlgebraicNonspecialSearchStatus.INCOMPLETE:
-            return AlgebraicExactnessResult(
-                model,
-                derivation,
-                value,
-                constant_field_analysis,
-                pole_divisor,
-                AlgebraicExactnessStatus.INCOMPLETE,
-                None,
-                None,
-                None,
-                search,
-                max_x_degree,
-                search.detail,
-            )
-        if search.status is AlgebraicNonspecialSearchStatus.UNSUPPORTED:
-            return _unsupported_exactness(
-                model,
-                derivation,
-                value,
-                constant_field_analysis,
-                pole_divisor,
-                max_x_degree,
-                search.detail,
-            )
-        if search.space is None:
-            raise ValueError("a certified nonspecial search lacks its space")
-        space = search.space
 
     try:
         primitive = _solve_constant_derivative_equation(
@@ -549,7 +437,6 @@ def solve_algebraic_exactness(
             value,
             constant_field_analysis,
             pole_divisor,
-            max_x_degree,
             "the exact constant derivative solve is unavailable: " + str(exc),
         )
     if primitive is not None:
@@ -563,8 +450,6 @@ def solve_algebraic_exactness(
             AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE,
             primitive,
             space,
-            search,
-            max_x_degree,
             "a complete primitive space contains a verified algebraic primitive",
         )
     return AlgebraicExactnessResult(
@@ -577,7 +462,5 @@ def solve_algebraic_exactness(
         AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE,
         None,
         space,
-        search,
-        max_x_degree,
         "the complete primitive space contains no algebraic primitive",
     )

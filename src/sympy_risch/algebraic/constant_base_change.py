@@ -211,7 +211,6 @@ def _continue_source_result(
     source_result: AlgebraicIntegrationResult,
     factor: Poly,
     *,
-    max_x_degree: int,
     lazy: bool,
 ) -> AlgebraicConstantBaseChangeIntegrationResult:
     """Reintegrate one source boundary over a caller- or profile-chosen factor."""
@@ -240,7 +239,6 @@ def _continue_source_result(
         change.embed(source_result.collection.integrand),
         target_derivation,
         target_model.order.basis,
-        max_x_degree=max_x_degree,
         lazy=lazy,
     )
     return AlgebraicConstantBaseChangeIntegrationResult(
@@ -258,7 +256,6 @@ def integrate_algebraic_with_constant_base_change(
     basis: IntegralBasis,
     factor: Poly | None = None,
     *,
-    max_x_degree: int = 1,
     lazy: bool = False,
 ) -> AlgebraicConstantBaseChangeIntegrationResult:
     r"""Continue a compatible algebraic integral in a selected constant field.
@@ -284,7 +281,6 @@ def integrate_algebraic_with_constant_base_change(
         integrand,
         derivation,
         basis,
-        max_x_degree=max_x_degree,
         lazy=lazy,
     )
     if (
@@ -302,7 +298,6 @@ def integrate_algebraic_with_constant_base_change(
         return _continue_source_result(
             source_result,
             factor,
-            max_x_degree=max_x_degree,
             lazy=lazy,
         )
 
@@ -312,7 +307,6 @@ def integrate_algebraic_with_constant_base_change(
         continued = _continue_source_result(
             source_result,
             candidate,
-            max_x_degree=max_x_degree,
             lazy=lazy,
         )
         if continued.base_change is not None and continued.base_change.certified:
