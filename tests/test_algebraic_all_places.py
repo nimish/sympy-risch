@@ -69,9 +69,19 @@ def test_all_place_collector_uses_a_branch_uniformizer_and_infinity() -> None:
     assert finite.pole_order == 1
     assert finite.uniformizer == field.generator
     assert finite.value == finite.place.residue_field.from_sympy(2)
+    assert finite.constant_coordinates == (QQ(2),)
+    assert (
+        finite.place.from_constant_coordinates(finite.constant_coordinates)
+        == finite.value
+    )
     assert infinity.place.is_ramified
     assert infinity.pole_order == 1
     assert infinity.value == infinity.place.residue_field.from_sympy(-2)
+    assert infinity.constant_coordinates == (QQ(-2),)
+    assert (
+        infinity.place.from_constant_coordinates(infinity.constant_coordinates)
+        == infinity.value
+    )
 
     with pytest.raises(ValueError, match="do not cover every pole place"):
         replace(result, residues=(finite,))
@@ -210,6 +220,19 @@ def test_all_place_collector_cross_checks_unramified_finite_trager_residues() ->
     assert finite_values == trager_values == Counter({"-1": 1, "1": 1})
     assert infinity.pole_order == 2
     assert infinity.value == infinity.place.residue_field.zero
+
+
+def test_closed_place_constant_coordinates_round_trip_in_its_native_basis() -> None:
+    _tower, extension, _basis = algebraic_tower(y**2 - x)
+    model = AlgebraicFunctionField(extension)
+    place = model.finite_places(Poly(x**2 + 1, x, domain=QQ))[0]
+
+    residue = place.reduce_integral(extension.field.generator)
+    coordinates = place.constant_coordinates(residue)
+
+    assert place.degree == 4
+    assert coordinates == (QQ(-1), QQ.zero, QQ(-1), QQ.zero)
+    assert place.from_constant_coordinates(coordinates) == residue
 
 
 def test_all_place_collector_normalizes_a_singular_displayed_model() -> None:

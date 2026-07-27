@@ -132,10 +132,10 @@ dependent candidates. Positive-genus low-degree and rebasing-required cases
 must return an empty `UNSUPPORTED` result rather than a partial basis.
 `tests/test_algebraic_constraints.py` checks exact finite-subspace valuation
 intersections, including finite and infinite ramification, cancellation that
-removes a pole, algebraic constant fields, higher-degree residue boundaries,
-and generated planted cancellations. Its nonspecial bounded search is allowed
-to certify a global basis only by delegating to the existing Riemann--Roch
-certificate after reaching the theorem dimension.
+removes a pole, algebraic constant fields, and degree-four closed-place
+coordinate flattening. Its nonspecial bounded search is allowed to certify a
+global basis only by delegating to the existing Riemann--Roch certificate
+after reaching the theorem dimension.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

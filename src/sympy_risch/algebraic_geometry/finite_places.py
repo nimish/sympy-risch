@@ -46,6 +46,13 @@ class _LaurentPlace(Protocol):
 
     def lift_residue(self, value: object) -> ExtensionElement: ...
 
+    def constant_coordinates(self, value: object) -> tuple[FieldElement, ...]: ...
+
+    def from_constant_coordinates(
+        self,
+        coordinates: tuple[object, ...],
+    ) -> ExtensionElement: ...
+
 
 def _reduce_order_coordinates(
     order: AlgebraicOrder,
@@ -381,6 +388,80 @@ class FiniteAlgebraicPlace:
         if self.reduce_integral(result) != converted:
             raise ValueError("residue lifting failed to round-trip")
         return result
+
+    def constant_coordinates(self, value: object) -> tuple[FieldElement, ...]:
+        r"""Return exact coordinates of a residue-field element over ``C``.
+
+        If ``alpha`` is the root of ``base_prime`` and ``beta`` is this
+        place's separating residue generator, the coordinate order is
+
+        ``(1, alpha, ..., alpha**(d - 1), beta, alpha*beta, ...,
+        alpha**(d - 1)*beta, ..., alpha**(d - 1)*beta**(f - 1))``,
+
+        where ``d = base_degree`` and ``f = relative_degree``.  Thus the
+        returned tuple has length :attr:`degree` and gives the native
+        ``C``-vector-space presentation of the closed residue field.  It is
+        deliberately local to this place: it does not choose an embedding
+        into a common algebraic closure for different places.
+        """
+        if isinstance(value, ExtensionElement) and value.ext is not self.residue_field:
+            raise ValueError("residue coordinates require this place's residue field")
+        converted = self.residue_field.convert(value)
+        constants = self.base_prime.domain
+        coordinates: list[FieldElement] = []
+        for relative_power in range(self.relative_degree):
+            base_coefficient = self._context.field.convert(
+                converted.rep.nth(relative_power)
+            )
+            lifted = self._context.lift(base_coefficient)
+            coordinates.extend(
+                constants.convert(lifted.nth(base_power))
+                for base_power in range(self.base_degree)
+            )
+        result = tuple(coordinates)
+        if len(result) != self.degree:
+            raise ValueError("residue coordinates have the wrong dimension")
+        return result
+
+    def from_constant_coordinates(
+        self,
+        coordinates: tuple[object, ...],
+    ) -> ExtensionElement:
+        r"""Reconstruct a residue-field element from :meth:`constant_coordinates`.
+
+        This inverse is useful to consumers that need to verify a local
+        coordinate computation before turning it into constant-field linear
+        equations.
+        """
+        if not isinstance(coordinates, tuple):
+            raise TypeError("residue coordinates must be an immutable tuple")
+        if len(coordinates) != self.degree:
+            raise ValueError("residue coordinates have the wrong dimension")
+
+        constants = self.base_prime.domain
+        variable = self.base_prime.gens[0]
+        normalized = tuple(constants.convert(coordinate) for coordinate in coordinates)
+        result = self.residue_field.zero
+        generator = self.residue_field.generator
+        for relative_power in range(self.relative_degree):
+            coefficients = {
+                (base_power,): normalized[
+                    relative_power * self.base_degree + base_power
+                ]
+                for base_power in range(self.base_degree)
+                if normalized[relative_power * self.base_degree + base_power]
+                != constants.zero
+            }
+            polynomial = Poly.from_dict(coefficients, variable, domain=constants)
+            base_coefficient = self._context.reduce_polynomial(polynomial)
+            embedded = self.residue_field.from_sympy(
+                self.base_residue_field.to_sympy(base_coefficient)
+            )
+            result += embedded * generator**relative_power
+        reconstructed = cast(ExtensionElement, result)
+        if self.constant_coordinates(reconstructed) != normalized:
+            raise ValueError("residue-coordinate reconstruction failed to round-trip")
+        return reconstructed
 
     def valuation(self, element: object) -> int | Expr:
         """Return the normalized discrete valuation, with ``v(0) = oo``."""

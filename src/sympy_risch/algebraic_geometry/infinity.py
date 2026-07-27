@@ -12,6 +12,7 @@ from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.fields import FracElement
 from sympy.polys.polytools import Poly
 
+from .._typing import FieldElement
 from ..algebraic._field import (
     _base_polynomial_ring,
     _embed_parent,
@@ -204,6 +205,21 @@ class InfiniteAlgebraicPlace:
     def lift_residue(self, value: object) -> ExtensionElement:
         """Lift a residue value into the original field."""
         return self.chart.backward(self.finite_place.lift_residue(value))
+
+    def constant_coordinates(self, value: object) -> tuple[FieldElement, ...]:
+        r"""Return the finite-place coordinates of one local residue.
+
+        The reciprocal chart preserves the residue field, so its closed-point
+        coordinate basis is also the canonical coordinate basis at infinity.
+        """
+        return self.finite_place.constant_coordinates(value)
+
+    def from_constant_coordinates(
+        self,
+        coordinates: tuple[object, ...],
+    ) -> ExtensionElement:
+        """Reconstruct a residue-field element from local constant coordinates."""
+        return self.finite_place.from_constant_coordinates(coordinates)
 
     def local_expansion(
         self,

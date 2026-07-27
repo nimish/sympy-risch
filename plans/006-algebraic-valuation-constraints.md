@@ -30,10 +30,11 @@ the ambient basis, solves the resulting exact Laurent-coefficient equations,
 and independently rechecks the returned basis through full principal
 divisors. Zero and dependent ambient generators are normalized away.
 
-A place with an active constraint must presently have residue field equal to
-the certified constant field. The result is explicitly `UNSUPPORTED` when
-the missing operation is higher-degree residue-coordinate flattening, and
-contains no partial candidate basis.
+Each active constructed closed place is flattened in its native finite basis over the
+certified constant field. A degree-`d` Laurent coefficient therefore becomes
+`d` exact scalar equations, without identifying the place with a rational
+point. This is a local vector-space computation only; it does not construct a
+common algebraic-closure embedding across different residue fields.
 
 `finite_lattice_slice` supplies a finite prefix from the fractional ideal for
 the finite part of `D`. `search_nonspecial_lattice_slice` reports
@@ -43,17 +44,17 @@ only then does it delegate to `RiemannRochSpace` for a complete certificate.
 ## Deliberate boundary
 
 This checkpoint does not implement a terminating degree-bound theorem for an
-arbitrary divisor, higher-degree residue coordinates, principal/torsion
-divisor solving, logarithmic reconstruction, or second-kind exactness. Those
-remain distinct consumers of the eventual general finite/infinite lattice
-intersection algorithm.
+arbitrary divisor, a common residue-field embedding or residue basis,
+principal/torsion divisor solving, logarithmic reconstruction, or second-kind
+exactness. Those remain distinct consumers of the eventual general
+finite/infinite lattice intersection algorithm.
 
 ## Verification
 
 - Ramified finite and infinite local constraints, including cancellation that
   creates a regular combination.
-- Algebraic constant fields, higher-degree residue refusal only when an
-  equation is needed, and rebasing-required constants.
+- Algebraic constant fields, degree-four closed-place coordinate equations,
+  and rebasing-required constants.
 - Forged coordinates/result metadata, zero/dependent ambient generators, and
   generated planted cancellations.
 - Bounded nonspecial exhaustion versus theorem-backed completed bases.

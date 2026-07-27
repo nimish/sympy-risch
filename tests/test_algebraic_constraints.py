@@ -143,7 +143,7 @@ def test_kernel_uses_the_certified_exact_algebraic_constant_field() -> None:
     assert model.principal_divisor(kernel.basis[0]).is_zero
 
 
-def test_kernel_refuses_a_required_nonrational_residue_coordinate() -> None:
+def test_kernel_flattens_a_required_nonrational_residue_coordinate() -> None:
     model, extension, analysis = algebraic_model(y**2 - x)
     field = extension.field
 
@@ -154,11 +154,52 @@ def test_kernel_refuses_a_required_nonrational_residue_coordinate() -> None:
         (field.from_sympy(1 / (x**2 + 1)),),
     )
 
+    assert kernel.status is AlgebraicValuationKernelStatus.CERTIFIED
+    assert kernel.ambient_basis == (field.from_sympy(1 / (x**2 + 1)),)
+    assert kernel.basis == ()
+    assert kernel.coordinates == ()
+    assert kernel.dimension == 0
+    assert any(place.degree == 4 for place in kernel.constraint_places)
+
+
+def test_kernel_preserves_cancellation_at_a_nonrational_closed_place() -> None:
+    model, extension, analysis = algebraic_model(y**2 - x)
+    field = extension.field
+    first = field.from_sympy(y / (x**2 + 1))
+    second = first + field.one
+
+    kernel = solve_algebraic_valuation_constraints(
+        model,
+        AlgebraicDivisor(model),
+        analysis,
+        (first, second),
+    )
+
+    assert kernel.status is AlgebraicValuationKernelStatus.CERTIFIED
+    assert kernel.coordinates == ((-1, 1),)
+    assert kernel.basis == (field.one,)
+    assert kernel.dimension == 1
+    assert any(place.degree == 4 for place in kernel.constraint_places)
+
+
+def test_kernel_reports_unavailable_place_data_over_algebraic_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    model, extension, analysis = algebraic_model(y**2 - x, constants)
+    field = extension.field
+    first = field.from_sympy(y / (x + 1))
+    second = first + field.from_sympy(sqrt(2))
+
+    kernel = solve_algebraic_valuation_constraints(
+        model,
+        AlgebraicDivisor(model),
+        analysis,
+        (first, second),
+    )
+
     assert kernel.status is AlgebraicValuationKernelStatus.UNSUPPORTED
     assert kernel.ambient_basis == ()
     assert kernel.basis == ()
-    assert kernel.coordinates == ()
-    assert "residue field equal to the constant field" in kernel.detail
+    assert "unavailable exact local place data" in kernel.detail
 
 
 def test_kernel_ignores_a_nonrational_place_that_needs_no_equation() -> None:

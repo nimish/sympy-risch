@@ -182,12 +182,17 @@ Laurent-coefficient conditions required at each place. This captures genuine
 cancellation between candidate functions, rather than merely filtering them
 one at a time.
 
-For now, a place that contributes a nontrivial equation must have residue
-field equal to the proved constant field. A higher-degree closed point with no
-active constraint is harmless; one that needs residue coordinates yields an
-information-free `UNSUPPORTED` result. The result also requires preserved
-constants and rechecks every returned basis element by its full principal
-divisor.
+Every constructed closed residue field is flattened in its native finite basis
+over the proved constant field. If the base point has root `alpha` and the
+reduced fiber uses separator `beta`, the finite-place coordinate order is
+`1, alpha, ..., alpha**(d - 1), beta, alpha*beta, ...`. A local Laurent
+coefficient therefore supplies one scalar equation for each coordinate, so a
+degree-`d` closed point is handled without pretending it is rational. The
+coordinates are intentionally place-local: they do not yet identify values in
+different residue fields inside a common algebraic constant extension. That
+global embedding/residue-basis problem remains part of logarithmic
+reconstruction. The result still requires preserved constants and rechecks
+every returned basis element by its full principal divisor.
 
 `finite_lattice_slice` supplies a bounded subspace from the exact finite ideal
 associated with `-D_fin`. `search_nonspecial_lattice_slice` turns that bounded
@@ -202,8 +207,8 @@ negative integration or global-space decision.
 | `AlgebraicOrder` | Certified full-rank `C[x]` subring of `L` |
 | `AlgebraicFractionalIdeal` | Nonzero full-rank fractional ideal |
 | `IntegralClosureResult` | Maximal order plus all refinement evidence |
-| `FiniteAlgebraicPlace` | Closed finite place, including ramified places |
-| `InfiniteAlgebraicPlace` | Closed place above infinity |
+| `FiniteAlgebraicPlace` | Closed finite place, including ramified places and local `C` coordinates |
+| `InfiniteAlgebraicPlace` | Closed place above infinity, with the reciprocal place's local coordinates |
 | `LocalLaurentExpansion` | Certified finite Laurent segment |
 | `AlgebraicDivisor` | Immutable formal sum of closed places |
 | `AlgebraicDifferential` | Differential represented as `h dx` |

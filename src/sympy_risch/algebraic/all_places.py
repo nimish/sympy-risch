@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from sympy.polys.agca.extensions import ExtensionElement
 
+from .._typing import FieldElement
 from ..tower import Derivation
 from ._field import _extension_element
 from .basis import IntegralBasis
@@ -71,6 +72,17 @@ class AlgebraicLocalDifferentialResidue:
                 "a local residue value must belong to the place residue field"
             )
         object.__setattr__(self, "uniformizer", uniformizer)
+
+    @property
+    def constant_coordinates(self) -> tuple[FieldElement, ...]:
+        r"""Return the exact place-local coordinates of :attr:`value` over ``C``.
+
+        These coordinates make one closed residue field into a finite
+        constant-vector space.  They do not identify residue fields at
+        distinct places; constructing such a common algebraic constant field
+        is a later logarithmic-reconstruction step.
+        """
+        return self.place.constant_coordinates(self.value)
 
 
 @dataclass(frozen=True, slots=True)

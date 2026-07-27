@@ -15,15 +15,11 @@ such place ``P``, the inequality
 ``v_P(sum(c_i*b_i)) >= -D_P``
 
 is equivalent to the vanishing of its local Laurent coefficients below
-``-D_P``.  When the residue field of every place that contributes a nontrivial
-coefficient constraint is the constant field itself, those are exact linear
-equations in ``c_i`` over the certified constant field.  Their exact nullspace
-is therefore the desired intersection.
-
-The degree-one-residue restriction is intentional.  A general closed place
-requires flattening a residue-field equation into several constant-field
-coordinates; returning ``UNSUPPORTED`` here is safer than silently treating a
-closed point as rational.
+``-D_P``. Each closed residue field has an exact native basis over the
+certified constant field, so every local coefficient is flattened into
+``deg(P)`` scalar equations in ``c_i``. Their exact nullspace is therefore the
+desired intersection. This is a local vector-space construction; it does not
+choose embeddings between residue fields at distinct places.
 
 ``finite_lattice_slice`` and ``search_nonspecial_lattice_slice`` provide a
 small, theorem-backed first consumer.  The former enumerates a finite prefix
@@ -44,6 +40,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polytools import Poly
 
+from .._typing import FieldElement
 from ..algebraic._field import (
     _base_polynomial_ring,
     _embed_parent,
@@ -119,30 +116,31 @@ def _relevant_places(
     return tuple(places)
 
 
-def _residue_scalar(
+def _residue_coordinates(
     place: AlgebraicPlace,
     value: object,
     constants: Domain,
-) -> object:
-    r"""Return one residue coefficient as an element of the constant field.
+) -> tuple[FieldElement, ...]:
+    r"""Flatten one local residue-field value into exact ``C`` coordinates.
 
-    This is called only for a place that contributes a nontrivial local
-    equation.  Keeping the degree-one check here makes a future extension to
-    higher-degree residue coordinates local and prevents accidental weakening
-    of the certificate.
+    A closed place of degree greater than one supplies several scalar local
+    equations over the constant field.  The place's native coordinate map is
+    exact and is intentionally local: no common algebraic-closure embedding
+    is needed to impose a vanishing condition in that one residue field.
     """
-    residue_field = place.residue_field
-    if (
-        place.degree != 1
-        or residue_field.rank != 1
-        or residue_field.domain != constants
-    ):
+    try:
+        coordinates = place.constant_coordinates(value)
+    except (NotImplementedError, TypeError, ValueError) as exc:
         raise _UnsupportedValuationConstraint(
-            "valuation constraints currently require every place that needs "
-            "a local equation to have residue field equal to the constant field",
-        )
-    converted = residue_field.convert(value)
-    return constants.convert(converted.rep.nth(0))
+            "valuation constraints could not obtain exact local residue "
+            f"coordinates: {exc}",
+        ) from exc
+    try:
+        return tuple(constants.convert(coordinate) for coordinate in coordinates)
+    except (TypeError, ValueError) as exc:
+        raise _UnsupportedValuationConstraint(
+            "local residue coordinates do not belong to the constant field",
+        ) from exc
 
 
 def _constraint_data(
@@ -169,22 +167,47 @@ def _constraint_data(
         if start >= threshold:
             continue
 
-        # Prove that one local coefficient is a scalar equation over C before
-        # doing the comparatively expensive expansions.  A place where every
-        # ambient vector already meets the bound contributes no equation and
-        # therefore needs no residue-coordinate representation.
-        _residue_scalar(place, place.residue_field.zero, constants)
+        # Set the exact number of scalar equations contributed by each local
+        # Laurent coefficient before doing the comparatively expensive
+        # expansions. A place where every ambient vector already meets the
+        # bound contributes no equation and therefore needs no coordinates.
+        coordinate_dimension = len(
+            _residue_coordinates(place, place.residue_field.zero, constants)
+        )
+        if coordinate_dimension != place.degree:
+            raise _UnsupportedValuationConstraint(
+                "local residue-coordinate dimension disagrees with the place degree",
+            )
 
         expansions = tuple(
             place.local_expansion(element, stop=threshold) for element in ambient_basis
         )
         for exponent in range(start, threshold):
-            row = [
-                _residue_scalar(place, expansion.coefficient(exponent), constants)
-                for expansion in expansions
+            coordinate_rows = [
+                [constants.zero for _ in ambient_basis]
+                for _ in range(coordinate_dimension)
             ]
-            if any(coefficient != constants.zero for coefficient in row):
-                rows.append(row)
+            for column, expansion in enumerate(expansions):
+                coordinates = _residue_coordinates(
+                    place,
+                    expansion.coefficient(exponent),
+                    constants,
+                )
+                if len(coordinates) != coordinate_dimension:
+                    raise _UnsupportedValuationConstraint(
+                        "local residue-coordinate dimension changed during expansion",
+                    )
+                for row, coordinate in zip(
+                    coordinate_rows,
+                    coordinates,
+                    strict=True,
+                ):
+                    row[column] = coordinate
+            rows.extend(
+                row
+                for row in coordinate_rows
+                if any(coefficient != constants.zero for coefficient in row)
+            )
 
     return DomainMatrix(rows, (len(rows), len(ambient_basis)), constants), places
 
@@ -402,12 +425,12 @@ def solve_algebraic_valuation_constraints(
     r"""Compute exactly ``span_C(ambient_basis) intersect L(divisor)``.
 
     The result is certified only after the existing constant-field analysis
-    proves that the displayed constants are preserved, and only when every
-    place that contributes a nontrivial local equation has residue degree one.
-    It is nevertheless fully general in the supplied finite-dimensional
-    ambient subspace within that contract: cancellations between ambient
-    generators are solved by the local linear system rather than missed by
-    individual valuation tests.
+    proves that the displayed constants are preserved and the required exact
+    place data can be constructed. Each local residue field is flattened into
+    its native constant-coordinate basis. It is then fully general in the
+    supplied finite-dimensional ambient subspace: cancellations between
+    ambient generators are solved by the local linear system rather than
+    missed by individual valuation tests.
     """
     if not isinstance(model, AlgebraicFunctionField):
         raise TypeError("valuation constraints need an algebraic function field")
@@ -436,6 +459,13 @@ def solve_algebraic_valuation_constraints(
         constraints, places = _constraint_data(model, divisor, ambient)
     except _UnsupportedValuationConstraint as exc:
         return _unsupported_kernel(model, divisor, constant_field_analysis, str(exc))
+    except NotImplementedError as exc:
+        return _unsupported_kernel(
+            model,
+            divisor,
+            constant_field_analysis,
+            f"valuation constraints require unavailable exact local place data: {exc}",
+        )
     coordinates = _coordinate_rows(constraints.nullspace())
     basis = tuple(
         _linear_combination(model, ambient, coordinate) for coordinate in coordinates
@@ -663,8 +693,9 @@ def search_nonspecial_lattice_slice(
     This is a semialgorithm, deliberately bounded by ``max_x_degree``.  On
     success the certificate is complete by the nonspecial Riemann--Roch
     formula; on exhaustion it returns ``INCOMPLETE`` rather than asserting
-    that no basis exists.  Higher-degree residue fields and non-preserved
-    constants remain structured unsupported cases of the present kernel.
+    that no basis exists. Non-preserved constants and unavailable exact local
+    coordinate maps remain structured unsupported cases of the present
+    kernel.
     """
     if not isinstance(model, AlgebraicFunctionField):
         raise TypeError("a nonspecial search needs an algebraic function field")
