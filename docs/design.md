@@ -1081,10 +1081,13 @@ model. The collector now feeds a closed-place residue profile whose roots are
 the full finite/ramified/infinite residue multiset. The next algebraic
 decisions are global: compatible base change and place splitting, a residue
 basis over the necessary algebraic constant extension, and principal/torsion
-divisor-class solving for logarithmic reconstruction. A bounded exact
-principal-divisor semialgorithm now searches `L(-D)` for a degree-zero divisor
-and verifies any witness through its full divisor; exhausting the requested
-finite lattice slice is intentionally only incomplete. In
+divisor-class solving for general logarithmic reconstruction. A first direct
+`QQ` slice now turns local residues already equal to rational constants into
+an integral divisor, searches for a verified principal witness, and returns
+its native logarithmic derivative. A bounded exact principal-divisor
+semialgorithm searches `L(-D)` for a degree-zero divisor and verifies any
+witness through its full divisor; exhausting the requested finite lattice
+slice is intentionally only incomplete. In
 parallel, the nonzero zero-residue branch needs exactness decisions for
 second-kind differentials and the Risch equation on an algebraic curve.
 Recursive composition with transcendental levels comes after those field-level
@@ -1107,7 +1110,10 @@ to a complete nonspecial space only when it reaches Riemann--Roch's theorem
 dimension; exhaustion is explicitly incomplete. The same finite-lattice
 kernel supplies a bounded exact principal-divisor search: for degree-zero
 `D`, any nonzero element of `L(-D)` has divisor exactly `D`, and is checked
-against the full global divisor. These local coordinates do
+against the full global divisor. This gives a constructive first algebraic
+integration cell when every residue is already in `QQ`: scale the residues to
+an integral divisor, reconstruct `lambda*D(f)/f`, and retain any residue-free
+remainder for the later first-/second-kind decision. These local coordinates do
 not yet choose a common algebraic-closure embedding across different places;
 that is still part of residue-basis descent for logarithmic reconstruction.
 
@@ -1368,6 +1374,10 @@ divisor stage; they are not yet a logarithmic answer.
 - [x] Search a finite exact lattice slice for a degree-zero principal-divisor
   witness, verify it globally, and distinguish the degree obstruction from a
   bounded incomplete search.
+- [x] Reconstruct a logarithmic term from rational all-place residues over
+  `QQ` when the associated divisor has a verified bounded-search witness;
+  retain non-rational residues and residue-free remainders as explicit
+  boundaries.
 - [ ] Compute a rational basis for the algebraic residues in their minimal
   constant extension.
 - [ ] Construct the divisor associated with each residue-basis coefficient

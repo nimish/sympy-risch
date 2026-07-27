@@ -148,6 +148,11 @@ principal-divisor semialgorithm: it reconstructs genus-zero and
 positive-genus witnesses through their complete divisors, never turns an
 exhausted degree-zero slice into a negative decision, and treats nonzero
 degree as the complete elementary obstruction.
+`tests/test_algebraic_logarithmic.py` exercises the first end-to-end algebraic
+integration cell: ramified and split rational-residue logarithms, a retained
+residue-free remainder, non-rational residues requiring compatible base
+change, and a bounded principal-divisor miss that is not misreported as a
+non-elementarity decision.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

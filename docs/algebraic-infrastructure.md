@@ -1,14 +1,14 @@
 # Algebraic function-field infrastructure
 
-This document describes the exact algebraic-curve layer that supports future
-algebraic Risch algorithms. It is software infrastructure, not a tutorial and
-not an algebraic integrator.
+This document describes the exact algebraic-curve layer and its first
+integration-facing consumer. It is software infrastructure, not a tutorial and
+not a complete algebraic integrator.
 
-The implementation lives in
-`src/sympy_risch/algebraic_geometry/`. It reuses SymPy for exact finite
-extensions, polynomial factorization, and `DomainMatrix` arithmetic. It adds
-the function-field structures that SymPy does not currently provide as a
-coherent exact API:
+The global layer lives in `src/sympy_risch/algebraic_geometry/`; its first
+consumer is `src/sympy_risch/algebraic/logarithmic.py`. It reuses SymPy for
+exact finite extensions, polynomial factorization, and `DomainMatrix`
+arithmetic. It adds the function-field structures that SymPy does not currently
+provide as a coherent exact API:
 
 - certified polynomial orders and maximal orders;
 - full-rank fractional ideals;
@@ -18,11 +18,10 @@ coherent exact API:
 - finite local Laurent expansions;
 - differents, divisors, principal divisors, and differentials.
 
-It deliberately does **not** implement the later Risch components:
+It deliberately does **not** implement the general later Risch components:
 
-- algebraic logarithmic reconstruction;
-- residue-basis descent;
-- principal- or torsion-divisor solving;
+- compatible algebraic constant base change and residue-basis descent;
+- general principal- or torsion-divisor solving;
 - exactness decisions for differentials of the second kind;
 - an algebraic-curve Risch differential-equation solver.
 
@@ -141,8 +140,10 @@ the Hermite remainder in its retained basis. For a nonzero `COLLECTED` result,
 it also checks the full differential divisor and the one-to-one correspondence
 between negative divisor support and local records; each residue value must
 belong to its record's exact residue field. It is a residue collection
-boundary, not an integrator: it neither reconstructs logarithms from residues
-nor decides whether a nonzero zero-residue differential is exact.
+boundary. The separate first logarithmic consumer below can use the special
+case where every local residue is already rational; the collector itself does
+not choose embeddings between non-rational local residue fields or decide
+whether a nonzero zero-residue differential is exact.
 
 ## Closed-place residue profiles
 
@@ -180,6 +181,37 @@ must factor `R_omega`, construct a compatible constant extension together with
 maps from every relevant residue field, base-change and split the places, and
 only then attach residue coefficients to divisors. This distinction prevents a
 locally correct but globally inconsistent logarithmic reconstruction.
+
+## Rational-residue logarithmic reconstruction
+
+`integrate_algebraic` is the first integration-facing use of the global data.
+It currently handles a narrow, useful cell: the displayed constant field is
+`QQ`, every collected residue has local coordinate form `(q, 0, ..., 0)`, and
+the resulting divisor has a principal witness within a caller-selected finite
+lattice bound. It does not guess compatible conjugates for a non-rational
+closed residue.
+
+For the nonzero rational residues `r_P`, it first takes their positive
+rational content `lambda` and forms
+
+```text
+D_lambda = sum_P (r_P / lambda) P.
+```
+
+The coefficients are integral and the global residue theorem gives
+`deg(D_lambda) = 0`. If the bounded principal-divisor search verifies
+`div(f) = D_lambda`, the returned native logarithmic derivative is
+`lambda * D(f) / f`, with displayed term `lambda * log(f)`. The result checks
+
+```text
+integrand = D(exact_part) + logarithmic_derivative + remainder.
+```
+
+`EXACT` and `ELEMENTARY` are constructive answers. `INCOMPLETE` means only
+that the requested finite principal-divisor bound missed a witness;
+`NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a non-rational local
+residue; and `RESIDUE_FREE_REMAINDER` is passed to the future first-/second-
+kind exactness decision. None is a non-elementarity claim.
 
 ## Certified first global spaces
 
@@ -280,6 +312,8 @@ algorithms; the bounded routine deliberately does not claim either.
 | `search_nonspecial_lattice_slice` | Bounded lattice search with a theorem-backed completion check |
 | `AlgebraicPrincipalDivisorSearch` | Verified witness or honest bounded principal-divisor search outcome |
 | `search_algebraic_principal_divisor` | Search a finite `L(-D)` slice for an exact principal witness |
+| `AlgebraicIntegrationResult` | Native Hermite/logarithmic decomposition and an honest algebraic status |
+| `integrate_algebraic` | Current `QQ` rational-residue algebraic integration slice |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from
@@ -632,7 +666,9 @@ The next algebraic Risch implementation may assume all of the following:
 6. principal and canonical divisor construction; and
 7. finite divisor/fractional-ideal conversion.
 
-It now also has a small set of certified global Riemann--Roch spaces. It must
-still implement general finite/infinite lattice intersection, residue descent,
-divisor-class solving, logarithmic reconstruction, second-kind exactness, and
-algebraic RDEs. Those are intentionally not infrastructure methods.
+It now also has a small set of certified global Riemann--Roch spaces and a
+bounded direct-`QQ` logarithmic reconstruction cell. It must still implement
+general finite/infinite lattice intersection, compatible residue descent,
+divisor-class/torsion solving, general logarithmic reconstruction, second-kind
+exactness, and algebraic RDEs. Those are intentionally not infrastructure
+methods.

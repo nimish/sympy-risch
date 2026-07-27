@@ -914,10 +914,37 @@ assert curve.genus == 0
 The model also exposes the certified maximal order, fractional ideals, local
 reduction and Laurent expansion, differents, differential residues, and
 finite ideal/divisor conversion. See the
-[algebraic infrastructure contract](algebraic-infrastructure.md). These are
-low-level prerequisites for future algebraic Risch algorithms; they do not
-perform logarithmic reconstruction, principal-divisor solving, or an
-algebraic RDE.
+[algebraic infrastructure contract](algebraic-infrastructure.md).
+
+## Integrate the first algebraic logarithmic cases
+
+`integrate_algebraic` combines algebraic Hermite reduction, all-place
+residues, and the bounded principal-divisor search. Its current constructive
+scope is direct `QQ` presentations whose local residues are already rational
+constants. For `y**2 = x`, the ramified point over `x = 0` and infinity have
+residues `2` and `-2`, so the divisor is `div(y)`:
+
+```python
+from sympy import log
+from sympy_risch import integrate_algebraic
+
+decision = integrate_algebraic(
+    1 / x,
+    sqrt_x.derivation(),
+    basis,
+    max_x_degree=0,
+)
+
+assert decision.is_elementary
+assert decision.antiderivative == 2 * log(y)
+assert decision.reconstructs
+```
+
+Non-rational local residues return `NEEDS_CONSTANT_BASE_CHANGE`, a bounded
+principal-divisor miss returns `INCOMPLETE`, and a nonzero residue-free
+remainder returns `RESIDUE_FREE_REMAINDER`. Those are honest algorithmic
+boundaries, not non-elementarity certificates. Algebraic levels are not yet
+part of the recursive `integrate_elementary` dispatcher or the algebraic RDE.
 
 ## Certify a first global algebraic space
 
@@ -1005,6 +1032,7 @@ boundary, not a mathematical claim about the integral.
 | Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, and degree-one-pole rational parameters; arbitrary divisors return `UNSUPPORTED` |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Bounded algebraic principal-divisor search | Low-level exact semialgorithm: verifies a supplied-bound witness for degree-zero `D`, returns `INCOMPLETE` on finite-slice exhaustion, and proves only the nonzero-degree obstruction |
+| Algebraic rational-residue integration | Constructive direct-`QQ` algebraic Hermite/logarithmic integration when every local residue is rational and its divisor has a bounded-search principal witness; other cases retain explicit boundaries |
 | Algebraic levels in `integrate_elementary` | Not implemented |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |
@@ -1035,6 +1063,7 @@ principal groups are:
 | Algebraic finite residues | `trager_algebraic_residue_polynomial` |
 | Algebraic constants and all-place residues | `analyze_algebraic_constant_field`, `collect_algebraic_all_place_residues` |
 | Algebraic all-place residue profiles | `build_algebraic_residue_profile` |
+| Algebraic rational-residue integration | `AlgebraicIntegrationResult`, `integrate_algebraic`, `reconstruct_rational_residue_logarithms` |
 | Certified algebraic global spaces | `RiemannRochSpace`, `compute_riemann_roch_space` |
 | Algebraic valuation constraints | `solve_algebraic_valuation_constraints`, `finite_lattice_slice`, `search_nonspecial_lattice_slice` |
 | Bounded principal-divisor search | `AlgebraicPrincipalDivisorSearch`, `search_algebraic_principal_divisor` |

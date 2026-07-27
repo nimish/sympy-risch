@@ -111,6 +111,6 @@ made proof-carrying rather than inherited from caller metadata.
 - Rewriting the project around a private element hierarchy was rejected. The
   established design deliberately uses native SymPy domains and immutable tower
   metadata.
-- Treating the current all-place algebraic substrate as a complete algebraic
-  integrator was rejected: it lacks constant-field normalization, global
-  logarithmic reconstruction, and second-kind exactness.
+- Treating the current partial algebraic integrator as complete was rejected:
+  its direct-`QQ` rational-residue slice still lacks compatible constant
+  descent, general logarithmic reconstruction, and second-kind exactness.

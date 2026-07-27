@@ -33,6 +33,12 @@ from .algebraic import (
     trager_algebraic_place_residues,
     trager_algebraic_residue_polynomial,
 )
+from .algebraic.logarithmic import (
+    AlgebraicIntegrationResult,
+    AlgebraicIntegrationStatus,
+    integrate_algebraic,
+    reconstruct_rational_residue_logarithms,
+)
 from .algebraic_geometry import (
     AlgebraicDifferential,
     AlgebraicDivisor,
@@ -253,6 +259,8 @@ __all__ = [
     "AlgebraicFraction",
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",
+    "AlgebraicIntegrationResult",
+    "AlgebraicIntegrationStatus",
     "AlgebraicLocalDifferentialResidue",
     "AlgebraicNonspecialLatticeSearch",
     "AlgebraicNonspecialSearchStatus",
@@ -399,6 +407,7 @@ __all__ = [
     "hermite_reduce_rational",
     "hermite_reduce_rational_recursive",
     "integral_closure",
+    "integrate_algebraic",
     "integrate_elementary",
     "integrate_expression",
     "integrate_polynomial",
@@ -413,6 +422,7 @@ __all__ = [
     "primitive_logarithmic_derivative_signature",
     "rebase_derivation_constants",
     "recognize_simple_radical",
+    "reconstruct_rational_residue_logarithms",
     "reduce_certified_linear_special_poles",
     "reduce_hyperexponential_laurent",
     "reduce_hyperexponential_monomial",
