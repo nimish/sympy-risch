@@ -29,7 +29,8 @@ primitive towers, primitive RDE weak normalization and cancellation,
 algebraic Hermite reduction, certified algebraic maximal orders and
 fractional ideals, ramified and infinite places, exact valuations and
 divisors, Trager finite-residue polynomials for supported algebraic models,
-generalized monomial residue reduction, family-aware
+an independent Czichowski Gröbner-basis checker for rational LRT logarithmic
+parts, generalized monomial residue reduction, family-aware
 exact-derivative decisions, and Risch differential-equation solvers.
 Hyperexponential RDEs include general weak normalization, normal and special
 denominator reduction, SPDE, and the Laurent recurrence core. Real coupled

@@ -57,6 +57,7 @@ from .algebraic_geometry.riemann_roch import (
     RiemannRochSpaceStatus,
     compute_riemann_roch_space,
 )
+from .czichowski import czichowski_groebner
 from .dependency import (
     HyperexponentialDependency,
     HyperexponentialDependencyKind,
@@ -378,6 +379,7 @@ __all__ = [
     "collect_algebraic_all_place_residues",
     "compile_expression",
     "compute_riemann_roch_space",
+    "czichowski_groebner",
     "finite_lattice_slice",
     "hermite_reduce_algebraic",
     "hermite_reduce_monomial",
