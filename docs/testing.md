@@ -169,6 +169,10 @@ quadratic and cubic power bases; nonzero lower coefficients; exact radical
 modes composed with lower logarithms; zero upper coordinates; and boundaries
 for unsupported lower RDEs, non-lower coupled coefficients, nonexact upper
 coordinates, and lower obstructions that cannot yet be lifted safely.
+`tests/test_relative_hermite.py` plants repeated normal poles in primitive,
+hyperexponential, and hypertangent lower towers, checks exact reconstruction
+and square-free normal remainders, retains special poles, and exercises a
+cubic power-basis coordinate plus a resonant leading-equation boundary.
 `tests/test_tower.py` also exercises the immutable mixed-prefix feasibility
 result: a native monomial prefix plus a terminal algebraic extension must
 coerce and differentiate at its top, while monomial-over-algebraic and nested

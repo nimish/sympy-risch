@@ -196,7 +196,7 @@ The current implementation is organized by mathematical responsibility:
 | `monomial/` | Monomial reduction facade, split by normal residues, Hermite reduction, primitive, hyperexponential, hypertangent, and special-pole theorem families |
 | `dependency/` | Parametric logarithmic decisions and generator-dependency certificates by tower family |
 | `rde/` | Scalar and coupled Risch differential equations, split by theorem family behind one facade |
-| `algebraic/relative.py`, `algebraic/relative_integration.py` | Terminal pure-radical coordinate descent and its positive mixed elementary composition |
+| `algebraic/relative.py`, `algebraic/relative_hermite.py`, `algebraic/relative_integration.py` | Terminal pure-radical coordinate descent, normal-pole Hermite reduction, and positive mixed elementary composition |
 | `elementary.py` | Recursive elementary integration and obstruction propagation |
 
 These modules form a descending recursion, not a mutable solver context. Every
@@ -360,10 +360,11 @@ representable shape. It works with native power-basis coordinates and calls
 the existing lower scalar RDE only after verifying that the top coefficient is
 in the lower field. The elementary dispatcher also uses its exact-coordinate
 slice constructively: it strips every solvable nonconstant radical mode and
-recurses on the lower coordinate. A failed mode or lower obstruction stays an
-explicit boundary, because this does not yet make relative Hermite reduction,
-residues, or logarithmic reconstruction over a Liouvillian ground field
-available.
+recurses on the lower coordinate. Relative normal-Hermite reduction now
+removes repeated normal poles in those coordinates while retaining special
+poles. A failed mode, resonant leading equation, or lower obstruction stays
+an explicit boundary, because residues and logarithmic reconstruction over a
+Liouvillian ground field are still unavailable.
 
 ### Derivation
 

@@ -390,6 +390,37 @@ non-elementarity proof.  Algebraic logarithms can mix power-basis coordinates;
 relative Hermite/residue/logarithmic reconstruction is the next required
 algorithmic layer.
 
+## Relative normal-Hermite reduction
+
+`hermite_reduce_relative_simple_radical` now supplies the first part of that
+next layer.  It writes a terminal pure-radical integrand as `D(g) + h` by
+working in the power basis and applying the scalar operator
+`D + j*eta` to each `theta**j` coefficient.  Every repeated **normal** lower
+denominator factor is removed, so the remaining normal denominator in each
+coefficient of `h` is square-free.  Special factors are retained unchanged.
+
+For example, with `Dt = 1/x` and `theta**2 = t`, the repeated normal pole in
+`D(theta/t)` is removed exactly:
+
+```python
+from sympy_risch import hermite_reduce_relative_simple_radical
+
+reduction = hermite_reduce_relative_simple_radical(
+    derivation(field.from_sympy(theta / t)),
+    derivation,
+)
+
+assert reduction.exact_part == field.from_sympy(theta / t)
+assert reduction.remainder == field.zero
+assert reduction.reconstructs
+assert reduction.normal_denominators_are_square_free
+```
+
+The reducer uses the immediate `K0(t)` view of SymPy's flattened mixed field,
+not the direct-curve `C(x)` integral-basis code.  A resonant leading equation
+is an explicit `NotImplementedError` boundary; its treatment belongs to the
+relative logarithmic/RDE stage rather than to Hermite reduction.
+
 ## One-step profile-selected algebraic constant base change
 
 `integrate_algebraic_with_constant_base_change` continues the displayed-

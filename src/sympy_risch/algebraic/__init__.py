@@ -46,6 +46,11 @@ from .relative import (
     solve_relative_simple_radical_exact_derivative,
     solve_relative_simple_radical_rde,
 )
+from .relative_hermite import (
+    RelativeSimpleRadicalHermiteMode,
+    RelativeSimpleRadicalHermiteReduction,
+    hermite_reduce_relative_simple_radical,
+)
 from .relative_integration import RelativeSimpleRadicalIntegrationCertificate
 from .residue_profile import (
     AlgebraicResidueProfile,
@@ -82,6 +87,8 @@ __all__ = [
     "AlgebraicResidueProfileStatus",
     "IntegralBasis",
     "RelativeSimpleRadicalData",
+    "RelativeSimpleRadicalHermiteMode",
+    "RelativeSimpleRadicalHermiteReduction",
     "RelativeSimpleRadicalIntegrationCertificate",
     "RelativeSimpleRadicalRDEComponent",
     "RelativeSimpleRadicalRDEResult",
@@ -93,6 +100,7 @@ __all__ = [
     "collect_algebraic_all_place_residues",
     "find_algebraic_integrating_factor",
     "hermite_reduce_algebraic",
+    "hermite_reduce_relative_simple_radical",
     "lazy_hermite_reduce_algebraic",
     "recognize_relative_simple_radical",
     "recognize_simple_radical",

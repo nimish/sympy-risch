@@ -215,7 +215,7 @@ The existing design conventions to preserve are:
 | 4. Transcendental integration | Partial: explicit P/E/T integration covers documented shapes rather than every family ordering, alongside a narrow checked one-variable P/E/T expression grammar, an explicit two-factor Riccati pullback route, and local certified linear-special-pole reduction; general polynomial special branches and general expression-to-tower construction are not. |
 | 5. Algebraic-function-field kernel | Partial: maximal orders, all finite/infinite places, local expansions, divisor arithmetic, all-place residue collection, theorem-certified first global spaces, exact finite valuation kernels, and a bounded principal-divisor semialgorithm now exist; constant normalization and general global-space/divisor-class decisions remain. |
 | 6. Pure algebraic integration | Partial: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues with bounded-search principal witnesses, and has a theorem-limited residue-free exactness and integrating-factor RDE route; compatible constant descent, torsion/divisor-class work, and arbitrary second-kind exactness remain. |
-| 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent and positive elementary composition reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic relations, coupled/parametric RDEs, and relative Hermite/residue/logarithmic reduction remain. |
+| 7. Mixed algebraic/transcendental towers | Started: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic relations, coupled/parametric RDEs, and relative residue/logarithmic reduction remain. |
 | 8. Automatic expression towers | Partial: a conservative reversible P/E/T frontend is complete over its declared grammar; algebraic/mixed discovery, canonical generator minimization, and branch-aware presentation remain. |
 | 9. Real/complex presentation | Partial exploratory support for rational quadratic factors only. |
 | 10. Completeness evidence | Partial: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; algebraic, mixed, and automatic-tower coverage remains. |
@@ -643,6 +643,12 @@ When every nonconstant coordinate of an integrand is exact by this descent,
 the lower-field coordinate. It is deliberately a positive route, not a claim
 that the generic scalar dispatcher or `integrate_elementary` supports
 arbitrary algebraic levels or can lift lower non-elementarity obstructions.
+
+The first relative normal-Hermite step is also implemented.  In the immediate
+lower monomial field, it removes repeated normal denominator factors from the
+scalar operators `D + j*eta` in each power-basis coordinate.  It leaves
+special poles and resonant leading equations for later relative
+residue/logarithmic reduction.
 
 Implement the generalization in Bronstein's 1990 "Integration of elementary
 functions":
