@@ -4,7 +4,7 @@ from collections import Counter
 from dataclasses import replace
 
 import pytest
-from sympy import Poly, symbols
+from sympy import Poly, sqrt, symbols
 from sympy.polys.domains import QQ
 
 import sympy_risch.algebraic.all_places as algebraic_all_places_module
@@ -27,10 +27,10 @@ from sympy_risch import (
 x, y, z = symbols("x y z")
 
 
-def algebraic_tower(modulus):
-    """Return the standard ``QQ(x)(y)`` tower and a power basis."""
-    rational = DifferentialTower(QQ).extend(
-        MonomialExtension(Poly(1, x, domain=QQ)),
+def algebraic_tower(modulus, constants=QQ):
+    """Return the standard ``C(x)(y)`` tower and a power basis."""
+    rational = DifferentialTower(constants).extend(
+        MonomialExtension(Poly(1, x, domain=constants)),
     )
     extension = AlgebraicExtension(Poly(modulus, y, domain=rational.field()))
     tower = rational.extend(extension)
@@ -220,6 +220,36 @@ def test_all_place_collector_cross_checks_unramified_finite_trager_residues() ->
     assert finite_values == trager_values == Counter({"-1": 1, "1": 1})
     assert infinity.pole_order == 2
     assert infinity.value == infinity.place.residue_field.zero
+
+
+def test_all_place_collector_handles_split_fibres_over_algebraic_constants() -> None:
+    """Local cancellation must work when a closed fibre splits over ``C``."""
+    constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, basis = algebraic_tower(y**2 - x, constants)
+    field = extension.field
+
+    result = collect_algebraic_all_place_residues(
+        field.from_sympy((sqrt(2) + y) / (x - 1)),
+        tower.derivation(),
+        basis,
+    )
+
+    finite_values = Counter(
+        record.place.residue_field.to_sympy(record.value)
+        for record in result.residues
+        if isinstance(record.place, FiniteAlgebraicPlace)
+    )
+    infinity = next(
+        record
+        for record in result.residues
+        if isinstance(record.place, InfiniteAlgebraicPlace)
+    )
+
+    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert result.reconstructs_input
+    assert finite_values == Counter({sqrt(2) - 1: 1, sqrt(2) + 1: 1})
+    assert infinity.pole_order == 2
+    assert infinity.value == infinity.place.residue_field.from_sympy(-2 * sqrt(2))
 
 
 def test_closed_place_constant_coordinates_round_trip_in_its_native_basis() -> None:

@@ -545,9 +545,18 @@ class FiniteAlgebraicPlace:
         if self.order.contains(value):
             return self.reduce_integral(value)
 
-        denominator_ideal = self.order.unit_ideal().intersection(
-            self.order.principal_ideal(self.extension.field.one / value)
-        )
+        unit_ideal = self.order.unit_ideal()
+        try:
+            inverse_ideal = self.order.principal_ideal(self.extension.field.one / value)
+        except ZeroDivisionError:
+            # A regular local element can retain globally uncancelled factors
+            # after multiplying by a uniformizer.  At a split fibre over an
+            # algebraic constant field, SymPy can then reject its otherwise
+            # nonzero quotient-field inverse as a zero divisor.  Compute the
+            # same ``value**-1 O`` as ``(O : value O)`` directly from order
+            # multiplication matrices.
+            inverse_ideal = unit_ideal.colon(self.order.principal_ideal(value))
+        denominator_ideal = unit_ideal.intersection(inverse_ideal)
         for denominator in denominator_ideal.basis_elements:
             denominator_residue = self.reduce_integral(denominator)
             if denominator_residue == self.residue_field.zero:
