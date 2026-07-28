@@ -13,6 +13,7 @@ from sympy.simplify.radsimp import fraction
 
 from .._typing import FieldElement
 from ..tower.core import Derivation, MonomialExtension
+from .polynomials import canonicalize_polynomial, polynomial_gcd
 
 
 def split_normal_special(
@@ -30,6 +31,7 @@ def split_normal_special(
     if polynomial.is_zero:
         raise ValueError("the zero polynomial has no normal/special decomposition")
 
+    polynomial = canonicalize_polynomial(polynomial)
     derivation.polynomial(polynomial)
     coefficient, square_free_factors = polynomial.sqf_list()
     normal = polynomial.one.mul_ground(coefficient)
@@ -37,7 +39,7 @@ def split_normal_special(
 
     for factor, multiplicity in square_free_factors:
         factor_derivative = derivation.polynomial(factor)
-        special_factor = factor.gcd(factor_derivative)
+        special_factor = polynomial_gcd(factor, factor_derivative)
         normal *= factor.exquo(special_factor) ** multiplicity
         special *= special_factor**multiplicity
 
@@ -63,7 +65,10 @@ def _reduced_polynomial_fraction(
         domain=extension.parent_field,
     )
     coefficient, numerator, denominator = numerator.cancel(denominator)
-    return numerator.mul_ground(coefficient), denominator
+    return (
+        canonicalize_polynomial(numerator.mul_ground(coefficient)),
+        canonicalize_polynomial(denominator),
+    )
 
 
 def _polynomial_and_proper_fraction(

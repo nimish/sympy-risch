@@ -1170,13 +1170,13 @@ boundary, not a mathematical claim about the integral.
 | Tower shape or operation | Status |
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
-| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure decisions are total across every P/E/T ordering; scalar/parametric RDE and integration coverage remains limited to the documented recursive cells |
+| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure and scalar-RDE decisions are total across every P/E/T ordering; parametric RDE and integration coverage remains limited to the documented recursive cells |
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
-| Scalar-RDE dispatch admission | Complete on the rational base `C(x)` for every supported finite algebraic `C/QQ`; recursive admission checks the full prefix for `QQ(x)` P/E/T or `QQ(i)(x)` P/E, with replay-proved preserved constants above the base |
-| Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete for the documented certified P/E/T dispatch shapes |
+| Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
+| Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |

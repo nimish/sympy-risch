@@ -16,10 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
-from .constant_fields import is_supported_finite_constant_field
+from .constant_fields import finite_constant_field_profile
 from .constant_proofs import replay_constant_field
 from .hyperbolic import is_hyperbolic_mobius_law
 from .tower.core import (
@@ -290,11 +290,12 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
     r"""Classify a tower prefix for recursive scalar RDE dispatch.
 
     The current dispatcher supports ``C(x)`` bases with ``Dx=1`` when ``C``
-    is an effective finite algebraic extension of ``QQ``.  Recursive P/E/T
-    levels are currently admitted over ``QQ``; P/E levels are also admitted
-    over ``QQ(i)``.  Unlike elementary integration admission, this narrower
-    solver contract neither needs a special-polynomial hypothesis nor
-    normalizes hyperbolic/Riccati polynomial levels.
+    is an effective finite algebraic extension of ``QQ``, followed by
+    certified primitive and hyperexponential levels. Provably real ``C`` also
+    supports hypertangent levels through the exact compositum ``C(i)``.
+    Unlike elementary integration admission, this narrower solver contract
+    neither needs a special-polynomial hypothesis nor normalizes
+    hyperbolic/Riccati polynomial levels.
 
     This check replays structural constant-field criteria, but neither solves
     a requested RDE nor promises that every recursive solver branch is
@@ -329,7 +330,8 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
             "level 0 is not a monomial extension",
             problem=_SCALAR_RDE_PROBLEM,
         )
-    if not is_supported_finite_constant_field(base.parent_field):
+    constant_profile = finite_constant_field_profile(base.parent_field)
+    if constant_profile is None:
         return _unsupported(
             derivation,
             TowerAdmissionReason.BASE_FIELD,
@@ -350,14 +352,6 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
         )
 
     for index, extension in enumerate(active_levels[1:], start=1):
-        if base.parent_field not in (QQ, QQ_I):
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.BASE_FIELD,
-                f"level {index} is recursive, but scalar RDE recursion over "
-                "native finite algebraic constants is not yet implemented",
-                problem=_SCALAR_RDE_PROBLEM,
-            )
         if isinstance(extension, AlgebraicExtension):
             return _unsupported(
                 derivation,
@@ -385,14 +379,14 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
                 problem=_SCALAR_RDE_PROBLEM,
             )
         if (
-            base.parent_field == QQ_I
+            not constant_profile.is_real
             and extension.family is MonomialFamily.HYPERTANGENT
         ):
             return _unsupported(
                 derivation,
                 TowerAdmissionReason.HYPERTANGENT_RDE_BASE,
                 f"level {index} is hypertangent, but scalar RDE dispatch "
-                "normalizes hypertangent levels only over QQ(x)",
+                "requires a provably real finite algebraic constant field",
                 problem=_SCALAR_RDE_PROBLEM,
             )
         rejection = _constant_field_rejection(
@@ -407,9 +401,8 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
         derivation,
         problem=_SCALAR_RDE_PROBLEM,
         detail=(
-            "the active tower is C(x) for an effective finite algebraic C, "
-            "or a certified recursive P/E/T prefix over QQ(x), or a "
-            "certified recursive P/E prefix over QQ(i)(x)"
+            "the active tower is a certified finite P/E prefix over C(x), "
+            "with hypertangent levels admitted when C is provably real"
         ),
     )
 

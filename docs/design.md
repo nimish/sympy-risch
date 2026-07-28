@@ -491,14 +491,21 @@ unsolved.
 
 The shared `assess_scalar_rde_admission` check protects this boundary before
 the recursive solver starts. It scans the **entire** active lower prefix:
-the base `C(x)` is supported for every effective finite algebraic constant
-field `C/QQ`; recursively, `QQ(x)` supports certified P/E/T levels and
-`QQ(i)(x)` supports certified P/E levels, including Gaussian-normal-form
-targets. Native algebraic-constant recursive levels, an algebraic tower
-level, a general-polynomial level, or an uncertified-constants level is
-therefore reported as
+certified P/E prefixes are supported over every effective finite algebraic
+constant field `C/QQ`, and provably real `C` additionally supports
+hypertangent levels through the exact `C(i)` Gaussian normal form. An
+algebraic tower level, a general-polynomial level, a hypertangent level over
+constants not proved real, or an uncertified-constants level is therefore
+reported as
 `UNSUPPORTED_LOWER_RDE` by this consumer rather than leaking a lower solver
 precondition error. The admission check is still not a solvability decision.
+
+SymPy fraction fields over an `AlgebraicField` can retain different constant
+units in equal numerator/denominator representations. The neutral
+`reduction.polynomials` helpers make only those affected coefficient
+fractions monic before polynomial equality, gcd, and modular inversion.
+Primitive and hyperexponential RDE reduction otherwise continue to use the
+ordinary SymPy `Poly` algorithms and Bronstein recurrences.
 
 ### Certified quadratic/Riccati Möbius normal forms
 

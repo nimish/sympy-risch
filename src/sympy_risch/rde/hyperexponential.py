@@ -6,11 +6,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from sympy.core.symbol import Dummy
-from sympy.polys.polytools import Poly, invert, resultant
+from sympy.polys.polytools import Poly, resultant
 
 from .._typing import FieldElement
 from ..constant_proofs import require_preserved_constant_field
 from ..reduction.fractions import split_normal_special
+from ..reduction.polynomials import (
+    exact_polynomial_equal,
+    polynomial_gcd,
+    polynomial_inverse_modulo,
+)
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._common import _field_element_is_zero, _field_elements_equal
 from ._tower_polynomials import (
@@ -56,19 +61,22 @@ def _weakly_normalize_hyperexponential_rde_coefficient(
         extension,
     )
     normal_denominator, _ = split_normal_special(denominator, derivation)
-    repeated_part = normal_denominator.gcd(normal_denominator.diff())
+    repeated_part = polynomial_gcd(
+        normal_denominator,
+        normal_denominator.diff(),
+    )
     squarefree_part = normal_denominator.exquo(repeated_part)
     simple_normal_part = squarefree_part.exquo(
-        squarefree_part.gcd(repeated_part)
+        polynomial_gcd(squarefree_part, repeated_part)
     ).monic()
     one = Poly(1, extension.generator, domain=parent)
     if simple_normal_part.degree() == 0:
         return one, element
 
     cofactor = denominator.exquo(simple_normal_part)
-    partial_numerator = (numerator * invert(cofactor, simple_normal_part)).rem(
-        simple_normal_part
-    )
+    partial_numerator = (
+        numerator * polynomial_inverse_modulo(cofactor, simple_normal_part)
+    ).rem(simple_normal_part)
     simple_derivative = derivation.polynomial(simple_normal_part)
     residue_symbol = Dummy("z")
     residue_polynomial = Poly(
@@ -89,10 +97,10 @@ def _weakly_normalize_hyperexponential_rde_coefficient(
         multiplicity = _positive_integer_in_domain(root, parent)
         if multiplicity is None:
             continue
-        factor = (
-            partial_numerator
-            - simple_derivative.mul_ground(parent.convert(multiplicity))
-        ).gcd(simple_normal_part)
+        factor = partial_numerator - simple_derivative.mul_ground(
+            parent.convert(multiplicity)
+        )
+        factor = polynomial_gcd(factor, simple_normal_part)
         normalizer *= factor**multiplicity
     normalizer = normalizer.monic()
     if normalizer.degree() == 0:
@@ -152,10 +160,10 @@ def _reduce_hyperexponential_normal_denominator(
         derivation,
     )
     rhs_normal, _ = split_normal_special(rhs_denominator, derivation)
-    shared_normal = coefficient_normal.gcd(rhs_normal)
+    shared_normal = polynomial_gcd(coefficient_normal, rhs_normal)
     denominator_bound = (
-        rhs_normal.gcd(rhs_normal.diff())
-        .exquo(shared_normal.gcd(shared_normal.diff()))
+        polynomial_gcd(rhs_normal, rhs_normal.diff())
+        .exquo(polynomial_gcd(shared_normal, shared_normal.diff()))
         .monic()
     )
     divisibility_target = coefficient_normal * denominator_bound**2
@@ -459,10 +467,10 @@ def _solve_hyperexponential_spde(
 
     while True:
         if right_hand_side.is_zero:
-            if (
+            if not exact_polynomial_equal(
                 original_derivative * derivation.polynomial(beta)
-                + original_solution * beta
-                != original_rhs
+                + original_solution * beta,
+                original_rhs,
             ):
                 raise ValueError(
                     "hyperexponential SPDE zero-tail reconstruction failed"
@@ -474,7 +482,10 @@ def _solve_hyperexponential_spde(
                 HyperexponentialRDEObstruction.SPDE_DEGREE,
             )
 
-        common_factor = derivative_coefficient.gcd(solution_coefficient)
+        common_factor = polynomial_gcd(
+            derivative_coefficient,
+            solution_coefficient,
+        )
         quotient, remainder = right_hand_side.div(common_factor)
         if not remainder.is_zero:
             return _HyperexponentialSPDEResult(
@@ -527,10 +538,10 @@ def _solve_hyperexponential_spde(
                     laurent_result,
                 )
             numerator_solution = alpha * tail + beta
-            if (
+            if not exact_polynomial_equal(
                 original_derivative * derivation.polynomial(numerator_solution)
-                + original_solution * numerator_solution
-                != original_rhs
+                + original_solution * numerator_solution,
+                original_rhs,
             ):
                 raise ValueError("hyperexponential SPDE reconstruction failed")
             return _HyperexponentialSPDEResult(
@@ -539,7 +550,10 @@ def _solve_hyperexponential_spde(
                 laurent_result,
             )
 
-        inverse = invert(solution_coefficient, derivative_coefficient)
+        inverse = polynomial_inverse_modulo(
+            solution_coefficient,
+            derivative_coefficient,
+        )
         residue = (right_hand_side * inverse).rem(derivative_coefficient)
         quotient = (right_hand_side - solution_coefficient * residue).exquo(
             derivative_coefficient

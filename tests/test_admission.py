@@ -403,7 +403,7 @@ def test_scalar_rde_admission_accepts_a_gaussian_rational_base() -> None:
     assert admission.problem == "scalar_rde"
 
 
-def test_scalar_rde_admission_accepts_only_the_base_over_native_constants() -> None:
+def test_scalar_rde_admission_accepts_recursive_native_constants() -> None:
     constants = QQ.algebraic_field(sqrt(2))
     base = DifferentialTower(constants).extend(
         MonomialExtension(Poly(1, x, domain=constants)),
@@ -414,10 +414,12 @@ def test_scalar_rde_admission_accepts_only_the_base_over_native_constants() -> N
     recursive = base.extend(
         MonomialExtension(Poly(1 / x, t, domain=base.field())),
     )
-    admission = assess_scalar_rde_admission(recursive.derivation())
-    assert admission.unsupported
-    assert admission.reason is TowerAdmissionReason.BASE_FIELD
-    assert "recursion over native finite algebraic constants" in admission.detail
+    assert assess_scalar_rde_admission(recursive.derivation()).accepted
+
+    hypertangent = base.extend(
+        MonomialExtension(Poly(1 + t**2, t, domain=base.field())),
+    )
+    assert assess_scalar_rde_admission(hypertangent.derivation()).accepted
 
 
 def test_scalar_rde_admission_rejects_hypertangent_over_gaussian_constants() -> None:
@@ -435,7 +437,7 @@ def test_scalar_rde_admission_rejects_hypertangent_over_gaussian_constants() -> 
 
     assert admission.unsupported
     assert admission.reason is TowerAdmissionReason.HYPERTANGENT_RDE_BASE
-    assert "only over QQ(x)" in admission.detail
+    assert "provably real finite algebraic constant field" in admission.detail
 
 
 def test_scalar_rde_admission_checks_the_entire_active_prefix() -> None:

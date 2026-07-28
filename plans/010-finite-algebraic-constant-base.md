@@ -24,9 +24,9 @@ boundary below. Checked constant-preservation replay, fundamental signatures,
 relation compilation, and parametric logarithmic-derivative constraints now
 work recursively over finite algebraic `C/QQ`. For provably real `C`, the
 hypertangent oracle constructs and verifies the exact compositum `C(i)`.
-The first Plan 016 T3 checkpoint also makes the scalar rational RDE over the
-base `C(x)` a complete decision. Recursive scalar RDEs over native algebraic
-constants remain a later T3 cell.
+Plan 016 T3 subsequently makes scalar RDE a complete decision throughout
+these recursive P/E/T towers, using a focused normalization seam for SymPy's
+noncanonical algebraic fraction-field units.
 The original boundary is retained here as the historical scope of Plan 010.
 
 ## Delivered contract

@@ -7,6 +7,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from .._typing import FieldElement
+from ..reduction.polynomials import canonicalize_polynomial
 from ..tower import Derivation, MonomialExtension, _coerce
 from ._common import _field_elements_equal
 
@@ -38,8 +39,8 @@ def _as_primitive_fraction(
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(parent.convert(coefficient))
     leading_inverse = parent.one / parent.convert(denominator.LC())
-    numerator = numerator.mul_ground(leading_inverse)
-    denominator = denominator.monic()
+    numerator = canonicalize_polynomial(numerator.mul_ground(leading_inverse))
+    denominator = canonicalize_polynomial(denominator.monic())
     if not _field_elements_equal(
         _coerce(field, numerator.as_expr() / denominator.as_expr()),
         element,

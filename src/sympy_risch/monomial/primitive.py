@@ -15,6 +15,7 @@ from ..reduction.fractions import (
     _polynomial_and_proper_fraction,
     split_normal_special,
 )
+from ..reduction.polynomials import exact_field_equal, exact_polynomial_equal
 from ..tower.core import (
     Derivation,
     MonomialExtension,
@@ -218,8 +219,10 @@ class PrimitiveLogarithmicDerivativeSignature:
                 expression += (
                     numerator.as_expr() / factor.factor.as_expr() ** pole_order
                 )
-        return _coerce(extension.field, expression) == _coerce(
-            extension.field, self.integrand
+        return exact_field_equal(
+            _coerce(extension.field, expression),
+            _coerce(extension.field, self.integrand),
+            extension.field,
         )
 
     @property
@@ -229,9 +232,10 @@ class PrimitiveLogarithmicDerivativeSignature:
             return False
         field = self.derivation.field
         argument = _coerce(field, self.relation_argument)
-        return (
-            self.minimal_power * _coerce(field, self.integrand)
-            == self.derivation(argument) / argument
+        return exact_field_equal(
+            self.minimal_power * _coerce(field, self.integrand),
+            self.derivation(argument) / argument,
+            field,
         )
 
 
@@ -294,7 +298,10 @@ def reduce_primitive_monomial(
     final_polynomial, proper_numerator, proper_denominator = (
         _polynomial_and_proper_fraction(remainder, extension)
     )
-    if final_polynomial != polynomial_reduction.remainder:
+    if not exact_polynomial_equal(
+        final_polynomial,
+        polynomial_reduction.remainder,
+    ):
         raise ValueError("primitive reduction produced an inconsistent remainder")
 
     lower_remainder = None
@@ -522,7 +529,10 @@ def solve_primitive_exact_derivative(
     final_polynomial, proper_numerator, proper_denominator = (
         _polynomial_and_proper_fraction(obstruction, extension)
     )
-    if final_polynomial != polynomial_reduction.remainder:
+    if not exact_polynomial_equal(
+        final_polynomial,
+        polynomial_reduction.remainder,
+    ):
         raise ValueError("primitive exact solving produced an inconsistent obstruction")
 
     if not proper_numerator.is_zero:

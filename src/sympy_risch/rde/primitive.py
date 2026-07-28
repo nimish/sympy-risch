@@ -5,10 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from sympy.polys.polytools import Poly, invert
+from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
 from ..constant_proofs import require_preserved_constant_field
+from ..reduction.polynomials import (
+    exact_polynomial_equal,
+    polynomial_gcd,
+    polynomial_inverse_modulo,
+)
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._common import (
     _field_element_is_zero,
@@ -151,10 +156,13 @@ def _reduce_primitive_normal_denominator(
         extension,
     )
 
-    shared_denominator = coefficient_denominator.gcd(rhs_denominator)
+    shared_denominator = polynomial_gcd(
+        coefficient_denominator,
+        rhs_denominator,
+    )
     denominator_bound = (
-        rhs_denominator.gcd(rhs_denominator.diff())
-        .exquo(shared_denominator.gcd(shared_denominator.diff()))
+        polynomial_gcd(rhs_denominator, rhs_denominator.diff())
+        .exquo(polynomial_gcd(shared_denominator, shared_denominator.diff()))
         .monic()
     )
     derivative_coefficient = coefficient_denominator * denominator_bound
@@ -342,9 +350,9 @@ def _solve_primitive_polynomial_exact_case(
     )
     if not solution.is_zero and solution.degree() > degree_bound:
         raise ValueError("primitive exact cancellation exceeded its degree bound")
-    if (
-        derivation.polynomial(solution) + coefficient_polynomial * solution
-        != rhs_polynomial
+    if not exact_polynomial_equal(
+        derivation.polynomial(solution) + coefficient_polynomial * solution,
+        rhs_polynomial,
     ):
         raise ValueError("primitive exact cancellation reconstruction failed")
     return PrimitivePolynomialRischDifferentialEquationResult(
@@ -422,11 +430,11 @@ def _solve_primitive_polynomial_lower_coefficient(
         )
         lower_results.append(lower_result)
         if not lower_result.has_solution:
-            if (
+            if not exact_polynomial_equal(
                 derivation.polynomial(solution)
                 + coefficient_polynomial * solution
-                + residual
-                != rhs_polynomial
+                + residual,
+                rhs_polynomial,
             ):
                 raise ValueError("primitive cancellation obstruction invariant failed")
             return PrimitivePolynomialRischDifferentialEquationResult(
@@ -458,9 +466,9 @@ def _solve_primitive_polynomial_lower_coefficient(
         solution += correction
         residual = new_residual
 
-    if (
-        derivation.polynomial(solution) + coefficient_polynomial * solution
-        != rhs_polynomial
+    if not exact_polynomial_equal(
+        derivation.polynomial(solution) + coefficient_polynomial * solution,
+        rhs_polynomial,
     ):
         raise ValueError("primitive cancellation reconstruction failed")
     return PrimitivePolynomialRischDifferentialEquationResult(
@@ -542,11 +550,11 @@ def solve_primitive_polynomial_risch_differential_equation(
     while not residual.is_zero:
         correction_degree = residual.degree() - coefficient_polynomial.degree()
         if correction_degree < 0:
-            if (
+            if not exact_polynomial_equal(
                 derivation.polynomial(solution)
                 + coefficient_polynomial * solution
-                + residual
-                != rhs_polynomial
+                + residual,
+                rhs_polynomial,
             ):
                 raise ValueError(
                     "primitive polynomial RDE obstruction invariant failed"
@@ -578,9 +586,9 @@ def solve_primitive_polynomial_risch_differential_equation(
         solution += correction
         residual = new_residual
 
-    if (
-        derivation.polynomial(solution) + coefficient_polynomial * solution
-        != rhs_polynomial
+    if not exact_polynomial_equal(
+        derivation.polynomial(solution) + coefficient_polynomial * solution,
+        rhs_polynomial,
     ):
         raise ValueError("primitive polynomial RDE reconstruction failed")
     return PrimitivePolynomialRischDifferentialEquationResult(
@@ -623,10 +631,10 @@ def _solve_primitive_spde(
 
     while True:
         if right_hand_side.is_zero:
-            if (
+            if not exact_polynomial_equal(
                 original_derivative_coefficient * derivation.polynomial(beta)
-                + original_solution_coefficient * beta
-                != original_rhs
+                + original_solution_coefficient * beta,
+                original_rhs,
             ):
                 raise ValueError("primitive SPDE zero-tail reconstruction failed")
             return _PrimitiveSPDEResult(beta, None)
@@ -636,7 +644,10 @@ def _solve_primitive_spde(
                 PrimitiveRDEObstruction.SPDE_DEGREE,
             )
 
-        common_factor = derivative_coefficient.gcd(solution_coefficient)
+        common_factor = polynomial_gcd(
+            derivative_coefficient,
+            solution_coefficient,
+        )
         quotient, remainder = right_hand_side.div(common_factor)
         if not remainder.is_zero:
             return _PrimitiveSPDEResult(
@@ -676,10 +687,10 @@ def _solve_primitive_spde(
                     polynomial_result,
                 )
             solution = alpha * tail + beta
-            if (
+            if not exact_polynomial_equal(
                 original_derivative_coefficient * derivation.polynomial(solution)
-                + original_solution_coefficient * solution
-                != original_rhs
+                + original_solution_coefficient * solution,
+                original_rhs,
             ):
                 raise ValueError("primitive SPDE reconstruction failed")
             return _PrimitiveSPDEResult(
@@ -688,7 +699,10 @@ def _solve_primitive_spde(
                 polynomial_result,
             )
 
-        inverse = invert(solution_coefficient, derivative_coefficient)
+        inverse = polynomial_inverse_modulo(
+            solution_coefficient,
+            derivative_coefficient,
+        )
         residue = (right_hand_side * inverse).rem(derivative_coefficient)
         quotient = (right_hand_side - solution_coefficient * residue).exquo(
             derivative_coefficient

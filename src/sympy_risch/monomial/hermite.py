@@ -9,6 +9,7 @@ from ..reduction.fractions import (
     _reduced_polynomial_fraction,
     split_normal_special,
 )
+from ..reduction.polynomials import polynomial_inverse_modulo
 from ..tower.core import (
     Derivation,
     MonomialExtension,
@@ -70,9 +71,9 @@ def hermite_reduce_monomial(
         modular_coefficient = (cofactor * factor_derivative).mul_ground(
             multiplicity - 1,
         )
-        correction_numerator = (-numerator * modular_coefficient.invert(factor)).rem(
-            factor
-        )
+        correction_numerator = (
+            -numerator * polynomial_inverse_modulo(modular_coefficient, factor)
+        ).rem(factor)
         correction_denominator = factor ** (multiplicity - 1)
         correction = field.from_sympy(
             correction_numerator.as_expr() / correction_denominator.as_expr(),
