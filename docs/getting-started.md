@@ -116,6 +116,7 @@ from sympy_risch import (
     primitive_logarithmic_derivative_signature,
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
+    solve_parametric_risch_differential_equation,
     solve_exact_derivative,
     solve_hyperexponential_coupled_laurent_rde,
     solve_hypertangent_coupled_cancellation_rde,
@@ -789,6 +790,32 @@ combinations; `homogeneous_basis` separately spans solutions of
 `D(y) + a*y = 0`. Native finite algebraic constants are selected with the
 `domain=` keyword.
 
+The recursive entry point performs the same calculation over a checked
+primitive tower. It keeps all right-hand sides together while denominator
+reduction, SPDE, and the descending polynomial recurrence move through the
+tower. For example, in `QQ(x, t)` with `Dt = 1/x`, subtracting the second
+right-hand side from the first leaves `t`, which is `D(1) + t*1`:
+
+```python
+field = log_x.field()
+primitive_parametric = solve_parametric_risch_differential_equation(
+    field.from_sympy(t),
+    (field.from_sympy(t + 1), field.one),
+    log_x.derivation(),
+)
+
+direction = primitive_parametric.parameter_basis[0]
+assert direction.parameters == (1, -1)
+assert direction.solution == field.one
+assert primitive_parametric.homogeneous_basis == ()
+```
+
+At a lower-field cancellation, the solver recursively computes another
+parametric solution space rather than choosing one scalar solution. This is
+what preserves combinations that only become solvable after several tower
+levels. Hyperexponential and hypertangent PRDE propagation remain explicit
+boundaries.
+
 ## Test a parametric logarithmic derivative
 
 Bronstein's parametric logarithmic-derivative problem asks whether, for a
@@ -1209,7 +1236,7 @@ boundary, not a mathematical claim about the integral.
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
-| Rational-base parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants; recursive P/E/T propagation remains |
+| Rational and recursively primitive parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants; hyperexponential and hypertangent propagation remains |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |

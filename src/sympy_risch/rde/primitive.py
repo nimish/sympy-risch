@@ -236,13 +236,13 @@ def _primitive_limited_integration_relation(
     return integer_multiple, exact_part
 
 
-def _primitive_rde_degree_bound(
+def _primitive_parametric_rde_degree_bound(
     derivative_coefficient: Poly,
     solution_coefficient: Poly,
-    right_hand_side: Poly,
+    right_hand_sides: tuple[Poly, ...],
     derivation: Derivation,
 ) -> int:
-    r"""Implement Bronstein's primitive polynomial RDE degree bound.
+    r"""Bound a primitive polynomial solution for every RHS combination.
 
     This is ``RdeBoundDegreePrim`` from Section 6.3. Besides the generic
     degree estimate, the two possible leading cancellations require one
@@ -251,12 +251,17 @@ def _primitive_rde_degree_bound(
     """
     if derivative_coefficient.is_zero:
         raise ValueError("the derivative coefficient must be nonzero")
-    if right_hand_side.is_zero:
-        return 0
 
     degree_a = derivative_coefficient.degree()
     degree_b = solution_coefficient.degree() if not solution_coefficient.is_zero else -1
-    degree_c = right_hand_side.degree()
+    degree_c = max(
+        (
+            right_hand_side.degree()
+            for right_hand_side in right_hand_sides
+            if not right_hand_side.is_zero
+        ),
+        default=-1,
+    )
     if degree_b > degree_a:
         bound = max(0, degree_c - degree_b)
     else:
@@ -300,6 +305,23 @@ def _primitive_rde_degree_bound(
             if relation is not None:
                 bound = max(bound, relation[0])
     return bound
+
+
+def _primitive_rde_degree_bound(
+    derivative_coefficient: Poly,
+    solution_coefficient: Poly,
+    right_hand_side: Poly,
+    derivation: Derivation,
+) -> int:
+    """Return the scalar specialization of the primitive degree bound."""
+    if right_hand_side.is_zero:
+        return 0
+    return _primitive_parametric_rde_degree_bound(
+        derivative_coefficient,
+        solution_coefficient,
+        (right_hand_side,),
+        derivation,
+    )
 
 
 def _solve_primitive_polynomial_exact_case(

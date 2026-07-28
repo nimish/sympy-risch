@@ -48,6 +48,11 @@ from .parametric import (
     RationalParametricRischDifferentialEquationResult,
     solve_rational_parametric_risch_differential_equation,
 )
+from .parametric_dispatch import (
+    ParametricRDESolution,
+    ParametricRischDifferentialEquationResult,
+    solve_parametric_risch_differential_equation,
+)
 from .primitive import (
     solve_primitive_polynomial_risch_differential_equation,
     solve_primitive_risch_differential_equation,
@@ -75,6 +80,8 @@ __all__ = [
     "HyperexponentialRDEObstruction",
     "HyperexponentialRischDifferentialEquationResult",
     "HypertangentGaussianRischDifferentialEquationResult",
+    "ParametricRDESolution",
+    "ParametricRischDifferentialEquationResult",
     "PolynomialRDEObstruction",
     "PolynomialRischDifferentialEquationResult",
     "PrimitivePolynomialRDEObstruction",
@@ -93,6 +100,7 @@ __all__ = [
     "solve_hyperexponential_risch_differential_equation",
     "solve_hypertangent_coupled_cancellation_rde",
     "solve_hypertangent_coupled_polynomial_rde",
+    "solve_parametric_risch_differential_equation",
     "solve_polynomial_risch_differential_equation",
     "solve_primitive_polynomial_risch_differential_equation",
     "solve_primitive_risch_differential_equation",
