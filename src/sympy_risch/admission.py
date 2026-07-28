@@ -19,6 +19,7 @@ from enum import Enum
 from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.polytools import Poly
 
+from .constant_fields import is_supported_finite_constant_field
 from .constant_proofs import replay_constant_field
 from .hyperbolic import is_hyperbolic_mobius_law
 from .tower.core import (
@@ -288,14 +289,12 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
 def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
     r"""Classify a tower prefix for recursive scalar RDE dispatch.
 
-    The current dispatcher supports ``QQ(x)`` and ``QQ(i)(x)`` bases with
-    ``Dx=1``, followed by finite sequences of primitive and hyperexponential
-    monomial levels whose constants are certified preserved.
-    A ``QQ(x)`` base additionally supports hypertangent levels through the
-    Gaussian normal form; ``QQ(i)(x)`` does not yet.  Unlike elementary
-    integration admission, this narrower solver contract neither needs a
-    special-polynomial hypothesis nor normalizes hyperbolic/Riccati
-    polynomial levels.
+    The current dispatcher supports ``C(x)`` bases with ``Dx=1`` when ``C``
+    is an effective finite algebraic extension of ``QQ``.  Recursive P/E/T
+    levels are currently admitted over ``QQ``; P/E levels are also admitted
+    over ``QQ(i)``.  Unlike elementary integration admission, this narrower
+    solver contract neither needs a special-polynomial hypothesis nor
+    normalizes hyperbolic/Riccati polynomial levels.
 
     This check replays structural constant-field criteria, but neither solves
     a requested RDE nor promises that every recursive solver branch is
@@ -330,11 +329,12 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
             "level 0 is not a monomial extension",
             problem=_SCALAR_RDE_PROBLEM,
         )
-    if base.parent_field not in (QQ, QQ_I):
+    if not is_supported_finite_constant_field(base.parent_field):
         return _unsupported(
             derivation,
             TowerAdmissionReason.BASE_FIELD,
-            "the scalar RDE base must be over QQ or QQ(i)",
+            "the scalar RDE base must be over an effective finite algebraic "
+            "extension of QQ",
             problem=_SCALAR_RDE_PROBLEM,
         )
     if base.generator_derivative != Poly(
@@ -350,6 +350,14 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
         )
 
     for index, extension in enumerate(active_levels[1:], start=1):
+        if base.parent_field not in (QQ, QQ_I):
+            return _unsupported(
+                derivation,
+                TowerAdmissionReason.BASE_FIELD,
+                f"level {index} is recursive, but scalar RDE recursion over "
+                "native finite algebraic constants is not yet implemented",
+                problem=_SCALAR_RDE_PROBLEM,
+            )
         if isinstance(extension, AlgebraicExtension):
             return _unsupported(
                 derivation,
@@ -399,8 +407,9 @@ def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
         derivation,
         problem=_SCALAR_RDE_PROBLEM,
         detail=(
-            "the active tower is a certified finite P/E/T prefix over QQ(x), "
-            "or a certified finite P/E prefix over QQ(i)(x)"
+            "the active tower is C(x) for an effective finite algebraic C, "
+            "or a certified recursive P/E/T prefix over QQ(x), or a "
+            "certified recursive P/E prefix over QQ(i)(x)"
         ),
     )
 

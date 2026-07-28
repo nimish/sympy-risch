@@ -1175,7 +1175,7 @@ boundary, not a mathematical claim about the integral.
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
-| Scalar-RDE dispatch admission | `assess_scalar_rde_admission` checks the full recursive prefix: `QQ(x)` P/E/T or `QQ(i)(x)` P/E, with replay-proved preserved constants above the base |
+| Scalar-RDE dispatch admission | Complete on the rational base `C(x)` for every supported finite algebraic `C/QQ`; recursive admission checks the full prefix for `QQ(x)` P/E/T or `QQ(i)(x)` P/E, with replay-proved preserved constants above the base |
 | Scalar RDE over hyperexponential levels, general rational coefficient and right-hand side | Complete for the documented certified P/E/T dispatch shapes |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |

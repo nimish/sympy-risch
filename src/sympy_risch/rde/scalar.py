@@ -2,10 +2,10 @@ r"""Admission and recursive dispatch for scalar Risch differential equations."""
 
 from __future__ import annotations
 
-from sympy.polys.domains import QQ_I
 from sympy.polys.polytools import Poly, cancel
 
 from ..admission import assess_scalar_rde_admission
+from ..constant_fields import finite_constant_field_profile
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._tower_polynomials import (
     _is_standard_rational_derivation,
@@ -77,13 +77,20 @@ def _solve_admitted_risch_differential_equation(
         solution = (
             _coerce(field, certificate.solution) if certificate.has_solution else None
         )
-    elif _is_standard_rational_derivation_over(derivation, QQ_I):
+    elif (
+        constant_profile := finite_constant_field_profile(
+            derivation.tower.constants,
+        )
+    ) is not None and _is_standard_rational_derivation_over(
+        derivation,
+        constant_profile.constants,
+    ):
         extension = derivation.tower.levels[0]
         domain_result = _solve_rde_over_constant_field(
             field.to_sympy(coefficient_element),
             field.to_sympy(rhs_element),
             extension.generator,
-            QQ_I,
+            constant_profile.constants,
         )
         normalized_rhs = cancel(
             domain_result.normalization_factor.as_expr() * field.to_sympy(rhs_element)

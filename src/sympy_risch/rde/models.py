@@ -36,7 +36,7 @@ class PolynomialRDEObstruction(Enum):
 
 
 class RationalRDEObstruction(Enum):
-    """Why ``Dy + a*y = b`` has no solution in ``QQ(x)``."""
+    """Why ``Dy + a*y = b`` has no solution in the rational function field."""
 
     DENOMINATOR = "denominator"
     SPDE_DEGREE = "spde_degree"
@@ -107,10 +107,7 @@ class CoupledHypertangentPolynomialRDEMode(Enum):
 class PolynomialRischDifferentialEquationResult:
     r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``C[x]``.
 
-    ``C`` is any exact characteristic-zero constant field.  The public base
-    solver specializes this certificate to ``QQ``; exact coordinate changes
-    may use the same certificate over finite constant extensions such as
-    ``QQ_I``.
+    ``C`` is any supported exact finite algebraic constant field over ``QQ``.
 
     A rational solution cannot have a finite pole: at a pole of ``y``,
     ``Dy`` has strictly higher order than ``a*y`` and cannot be cancelled by
@@ -291,7 +288,9 @@ class PolynomialRischDifferentialEquationResult:
 
 @dataclass(frozen=True, slots=True)
 class RationalRischDifferentialEquationResult:
-    r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``QQ(x)``.
+    r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``C(x)``.
+
+    ``C`` is any supported exact finite algebraic constant field over ``QQ``.
 
     ``normalization_factor`` records the weak normalization
 

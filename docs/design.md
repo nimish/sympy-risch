@@ -491,10 +491,12 @@ unsolved.
 
 The shared `assess_scalar_rde_admission` check protects this boundary before
 the recursive solver starts. It scans the **entire** active lower prefix:
-`QQ(x)` supports certified P/E/T levels, while `QQ(i)(x)` supports certified
-P/E levels, including Gaussian-normal-form targets. An algebraic,
-general-polynomial,
-or uncertified-constants level is therefore reported as
+the base `C(x)` is supported for every effective finite algebraic constant
+field `C/QQ`; recursively, `QQ(x)` supports certified P/E/T levels and
+`QQ(i)(x)` supports certified P/E levels, including Gaussian-normal-form
+targets. Native algebraic-constant recursive levels, an algebraic tower
+level, a general-polynomial level, or an uncertified-constants level is
+therefore reported as
 `UNSUPPORTED_LOWER_RDE` by this consumer rather than leaking a lower solver
 precondition error. The admission check is still not a solvability decision.
 

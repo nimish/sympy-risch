@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import pytest
-from sympy import I, Poly, symbols
+from sympy import I, Poly, sqrt, symbols
 from sympy.polys.domains import QQ, QQ_I
 
 from sympy_risch import (
@@ -89,6 +89,40 @@ def test_gaussian_polynomial_subcertificates_reconstruct_success_and_failure() -
         + obstructed_polynomial.a * obstructed_polynomial.partial_solution
         + obstructed_polynomial.residual
         == obstructed_polynomial.b
+    )
+
+
+def test_finite_algebraic_constant_base_decides_success_and_obstruction() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower = DifferentialTower(constants).extend(
+        MonomialExtension(Poly(1, x, domain=constants)),
+    )
+    field = tower.field()
+    derivation = tower.derivation()
+
+    solved = solve_risch_differential_equation(
+        field.from_sympy(sqrt(2)),
+        field.from_sympy(1 + sqrt(2) * x),
+        derivation,
+    )
+    assert solved.has_solution
+    assert solved.reconstructs
+    assert solved.solution is not None
+    assert field.to_sympy(solved.solution) == x
+    assert isinstance(solved.certificate, RationalRischDifferentialEquationResult)
+    assert solved.certificate.polynomial_result is not None
+    assert solved.certificate.polynomial_result.a.domain == constants
+
+    obstructed = solve_risch_differential_equation(
+        field.zero,
+        field.from_sympy(1 / x),
+        derivation,
+    )
+    assert not obstructed.has_solution
+    assert obstructed.obstruction is RationalRDEObstruction.DENOMINATOR
+    assert isinstance(
+        obstructed.certificate,
+        RationalRischDifferentialEquationResult,
     )
 
 

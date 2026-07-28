@@ -188,6 +188,19 @@ no-new-constants decisions are total on the classical P/E/T cell.
 
 ### T3. Complete scalar RDE recursion on P/E/T towers
 
+**Progress:** the standard rational base `C(x)`, `Dx=1`, is now a complete
+scalar-RDE decision for every supported finite algebraic number field
+`C/QQ`. It returns the same reconstruction-checked success or obstruction
+certificates as the `QQ` and `QQ_I` paths. Recursive P/E/T levels remain
+admitted only over the previously implemented `QQ` and `QQ_I` cells.
+
+The next recursive finite-constant slice must first normalize SymPy
+`AlgebraicField` coefficients inside nested fraction fields. In particular,
+the exact real tangent transform from `C` to `C(i)` currently encounters
+noncanonical but mathematically equal fraction-field units in polynomial
+gcd/inversion. Until that arithmetic seam is fixed, admission rejects rather
+than overpromises those recursive cells.
+
 Audit every current scalar RDE `NotImplementedError` against Bronstein
 Chapter 6 and fill the missing family/lower-field combinations:
 

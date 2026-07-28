@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 from itertools import product
 
 import pytest
-from sympy import Poly, symbols
+from sympy import Poly, sqrt, symbols
 from sympy.polys.domains import QQ, QQ_I
 
 from sympy_risch import (
@@ -401,6 +401,23 @@ def test_scalar_rde_admission_accepts_a_gaussian_rational_base() -> None:
 
     assert admission.accepted
     assert admission.problem == "scalar_rde"
+
+
+def test_scalar_rde_admission_accepts_only_the_base_over_native_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    base = DifferentialTower(constants).extend(
+        MonomialExtension(Poly(1, x, domain=constants)),
+    )
+
+    assert assess_scalar_rde_admission(base.derivation()).accepted
+
+    recursive = base.extend(
+        MonomialExtension(Poly(1 / x, t, domain=base.field())),
+    )
+    admission = assess_scalar_rde_admission(recursive.derivation())
+    assert admission.unsupported
+    assert admission.reason is TowerAdmissionReason.BASE_FIELD
+    assert "recursion over native finite algebraic constants" in admission.detail
 
 
 def test_scalar_rde_admission_rejects_hypertangent_over_gaussian_constants() -> None:
