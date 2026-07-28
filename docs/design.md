@@ -1015,6 +1015,15 @@ production. A bounded matrix solver remains in the library as an independent
 test oracle. Rational RDEs add denominator reduction and canonical
 obstructions around that polynomial core.
 
+The rational parametric RDE is different: after Bronstein's common
+denominator and degree theorems, the unknown polynomial coefficients and the
+constant parameters form one complete finite-dimensional homogeneous system.
+`rde.parametric` computes its exact nullspace over the finite algebraic
+constant field. Parameter columns are ordered first during the final row
+reduction, producing independent parameter lifts followed by a separate basis
+for the homogeneous scalar equation. This matrix is the terminal exact
+algorithm, not an ansatz with an arbitrary search bound.
+
 ## Algebraic extensions
 
 An `AlgebraicExtension` stores a monic irreducible polynomial
@@ -1301,6 +1310,8 @@ pure algebraic, algebraic-RDE, and relative mixed-tower program.
 - [x] Complete recursive parametric logarithmic-derivative fallback over
   every checked P/E/T ordering.
 - [x] Polynomial and rational Risch differential equations.
+- [x] Complete rational-base parametric RDE over supported finite algebraic
+  constants.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive-field RDE cancellation for lower-field coefficients.
 - [x] Primitive-field weak normalization and full degree bounds for rational
@@ -1337,8 +1348,9 @@ non-base level has replay-proved preserved constants. Exact, radical
 logarithmic, parametric logarithmic, dependency, and no-new-constants
 decisions are total across every family ordering in this cell. Hypertangent
 relations are solved directly over the real tower, with immutable Gaussian
-Cayley normalization retained as an independent oracle. Scalar and parametric
-RDE totality remain later Plan 016 checkpoints. See
+Cayley normalization retained as an independent oracle. Scalar RDE is total;
+parametric RDE is complete at the rational base and remains recursive Plan
+016 work. See
 [mixed transcendental towers](mixed-transcendental-towers.md) for the precise
 contract and its deliberate boundaries.
 
@@ -1362,8 +1374,8 @@ P/E/T core:
 - [ ] Add the general nonconstant-special-polynomial branch: special
   denominator reduction, special RDE bounds/cancellation, and logarithmic
   reconstruction.
-- [ ] Add parametric RDE and limited-integration procedures needed by that
-  general branch.
+- [ ] Extend parametric RDE recursively and add the limited-integration
+  procedures needed by that general branch.
 - [x] Build a conservative reversible P/E/T expression frontend for one
   `QQ`-constant variable, with checked extension replay and local
   back-substitution.

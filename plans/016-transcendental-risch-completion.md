@@ -227,6 +227,13 @@ P/E/T matrix.
 
 ### T4. Implement parametric RDE and limited integration
 
+**Progress:** the rational-base problem is complete over every supported
+finite algebraic constant field `C/QQ`. A common denominator and
+theorem-derived degree bound reduce all right-hand sides simultaneously to
+one exact `C`-nullspace. The result separates independent parameter lifts
+from the homogeneous scalar solution basis and reconstructs every vector.
+Recursive P/E/T propagation and the limited-integration consumer remain.
+
 Implement the Chapter 7 problem:
 
 ```text

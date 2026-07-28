@@ -120,6 +120,7 @@ from sympy_risch import (
     solve_hyperexponential_coupled_laurent_rde,
     solve_hypertangent_coupled_cancellation_rde,
     solve_radical_logarithmic_derivative,
+    solve_rational_parametric_risch_differential_equation,
     solve_risch_differential_equation,
     trager_algebraic_residue_polynomial,
 )
@@ -757,6 +758,37 @@ normalization, denominator reduction, degree bounds, and SPDE before reaching
 this stage. It also uses the immutable Cayley normalization needed for nested
 hypertangent levels.
 
+## Solve a rational parametric RDE
+
+A parametric RDE asks for the complete constant-vector solution space of
+
+```text
+D(y) + a*y = c_1*b_1 + ... + c_m*b_m.
+```
+
+The right-hand sides must be reduced together: individually unsolvable terms
+can cancel. For example, neither `1/x + 1` nor `1/x` is a rational derivative,
+but their difference is:
+
+```python
+parametric = solve_rational_parametric_risch_differential_equation(
+    0,
+    (1 / x + 1, 1 / x),
+    x,
+)
+
+assert parametric.parameter_basis[0].parameters == (1, -1)
+assert parametric.parameter_basis[0].solution == x
+assert parametric.homogeneous_basis[0].solution == 1
+```
+
+The solver weakly normalizes `a`, derives one common denominator and a
+complete polynomial degree bound, and computes the exact constant-field
+nullspace. `parameter_basis` gives independent solvable right-hand-side
+combinations; `homogeneous_basis` separately spans solutions of
+`D(y) + a*y = 0`. Native finite algebraic constants are selected with the
+`domain=` keyword.
+
 ## Test a parametric logarithmic derivative
 
 Bronstein's parametric logarithmic-derivative problem asks whether, for a
@@ -1177,6 +1209,7 @@ boundary, not a mathematical claim about the integral.
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
+| Rational-base parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants; recursive P/E/T propagation remains |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |

@@ -43,6 +43,11 @@ from .models import (
     RationalRischDifferentialEquationResult,
     RischDifferentialEquationResult,
 )
+from .parametric import (
+    RationalParametricRDESolution,
+    RationalParametricRischDifferentialEquationResult,
+    solve_rational_parametric_risch_differential_equation,
+)
 from .primitive import (
     solve_primitive_polynomial_risch_differential_equation,
     solve_primitive_risch_differential_equation,
@@ -76,6 +81,8 @@ __all__ = [
     "PrimitivePolynomialRischDifferentialEquationResult",
     "PrimitiveRDEObstruction",
     "PrimitiveRischDifferentialEquationResult",
+    "RationalParametricRDESolution",
+    "RationalParametricRischDifferentialEquationResult",
     "RationalRDEObstruction",
     "RationalRischDifferentialEquationResult",
     "RischDifferentialEquationResult",
@@ -89,6 +96,7 @@ __all__ = [
     "solve_polynomial_risch_differential_equation",
     "solve_primitive_polynomial_risch_differential_equation",
     "solve_primitive_risch_differential_equation",
+    "solve_rational_parametric_risch_differential_equation",
     "solve_rational_risch_differential_equation",
     "solve_risch_differential_equation",
 ]
