@@ -21,6 +21,7 @@ from sympy_risch.constant_fields import (
     rational_constant_coordinates,
 )
 from sympy_risch.dependency import (
+    MonomialRelationSystemParametricCertificate,
     certify_hyperexponential_extension,
     certify_hypertangent_extension,
     certify_primitive_extension,
@@ -308,12 +309,29 @@ def test_hypertangent_uses_the_exact_gaussian_compositum() -> None:
     signature = build_fundamental_signature(tower.derivation())
     normal_form = build_hypertangent_gaussian_normal_form(tower.derivation())
     target_constants = gaussian_constant_field(constants)
+    field = tower.field()
+    outer = MonomialExtension(
+        Poly(x**2 * e, e, domain=field),
+        ConstantFieldStatus.UNKNOWN,
+    )
+    parametric = solve_parametric_logarithmic_derivative(
+        field.from_sympy(x**2 + 2 * u / x),
+        outer,
+        tower.derivation(),
+    )
 
     assert signature.outcome is FundamentalSignatureOutcome.SUPPORTED
     assert normal_form.target_derivation.tower.constants == target_constants
     assert target_constants.from_sympy(sqrt(2)) != target_constants.zero
     assert target_constants.from_sympy(I) != target_constants.zero
     assert normal_form.verifies_derivation()
+    assert parametric.has_solution
+    assert (parametric.n, parametric.m) == (1, 1)
+    assert parametric.reconstructs
+    assert isinstance(
+        parametric.certificate,
+        MonomialRelationSystemParametricCertificate,
+    )
 
 
 def test_unsupported_constant_fields_and_malformed_bases_remain_explicit() -> None:

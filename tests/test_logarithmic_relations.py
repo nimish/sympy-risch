@@ -263,8 +263,7 @@ def test_signature_relation_system_recovers_generated_planted_logarithms(
         if order == "primitive_then_hyperexponential"
         else hyperexponential_primitive_tower()
     )
-    # The direct relation compiler is intentionally P/E-only, so keep the
-    # first generated family at its P/E prefix.
+    # This generated family only needs its first P/E prefix.
     derivation = tower.derivation(2)
     top_generator = tower.levels[2].generator
     factor = derivation.field.from_sympy(top_generator + offset)
@@ -372,3 +371,25 @@ def test_hyperexponential_relation_system_records_normal_and_special_witnesses()
         (0, 1, 0),
         (0, 0, 1),
     }
+
+
+@pytest.mark.parametrize("constants", (QQ, QQ_I))
+def test_real_tangent_relation_uses_the_special_divisor(constants) -> None:
+    base = rational_tower(constants)
+    tower = base.extend(
+        MonomialExtension(
+            Poly(1 + t**2, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+    system = solve_logarithmic_relation_system(
+        (tower.field().from_sympy(t),),
+        tower.derivation(),
+    )
+    assert len(system.relations) == 1
+    relation = system.relations[0]
+
+    assert relation.source_coefficients == (2,)
+    assert relation.argument == tower.field().from_sympy(1 + t**2)
+    assert system.reconstructs

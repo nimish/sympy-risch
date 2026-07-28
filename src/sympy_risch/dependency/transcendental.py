@@ -31,10 +31,11 @@ def _solve_monomial_relation_system_parametric_logarithmic_derivative(
 ) -> ParametricLogarithmicDerivativeResult:
     r"""Solve PLogD by the complete finite QQ relation system.
 
-    A hyperexponential lower level introduces its own special direction
-    ``Dt/t``.  Therefore the lower descent is generally multi-parameter and
-    cannot be represented by the one-ratio primitive recurrence.  The
-    relation system keeps all such directions simultaneously.
+    A hyperexponential lower level introduces its special direction ``Dt/t``;
+    a hypertangent level introduces the real special divisor ``1+t**2``.
+    Therefore the lower descent is generally multi-parameter and cannot be
+    represented by the one-ratio primitive recurrence. The relation system
+    keeps all such directions simultaneously.
     """
     field = lower_derivation.field
     element = _coerce(field, f)
@@ -88,12 +89,12 @@ def _solve_monomial_relation_system_parametric_logarithmic_derivative(
     )
 
 
-def _solve_hypertangent_parametric_logarithmic_derivative(
+def solve_hypertangent_parametric_logarithmic_derivative_gaussian(
     f: object,
     extension: MonomialExtension,
     lower_derivation: Derivation,
 ) -> ParametricLogarithmicDerivativeResult:
-    r"""Solve a real PLogD through an immutable Cayley normal form.
+    r"""Solve a real PLogD through Cayley normal form as an independent oracle.
 
     If the Gaussian witness is ``V=P+iQ``, its logarithmic derivative is
     real.  Thus each nonzero real coordinate separately satisfies the same
@@ -231,7 +232,7 @@ def solve_parametric_logarithmic_derivative(
             )
 
     if has_hypertangent_level:
-        return _solve_hypertangent_parametric_logarithmic_derivative(
+        return _solve_monomial_relation_system_parametric_logarithmic_derivative(
             element,
             extension,
             lower_derivation,

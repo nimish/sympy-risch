@@ -1,7 +1,7 @@
 """Checked constant-field construction for exponential and tangent proposals."""
 
 import pytest
-from sympy import Poly, Rational, cancel, symbols
+from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -144,7 +144,12 @@ def test_factories_reuse_the_mixed_hypertangent_relation_decision() -> None:
     assert analysis.dependency is not None
     assert analysis.dependency.kind is HyperexponentialDependencyKind.RATIONAL
     assert analysis.dependency.extension == analysis.extension
-    assert cancel(analysis.dependency.relation_argument / (1 + t**2)) == Rational(1, 4)
+    relation_argument = tangent.field().from_sympy(
+        analysis.dependency.relation_argument,
+    )
+    assert tangent.derivation()(
+        relation_argument
+    ) / relation_argument == tangent.field().from_sympy(2 * t)
     assert analysis.lower_fundamental_signature is not None
 
 

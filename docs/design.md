@@ -610,11 +610,13 @@ whose levels all have replay-proved preserved constants.
 For a lower tower containing a hyperexponential or hypertangent level, the
 dispatcher switches to the Chapter 9 relation-system route instead of
 applying the primitive signature theorem outside its hypotheses. The relation
-compiler collects all hyperexponential special directions; a hypertangent
-lower level is first normalized through its immutable Gaussian Cayley form.
-Within the documented P/E/T contract this supplies the same
-verified-witness-or-proved-negative outcome. Algebraic and generalized
-monomial lower levels remain `UNSUPPORTED`, never negative decisions.
+compiler collects every hyperexponential generator valuation and the real
+hypertangent special divisor `1+t**2`. Its exact factors are used when the
+constant field already contains `i`. Within the P/E/T contract this supplies
+the same verified-witness-or-proved-negative outcome without rewriting the
+real tower. The immutable Gaussian Cayley implementation remains an
+independent oracle. Algebraic and generalized monomial lower levels remain
+`UNSUPPORTED`, never negative decisions.
 
 ### Certified fundamental signatures
 
@@ -635,12 +637,13 @@ The relation compiler consults the signature for the active family and the
 canonical hyperexponential direction, but it still performs normal-factor
 valuations dynamically.  Thus a signature is not a complete
 Darboux-polynomial list and does not settle a non-generator special factor.
-Hypertangent directions stay in the real source tower.  The immutable
-Gaussian Cayley normal form independently checks their conversion to
-logarithmic derivative `2*i*eta`, so the coordinate translation is not being
-used to prove itself.  General effective constants, algebraic levels, and a
-direct real special-polynomial structure theorem remain outside this
-checkpoint.
+Hypertangent directions stay in the real source tower. The direct compiler
+uses the known special divisor `1+t**2`; Smith-normal-form saturation gives
+the minimal positive radical power. The immutable Gaussian Cayley normal form
+independently checks conversion to logarithmic derivative `2*i*eta`, so the
+coordinate translation is not being used to prove itself. General effective
+constants, algebraic levels, and unknown special-polynomial discovery remain
+outside this checkpoint.
 
 ## Recursive elementary integration
 
@@ -1280,14 +1283,14 @@ pure algebraic, algebraic-RDE, and relative mixed-tower program.
 - [ ] General nonlinear no-special reduction (requires a complete
   derivation-bound absence proof).
 - [x] Rational exact and logarithmic derivative decisions.
-- [x] Recursive radical logarithmic-derivative decisions over primitive
-  towers.
+- [x] Recursive radical logarithmic-derivative decisions over every checked
+  P/E/T ordering, with direct real tangent relations and a Gaussian oracle.
 - [x] Parametric logarithmic-derivative result and exact witness contract.
 - [x] Bronstein Section 7.3 parametric logarithmic-derivative fast path over
   `QQ(x)`.
 - [x] Complete rational parametric logarithmic-derivative fallback.
 - [x] Complete recursive parametric logarithmic-derivative fallback over
-  primitive towers.
+  every checked P/E/T ordering.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive-field RDE cancellation for lower-field coefficients.
@@ -1320,14 +1323,15 @@ pure algebraic, algebraic-RDE, and relative mixed-tower program.
 ### Transcendental boundary
 
 The explicit P/E/T core admits finite primitive, hyperexponential, and
-hypertangent prefixes over `QQ(x)` when every non-base level has replay-proved
-preserved constants.  Its end-to-end solvers cover the documented recursive
-shapes, but not every family ordering: some PTE recursive
-logarithmic-derivative paths still reach the current `QQ(x)`-only primitive
-logarithmic-derivative boundary. Hypertangent levels
-use an immutable Gaussian Cayley normal form internally while preserving a
-real public representation. See [mixed transcendental towers](mixed-transcendental-towers.md)
-for the precise contract and its deliberate boundaries.
+hypertangent prefixes over a supported finite constant field when every
+non-base level has replay-proved preserved constants. Exact, radical
+logarithmic, parametric logarithmic, dependency, and no-new-constants
+decisions are total across every family ordering in this cell. Hypertangent
+relations are solved directly over the real tower, with immutable Gaussian
+Cayley normalization retained as an independent oracle. Scalar and parametric
+RDE totality remain later Plan 016 checkpoints. See
+[mixed transcendental towers](mixed-transcendental-towers.md) for the precise
+contract and its deliberate boundaries.
 
 The remaining transcendental work is outside that normalized elementary
 P/E/T core:

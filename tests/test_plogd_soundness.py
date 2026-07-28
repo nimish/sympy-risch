@@ -193,7 +193,7 @@ def test_universal_parametric_witnesses_precede_hypertangent_normalization(
     assert isinstance(extension, MonomialExtension)
     monkeypatch.setattr(
         dependency_module,
-        "_solve_hypertangent_parametric_logarithmic_derivative",
+        "_solve_monomial_relation_system_parametric_logarithmic_derivative",
         _unavailable_relation_system,
     )
 

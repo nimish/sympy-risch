@@ -10,15 +10,13 @@ over the standard rational base `QQ(x)`, `Dx = 1`. The supported families are
 | hypertangent | `Dt = eta*(1 + t**2)` |
 
 Every non-base level must admit a derivation-bound replay proof that it
-preserves constants. `ConstantFieldStatus` is only diagnostic metadata;
-within the replay-certified scope, the exact-derivative,
-radical-logarithmic-derivative, Risch differential-equation, and recursive
-elementary-integration solvers descend through the documented P/E/T shapes.
-Structural admission accepts finite orderings of these three families, but it
-does not turn every recursive solver path into a completed algorithm: the
-current primitive logarithmic-derivative recursion requires a `QQ(x)` lower
-field. Thus some PTE examples return a structured `NotImplementedError` at
-that boundary instead of an incorrect integration verdict.
+preserves constants. `ConstantFieldStatus` is only diagnostic metadata.
+Within the replay-certified scope, exact, radical-logarithmic, parametric
+logarithmic, dependency, and no-new-constants decisions cover every P/E/T
+ordering. Scalar and parametric RDEs and recursive elementary integration
+still cover their documented recursive cells rather than every accepted
+tower. An unsupported RDE exit remains an implementation boundary, never an
+incorrect integration verdict.
 
 ## Admission is not integrability
 
@@ -103,11 +101,13 @@ relations remain rational rather than accidentally becoming `C`-linear.
 Checked P/E/T extensions over that base are replayed recursively, so the same
 kernel applies above several certified monomial levels.
 
-Tangent lower levels enter this same calculation through the exact Gaussian
-compositum `C(i)` and Cayley normal form. This is currently restricted to
-constant fields that are provably real (plus the native `QQ_I` case), because
-splitting a Gaussian answer into real coordinates must fix every element of
-`C`. The integer valuation lattice remains over `QQ`, not `C(i)`.
+Tangent lower levels enter this calculation directly through their real
+special divisor `1+t**2`. If `i` is already present, its exact linear factors
+are used instead. Smith-normal-form saturation recovers the minimal integral
+valuation relation. The exact Gaussian compositum `C(i)` and Cayley normal
+form remain an independent oracle for provably real `C`; the production
+relation does not expand the real tower. The integer valuation lattice remains
+over `QQ`, not `C(i)`.
 
 ## Certified fundamental signatures
 
@@ -139,14 +139,13 @@ factory results expose the lower signature as
 `lower_fundamental_signature` only when that lower tower is already within
 this certified P/E/T scope; `None` never implies preserved constants.
 
-For a hypertangent level, the recorded direction remains real.  The Gaussian
+For a hypertangent level, the recorded direction remains real. The direct
+relation compiler records the special divisor `1+t**2`. The Gaussian
 normal form independently verifies that its Cayley coordinate has
 logarithmic derivative `2*i*eta`; this conversion is an adapter check, not a
-second source of signature data.  The direct relation compiler consults the
-signature for the active family and hyperexponential generator direction while
-retaining its existing normal-factor valuation logic.  In particular, a
-signature is not a catalogue of all Darboux polynomials and does not decide
-non-generator special factors.
+second source of signature data. In particular, a signature is not a
+catalogue of unknown Darboux polynomials and does not decide special factors
+outside the explicit P/E/T families.
 
 ## Checked construction
 

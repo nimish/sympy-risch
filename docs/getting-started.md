@@ -176,11 +176,12 @@ normalization at the active top level described below. The explicit
 certificate-driven Riccati route below is intentionally separate: it first
 changes coordinates, then checks the resulting hyperexponential target.
 For the automatic hyperbolic law, the derivative law itself constructs and
-checks its two linear special factors. Some PTE recursive PLogD paths can
-reach the `QQ(x)`-only primitive-PLogD boundary and raise
-`NotImplementedError`; that outcome is not non-elementarity. General nonlinear
-monomials remain outside this public contract until the library implements a
-complete derivation-bound no-special proof.
+checks its two linear special factors. Radical and parametric logarithmic
+decisions are total across the checked P/E/T family orderings; later scalar
+and parametric RDE cells can still report an explicit unsupported boundary.
+That outcome is not non-elementarity. General nonlinear monomials remain
+outside this public contract until the library implements a complete
+derivation-bound no-special proof.
 
 See the [mixed-tower admission contract](mixed-transcendental-towers.md) for
 the precise boundary and its relation to integration results.
@@ -1169,7 +1170,7 @@ boundary, not a mathematical claim about the integral.
 | Tower shape or operation | Status |
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
-| Explicit certified primitive/hyperexponential/hypertangent towers over `QQ(x)` | Structural admission is end-to-end; the documented recursive solver shapes are end-to-end, while some PTE primitive-PLogD paths report an explicit unsupported boundary |
+| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure decisions are total across every P/E/T ordering; scalar/parametric RDE and integration coverage remains limited to the documented recursive cells |
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
@@ -1182,7 +1183,7 @@ boundary, not a mathematical claim about the integral.
 | General rational coupled RDE over a hypertangent level | Complete for the documented dispatch shapes |
 | Exact derivatives in supported rational, primitive, hyperexponential, and hypertangent levels | Complete for the documented recursive shapes; a terminal pure-radical algebraic level also descends to implemented lower scalar RDEs |
 | General nonlinear monomial with absence of special polynomials | Not implemented; positive special-factor certificates support only their documented local reductions |
-| Radical and parametric logarithmic derivatives in the supported P/E/T tower contract | Complete for their documented recursive shapes; an unsupported lower-field branch is explicit, never a negative decision |
+| Radical and parametric logarithmic derivatives in the supported P/E/T tower contract | Complete for every recursively checked P/E/T ordering over the admitted finite constant fields; tangent relations are direct real relations with an independent Gaussian oracle |
 | Algebraic Hermite reduction over `QQ(x)` | Low-level API |
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |

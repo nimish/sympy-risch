@@ -157,6 +157,13 @@ dependency evidence over every constant field admitted by T0.
 
 ### T2. Complete the complex and real structure-theorem solvers
 
+**Progress:** complete for recursively checked P/E/T towers over every finite
+constant field admitted by T0. The production relation compiler handles the
+real tangent divisor `1+t**2` directly, uses a saturated Smith kernel for
+minimal radical powers, and retains the Cayley/Gaussian implementation as an
+independent oracle. General effective constants and unknown special-polynomial
+families remain outside the declared classical cell.
+
 Turn the existing fundamental signatures into a total recursive structure
 decision:
 

@@ -243,6 +243,11 @@ does not split Laurent modes, evaluate at `i`, or divide through
 dependent-generator rejection, special and full reductions, exact recursive
 coupled certificates, elementary dispatch, two primitive lower levels, and
 generated Cayley-mode families.
+`tests/test_structure_theorem_totality.py` checks positive radical and
+parametric relations plus a certified negative decision in every three-family
+P/E/T ordering. A repeated-tangent example ensures the direct real relation
+system is the production path, while focused hypertangent tests compare it
+with the independent Gaussian oracle.
 `tests/test_primitive_logarithmic.py` checks recursive primitive signatures
 through three tower levels. It compares both one-level and nested decisions
 with separate global linear ansatzes. Generated inputs mix inherited

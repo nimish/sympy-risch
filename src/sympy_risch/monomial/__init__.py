@@ -28,10 +28,12 @@ from .hyperexponential import (
 )
 from .hypertangent import (
     HypertangentCayleyStep,
+    HypertangentGaussianLogarithmicDerivativeOracle,
     HypertangentLogarithmicDerivativeSignature,
     HypertangentMonomialReduction,
     HypertangentSpecialReduction,
     hypertangent_logarithmic_derivative_signature,
+    hypertangent_logarithmic_derivative_signature_gaussian,
     reduce_hypertangent_monomial,
     reduce_hypertangent_special,
 )
@@ -80,6 +82,7 @@ __all__ = [
     "HyperexponentialLogarithmicDerivativeSignature",
     "HyperexponentialMonomialReduction",
     "HypertangentCayleyStep",
+    "HypertangentGaussianLogarithmicDerivativeOracle",
     "HypertangentLogarithmicDerivativeSignature",
     "HypertangentMonomialReduction",
     "HypertangentSpecialReduction",
@@ -99,6 +102,7 @@ __all__ = [
     "hermite_reduce_monomial",
     "hyperexponential_logarithmic_derivative_signature",
     "hypertangent_logarithmic_derivative_signature",
+    "hypertangent_logarithmic_derivative_signature_gaussian",
     "polynomial_reduce_monomial",
     "polynomial_reduce_primitive",
     "primitive_logarithmic_derivative_signature",

@@ -31,7 +31,10 @@ from .models import (
     TranscendentalExtensionAnalysis,
 )
 from .rational import solve_parametric_logarithmic_derivative_heuristic
-from .transcendental import solve_parametric_logarithmic_derivative
+from .transcendental import (
+    solve_hypertangent_parametric_logarithmic_derivative_gaussian,
+    solve_parametric_logarithmic_derivative,
+)
 
 __all__ = [
     "HyperexponentialDependency",
@@ -54,6 +57,7 @@ __all__ = [
     "certify_hyperexponential_extension",
     "certify_hypertangent_extension",
     "certify_primitive_extension",
+    "solve_hypertangent_parametric_logarithmic_derivative_gaussian",
     "solve_parametric_logarithmic_derivative",
     "solve_parametric_logarithmic_derivative_heuristic",
     "verify_parametric_logarithmic_derivative_witness",

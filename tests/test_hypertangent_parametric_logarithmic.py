@@ -1,4 +1,4 @@
-"""Real parametric logarithmic derivatives through Cayley normal form."""
+"""Direct real logarithmic decisions with independent Cayley oracles."""
 
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
@@ -14,8 +14,13 @@ from sympy_risch import (
 )
 from sympy_risch.dependency import (
     HypertangentGaussianParametricLogarithmicDerivativeCertificate,
+    MonomialRelationSystemParametricCertificate,
+    solve_hypertangent_parametric_logarithmic_derivative_gaussian,
 )
-from sympy_risch.monomial import HypertangentLogarithmicDerivativeSignature
+from sympy_risch.monomial import (
+    HypertangentLogarithmicDerivativeSignature,
+    hypertangent_logarithmic_derivative_signature_gaussian,
+)
 
 x, t, u, theta = symbols("x t u theta")
 
@@ -59,22 +64,39 @@ def test_terminal_hypertangent_parametric_logarithmic_derivative_is_real() -> No
         outer,
         tower.derivation(),
     )
+    gaussian = solve_hypertangent_parametric_logarithmic_derivative_gaussian(
+        x**2 + 2 * t,
+        outer,
+        tower.derivation(),
+    )
 
     assert result.has_solution
     assert (result.n, result.m) == (1, 1)
     assert result.reconstructs
     assert isinstance(
         result.certificate,
+        MonomialRelationSystemParametricCertificate,
+    )
+    assert result.certificate.system.reconstructs
+    assert gaussian.has_solution
+    assert (gaussian.n, gaussian.m) == (result.n, result.m)
+    assert gaussian.reconstructs
+    assert isinstance(
+        gaussian.certificate,
         HypertangentGaussianParametricLogarithmicDerivativeCertificate,
     )
-    assert result.certificate.normal_form.verifies_derivation()
-    assert result.certificate.target_result.reconstructs
+    assert gaussian.certificate.normal_form.verifies_derivation()
+    assert gaussian.certificate.target_result.reconstructs
 
 
 def test_terminal_hypertangent_radical_logarithmic_derivative_is_real() -> None:
     tower = hypertangent_tower()
 
     result = solve_radical_logarithmic_derivative(
+        2 * t,
+        tower.derivation(),
+    )
+    gaussian = hypertangent_logarithmic_derivative_signature_gaussian(
         2 * t,
         tower.derivation(),
     )
@@ -86,8 +108,12 @@ def test_terminal_hypertangent_radical_logarithmic_derivative_is_real() -> None:
         result.certificate,
         HypertangentLogarithmicDerivativeSignature,
     )
-    assert result.certificate.normal_form.verifies_derivation()
-    assert result.certificate.gaussian_result.reconstructs
+    assert result.certificate.relation_system.reconstructs
+    assert gaussian.has_solution
+    assert gaussian.minimal_power == result.minimal_power
+    assert gaussian.reconstructs_relation
+    assert gaussian.normal_form.verifies_derivation()
+    assert gaussian.gaussian_result.reconstructs
 
 
 def test_nested_hypertangent_parametric_logarithmic_derivative_rewrites_every_level() -> (
@@ -108,16 +134,55 @@ def test_nested_hypertangent_parametric_logarithmic_derivative_rewrites_every_le
         outer,
         derivation,
     )
+    gaussian = solve_hypertangent_parametric_logarithmic_derivative_gaussian(
+        integrand,
+        outer,
+        derivation,
+    )
 
     assert result.has_solution
     assert (result.n, result.m) == (1, 1)
     assert result.reconstructs
     assert isinstance(
         result.certificate,
+        MonomialRelationSystemParametricCertificate,
+    )
+    assert result.certificate.system.reconstructs
+    assert gaussian.has_solution
+    assert (gaussian.n, gaussian.m) == (result.n, result.m)
+    assert gaussian.reconstructs
+
+
+def test_direct_and_gaussian_solvers_agree_on_a_negative_decision() -> None:
+    tower = nested_hypertangent_tower()
+    field = tower.field()
+    outer = MonomialExtension(
+        Poly(theta, theta, domain=field),
+        ConstantFieldStatus.PRESERVED,
+    )
+    integrand = field.from_sympy(1 / (x**2 + 1))
+
+    direct = solve_parametric_logarithmic_derivative(
+        integrand,
+        outer,
+        tower.derivation(),
+    )
+    gaussian = solve_hypertangent_parametric_logarithmic_derivative_gaussian(
+        integrand,
+        outer,
+        tower.derivation(),
+    )
+
+    assert direct.proves_no_solution
+    assert gaussian.proves_no_solution
+    assert isinstance(
+        direct.certificate,
+        MonomialRelationSystemParametricCertificate,
+    )
+    assert isinstance(
+        gaussian.certificate,
         HypertangentGaussianParametricLogarithmicDerivativeCertificate,
     )
-    assert result.certificate.normal_form.verifies_derivation()
-    assert result.certificate.target_result.reconstructs
 
 
 def test_hypertangent_dependency_analysis_normalizes_a_hypertangent_lower_field() -> (

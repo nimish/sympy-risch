@@ -125,10 +125,10 @@ The current implementation already has a strong exact-arithmetic kernel:
   algebraic extensions with SymPy's `FiniteExtension`, and differentiates
   algebraic generators implicitly, and classifies which algebraic/monomial
   prefixes the current native backend can actually represent.
-- `src/sympy_risch/dependency.py` provides parametric
-  logarithmic-derivative decisions for rational and recursive primitive paths,
-  plus implemented mixed relation-system and hypertangent Gaussian fallbacks.
-  Some P/E/T orderings still reach the `QQ(x)`-only primitive-PLogD boundary.
+- `src/sympy_risch/dependency/` provides total parametric
+  logarithmic-derivative decisions on recursively checked P/E/T towers over
+  admitted finite constants. Tangent relations use the direct real relation
+  system, with the Gaussian path retained as an oracle.
 - `src/sympy_risch/monomial.py` provides recursive radical logarithmic
   decisions, primitive reduction, and direct P/E/T family reducers. Its
   nonlinear reducer is complete only under a certified absence-of-special
@@ -147,10 +147,10 @@ The current implementation already has a strong exact-arithmetic kernel:
 - `src/sympy_risch/elementary.py` recursively integrates documented explicit
   P/E/T shapes with certified preserved constants and has a success-only
   terminal pure-radical composition route: verified exact upper coordinates
-  descend to scalar lower RDEs, then the lower coordinate recurses. Some PTE
-  primitive-PLogD examples retain the explicit boundary. General algebraic
-  levels and polynomial monomials whose special structure has not been
-  decided remain unsupported.
+  descend to scalar lower RDEs, then the lower coordinate recurses. Remaining
+  explicit-tower boundaries are scalar/parametric RDE cells, not PLogD family
+  orderings. General algebraic levels and polynomial monomials whose special
+  structure has not been decided remain unsupported.
 - `src/sympy_risch/expression_discovery.py` discovers a one-variable candidate
   DAG for rational powers and nested P/E/T calls, including both mixed
   algebraic/transcendental orders. The native expression compiler constructs
@@ -221,7 +221,7 @@ The existing design conventions to preserve are:
 | --- | --- |
 | 0. Completeness contract and coverage ledger | Partial, completed by Plans 016 T0 and 017 F0/F7: structural P/E/T admission distinguishes unsupported towers from theorem-backed obstructions, but the operation-specific totality matrix and full expression-cell corpus remain. |
 | 1. Effective field and tower kernel | Partial, shared by Plans 015 A0-A2 and 016 T0-T1: exact `QQ` towers, recursively checked P/E/T towers over native finite algebraic number-field constants, exact `C(i)` tangent normalization for provably real `C`, and finite extensions exist. General effective-field capabilities, algebraic-function-field proof transport, presentation normalization, and canonical mixed towers remain. |
-| 2. Dependency and structure decisions | Partial, expanded in Plan 016 T1-T2/T6: normalized P/E/T relations, fundamental signatures, Gaussian fallbacks, Riccati normalization, and local linear-special-factor evidence are checked, including recursive finite algebraic constants. General effective constants, every P/E/T ordering, and automatic non-generator special-polynomial decisions remain. |
+| 2. Dependency and structure decisions | Complete on the classical finite-constant P/E/T cell through Plan 016 T1-T2: every family ordering has direct real/complex relations, fundamental signatures, checked dependencies, and Gaussian oracles. General effective constants, Riccati/Darboux discovery, and automatic non-family special-polynomial decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Partial, expanded in Plan 016 T3-T5: scalar and coupled RDEs cover documented normalized P/E/T shapes and one local special-pole consumer. Missing recursive cells, public parametric RDE/limited integration, and complete real coupled coverage remain. |
 | 4. Transcendental integration | Partial, expanded in Plan 016 T6-T8: explicit P/E/T integration covers documented shapes rather than every family ordering. Complete P/E/T totality and the admitted general-polynomial special-factor/denominator branch remain. |
 | 5. Algebraic-function-field kernel | Partial, expanded in Plan 015 A0-A6: direct admitted models have maximal orders, places, local expansions, divisors, complete long-basis Hess spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess parametric/large-divisor algorithms, scalable class operations, and algebraic-number-field good reduction remain. |
@@ -396,17 +396,14 @@ Implement Bronstein §7.3 for the existing rational and primitive towers:
 n*f = D(v)/v + m*D(theta)/theta
 ```
 
-Status: complete for the rational and recursive primitive paths plus the
-implemented mixed relation-system and Gaussian fallback shapes, including the fast
-hypertangent Gaussian normalization, integer normalization, exact witness
-reconstruction, generated planted witnesses, and independent global
-linear-system oracles. Plan 003 exposes those already-certified P/E/T
-directions as immutable signatures. Plan 010 also gives a standard `C(x)`
-base for native finite algebraic `C/QQ`. The recursive constant-profile
-follow-up now replays checked P/E/T prefixes over that base and uses exact
-`C(i)` tangent normalization for provably real `C`; caller metadata is not the
-proof. The remaining work is general effective-constant recursion and
-non-generator special factors.
+Status: complete on recursively checked P/E/T towers over the finite constant
+fields admitted by T0. The Chapter 9 relation compiler handles every family
+ordering, including the direct real divisor `1+t**2`; Smith saturation gives
+minimal radical powers and the exact `C(i)` Cayley implementation remains an
+independent oracle. Plan 003 supplies immutable source signatures, while the
+constant-profile replay ensures caller metadata is not the proof. The
+remaining work is general effective constants and special factors outside the
+explicit P/E/T families.
 
 - Keep the fast denominator/degree/split-factor algorithm.
 - When it returns "failed," invoke the Chapter 9 structure-theorem solver.
@@ -444,11 +441,11 @@ general Darboux-polynomial decision.
 
 ### 2.3 Real structure theorem
 
-Status: hypertangent P/E/T inputs use an immutable Cayley Gaussian normal
-form. Plan 003 records the real source coefficient `eta` in the signature and
-keeps the Cayley image `2*i*eta` as an independently checked adapter. Direct
-real rational relations for general special polynomials and a branch-aware
-public presentation remain future work.
+Status: complete for the declared P/E/T cell. Hypertangent inputs use the
+direct real divisor `1+t**2` (or its factors when `i` is already present);
+Plan 003 records the real coefficient `eta`, and the Cayley image `2*i*eta`
+is retained as an independent oracle. General special-polynomial discovery
+and branch-aware public presentation remain future work.
 
 - Add the tangent and arctangent index sets from Theorem 9.3.2.
 - Implement the real rational relations of Corollary 9.3.2.

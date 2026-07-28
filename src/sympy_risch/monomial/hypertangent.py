@@ -1,4 +1,4 @@
-r"""Real hypertangent reduction through Cayley and Gaussian normal forms."""
+r"""Direct real hypertangent relations and Cayley reduction oracles."""
 
 from __future__ import annotations
 
@@ -24,6 +24,13 @@ from ..rde import (
     CoupledRischDifferentialEquationResult,
     solve_coupled_rational_rde,
     solve_coupled_risch_differential_equation,
+)
+from ..relations import (
+    LogarithmicRelationSystemResult,
+    solve_logarithmic_relation_system,
+)
+from ..relations.linear import (
+    minimal_source_logarithmic_relation,
 )
 from ..tower.core import (
     Derivation,
@@ -115,12 +122,35 @@ class HypertangentMonomialReduction:
 
 @dataclass(frozen=True, slots=True)
 class HypertangentLogarithmicDerivativeSignature:
-    r"""Real radical-logarithmic decision through a Cayley normal form.
+    r"""Direct real radical-logarithmic decision at a tangent level."""
 
-    The Gaussian target is an isomorphic hyperexponential tower.  Since the
-    input is real, a nonzero real coordinate of a target witness is already a
-    real witness with the same minimal power.
-    """
+    derivation: Derivation
+    integrand: FieldElement
+    relation_system: LogarithmicRelationSystemResult
+    minimal_power: int | None
+    relation_argument: FieldElement | None
+
+    @property
+    def has_solution(self) -> bool:
+        """Whether a positive multiple is a real logarithmic derivative."""
+        return self.minimal_power is not None
+
+    @property
+    def reconstructs_relation(self) -> bool:
+        """Whether the recovered real witness satisfies the input identity."""
+        if not self.has_solution or self.relation_argument is None:
+            return False
+        field = self.derivation.field
+        argument = _coerce(field, self.relation_argument)
+        return (
+            self.minimal_power * _coerce(field, self.integrand)
+            == self.derivation(argument) / argument
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class HypertangentGaussianLogarithmicDerivativeOracle:
+    """Independent Cayley/Gaussian result for a real tangent query."""
 
     derivation: Derivation
     integrand: FieldElement
@@ -151,7 +181,47 @@ def hypertangent_logarithmic_derivative_signature(
     integrand: object,
     derivation: Derivation,
 ) -> HypertangentLogarithmicDerivativeSignature:
-    r"""Decide a real radical logarithmic derivative at a tangent level."""
+    r"""Decide a real radical logarithmic derivative by Chapter-9 relations."""
+    if not isinstance(derivation, Derivation):
+        raise TypeError("hypertangent logarithmic signatures require a Derivation")
+    if derivation.level < 1:
+        raise NotImplementedError(
+            "hypertangent logarithmic signatures require a level above the "
+            "rational base"
+        )
+    extension = derivation.tower.levels[derivation.level]
+    if not isinstance(extension, MonomialExtension):
+        raise TypeError("hypertangent logarithmic signatures require a monomial level")
+    if extension.family is not MonomialFamily.HYPERTANGENT:
+        raise ValueError(
+            "hypertangent logarithmic signatures require Dt = eta*(1 + t**2)"
+        )
+    field = extension.field
+    element = _coerce(field, integrand)
+    relation_system = solve_logarithmic_relation_system(
+        (element,),
+        derivation,
+    )
+    relation = minimal_source_logarithmic_relation(relation_system)
+    signature = HypertangentLogarithmicDerivativeSignature(
+        derivation,
+        element,
+        relation_system,
+        relation.source_coefficients[0] if relation is not None else None,
+        relation.argument if relation is not None else None,
+    )
+    if signature.has_solution and not signature.reconstructs_relation:
+        raise ValueError(
+            "hypertangent logarithmic signature witness did not reconstruct"
+        )
+    return signature
+
+
+def hypertangent_logarithmic_derivative_signature_gaussian(
+    integrand: object,
+    derivation: Derivation,
+) -> HypertangentGaussianLogarithmicDerivativeOracle:
+    r"""Independently decide the same real query through Cayley normalization."""
     if not isinstance(derivation, Derivation):
         raise TypeError("hypertangent logarithmic signatures require a Derivation")
     if derivation.level < 1:
@@ -190,7 +260,7 @@ def hypertangent_logarithmic_derivative_signature(
                 "a nonzero Gaussian logarithmic witness has no real coordinate"
             )
 
-    signature = HypertangentLogarithmicDerivativeSignature(
+    signature = HypertangentGaussianLogarithmicDerivativeOracle(
         derivation,
         element,
         normal_form,

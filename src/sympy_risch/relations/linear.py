@@ -6,13 +6,12 @@ The central object here is the rational relation space
 
    \{q\in\mathbb{Q}^r : \sum_i q_i a_i=Dv/v\text{ after an integer scale}\}.
 
-It is the Chapter-9 structure-theorem fallback used once a tower contains a
-hyperexponential level.  The compiler works downward through the tower.  At
-each primitive level it records normal-factor valuations; at each
-hyperexponential level it additionally records the special generator
-valuation.  Every equality in an intermediate field is recursively expanded
-to rational coordinates, so Gaussian constants never accidentally permit
-Gaussian (rather than rational) valuations.
+It is the Chapter-9 structure-theorem fallback for mixed P/E/T towers. The
+compiler works downward through the tower. At each primitive level it records
+normal-factor valuations; at each hyperexponential level it additionally
+records the special generator valuation; and at each hypertangent level it
+records the real special divisor ``1 + t**2``. Every equality in an
+intermediate field is recursively expanded to rational coordinates.
 """
 
 from __future__ import annotations
@@ -21,9 +20,10 @@ from dataclasses import dataclass
 from math import lcm
 
 from sympy.core.expr import Expr
-from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains import QQ, QQ_I, ZZ
 from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
+from sympy.polys.matrices.normalforms import smith_normal_decomp
 from sympy.polys.polytools import Poly, cancel
 
 from .._typing import FieldElement
@@ -257,33 +257,103 @@ def _field_zero_constraints(
     return tuple(rows)
 
 
-def _rational_nullspace(
+def _saturated_integer_kernel(
     rows: tuple[tuple[FieldElement, ...], ...],
     column_count: int,
-) -> tuple[tuple[FieldElement, ...], ...]:
-    """Return a row basis for a homogeneous kernel over ``QQ``."""
-    if column_count == 0:
-        return ()
+) -> tuple[tuple[int, ...], ...]:
+    r"""Return a lattice basis for the integral kernel of ``rows``.
+
+    Clearing each row's denominators preserves its kernel. Smith
+    decomposition then supplies the unimodular change of variables whose
+    trailing columns form the saturated integer kernel. Unlike independently
+    clearing denominators in a rational nullspace basis, this does not miss a
+    smaller integral source coefficient formed by combining basis vectors.
+    """
+    integer_rows: list[list[object]] = []
+    for row in rows:
+        denominators = [int(QQ.denom(QQ.convert(value))) for value in row]
+        scale = 1
+        for denominator in denominators:
+            scale = lcm(scale, denominator)
+        integer_rows.append(
+            [ZZ.convert(QQ.convert(scale) * QQ.convert(value)) for value in row]
+        )
+
     matrix = DomainMatrix(
-        [[QQ.convert(value) for value in row] for row in rows],
-        (len(rows), column_count),
-        QQ,
+        integer_rows,
+        (len(integer_rows), column_count),
+        ZZ,
     )
+    diagonal, _, right_transform = smith_normal_decomp(matrix)
+    rank = sum(
+        diagonal[index, index].element != ZZ.zero
+        for index in range(min(diagonal.shape))
+    )
+    transform = right_transform.to_list()
     return tuple(
-        tuple(QQ.convert(value) for value in row)
-        for row in matrix.nullspace().to_list()
+        tuple(int(transform[row][column]) for row in range(column_count))
+        for column in range(rank, column_count)
     )
 
 
-def _integer_vector(
-    vector: tuple[FieldElement, ...],
-) -> tuple[int, ...]:
-    """Clear all rational denominators in one kernel vector."""
-    scale = 1
-    rational_vector = tuple(QQ.convert(value) for value in vector)
-    for value in rational_vector:
-        scale = lcm(scale, int(QQ.denom(value)))
-    return tuple(int(QQ.numer(QQ.convert(scale) * value)) for value in rational_vector)
+def minimal_source_logarithmic_relation(
+    system: LogarithmicRelationSystemResult,
+    source_index: int = 0,
+) -> LogarithmicRelationWitness | None:
+    r"""Return the relation with minimal positive coefficient at one source.
+
+    The projection of the integral kernel onto one source coordinate is an
+    ideal ``n*ZZ``. A saturated Smith kernel basis generates that ideal, and
+    Bézout combination of its projected coordinates constructs the witness
+    with its positive generator ``n``.
+    """
+    if not 0 <= source_index < system.source_dimension:
+        raise IndexError("source index is outside the relation system")
+    basis = system.relations
+
+    gcd_value = ZZ.zero
+    combination = [ZZ.zero for _ in basis]
+    for index, relation in enumerate(basis):
+        coefficient = ZZ.convert(relation.source_coefficients[source_index])
+        left, right, new_gcd = ZZ.gcdex(gcd_value, coefficient)
+        combination = [left * value for value in combination]
+        combination[index] += right
+        gcd_value = new_gcd
+
+    if gcd_value == ZZ.zero:
+        return None
+    values = tuple(
+        int(
+            sum(
+                multiplier * ZZ.convert(relation.variable_values[column])
+                for multiplier, relation in zip(combination, basis, strict=True)
+            )
+        )
+        for column in range(system.variable_dimension)
+    )
+    if values[source_index] <= 0:
+        raise ValueError("Smith kernel projection did not produce a positive generator")
+
+    field = system.derivation.field
+    argument = field.one
+    for multiplier, basis_relation in zip(combination, basis, strict=True):
+        if multiplier:
+            argument *= basis_relation.argument ** int(multiplier)
+    relation = LogarithmicRelationWitness(
+        values[: system.source_dimension],
+        values,
+        argument,
+    )
+    left = field.zero
+    for coefficient, term in zip(
+        relation.source_coefficients,
+        system.source_terms,
+        strict=True,
+    ):
+        left += coefficient * term
+    if left != system.derivation(argument) / argument:
+        raise ValueError("minimal logarithmic relation failed to reconstruct")
+    return relation
 
 
 class _RelationSystemCompiler:
@@ -394,14 +464,25 @@ class _RelationSystemCompiler:
         if family not in {
             MonomialFamily.PRIMITIVE,
             MonomialFamily.HYPEREXPONENTIAL,
+            MonomialFamily.HYPERTANGENT,
         }:
             raise NotImplementedError(
-                "logarithmic relation systems support only primitive and "
-                "hyperexponential monomial levels"
+                "logarithmic relation systems support only primitive, "
+                "hyperexponential, and hypertangent monomial levels"
             )
 
         top_terms = list(terms)
         seen_factors: set[Expr] = set()
+        generator_factor = Poly(
+            extension.generator,
+            extension.generator,
+            domain=extension.parent_field,
+        )
+        tangent_special = Poly(
+            1 + extension.generator**2,
+            extension.generator,
+            domain=extension.parent_field,
+        )
         for term in terms:
             _, denominator = _fraction_polynomials(term.element, extension)
             for raw_factor, _ in denominator.factor_list()[1]:
@@ -412,21 +493,21 @@ class _RelationSystemCompiler:
                 seen_factors.add(factor_expression)
                 derivative = derivation.polynomial(factor)
                 is_special = factor.gcd(derivative).degree() > 0
-                generator_factor = Poly(
-                    extension.generator,
-                    extension.generator,
-                    domain=extension.parent_field,
-                )
                 if is_special:
                     if (
                         family is MonomialFamily.HYPEREXPONENTIAL
                         and factor == generator_factor
                     ):
                         continue
-                    raise NotImplementedError(
-                        "logarithmic relation systems encountered a "
-                        "non-generator special polynomial"
-                    )
+                    if not (
+                        family is MonomialFamily.HYPERTANGENT
+                        and tangent_special.rem(factor).is_zero
+                    ):
+                        raise NotImplementedError(
+                            "logarithmic relation systems encountered an "
+                            "unsupported special polynomial"
+                        )
+                    continue
                 valuation = self.new_variable(factor_expression)
                 logarithmic_derivative = _coerce(
                     extension.field,
@@ -455,6 +536,21 @@ class _RelationSystemCompiler:
                     ((special_valuation, QQ.one),),
                 )
             )
+        elif family is MonomialFamily.HYPERTANGENT:
+            for raw_factor, _ in tangent_special.factor_list()[1]:
+                factor = raw_factor.monic()
+                factor_expression = factor.as_expr()
+                special_valuation = self.new_variable(factor_expression)
+                logarithmic_derivative = _coerce(
+                    extension.field,
+                    derivation.polynomial(factor).as_expr() / factor_expression,
+                )
+                top_terms.append(
+                    _LinearFieldTerm(
+                        -logarithmic_derivative,
+                        ((special_valuation, QQ.one),),
+                    )
+                )
 
         elements = tuple(term.element for term in top_terms)
         nonconstant_rows, constants = _top_coordinates(elements, extension)
@@ -480,14 +576,13 @@ class _RelationSystemCompiler:
 
     def finish(self) -> LogarithmicRelationSystemResult:
         """Solve the accumulated QQ system and construct every basis witness."""
-        kernel = _rational_nullspace(
+        kernel = _saturated_integer_kernel(
             tuple(tuple(row) for row in self.rows),
             self.variable_count,
         )
         field = self.derivation.field
         relations = []
-        for vector in kernel:
-            values = _integer_vector(vector)
+        for values in kernel:
             argument = field.one
             for index, factor in self.witness_factors:
                 exponent = values[index]
