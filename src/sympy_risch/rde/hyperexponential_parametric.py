@@ -13,7 +13,6 @@ from __future__ import annotations
 from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
-from ..monomial import solve_radical_logarithmic_derivative
 from ..reduction.fractions import split_normal_special
 from ..reduction.polynomials import polynomial_gcd, polynomial_inverse_modulo
 from ..tower import Derivation, _coerce
@@ -398,6 +397,11 @@ def _homogeneous_direction(
     parameter_count: int,
 ) -> ParametricRDESolution | None:
     """Return the unique homogeneous direction when ``Dy + a*y = 0``."""
+    # Monomial reduction calls the scalar RDE dispatcher, so importing its
+    # facade while this RDE module initializes would recreate that module
+    # cycle.  The operation is needed only at the completed public boundary.
+    from ..monomial import solve_radical_logarithmic_derivative
+
     result = solve_radical_logarithmic_derivative(-coefficient, derivation)
     if result.minimal_power != 1:
         return None

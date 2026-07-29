@@ -127,6 +127,27 @@ def test_forced_laurent_edges_continue_after_parameter_cancellation() -> None:
     assert result.basis[0].solution == field.one
 
 
+def test_ascending_laurent_recurrence_retains_a_cancelling_direction() -> None:
+    tower = exponential_tower()
+    field = tower.field()
+    derivation = tower.derivation()
+    coefficient = field.from_sympy(1 / t)
+    planted = field.from_sympy(t)
+    obstruction = field.from_sympy(1 / x)
+
+    result = solve_parametric_risch_differential_equation(
+        coefficient,
+        (
+            derivation(planted) + coefficient * planted + obstruction,
+            obstruction,
+        ),
+        derivation,
+    )
+
+    assert result.parameter_basis[0].parameters == (QQ.one, -QQ.one)
+    assert result.parameter_basis[0].solution == planted
+
+
 def test_hyperexponential_homogeneous_solution_is_retained() -> None:
     tower = exponential_tower()
     field = tower.field()

@@ -8,6 +8,7 @@ from ._common import _field_element_is_zero
 from ._parametric_linear import ParametricRDESolution, constant_linear_kernel
 from ._parametric_states import (
     _combine_field_states,
+    _combine_field_values,
     _FieldState,
     _identity_parameters,
 )
@@ -65,24 +66,28 @@ def _solve_diagonal_laurent_prde(
     for power in powers:
         if not states:
             break
-        coefficients = tuple(terms.get(power, parent.zero) for terms in rhs_terms)
+        original_coefficients = tuple(
+            terms.get(power, parent.zero) for terms in rhs_terms
+        )
+        current_coefficients = tuple(
+            _combine_field_values(
+                state.parameters,
+                original_coefficients,
+                parent,
+                constants,
+            )
+            for state in states
+        )
         if (minimum_power is not None and power < minimum_power) or (
             maximum_power is not None and power > maximum_power
         ):
-            states = _restrict_laurent_edge(states, coefficients, derivation)
-            rhs_terms = tuple(
-                _hyperexponential_laurent_coefficients(
-                    state.residual,
-                    extension,
-                    "diagonal recurrence residual",
-                )[1]
-                for state in states
+            states = _restrict_laurent_edge(
+                states,
+                current_coefficients,
+                derivation,
             )
             continue
 
-        current_coefficients = tuple(
-            terms.get(power, parent.zero) for terms in rhs_terms
-        )
         lower_basis = _solve_parametric_rde_basis(
             lower_coefficient + parent.convert(power) * eta,
             current_coefficients,
@@ -117,14 +122,6 @@ def _solve_diagonal_laurent_prde(
                 )
             )
         states = tuple(next_states)
-        rhs_terms = tuple(
-            _hyperexponential_laurent_coefficients(
-                state.residual,
-                extension,
-                "diagonal recurrence residual",
-            )[1]
-            for state in states
-        )
 
     if any(not _field_element_is_zero(state.residual, field) for state in states):
         raise ValueError("diagonal hyperexponential PRDE left a residual")
