@@ -1,4 +1,4 @@
-from sympy import Rational, exp, log, sin, sqrt, symbols, tan
+from sympy import Add, Rational, exp, log, sin, sqrt, symbols, tan
 
 from sympy_risch.expression_discovery import (
     ExpressionDiscoveryOutcome,
@@ -67,6 +67,17 @@ def test_common_subexpressions_share_one_candidate() -> None:
 
     assert discovery.discovered
     assert [candidate.source for candidate in discovery.candidates].count(radical) == 1
+
+
+def test_wide_expression_preserves_unique_root_order() -> None:
+    x = symbols("x")
+    roots = tuple(log(x + shift) for shift in range(1, 401))
+    expression = Add(*roots, evaluate=False)
+
+    discovery = discover_expression_tower(expression, x)
+
+    assert discovery.discovered
+    assert tuple(candidate.source for candidate in discovery.candidates) == roots
 
 
 def test_reports_unsupported_source_grammar_without_partial_graph() -> None:

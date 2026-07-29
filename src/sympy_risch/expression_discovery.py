@@ -159,11 +159,7 @@ class _CandidateDiscoverer:
     @staticmethod
     def _merge_roots(roots: Iterable[Expr]) -> tuple[Expr, ...]:
         """Deduplicate roots while retaining deterministic traversal order."""
-        merged: list[Expr] = []
-        for root in roots:
-            if root not in merged:
-                merged.append(root)
-        return tuple(merged)
+        return tuple(dict.fromkeys(roots))
 
 
 def discover_expression_tower(

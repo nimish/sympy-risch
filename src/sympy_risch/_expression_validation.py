@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-from sympy import cancel, diff
+from sympy import cancel, diff, preorder_traversal
 from sympy.core.add import Add
 from sympy.core.expr import Expr
 from sympy.core.mul import Mul
@@ -33,36 +33,134 @@ if TYPE_CHECKING:
     from ._expression_compilation import ExpressionCompilation
 
 
+def _source_value_and_derivative_in_native(
+    expression: Expr,
+    compilation: ExpressionCompilation,
+    source_generators: dict[Expr, Symbol],
+    cache: dict[Expr, tuple[FieldElement, FieldElement]],
+) -> tuple[FieldElement, FieldElement]:
+    """Evaluate one source subtree and its derivative in a single traversal."""
+    cached = cache.get(expression)
+    if cached is not None:
+        return cached
+
+    tower, _element = compilation._require_compiled()
+    field = tower.field()
+    generator = source_generators.get(expression)
+    native_generator = (
+        cast(FieldElement, field.from_sympy(generator))
+        if generator is not None
+        else None
+    )
+    if (
+        native_generator is not None
+        and isinstance(expression, Pow)
+        and isinstance(expression.exp, Rational)
+        and not isinstance(expression.exp, Integer)
+    ):
+        base, base_derivative = _source_value_and_derivative_in_native(
+            expression.base,
+            compilation,
+            source_generators,
+            cache,
+        )
+        if base == field.zero:
+            raise ValueError("an algebraic power source has a singular base")
+        result = (
+            native_generator,
+            cast(
+                FieldElement,
+                field.convert(expression.exp)
+                * native_generator
+                * base_derivative
+                / base,
+            ),
+        )
+    elif expression == compilation.variable:
+        result = (cast(FieldElement, field.from_sympy(expression)), field.one)
+    elif expression.is_Rational is True:
+        result = (cast(FieldElement, field.from_sympy(expression)), field.zero)
+    elif isinstance(expression, Add):
+        value = field.zero
+        derivative = field.zero
+        for term in expression.args:
+            term_value, term_derivative = _source_value_and_derivative_in_native(
+                term,
+                compilation,
+                source_generators,
+                cache,
+            )
+            value += term_value
+            derivative += term_derivative
+        result = (cast(FieldElement, value), cast(FieldElement, derivative))
+    elif isinstance(expression, Mul):
+        value = field.one
+        derivative = field.zero
+        for factor in expression.args:
+            factor_value, factor_derivative = _source_value_and_derivative_in_native(
+                factor,
+                compilation,
+                source_generators,
+                cache,
+            )
+            derivative = derivative * factor_value + value * factor_derivative
+            value *= factor_value
+        result = (cast(FieldElement, value), cast(FieldElement, derivative))
+    elif isinstance(expression, Pow) and isinstance(expression.exp, Integer):
+        base, base_derivative = _source_value_and_derivative_in_native(
+            expression.base,
+            compilation,
+            source_generators,
+            cache,
+        )
+        exponent = int(expression.exp)
+        result = (
+            base**exponent,
+            cast(
+                FieldElement,
+                field.zero
+                if exponent == 0
+                else exponent * base ** (exponent - 1) * base_derivative,
+            ),
+        )
+    elif expression.func in {log, exp, tan} and len(expression.args) == 1:
+        if native_generator is None:
+            raise ValueError("a source function has no native generator")
+        argument_expression = expression.args[0]
+        if not isinstance(argument_expression, Expr):
+            raise ValueError("a source function has a non-expression argument")
+        argument, argument_derivative = _source_value_and_derivative_in_native(
+            argument_expression,
+            compilation,
+            source_generators,
+            cache,
+        )
+        if expression.func is log:
+            derivative = argument_derivative / argument
+        elif expression.func is exp:
+            derivative = argument_derivative * native_generator
+        else:
+            derivative = argument_derivative * (field.one + native_generator**2)
+        result = (native_generator, cast(FieldElement, derivative))
+    else:
+        raise ValueError("the source contains syntax outside the compiled grammar")
+
+    cache[expression] = result
+    return result
+
+
 def source_value_in_native(
     expression: Expr,
     compilation: ExpressionCompilation,
     source_generators: dict[Expr, Symbol],
 ) -> FieldElement:
     """Evaluate an accepted source tree in the compiled native top field."""
-    tower, _element = compilation._require_compiled()
-    field = tower.field()
-    generator = source_generators.get(expression)
-    if generator is not None:
-        return cast(FieldElement, field.from_sympy(generator))
-    if expression == compilation.variable or expression.is_Rational is True:
-        return cast(FieldElement, field.from_sympy(expression))
-    if isinstance(expression, Add):
-        value = field.zero
-        for term in expression.args:
-            value += source_value_in_native(term, compilation, source_generators)
-        return cast(FieldElement, value)
-    if isinstance(expression, Mul):
-        value = field.one
-        for factor in expression.args:
-            value *= source_value_in_native(factor, compilation, source_generators)
-        return cast(FieldElement, value)
-    if isinstance(expression, Pow) and isinstance(expression.exp, Integer):
-        return source_value_in_native(
-            expression.base,
-            compilation,
-            source_generators,
-        ) ** int(expression.exp)
-    raise ValueError("the source contains syntax outside the compiled grammar")
+    return _source_value_and_derivative_in_native(
+        expression,
+        compilation,
+        source_generators,
+        {},
+    )[0]
 
 
 def source_derivative_in_native(
@@ -71,104 +169,12 @@ def source_derivative_in_native(
     source_generators: dict[Expr, Symbol],
 ) -> FieldElement:
     """Apply the source-tree chain rule without inventing new function calls."""
-    tower, _element = compilation._require_compiled()
-    field = tower.field()
-    generator = source_generators.get(expression)
-    if (
-        generator is not None
-        and isinstance(expression, Pow)
-        and isinstance(expression.exp, Rational)
-        and not isinstance(expression.exp, Integer)
-    ):
-        base = source_value_in_native(
-            expression.base,
-            compilation,
-            source_generators,
-        )
-        if base == field.zero:
-            raise ValueError("an algebraic power source has a singular base")
-        native_generator = cast(FieldElement, field.from_sympy(generator))
-        return (
-            field.convert(expression.exp)
-            * native_generator
-            * source_derivative_in_native(
-                expression.base,
-                compilation,
-                source_generators,
-            )
-            / base
-        )
-    if expression == compilation.variable:
-        return cast(FieldElement, field.one)
-    if expression.is_Rational is True:
-        return cast(FieldElement, field.zero)
-    if isinstance(expression, Add):
-        value = field.zero
-        for term in expression.args:
-            value += source_derivative_in_native(
-                term,
-                compilation,
-                source_generators,
-            )
-        return cast(FieldElement, value)
-    if isinstance(expression, Mul):
-        factors = tuple(
-            source_value_in_native(factor, compilation, source_generators)
-            for factor in expression.args
-        )
-        value = field.zero
-        for index, _factor in enumerate(factors):
-            term = source_derivative_in_native(
-                expression.args[index],
-                compilation,
-                source_generators,
-            )
-            for other_index, other_factor in enumerate(factors):
-                if other_index != index:
-                    term *= other_factor
-            value += term
-        return cast(FieldElement, value)
-    if isinstance(expression, Pow) and isinstance(expression.exp, Integer):
-        exponent = int(expression.exp)
-        if exponent == 0:
-            return cast(FieldElement, field.zero)
-        base = source_value_in_native(
-            expression.base,
-            compilation,
-            source_generators,
-        )
-        return (
-            exponent
-            * base ** (exponent - 1)
-            * source_derivative_in_native(
-                expression.base,
-                compilation,
-                source_generators,
-            )
-        )
-    if expression.func not in {log, exp, tan} or len(expression.args) != 1:
-        raise ValueError("the source contains an unsupported function call")
-    if generator is None:
-        raise ValueError("a source function has no native generator")
-    argument_expression = expression.args[0]
-    if not isinstance(argument_expression, Expr):
-        raise ValueError("a source function has a non-expression argument")
-    argument = source_value_in_native(
-        argument_expression,
+    return _source_value_and_derivative_in_native(
+        expression,
         compilation,
         source_generators,
-    )
-    argument_derivative = source_derivative_in_native(
-        argument_expression,
-        compilation,
-        source_generators,
-    )
-    native_generator = cast(FieldElement, field.from_sympy(generator))
-    if expression.func is log:
-        return argument_derivative / argument
-    if expression.func is exp:
-        return argument_derivative * native_generator
-    return argument_derivative * (field.one + native_generator**2)
+        {},
+    )[1]
 
 
 def _locally_equal(left: Expr, right: Expr) -> bool:
@@ -215,7 +221,14 @@ def validate_compiled_extension_sources(
     }
     if len(source_generators) != len(substitutions):
         raise ValueError("each source call needs at most one native generator")
-    for generator, source in substitutions.items():
+    expression_nodes = set(preorder_traversal(compilation.expression))
+    lower_replacements: dict[Expr, Symbol] = {}
+    source_evaluation_cache: dict[Expr, tuple[FieldElement, FieldElement]] = {}
+    ordered_substitutions = sorted(
+        substitutions.items(),
+        key=lambda item: level_indices[item[0]],
+    )
+    for generator, source in ordered_substitutions:
         index = level_indices[generator]
         extension = tower.levels[index]
         if source.free_symbols & expected_generators:
@@ -230,17 +243,12 @@ def validate_compiled_extension_sources(
             not is_algebraic_power and not is_supported_function
         ) or source.free_symbols - {compilation.variable}:
             raise ValueError("a source substitution is outside the accepted grammar")
-        if not compilation.expression.has(source):
+        if source not in expression_nodes:
             raise ValueError(
                 "every source substitution must occur in the compiled expression"
             )
 
         lower_derivation = tower.derivation(index - 1)
-        lower_replacements = {
-            prior_source: prior_generator
-            for prior_generator, prior_source in substitutions.items()
-            if level_indices[prior_generator] < index
-        }
         native_argument_expression = source.args[0].xreplace(lower_replacements)
         try:
             argument = cast(
@@ -328,10 +336,11 @@ def validate_compiled_extension_sources(
             )
 
         native_generator = cast(FieldElement, tower.field().from_sympy(generator))
-        source_derivative = source_derivative_in_native(
+        _source_value, source_derivative = _source_value_and_derivative_in_native(
             source,
             compilation,
             source_generators,
+            source_evaluation_cache,
         )
         if tower.derivation()(native_generator) != source_derivative:
             raise ValueError(
@@ -348,6 +357,7 @@ def validate_compiled_extension_sources(
                 "a native generator derivative fails its back-substituted "
                 "local chain-rule check"
             )
+        lower_replacements[source] = generator
 
 
 __all__ = [

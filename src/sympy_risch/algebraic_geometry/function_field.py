@@ -199,6 +199,11 @@ class AlgebraicDivisor:
 
     model: AlgebraicFunctionField
     terms: tuple[tuple[AlgebraicPlace, int], ...] = ()
+    _coefficients: dict[AlgebraicPlace, int] = dataclass_field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
 
     def __post_init__(self) -> None:
         combined: dict[AlgebraicPlace, int] = {}
@@ -227,11 +232,9 @@ class AlgebraicDivisor:
                 order.append(place)
                 combined[place] = 0
             combined[place] += coefficient
-        object.__setattr__(
-            self,
-            "terms",
-            tuple((place, combined[place]) for place in order if combined[place]),
-        )
+        coefficients = {place: combined[place] for place in order if combined[place]}
+        object.__setattr__(self, "terms", tuple(coefficients.items()))
+        object.__setattr__(self, "_coefficients", coefficients)
 
     @property
     def support(self) -> tuple[AlgebraicPlace, ...]:
@@ -255,14 +258,7 @@ class AlgebraicDivisor:
 
     def coefficient(self, place: AlgebraicPlace) -> int:
         """Coefficient at one place."""
-        return next(
-            (
-                coefficient
-                for supported_place, coefficient in self.terms
-                if supported_place is place
-            ),
-            0,
-        )
+        return self._coefficients.get(place, 0)
 
     def add(self, other: AlgebraicDivisor) -> AlgebraicDivisor:
         """Divisor addition."""
@@ -328,11 +324,7 @@ class AlgebraicDivisor:
             return NotImplemented
         if other.model is not self.model:
             return False
-        return all(
-            self.coefficient(place) == coefficient for place, coefficient in other.terms
-        ) and all(
-            other.coefficient(place) == coefficient for place, coefficient in self.terms
-        )
+        return self._coefficients == other._coefficients
 
 
 @dataclass(frozen=True, slots=True)
@@ -353,13 +345,11 @@ class AlgebraicDifferential:
         repr=False,
         compare=False,
     )
-    _residue_cache: tuple[tuple[AlgebraicPlace, ExtensionElement], ...] = (
-        dataclass_field(
-            init=False,
-            default=(),
-            repr=False,
-            compare=False,
-        )
+    _residue_cache: dict[AlgebraicPlace, ExtensionElement] = dataclass_field(
+        init=False,
+        default_factory=dict,
+        repr=False,
+        compare=False,
     )
 
     def __post_init__(self) -> None:
@@ -388,15 +378,11 @@ class AlgebraicDifferential:
         """Exact local residue in the place's residue field."""
         if place.extension != self.model.extension:
             raise ValueError("the place belongs to another function field")
-        for cached_place, cached_value in self._residue_cache:
-            if place is cached_place:
-                return cached_value
+        cached = self._residue_cache.get(place)
+        if cached is not None:
+            return cached
         value = place.differential_residue(self.coefficient)
-        object.__setattr__(
-            self,
-            "_residue_cache",
-            (*self._residue_cache, (place, value)),
-        )
+        self._residue_cache[place] = value
         return value
 
     def divisor(self) -> AlgebraicDivisor:
