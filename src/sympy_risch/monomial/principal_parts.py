@@ -7,6 +7,7 @@ from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
+from ..reduction.polynomials import polynomial_inverse_modulo
 from ..tower.core import Derivation
 
 
@@ -51,9 +52,9 @@ def _factor_principal_numerators(
     r"""Return ``A_j`` in the local expansion ``sum(A_j/p**j)``."""
     factor_power = factor**multiplicity
     cofactor = denominator.exquo(factor_power)
-    local_numerator = (proper_numerator * cofactor.invert(factor_power)).rem(
-        factor_power
-    )
+    local_numerator = (
+        proper_numerator * polynomial_inverse_modulo(cofactor, factor_power)
+    ).rem(factor_power)
     principal_numerators = [factor.zero] * multiplicity
     working = local_numerator
     for pole_order in range(multiplicity, 0, -1):

@@ -8,6 +8,7 @@ from dataclasses import InitVar, dataclass
 from .._typing import ExactInput, FieldElement
 from ..admission import assess_scalar_rde_admission
 from ..constant_fields import finite_constant_field_profile
+from ..gaussian import build_hypertangent_gaussian_normal_form
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._common import _field_elements_equal
 from ._parametric_linear import (
@@ -15,6 +16,7 @@ from ._parametric_linear import (
     canonicalize_directions,
 )
 from ._tower_polynomials import _is_standard_rational_derivation_over
+from .hypertangent_parametric import descend_hypertangent_parametric_basis
 from .parametric import solve_rational_parametric_risch_differential_equation
 
 _RESULT_CONSTRUCTION_TOKEN = object()
@@ -176,9 +178,26 @@ def _solve_nonempty_parametric_rde(
             right_hand_sides,
             derivation,
         )
+    if extension.family is MonomialFamily.HYPERTANGENT:
+        normal_form = build_hypertangent_gaussian_normal_form(derivation)
+        target_basis = _solve_parametric_rde_basis(
+            normal_form.forward(coefficient),
+            tuple(normal_form.forward(value) for value in right_hand_sides),
+            normal_form.target_derivation,
+        )
+        basis = descend_hypertangent_parametric_basis(
+            target_basis,
+            normal_form,
+        )
+        return _build_parametric_rde_result(
+            coefficient,
+            right_hand_sides,
+            derivation,
+            basis,
+        )
     raise NotImplementedError(
-        "parametric RDE dispatch currently supports rational, primitive, and "
-        "hyperexponential levels"
+        "parametric RDE dispatch currently supports rational, primitive, "
+        "hyperexponential, and hypertangent levels"
     )
 
 

@@ -129,6 +129,35 @@ class HypertangentGaussianNormalForm:
             raise ValueError("Gaussian normal-form coordinates failed to reconstruct")
         return real_part, imaginary_part
 
+    def split_constant(self, value: object) -> tuple[FieldElement, FieldElement]:
+        r"""Return the two source-constant coordinates of a target constant."""
+        target_constants = self.target_derivation.tower.constants
+        target_constant = target_constants.convert(value)
+        target_element = self.target_field.from_sympy(
+            target_constants.to_sympy(target_constant)
+        )
+        real_element, imaginary_element = self.split_inverse(target_element)
+        source_constants = self.source_derivation.tower.constants
+
+        coordinates: list[FieldElement] = []
+        for component in (real_element, imaginary_element):
+            try:
+                constant = source_constants.from_sympy(
+                    self.source_field.to_sympy(component)
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "a Gaussian constant component does not belong to the "
+                    "source constant field"
+                ) from exc
+            embedded = self.source_field.from_sympy(source_constants.to_sympy(constant))
+            if not _zero_in_field(embedded - component, self.source_field):
+                raise ValueError(
+                    "a Gaussian constant component depends on a source generator"
+                )
+            coordinates.append(constant)
+        return coordinates[0], coordinates[1]
+
     def verifies_derivation(self) -> bool:
         """Whether the Cayley map intertwines both tower derivations."""
         for extension in self.source_derivation.tower.levels[

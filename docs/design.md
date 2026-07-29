@@ -1049,6 +1049,14 @@ invokes the lower PRDE with the shifted coefficient `a + k*eta`. The original
 homogeneous scalar direction is supplied by the complete logarithmic-
 derivative decision and the final basis is reconstructed in the source field.
 
+At a hypertangent level, `rde.hypertangent_parametric` uses the checked Cayley
+isomorphism to transform the complete problem to the hyperexponential tower
+over `C(i)`. The target basis is not assumed to be real: every solution and
+every parameter coordinate is split into its real and imaginary source-field
+parts. Those directions span the fixed real solution space and are
+canonicalized over the original constant field `C`. Every returned direction
+is then reconstructed against the original real equation.
+
 ## Algebraic extensions
 
 An `AlgebraicExtension` stores a monic irreducible polynomial
@@ -1344,6 +1352,8 @@ pure algebraic, algebraic-RDE, and relative mixed-tower program.
   rational/primitive/hyperexponential prefixes, including normal and special
   denominators, Laurent support cancellation, SPDE, and homogeneous
   directions.
+- [x] Complete hypertangent parametric RDE propagation through every checked
+  P/E/T prefix by exact Gaussian transport and real fixed-field descent.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive-field RDE cancellation for lower-field coefficients.
 - [x] Primitive-field weak normalization and full degree bounds for rational
@@ -1381,8 +1391,9 @@ logarithmic, parametric logarithmic, dependency, and no-new-constants
 decisions are total across every family ordering in this cell. Hypertangent
 relations are solved directly over the real tower, with immutable Gaussian
 Cayley normalization retained as an independent oracle. Scalar RDE is total;
-parametric RDE is complete over recursively checked rational, primitive, and
-hyperexponential prefixes. Hypertangent propagation remains Plan 016 work.
+parametric RDE is complete over recursively checked rational, primitive,
+hyperexponential, and hypertangent prefixes. Limited integration remains
+Plan 016 work.
 See [mixed transcendental towers](mixed-transcendental-towers.md) for the
 precise contract and its deliberate boundaries.
 
@@ -1406,8 +1417,9 @@ P/E/T core:
 - [ ] Add the general nonconstant-special-polynomial branch: special
   denominator reduction, special RDE bounds/cancellation, and logarithmic
   reconstruction.
-- [ ] Extend parametric RDE through hypertangent levels, then add the
-  limited-integration procedures needed by that general branch.
+- [x] Extend parametric RDE through hypertangent levels.
+- [ ] Add the limited-integration procedures that consume the complete
+  parametric solver.
 - [x] Build a conservative reversible P/E/T expression frontend for one
   `QQ`-constant variable, with checked extension replay and local
   back-substitution.

@@ -835,9 +835,29 @@ assert direction.parameters == (1, -1)
 assert direction.solution == field.one
 ```
 
-This propagation is complete through recursively checked primitive and
-hyperexponential prefixes. Hypertangent PRDE propagation remains the explicit
-boundary.
+Hypertangent levels use the same entry point and return a basis over the
+original real constant field. Internally, the solver uses the exact Cayley
+normal form over `C(i)`, then splits both solutions and parameter coordinates
+back into real directions:
+
+```python
+field = tan_x.field()
+planted = field.from_sympy((u**2 + x) / (u + 1))
+obstruction = field.from_sympy(1 / u)
+tangent_parametric = solve_parametric_risch_differential_equation(
+    field.zero,
+    (tan_x.derivation()(planted) + obstruction, obstruction),
+    tan_x.derivation(),
+)
+
+direction = tangent_parametric.parameter_basis[0]
+assert direction.parameters == (1, -1)
+assert direction.solution == planted
+```
+
+Parametric RDE propagation is therefore complete through recursively checked
+P/E/T prefixes over the admitted finite constant fields. Limited integration
+is the remaining Chapter 7 consumer.
 
 ## Test a parametric logarithmic derivative
 
@@ -1252,14 +1272,14 @@ boundary, not a mathematical claim about the integral.
 | Tower shape or operation | Status |
 | --- | --- |
 | Polynomial and rational integration over `QQ(x)` | End-to-end |
-| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure and scalar-RDE decisions are total across every P/E/T ordering; parametric RDE and integration coverage remains limited to the documented recursive cells |
+| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure, scalar-RDE, and parametric-RDE decisions are total across every P/E/T ordering; integration coverage remains limited to the documented recursive cells |
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
-| Rational, primitive, and hyperexponential parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants and recursively checked P/E prefixes; hypertangent propagation remains |
+| Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants and recursively checked P/E/T prefixes; tangent results descend exactly to the original real field |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |

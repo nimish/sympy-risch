@@ -13,6 +13,7 @@ from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
 from ..constant_fields import is_supported_finite_constant_field
+from ..reduction.polynomials import exact_field_equal
 from ..relations.signature import FundamentalSignature, build_fundamental_signature
 from ..tower.core import (
     Derivation,
@@ -70,8 +71,9 @@ def verify_parametric_logarithmic_derivative_witness(
 
     ``n*f = Dv/v + m*eta``.
 
-    The comparison is performed entirely with native SymPy domain elements.
-    No expression simplification or numerical equality is used.
+    Native SymPy domain equality is tried first. A symbolic exact-cancellation
+    fallback handles equal algebraic fraction-field units whose stored
+    denominators are not canonical; numerical equality is never used.
     """
     eta = _parametric_logarithmic_derivative_eta(
         extension,
@@ -88,9 +90,10 @@ def verify_parametric_logarithmic_derivative_witness(
     if witness_argument == field.zero:
         return False
 
-    return (
-        n_integer * element
-        == lower_derivation(witness_argument) / witness_argument + m_integer * eta
+    return exact_field_equal(
+        n_integer * element,
+        lower_derivation(witness_argument) / witness_argument + m_integer * eta,
+        field,
     )
 
 

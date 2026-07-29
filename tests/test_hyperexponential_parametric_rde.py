@@ -162,6 +162,24 @@ def test_hyperexponential_homogeneous_solution_is_retained() -> None:
     assert result.homogeneous_basis[0].solution == field.from_sympy(t)
 
 
+def test_general_coefficient_over_algebraic_constants_reconstructs() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower = exponential_tower(constants=constants)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy((t**2 + x) / (t + 1))
+    coefficient = field.from_sympy(1 / (t + 2))
+
+    result = solve_parametric_risch_differential_equation(
+        coefficient,
+        (derivation(planted) + coefficient * planted,),
+        derivation,
+    )
+
+    assert result.parameter_basis[0].parameters == (constants.one,)
+    assert result.parameter_basis[0].solution == planted
+
+
 def test_special_and_normal_denominators_share_one_parameter_space() -> None:
     tower = exponential_tower()
     field = tower.field()

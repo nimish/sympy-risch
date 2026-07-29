@@ -24,6 +24,7 @@ from ..reduction.fractions import (
     _reduced_polynomial_fraction,
     split_normal_special,
 )
+from ..reduction.polynomials import exact_field_equal
 from ..tower.core import (
     Derivation,
     MonomialExtension,
@@ -135,9 +136,10 @@ class HyperexponentialLogarithmicDerivativeSignature:
             expression += (
                 self.proper_numerator.as_expr() / self.proper_denominator.as_expr()
             )
-        return _coerce(extension.field, expression) == _coerce(
+        return exact_field_equal(
+            _coerce(extension.field, expression),
+            _coerce(extension.field, self.integrand),
             extension.field,
-            self.integrand,
         )
 
     @property
