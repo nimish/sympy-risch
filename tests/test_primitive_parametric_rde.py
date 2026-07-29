@@ -1,5 +1,7 @@
 """Complete parametric RDEs over primitive tower levels."""
 
+from dataclasses import replace
+
 import pytest
 from sympy import Poly, sqrt, symbols
 from sympy.polys.domains import QQ
@@ -152,6 +154,36 @@ def test_primitive_degree_cancellation_integrates_the_generator_derivative() -> 
 
     assert result.parameter_basis[0].solution == field.from_sympy(t)
     assert result.homogeneous_basis[0].solution == field.one
+
+
+def test_primitive_parametric_basis_retains_independent_directions() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+
+    result = solve_parametric_risch_differential_equation(
+        field.zero,
+        (field.one, field.from_sympy(1 / x)),
+        tower.derivation(),
+    )
+
+    assert tuple((vector.parameters, vector.solution) for vector in result.basis) == (
+        ((QQ.one, QQ.zero), field.from_sympy(x)),
+        ((QQ.zero, QQ.one), field.from_sympy(t)),
+        ((QQ.zero, QQ.zero), field.one),
+    )
+
+
+def test_complete_parametric_result_cannot_be_replaced_with_a_partial_basis() -> None:
+    tower = logarithmic_tower()
+    field = tower.field()
+    result = solve_parametric_risch_differential_equation(
+        field.zero,
+        (field.one,),
+        tower.derivation(),
+    )
+
+    with pytest.raises(TypeError, match=r"InitVar.*_construction_token"):
+        replace(result, basis=())
 
 
 def test_parametric_recurrence_descends_through_stacked_primitive_levels() -> None:

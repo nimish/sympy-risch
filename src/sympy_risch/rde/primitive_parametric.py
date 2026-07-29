@@ -19,6 +19,7 @@ from ._parametric_linear import (
 from ._tower_polynomials import _as_primitive_fraction
 from .parametric_dispatch import (
     ParametricRischDifferentialEquationResult,
+    _build_parametric_rde_result,
     _solve_parametric_rde_basis,
 )
 from .primitive import (
@@ -441,8 +442,8 @@ def _solve_primitive_parametric_spde(
 
 
 def solve_primitive_parametric_rde(
-    coefficient: object,
-    right_hand_sides: tuple[object, ...],
+    coefficient: FieldElement,
+    right_hand_sides: tuple[FieldElement, ...],
     derivation: Derivation,
 ) -> ParametricRischDifferentialEquationResult:
     r"""Return the complete PRDE solution space over primitive ``K(t)``."""
@@ -521,7 +522,7 @@ def solve_primitive_parametric_rde(
         field,
         derivation.tower.constants,
     )
-    return ParametricRischDifferentialEquationResult(
+    return _build_parametric_rde_result(
         coefficient_element,
         right_hand_side_elements,
         derivation,

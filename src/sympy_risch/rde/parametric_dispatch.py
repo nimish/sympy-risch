@@ -3,9 +3,9 @@ r"""Recursive dispatch for parametric Risch differential equations."""
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass
 
-from .._typing import FieldElement
+from .._typing import ExactInput, FieldElement
 from ..admission import assess_scalar_rde_admission
 from ..constant_fields import finite_constant_field_profile
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
@@ -17,18 +17,29 @@ from ._parametric_linear import (
 from ._tower_polynomials import _is_standard_rational_derivation_over
 from .parametric import solve_rational_parametric_risch_differential_equation
 
+_RESULT_CONSTRUCTION_TOKEN = object()
+
 
 @dataclass(frozen=True, slots=True)
 class ParametricRischDifferentialEquationResult:
-    r"""The full constant-vector solution space of ``Dy + a*y = sum(c_i*b_i)``."""
+    r"""The solver-certified full solution space of a parametric RDE.
+
+    Instances are returned by
+    :func:`solve_parametric_risch_differential_equation`; direct construction
+    is intentionally rejected because reconstructing the stored vectors can
+    prove soundness, but not that the basis is complete.
+    """
 
     coefficient: FieldElement
     right_hand_sides: tuple[FieldElement, ...]
     derivation: Derivation
     basis: tuple[ParametricRDESolution, ...]
+    _construction_token: InitVar[object]
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _construction_token: object) -> None:
         """Check dimensions, constant parameters, and exact reconstruction."""
+        if _construction_token is not _RESULT_CONSTRUCTION_TOKEN:
+            raise TypeError("parametric RDE results must be constructed by the solver")
         if not self.right_hand_sides:
             raise ValueError("a parametric RDE needs at least one right-hand side")
         field = self.derivation.field
@@ -89,6 +100,22 @@ class ParametricRischDifferentialEquationResult:
         return bool(self.parameter_basis)
 
 
+def _build_parametric_rde_result(
+    coefficient: FieldElement,
+    right_hand_sides: tuple[FieldElement, ...],
+    derivation: Derivation,
+    basis: tuple[ParametricRDESolution, ...],
+) -> ParametricRischDifferentialEquationResult:
+    """Construct a solver-owned complete PRDE result."""
+    return ParametricRischDifferentialEquationResult(
+        coefficient,
+        right_hand_sides,
+        derivation,
+        basis,
+        _construction_token=_RESULT_CONSTRUCTION_TOKEN,
+    )
+
+
 def _solve_nonempty_parametric_rde(
     coefficient: FieldElement,
     right_hand_sides: tuple[FieldElement, ...],
@@ -119,7 +146,7 @@ def _solve_nonempty_parametric_rde(
             field,
             profile.constants,
         )
-        return ParametricRischDifferentialEquationResult(
+        return _build_parametric_rde_result(
             coefficient,
             right_hand_sides,
             derivation,
@@ -145,8 +172,8 @@ def _solve_nonempty_parametric_rde(
 
 
 def _solve_parametric_rde_basis(
-    coefficient: object,
-    right_hand_sides: tuple[object, ...],
+    coefficient: FieldElement,
+    right_hand_sides: tuple[FieldElement, ...],
     derivation: Derivation,
 ) -> tuple[ParametricRDESolution, ...]:
     """Internal recursive basis operation, including the homogeneous-only case."""
@@ -180,8 +207,8 @@ def _solve_parametric_rde_basis(
 
 
 def solve_parametric_risch_differential_equation(
-    coefficient: object,
-    right_hand_sides: Iterable[object],
+    coefficient: ExactInput,
+    right_hand_sides: Iterable[ExactInput],
     derivation: Derivation,
 ) -> ParametricRischDifferentialEquationResult:
     r"""Return the complete PRDE solution space over an implemented tower."""
