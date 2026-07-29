@@ -229,12 +229,14 @@ P/E/T matrix.
 
 **Progress:** the rational-base problem is complete over every supported
 finite algebraic constant field `C/QQ`, and the same full solution space now
-recurses through any checked stack of primitive levels. Primitive normal
+recurses through any checked P/E stack. Primitive and hyperexponential normal
 denominators and SPDE restrict the live parameter space by exact
-constant-linear kernels; the polynomial recurrence carries both parameter
-lifts and homogeneous lower-field solutions through descending powers of the
-top generator. Hyperexponential and hypertangent propagation, followed by the
-limited-integration consumer, remain.
+constant-linear kernels. Primitive polynomial recurrences carry parameter
+lifts through descending powers of the top generator; hyperexponential
+recurrences add the special denominator at zero, proven Laurent support
+bounds, forced-edge cancellation, and shifted lower equations
+`D(y_k) + (a + k*eta)*y_k = b_k`. Hypertangent propagation, followed by the
+limited-integration consumer, remains.
 
 Implement the Chapter 7 problem:
 

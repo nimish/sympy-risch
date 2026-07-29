@@ -1036,6 +1036,19 @@ original field. Because SymPy represents the transcendental prefix as a flat
 fraction field, finite constant-linear relations are computed exactly by
 clearing one common denominator and comparing monomial coefficients.
 
+At a hyperexponential level with `Dt = eta*t`,
+`rde.hyperexponential_parametric` first applies the normal-denominator theorem
+to a common denominator for the entire right-hand-side family. A scalar
+normal-pole obstruction becomes an exact constant-linear restriction, so
+directions whose poles cancel are retained. The special denominator at `t=0`,
+the infinity bound, and Rothstein SPDE are then shared by every surviving
+direction. The terminal Laurent recurrence either removes a forced edge or
+restricts the active parameter space when that edge lies outside the proven
+support. For a coefficient in the lower field, each Laurent mode recursively
+invokes the lower PRDE with the shifted coefficient `a + k*eta`. The original
+homogeneous scalar direction is supplied by the complete logarithmic-
+derivative decision and the final basis is reconstructed in the source field.
+
 ## Algebraic extensions
 
 An `AlgebraicExtension` stores a monic irreducible polynomial
@@ -1327,6 +1340,10 @@ pure algebraic, algebraic-RDE, and relative mixed-tower program.
 - [x] Complete recursive parametric RDE over checked primitive levels,
   including normal denominators, SPDE, lower-field cancellation, and the
   homogeneous basis.
+- [x] Complete hyperexponential parametric RDE propagation through checked
+  rational/primitive/hyperexponential prefixes, including normal and special
+  denominators, Laurent support cancellation, SPDE, and homogeneous
+  directions.
 - [x] Positive-degree primitive-field RDEs with rational right-hand sides.
 - [x] Primitive-field RDE cancellation for lower-field coefficients.
 - [x] Primitive-field weak normalization and full degree bounds for rational
@@ -1364,10 +1381,10 @@ logarithmic, parametric logarithmic, dependency, and no-new-constants
 decisions are total across every family ordering in this cell. Hypertangent
 relations are solved directly over the real tower, with immutable Gaussian
 Cayley normalization retained as an independent oracle. Scalar RDE is total;
-parametric RDE is complete over rational and recursively primitive levels,
-while hyperexponential and hypertangent propagation remain Plan 016 work. See
-[mixed transcendental towers](mixed-transcendental-towers.md) for the precise
-contract and its deliberate boundaries.
+parametric RDE is complete over recursively checked rational, primitive, and
+hyperexponential prefixes. Hypertangent propagation remains Plan 016 work.
+See [mixed transcendental towers](mixed-transcendental-towers.md) for the
+precise contract and its deliberate boundaries.
 
 The remaining transcendental work is outside that normalized elementary
 P/E/T core:
@@ -1389,8 +1406,8 @@ P/E/T core:
 - [ ] Add the general nonconstant-special-polynomial branch: special
   denominator reduction, special RDE bounds/cancellation, and logarithmic
   reconstruction.
-- [ ] Extend parametric RDE through hyperexponential and hypertangent levels,
-  then add the limited-integration procedures needed by that general branch.
+- [ ] Extend parametric RDE through hypertangent levels, then add the
+  limited-integration procedures needed by that general branch.
 - [x] Build a conservative reversible P/E/T expression frontend for one
   `QQ`-constant variable, with checked extension replay and local
   back-substitution.

@@ -2,10 +2,6 @@ r"""Parametric Risch differential equations over primitive ``K(t)``."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import cast
-
-from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
@@ -14,7 +10,16 @@ from ..tower import Derivation, _coerce
 from ._parametric_linear import (
     ParametricRDESolution,
     canonicalize_directions,
-    constant_linear_kernel,
+)
+from ._parametric_states import (
+    _combine_parameters,
+    _combine_polynomial_states,
+    _combine_polynomials,
+    _identity_parameters,
+    _polynomial_relation_kernel,
+    _PolynomialSolution,
+    _PolynomialState,
+    _restrict_polynomial_states,
 )
 from ._tower_polynomials import _as_primitive_fraction
 from .parametric_dispatch import (
@@ -27,143 +32,6 @@ from .primitive import (
     _primitive_rde_extension,
     _weakly_normalize_primitive_rde_coefficient,
 )
-
-
-@dataclass(frozen=True, slots=True)
-class _PolynomialSolution:
-    """A local parameter vector and its polynomial solution."""
-
-    parameters: tuple[FieldElement, ...]
-    solution: Poly
-
-
-@dataclass(frozen=True, slots=True)
-class _PolynomialState:
-    """One active direction during a descending coefficient recurrence."""
-
-    parameters: tuple[FieldElement, ...]
-    partial_solution: Poly
-    residual: Poly
-
-
-def _identity_parameters(
-    count: int,
-    constants: Domain,
-) -> tuple[tuple[FieldElement, ...], ...]:
-    """Return the standard basis over an exact constant domain."""
-    return tuple(
-        tuple(
-            cast(
-                FieldElement,
-                constants.one if row == column else constants.zero,
-            )
-            for column in range(count)
-        )
-        for row in range(count)
-    )
-
-
-def _combine_parameters(
-    coefficients: tuple[FieldElement, ...],
-    parameters: tuple[tuple[FieldElement, ...], ...],
-    constants: Domain,
-) -> tuple[FieldElement, ...]:
-    """Combine parameter rows over the constant field."""
-    if not parameters:
-        return ()
-    width = len(parameters[0])
-    return tuple(
-        cast(
-            FieldElement,
-            sum(
-                (
-                    constants.convert(coefficient)
-                    * constants.convert(parameter[column])
-                    for coefficient, parameter in zip(
-                        coefficients,
-                        parameters,
-                        strict=True,
-                    )
-                ),
-                constants.zero,
-            ),
-        )
-        for column in range(width)
-    )
-
-
-def _combine_polynomials(
-    coefficients: tuple[FieldElement, ...],
-    polynomials: tuple[Poly, ...],
-    domain: Domain,
-    constants: Domain,
-    zero: Poly,
-) -> Poly:
-    """Combine polynomials with constants embedded into ``domain``."""
-    return sum(
-        (
-            polynomial.mul_ground(
-                domain.from_sympy(
-                    constants.to_sympy(constants.convert(coefficient)),
-                ),
-            )
-            for coefficient, polynomial in zip(
-                coefficients,
-                polynomials,
-                strict=True,
-            )
-        ),
-        zero,
-    )
-
-
-def _polynomial_relation_kernel(
-    polynomials: tuple[Poly, ...],
-    derivation: Derivation,
-) -> tuple[tuple[FieldElement, ...], ...]:
-    """Return constant relations among top-generator polynomials."""
-    if not polynomials:
-        return ()
-    constants = derivation.tower.constants
-    if all(polynomial.is_zero for polynomial in polynomials):
-        return _identity_parameters(len(polynomials), constants)
-    field = derivation.field
-    return constant_linear_kernel(
-        tuple(_coerce(field, polynomial.as_expr()) for polynomial in polynomials),
-        field,
-        constants,
-    )
-
-
-def _combine_states(
-    coefficients: tuple[FieldElement, ...],
-    states: tuple[_PolynomialState, ...],
-    derivation: Derivation,
-) -> _PolynomialState:
-    """Combine active states using one constant relation row."""
-    extension = _primitive_rde_extension(derivation)
-    zero = Poly(0, extension.generator, domain=extension.parent_field)
-    return _PolynomialState(
-        _combine_parameters(
-            coefficients,
-            tuple(state.parameters for state in states),
-            derivation.tower.constants,
-        ),
-        _combine_polynomials(
-            coefficients,
-            tuple(state.partial_solution for state in states),
-            extension.parent_field,
-            derivation.tower.constants,
-            zero,
-        ),
-        _combine_polynomials(
-            coefficients,
-            tuple(state.residual for state in states),
-            extension.parent_field,
-            derivation.tower.constants,
-            zero,
-        ),
-    )
 
 
 def _solve_positive_degree_polynomial_prde(
@@ -265,9 +133,10 @@ def _solve_lower_coefficient_polynomial_prde(
         )
         next_states = []
         for lower_vector in lower_basis:
-            combined = _combine_states(
+            combined = _combine_polynomial_states(
                 lower_vector.parameters,
                 states,
+                extension,
                 derivation,
             )
             correction = Poly.from_dict(
@@ -331,18 +200,6 @@ def _solve_primitive_polynomial_prde(
     )
 
 
-def _restrict_states(
-    states: tuple[_PolynomialState, ...],
-    remainders: tuple[Poly, ...],
-    derivation: Derivation,
-) -> tuple[_PolynomialState, ...]:
-    """Restrict active directions to combinations annihilating remainders."""
-    return tuple(
-        _combine_states(row, states, derivation)
-        for row in _polynomial_relation_kernel(remainders, derivation)
-    )
-
-
 def _solve_primitive_parametric_spde(
     derivative_coefficient: Poly,
     solution_coefficient: Poly,
@@ -368,9 +225,10 @@ def _solve_primitive_parametric_spde(
 
     while True:
         if current_bound < 0:
-            restricted = _restrict_states(
+            restricted = _restrict_polynomial_states(
                 states,
                 tuple(state.residual for state in states),
+                extension,
                 derivation,
             )
             return tuple(
@@ -383,7 +241,12 @@ def _solve_primitive_parametric_spde(
             solution_coefficient,
         )
         remainders = tuple(state.residual.rem(common_factor) for state in states)
-        states = _restrict_states(states, remainders, derivation)
+        states = _restrict_polynomial_states(
+            states,
+            remainders,
+            extension,
+            derivation,
+        )
         states = tuple(
             _PolynomialState(
                 state.parameters,
@@ -405,9 +268,10 @@ def _solve_primitive_parametric_spde(
             )
             result = []
             for tail in polynomial_solutions:
-                combined = _combine_states(
+                combined = _combine_polynomial_states(
                     tail.parameters,
                     states,
+                    extension,
                     derivation,
                 )
                 result.append(

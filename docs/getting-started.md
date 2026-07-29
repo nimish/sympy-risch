@@ -813,8 +813,31 @@ assert primitive_parametric.homogeneous_basis == ()
 At a lower-field cancellation, the solver recursively computes another
 parametric solution space rather than choosing one scalar solution. This is
 what preserves combinations that only become solvable after several tower
-levels. Hyperexponential and hypertangent PRDE propagation remain explicit
-boundaries.
+levels.
+
+Hyperexponential levels use the same public entry point. Normal-pole
+remainders, special powers of the exponential generator, Laurent support
+bounds, and SPDE divisibility conditions all restrict the full parameter
+space. Here the shared `1/x` obstruction cancels before the forced leading
+`t` term yields the solution `y = 1`:
+
+```python
+field = exp_x.field()
+theta = exp_x.levels[-1].generator
+hyperexponential_parametric = solve_parametric_risch_differential_equation(
+    field.from_sympy(theta),
+    (field.from_sympy(theta + 1 / x), field.from_sympy(1 / x)),
+    exp_x.derivation(),
+)
+
+direction = hyperexponential_parametric.parameter_basis[0]
+assert direction.parameters == (1, -1)
+assert direction.solution == field.one
+```
+
+This propagation is complete through recursively checked primitive and
+hyperexponential prefixes. Hypertangent PRDE propagation remains the explicit
+boundary.
 
 ## Test a parametric logarithmic derivative
 
@@ -1236,7 +1259,7 @@ boundary, not a mathematical claim about the integral.
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
-| Rational and recursively primitive parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants; hyperexponential and hypertangent propagation remains |
+| Rational, primitive, and hyperexponential parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants and recursively checked P/E prefixes; hypertangent propagation remains |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |

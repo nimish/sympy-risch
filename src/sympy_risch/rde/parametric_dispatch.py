@@ -166,8 +166,19 @@ def _solve_nonempty_parametric_rde(
             right_hand_sides,
             derivation,
         )
+    if extension.family is MonomialFamily.HYPEREXPONENTIAL:
+        from .hyperexponential_parametric import (
+            solve_hyperexponential_parametric_rde,
+        )
+
+        return solve_hyperexponential_parametric_rde(
+            coefficient,
+            right_hand_sides,
+            derivation,
+        )
     raise NotImplementedError(
-        "parametric RDE dispatch currently supports rational and primitive levels"
+        "parametric RDE dispatch currently supports rational, primitive, and "
+        "hyperexponential levels"
     )
 
 
