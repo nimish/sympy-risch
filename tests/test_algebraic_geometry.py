@@ -3,7 +3,7 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, Rational, S, sqrt, symbols
+from sympy import Poly, Rational, S, prod, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -19,10 +19,14 @@ from sympy_risch import (
     polynomial_order,
     simple_radical_integral_basis,
 )
+from sympy_risch.algebraic_geometry._residue_field import _BaseResidueContext
 from sympy_risch.algebraic_geometry.closure import (
     IntegralClosureResult,
     IntegralClosureStep,
     OrderMaximalityCertificate,
+)
+from sympy_risch.algebraic_geometry.finite_places import (
+    _separating_residue_element,
 )
 
 x, y, s, z = symbols("x y s z")
@@ -301,6 +305,46 @@ def test_split_and_inert_closed_fibers_preserve_degree_identity() -> None:
         sum(place.ramification_index * place.relative_degree for place in inert)
         == extension.field.rank
     )
+
+
+def test_split_residue_separator_has_polynomially_many_candidates(
+    monkeypatch,
+) -> None:
+    rank = 5
+    polynomial = prod(y - root for root in range(rank))
+    extension = algebraic_extension(polynomial - x)
+    field = extension.field
+    lagrange_basis = tuple(
+        field.from_sympy(
+            prod(
+                (y - other_root) / (root - other_root)
+                for other_root in range(rank)
+                if other_root != root
+            )
+        )
+        for root in range(rank)
+    )
+    order = AlgebraicOrder(IntegralBasis(extension, lagrange_basis))
+    context = _BaseResidueContext.create(extension, Poly(x, x, domain=QQ))
+    calls = 0
+    multiplication_matrix = AlgebraicOrder.multiplication_matrix
+
+    def counted_multiplication_matrix(self, element):
+        nonlocal calls
+        calls += 1
+        return multiplication_matrix(self, element)
+
+    monkeypatch.setattr(
+        AlgebraicOrder,
+        "multiplication_matrix",
+        counted_multiplication_matrix,
+    )
+
+    separator = _separating_residue_element(order, context)
+
+    assert separator.reduced_rank == rank
+    assert len(separator.factors) == rank
+    assert calls < 100
 
 
 def test_local_reduction_clears_denominators_away_from_the_place() -> None:

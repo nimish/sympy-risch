@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from itertools import count, product
+from itertools import product
 from typing import Protocol, cast
 
 from flint import (
@@ -236,6 +236,110 @@ class _SeparatorData:
     power_nilradical_inverse: DomainMatrix
 
 
+def _separator_candidate_data(
+    order: AlgebraicOrder,
+    context: _BaseResidueContext,
+    symbol: Symbol,
+    candidate: ExtensionElement,
+) -> tuple[Poly, tuple[tuple[Poly, int], ...], int]:
+    """Return the characteristic polynomial, factors, and generated rank."""
+    multiplication = _reduce_polynomial_matrix(
+        order.multiplication_matrix(candidate),
+        context,
+    )
+    characteristic_polynomial = Poly.from_list(
+        multiplication.charpoly(),
+        symbol,
+        domain=context.field,
+    )
+    try:
+        factors = _factor_residue_polynomial(characteristic_polynomial)
+    except NotImplementedError as exc:
+        raise NotImplementedError(
+            "the exact residue-algebra polynomial could not be factored"
+        ) from exc
+    return (
+        characteristic_polynomial,
+        factors,
+        sum(factor.degree() for factor, _multiplicity in factors),
+    )
+
+
+def _separator_scalars(
+    context: _BaseResidueContext,
+    count: int,
+) -> tuple[tuple[object, ...], bool]:
+    """Return deterministic base-residue scalars and whether they are exhaustive."""
+    field = context.field
+    characteristic = int(field.characteristic())
+    if characteristic == 0:
+        return tuple(field.convert(value) for value in range(count)), False
+    if field.is_FiniteField:
+        size = characteristic
+        return (
+            tuple(field.convert(value) for value in range(min(size, count))),
+            size <= count,
+        )
+    if isinstance(field, FiniteExtension) and field.domain.is_FiniteField:
+        base_size = int(field.domain.characteristic())
+        size = base_size**field.rank
+        values: list[ExtensionElement] = []
+        for coefficients in product(range(base_size), repeat=field.rank):
+            value = field.zero
+            for coefficient in reversed(coefficients):
+                value = value * field.generator + _embed_base_residue_value(
+                    field, coefficient
+                )
+            values.append(value)
+            if len(values) == min(size, count):
+                break
+        return tuple(values), size <= count
+    raise NotImplementedError(
+        "separator search needs an enumerable finite or characteristic-zero "
+        "base residue field"
+    )
+
+
+def _build_separator_data(
+    order: AlgebraicOrder,
+    context: _BaseResidueContext,
+    candidate: ExtensionElement,
+    symbol: Symbol,
+    characteristic_polynomial: Poly,
+    factors: tuple[tuple[Poly, int], ...],
+    nilradical_rows: tuple[tuple[object, ...], ...],
+    reduced_rank: int,
+) -> _SeparatorData:
+    """Build and verify the power-plus-nilradical coordinate isomorphism."""
+    power_columns = tuple(
+        _reduce_order_coordinates(
+            order,
+            candidate**power,
+            context,
+        )
+        for power in range(reduced_rank)
+    )
+    power_nilradical = _matrix_from_columns(
+        power_columns + nilradical_rows,
+        context.field,
+    )
+    try:
+        power_nilradical_inverse = power_nilradical.inv()
+    except DMNonInvertibleMatrixError as exc:
+        raise ValueError(
+            "a separating residue element failed the power-basis check"
+        ) from exc
+    return _SeparatorData(
+        element=candidate,
+        symbol=symbol,
+        characteristic_polynomial=characteristic_polynomial,
+        factors=factors,
+        nilradical_rows=nilradical_rows,
+        reduced_rank=reduced_rank,
+        power_nilradical_inverse=power_nilradical_inverse,
+    )
+
+
 def _separating_residue_element(
     order: AlgebraicOrder,
     context: _BaseResidueContext,
@@ -250,64 +354,93 @@ def _separating_residue_element(
         raise ValueError("the reduced residue algebra has zero dimension")
 
     symbol = Dummy("residue_generator")
-    parent = order.extension.parent_field
-    integer_vectors = (
-        coefficients
-        for bound in count(1)
-        for coefficients in product(range(-bound, bound + 1), repeat=order.rank)
-        if max(abs(coefficient) for coefficient in coefficients) == bound
+    parent = cast(FractionField, order.extension.parent_field)
+    # For a reduced algebra of rank n, at most n(n-1)/2 scalars can cause
+    # collisions between conjugates of a + c*b.  Trying one more distinct
+    # scalar therefore finds the element generating K[a, b] over an infinite
+    # field.  Refining one basis direction at a time changes the old
+    # exponential vector enumeration into a polynomial number of trials.
+    bad_scalar_bound = reduced_rank * (reduced_rank - 1) // 2
+    scalars, scalars_exhaustive = _separator_scalars(
+        context,
+        bad_scalar_bound + 1,
     )
-    for coefficients in integer_vectors:
-        candidate = order.basis.element(
-            tuple(parent.convert(coefficient) for coefficient in coefficients)
-        )
-        multiplication = _reduce_polynomial_matrix(
-            order.multiplication_matrix(candidate),
-            context,
-        )
-        characteristic_polynomial = Poly.from_list(
-            multiplication.charpoly(),
-            symbol,
-            domain=context.field,
-        )
-        try:
-            factors = _factor_residue_polynomial(characteristic_polynomial)
-        except NotImplementedError as exc:
-            raise NotImplementedError(
-                "the exact residue-algebra polynomial could not be factored"
-            ) from exc
-        if sum(factor.degree() for factor, _ in factors) != reduced_rank:
-            continue
-
-        power_columns = tuple(
-            _reduce_order_coordinates(
-                order,
-                candidate**power,
-                context,
+    lifted_scalars = tuple(
+        _polynomial_parent_element(context.lift(scalar), parent) for scalar in scalars
+    )
+    # Preserve the former search's first candidate.  Besides keeping stable
+    # residue-coordinate presentations, -sum(b_i) is already primitive for
+    # many ordinary power bases and avoids all further trials.
+    candidate = order.basis.element(
+        tuple(parent.convert(-1) for _direction in order.basis.elements)
+    )
+    characteristic_polynomial, factors, generated_rank = _separator_candidate_data(
+        order,
+        context,
+        symbol,
+        candidate,
+    )
+    for direction in order.basis.elements:
+        best = (candidate, characteristic_polynomial, factors, generated_rank)
+        for scalar in lifted_scalars[1:]:
+            scaled_direction = order.extension.field.dtype(
+                direction.rep.mul_ground(scalar),
+                order.extension.field,
             )
-            for power in range(reduced_rank)
-        )
-        nilradical_columns = tuple(tuple(row) for row in nilradical_rows)
-        power_nilradical = _matrix_from_columns(
-            power_columns + nilradical_columns,
-            context.field,
-        )
-        try:
-            power_nilradical_inverse = power_nilradical.inv()
-        except DMNonInvertibleMatrixError:
-            continue
+            trial = candidate + scaled_direction
+            trial_polynomial, trial_factors, trial_rank = _separator_candidate_data(
+                order,
+                context,
+                symbol,
+                trial,
+            )
+            if trial_rank > best[3]:
+                best = (trial, trial_polynomial, trial_factors, trial_rank)
+                if trial_rank == reduced_rank:
+                    break
+        candidate, characteristic_polynomial, factors, generated_rank = best
+        if generated_rank == reduced_rank:
+            return _build_separator_data(
+                order,
+                context,
+                candidate,
+                symbol,
+                characteristic_polynomial,
+                factors,
+                nilradical_rows,
+                reduced_rank,
+            )
 
-        return _SeparatorData(
-            element=candidate,
-            symbol=symbol,
-            characteristic_polynomial=characteristic_polynomial,
-            factors=factors,
-            nilradical_rows=nilradical_rows,
-            reduced_rank=reduced_rank,
-            power_nilradical_inverse=power_nilradical_inverse,
-        )
+    if scalars_exhaustive:
+        # Small finite fields can have too few scalars for the generic-line
+        # bound.  Exhaust the finite residue algebra once, rather than looping
+        # forever over integer vectors that repeat modulo the characteristic.
+        for coefficients in product(lifted_scalars, repeat=order.rank):
+            candidate = order.basis.element(coefficients)
+            characteristic_polynomial, factors, generated_rank = (
+                _separator_candidate_data(
+                    order,
+                    context,
+                    symbol,
+                    candidate,
+                )
+            )
+            if generated_rank == reduced_rank:
+                return _build_separator_data(
+                    order,
+                    context,
+                    candidate,
+                    symbol,
+                    characteristic_polynomial,
+                    factors,
+                    nilradical_rows,
+                    reduced_rank,
+                )
 
-    raise RuntimeError("failed to find a separating residue-algebra element")
+    raise NotImplementedError(
+        "the reduced residue algebra has no primitive element over the "
+        "available base residue field"
+    )
 
 
 def _residue_basis_images(
@@ -490,7 +623,9 @@ class FiniteAlgebraicPlace:
             cache[0] = self.order.unit_ideal()
             cache[1] = self.prime_ideal
         if exponent not in cache:
-            largest = max(power for power in cache if power < exponent)
+            # Powers are filled without gaps, so this is the largest cached
+            # exponent without a linear scan.
+            largest = len(cache) - 1
             ideal = cache[largest]
             for power in range(largest + 1, exponent + 1):
                 ideal = ideal.multiply(self.prime_ideal)
