@@ -28,10 +28,14 @@ The repository already has a substantial transcendental kernel:
 - primitive, hyperexponential, and hypertangent reducers; and
 - recursive elementary integration for the implemented family orderings.
 
-The classical finite-constant P/E/T cell is now algorithmically total through
-elementary integration. General polynomial monomials remain deliberately
-outside that cell: they lack an exhaustive derivation-bound
-special-polynomial decision and the complete special-denominator branch.
+The finite-constant P/E/T structure, scalar-RDE, parametric-RDE, and required
+coupled-RDE cells are now algorithmically complete. Recursive elementary
+integration covers the documented family orderings, but T8 still must tie
+structural admission to an executable operation-totality matrix before the
+whole P/E/T integration cell is declared total. General polynomial monomials
+remain deliberately outside that cell: they lack an exhaustive
+derivation-bound special-polynomial decision and the complete
+special-denominator branch.
 
 This plan closes those gaps without rewriting the working rational and P/E/T
 algorithms.

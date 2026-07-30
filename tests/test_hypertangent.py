@@ -85,6 +85,37 @@ def test_special_reduction_uses_c_i_over_real_algebraic_constants() -> None:
     assert integral.exact_part == planted
 
 
+def test_special_reduction_reuses_one_gaussian_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sympy_risch.rde import coupled
+
+    constants = QQ.algebraic_field(sqrt(2))
+    tower = hypertangent_tower(sqrt(2), constants=constants)
+    field = tower.field()
+    derivation = tower.derivation()
+    cayley = (1 + I * t) / (1 - I * t)
+    planted = field.from_sympy(
+        cancel(x * cayley + x / cayley + x * cayley**2 + x / cayley**2)
+    )
+    original_rebase = coupled._rebase_monomial_derivation
+    rebase_count = 0
+
+    def counted_rebase(source, target_constants):
+        nonlocal rebase_count
+        rebase_count += 1
+        return original_rebase(source, target_constants)
+
+    monkeypatch.setattr(coupled, "_rebase_monomial_derivation", counted_rebase)
+
+    result = reduce_hypertangent_special(derivation(planted), derivation)
+
+    assert result.reduced_to_lower_field
+    assert result.remainder == field.zero
+    assert [step.power for step in result.steps] == [1, 2]
+    assert rebase_count == 1
+
+
 def test_special_reduction_pairs_a_purely_imaginary_cayley_mode() -> None:
     tower = hypertangent_tower(1)
     field = tower.field()

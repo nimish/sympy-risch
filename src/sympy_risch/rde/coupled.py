@@ -2,6 +2,9 @@ r"""Coupled Risch differential equations and hypertangent real forms."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from sympy.core.expr import Expr
 from sympy.core.numbers import I
 from sympy.core.singleton import S
@@ -51,6 +54,9 @@ from .models import (
 )
 from .rational import _as_qq_rational
 from .scalar import _solve_admitted_risch_differential_equation
+
+if TYPE_CHECKING:
+    from ..gaussian import HypertangentGaussianNormalForm
 
 
 def _conjugate_gaussian_polynomial(polynomial: Poly) -> Poly:
@@ -1171,6 +1177,45 @@ def _coupled_tower_is_gaussian_safe(derivation: Derivation) -> bool:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _GaussianCoupledTransport:
+    """One reusable exact complexification of a fixed real tower position."""
+
+    source_derivation: Derivation
+    target_derivation: Derivation
+    normal_form: HypertangentGaussianNormalForm | None
+
+
+def _build_gaussian_coupled_transport(
+    derivation: Derivation,
+) -> _GaussianCoupledTransport:
+    """Build Gaussian coordinates after source admission has been checked."""
+    normal_form = None
+    if _coupled_tower_is_gaussian_safe(derivation):
+        target_derivation = _rebase_monomial_derivation(
+            derivation,
+            gaussian_constant_field(derivation.tower.constants),
+        )
+    else:
+        from ..gaussian import build_hypertangent_gaussian_normal_form
+
+        normal_form = build_hypertangent_gaussian_normal_form(derivation)
+        target_derivation = normal_form.target_derivation
+    return _GaussianCoupledTransport(
+        derivation,
+        target_derivation,
+        normal_form,
+    )
+
+
+def _prepare_gaussian_coupled_transport(
+    derivation: Derivation,
+) -> _GaussianCoupledTransport:
+    """Validate and complexify one source position for several coupled solves."""
+    _require_supported_coupled_tower(derivation)
+    return _build_gaussian_coupled_transport(derivation)
+
+
 def _has_direct_hyperexponential_laurent_shape(
     diagonal_coefficient: FieldElement,
     rotation_coefficient: FieldElement,
@@ -1236,13 +1281,20 @@ def _solve_general_coupled_risch_differential_equation(
     real_right_hand_side: object,
     imaginary_right_hand_side: object,
     derivation: Derivation,
+    *,
+    gaussian_transport: _GaussianCoupledTransport | None = None,
 ) -> CoupledRischDifferentialEquationResult:
     """Solve the general real two-coordinate RDE over supported tower shapes."""
     if not isinstance(derivation, Derivation):
         raise TypeError("coupled RDE solving requires a Derivation")
     if derivation.level < 0:
         raise TypeError("coupled RDE solving requires a nonconstant field")
-    _require_supported_coupled_tower(derivation)
+    if gaussian_transport is None:
+        _require_supported_coupled_tower(derivation)
+    elif not gaussian_transport.source_derivation.has_same_position(derivation):
+        raise ValueError(
+            "a Gaussian coupled transport belongs to a different tower position"
+        )
 
     real_field = derivation.field
     diagonal_element = _coerce(real_field, diagonal_coefficient)
@@ -1334,19 +1386,9 @@ def _solve_general_coupled_risch_differential_equation(
                     )
                 return result
 
-    gaussian_normal_form = None
-    if _coupled_tower_is_gaussian_safe(derivation):
-        gaussian_derivation = _rebase_monomial_derivation(
-            derivation,
-            gaussian_constant_field(derivation.tower.constants),
-        )
-    else:
-        from ..gaussian import build_hypertangent_gaussian_normal_form
-
-        gaussian_normal_form = build_hypertangent_gaussian_normal_form(
-            derivation,
-        )
-        gaussian_derivation = gaussian_normal_form.target_derivation
+    transport = gaussian_transport or _build_gaussian_coupled_transport(derivation)
+    gaussian_normal_form = transport.normal_form
+    gaussian_derivation = transport.target_derivation
     gaussian_field = gaussian_derivation.field
     if gaussian_normal_form is None:
         gaussian_diagonal = _coerce(

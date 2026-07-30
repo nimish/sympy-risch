@@ -14,6 +14,7 @@ from sympy_risch import (
     MonomialExtension,
     solve_coupled_rational_rde,
     solve_coupled_risch_differential_equation,
+    solve_hyperexponential_coupled_laurent_rde,
 )
 from tests.oracles.rde import (
     BoundedPrimitiveCoupledRDEMatrixResult,
@@ -322,6 +323,49 @@ def test_recursive_solver_uses_the_exact_gaussian_constant_compositum(
     assert result.reconstructs
     assert result.real_solution == planted_real
     assert result.imaginary_solution == planted_imaginary
+
+
+def test_finite_constant_recursive_system_keeps_the_diagonal_coefficient() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    base = DifferentialTower(constants).extend(
+        MonomialExtension(
+            Poly(1, x, domain=constants),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = base.extend(
+        MonomialExtension(
+            Poly(x * s, s, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    field = tower.field()
+    derivation = tower.derivation()
+    diagonal = field.from_sympy(sqrt(2) / (x + 1))
+    rotation = field.from_sympy(x / (x + 1))
+    planted_real = field.from_sympy(s)
+    planted_imaginary = field.from_sympy(2 * s)
+    real_rhs = (
+        derivation(planted_real)
+        + diagonal * planted_real
+        - rotation * planted_imaginary
+    )
+    imaginary_rhs = (
+        derivation(planted_imaginary)
+        + rotation * planted_real
+        + diagonal * planted_imaginary
+    )
+
+    result = solve_hyperexponential_coupled_laurent_rde(
+        diagonal,
+        rotation,
+        real_rhs,
+        imaginary_rhs,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.reconstructs
 
 
 def test_real_coupled_solver_rejects_a_nonreal_source_constant_field() -> None:

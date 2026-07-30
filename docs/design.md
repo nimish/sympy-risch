@@ -928,9 +928,10 @@ the same tower metadata over the exact compositum `C(i)`, invokes the ordinary
 scalar RDE dispatcher, and splits the answer exactly back over `C`. This
 specializes to `QQ_I` when `C = QQ`. The scalar certificate retains weak
 normalization, denominator reduction, degree bounds, SPDE, and recursive
-lower-field decisions. A source constant field that is not provably real is
-outside the real coupled contract rather than being split by a noncanonical
-conjugation.
+lower-field decisions. A hypertangent special reduction prepares this
+derivation-bound Gaussian transport once and reuses it for every positive
+Cayley mode. A source constant field that is not provably real is outside the
+real coupled contract rather than being split by a noncanonical conjugation.
 
 Adjoining `i` preserves primitive and hyperexponential derivative shapes, so
 the Gaussian scalar route remains a valid general fallback for the cases
@@ -1315,13 +1316,16 @@ boundary:
 | [016](../plans/016-transcendental-risch-completion.md) | Effective constants, structure theorems, scalar/parametric/coupled RDEs, and total explicit transcendental integration |
 | [017](../plans/017-automatic-presentation-and-upstream.md) | Automatic tower construction, reversible compilation, real/complex presentation, completeness evidence, and SymPy upstreaming |
 
-The latest transcendental checkpoints complete the declared explicit P/E/T
-cell over standard `C(x)` bases for supported finite algebraic constant fields,
-with replay-proved preserved constants. They include complete scalar,
-parametric, and required coupled RDE decisions, direct Chapter 8 cancellation
+The latest transcendental checkpoints complete the structure, scalar,
+parametric, and required coupled-RDE cells for explicit P/E/T towers over
+standard `C(x)` bases with supported finite algebraic constant fields and
+replay-proved preserved constants. They include direct Chapter 8 cancellation
 recurrences, immutable exact `C(i)` fallbacks, recursive lower-field
 certificates, domain-generic rational-base integration, worked examples, and
-independent generated matrix-oracle comparisons.
+independent generated matrix-oracle comparisons. Recursive elementary
+integration covers the documented family orderings; the executable
+operation-totality matrix remains the gate before declaring the entire P/E/T
+integration cell total.
 
 The normalization layer now includes the verified hyperbolic law
 `Dt = eta*(1 - t**2) -> Du = 2*eta*u` and an explicit quadratic/Riccati

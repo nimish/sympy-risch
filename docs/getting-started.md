@@ -1302,7 +1302,7 @@ boundary, not a mathematical claim about the integral.
 | Tower shape or operation | Status |
 | --- | --- |
 | Polynomial integration over `QQ[x]`; rational integration over standard `C(x)` for supported finite algebraic constants | End-to-end |
-| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure, scalar-RDE, parametric-RDE, required coupled-RDE, and elementary-integration decisions are complete across the declared P/E/T cell |
+| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure, scalar-RDE, parametric-RDE, and required coupled-RDE decisions are complete across the declared P/E/T solver cell; elementary integration covers the documented recursive cells pending the executable operation-totality matrix |
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |

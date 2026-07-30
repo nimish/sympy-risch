@@ -27,7 +27,10 @@ from ..rde import (
     CoupledRationalRDEResult,
     CoupledRischDifferentialEquationResult,
     solve_coupled_rational_rde,
-    solve_coupled_risch_differential_equation,
+)
+from ..rde.coupled import (
+    _prepare_gaussian_coupled_transport,
+    _solve_general_coupled_risch_differential_equation,
 )
 from ..relations import (
     LogarithmicRelationSystemResult,
@@ -445,7 +448,17 @@ def _reduce_hypertangent_special_validated(
     cayley_expression = (1 + I * generator) / (1 - I * generator)
     exact_part = field.zero
     steps: list[HypertangentCayleyStep] = []
-    for power in sorted(candidate for candidate in powers if candidate > 0):
+    positive_powers = sorted(candidate for candidate in powers if candidate > 0)
+    lower_derivation = derivation.lower()
+    use_specialized_rational_solver = (
+        lower_derivation.level == 0 and derivation.tower.constants == QQ
+    )
+    gaussian_transport = (
+        None
+        if use_specialized_rational_solver or not positive_powers
+        else _prepare_gaussian_coupled_transport(lower_derivation)
+    )
+    for power in positive_powers:
         coefficient = coefficients[power]
         conjugate_coefficient = _gaussian_conjugate(
             coefficient,
@@ -471,8 +484,7 @@ def _reduce_hypertangent_special_validated(
                 / (2 * I)
             ),
         )
-        lower_derivation = derivation.lower()
-        if lower_derivation.level == 0 and derivation.tower.constants == QQ:
+        if use_specialized_rational_solver:
             variable = _standard_rational_base_variable(lower_derivation)
             rde_result = solve_coupled_rational_rde(
                 2 * power * parent.to_sympy(eta),
@@ -481,11 +493,13 @@ def _reduce_hypertangent_special_validated(
                 variable,
             )
         else:
-            rde_result = solve_coupled_risch_differential_equation(
+            rde_result = _solve_general_coupled_risch_differential_equation(
+                parent.zero,
                 parent.convert(2 * power) * eta,
                 real_coefficient,
                 imaginary_coefficient,
                 lower_derivation,
+                gaussian_transport=gaussian_transport,
             )
         exact_real_coefficient = None
         exact_imaginary_coefficient = None
