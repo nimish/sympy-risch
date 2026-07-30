@@ -114,6 +114,7 @@ from sympy_risch import (
     integrate_elementary,
     integrate_riccati_mobius_normal_form,
     primitive_logarithmic_derivative_signature,
+    solve_limited_integration,
     solve_parametric_logarithmic_derivative,
     solve_parametric_logarithmic_derivative_heuristic,
     solve_parametric_risch_differential_equation,
@@ -856,8 +857,35 @@ assert direction.solution == planted
 ```
 
 Parametric RDE propagation is therefore complete through recursively checked
-P/E/T prefixes over the admitted finite constant fields. Limited integration
-is the remaining Chapter 7 consumer.
+P/E/T prefixes over the admitted finite constant fields.
+
+Limited integration uses that complete vector space to solve the affine
+problem
+
+```text
+D(v) = f + c_1*g_1 + ... + c_m*g_m.
+```
+
+For example, neither `1 + 1/x` nor `1/x` has a rational antiderivative by
+itself, but their difference does:
+
+```python
+field = base.field()
+limited = solve_limited_integration(
+    field.from_sympy(1 + 1 / x),
+    (field.from_sympy(1 / x),),
+    base.derivation(),
+)
+
+assert limited.has_solution
+assert limited.particular.coefficients == (-1,)
+assert limited.particular.antiderivative == field.from_sympy(x)
+```
+
+`direction_basis` describes every allowable change to both the constants and
+the antiderivative. If `proves_no_solution` is true, completeness of the
+underlying PRDE basis proves only that this affine problem has no solution in
+the current field; it is not by itself a non-elementarity claim.
 
 ## Test a parametric logarithmic derivative
 
@@ -1280,6 +1308,7 @@ boundary, not a mathematical claim about the integral.
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
 | Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants and recursively checked P/E/T prefixes; tangent results descend exactly to the original real field |
+| Limited integration over recursive P/E/T levels | Complete affine solution family, or a PRDE-backed proof that no solution exists in the current field |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |

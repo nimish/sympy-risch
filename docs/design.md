@@ -1057,6 +1057,21 @@ parts. Those directions span the fixed real solution space and are
 canonicalized over the original constant field `C`. Every returned direction
 is then reconstructed against the original real equation.
 
+`rde.limited_integration` is intentionally an affine adapter rather than a
+second recursive solver. For inputs `f, g_1, ..., g_m`, it asks the PRDE solver
+for the complete space of
+
+```text
+D(v) = c_0*f + c_1*g_1 + ... + c_m*g_m
+```
+
+and intersects its parameter space with `c_0 = 1`. A nonzero first coordinate
+provides a normalized particular solution; eliminating that coordinate from
+the remaining vectors gives the complete direction basis. If every first
+coordinate is zero, completeness of the retained PRDE result certifies that
+the affine section is empty. Particular and direction identities are
+reconstructed in the original field.
+
 ## Algebraic extensions
 
 An `AlgebraicExtension` stores a monic irreducible polynomial
@@ -1390,10 +1405,9 @@ non-base level has replay-proved preserved constants. Exact, radical
 logarithmic, parametric logarithmic, dependency, and no-new-constants
 decisions are total across every family ordering in this cell. Hypertangent
 relations are solved directly over the real tower, with immutable Gaussian
-Cayley normalization retained as an independent oracle. Scalar RDE is total;
-parametric RDE is complete over recursively checked rational, primitive,
-hyperexponential, and hypertangent prefixes. Limited integration remains
-Plan 016 work.
+Cayley normalization retained as an independent oracle. Scalar RDE,
+parametric RDE, and limited integration are complete over recursively checked
+rational, primitive, hyperexponential, and hypertangent prefixes.
 See [mixed transcendental towers](mixed-transcendental-towers.md) for the
 precise contract and its deliberate boundaries.
 
@@ -1418,7 +1432,7 @@ P/E/T core:
   denominator reduction, special RDE bounds/cancellation, and logarithmic
   reconstruction.
 - [x] Extend parametric RDE through hypertangent levels.
-- [ ] Add the limited-integration procedures that consume the complete
+- [x] Add the limited-integration procedures that consume the complete
   parametric solver.
 - [x] Build a conservative reversible P/E/T expression frontend for one
   `QQ`-constant variable, with checked extension replay and local

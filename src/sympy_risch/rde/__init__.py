@@ -16,6 +16,11 @@ from .hyperexponential import (
     solve_hyperexponential_laurent_risch_differential_equation,
     solve_hyperexponential_risch_differential_equation,
 )
+from .limited_integration import (
+    LimitedIntegrationResult,
+    LimitedIntegrationSolution,
+    solve_limited_integration,
+)
 from .models import (
     CoupledHyperexponentialLaurentRDEResult,
     CoupledHyperexponentialLaurentRDEStep,
@@ -80,6 +85,8 @@ __all__ = [
     "HyperexponentialRDEObstruction",
     "HyperexponentialRischDifferentialEquationResult",
     "HypertangentGaussianRischDifferentialEquationResult",
+    "LimitedIntegrationResult",
+    "LimitedIntegrationSolution",
     "ParametricRDESolution",
     "ParametricRischDifferentialEquationResult",
     "PolynomialRDEObstruction",
@@ -100,6 +107,7 @@ __all__ = [
     "solve_hyperexponential_risch_differential_equation",
     "solve_hypertangent_coupled_cancellation_rde",
     "solve_hypertangent_coupled_polynomial_rde",
+    "solve_limited_integration",
     "solve_parametric_risch_differential_equation",
     "solve_polynomial_risch_differential_equation",
     "solve_primitive_polynomial_risch_differential_equation",

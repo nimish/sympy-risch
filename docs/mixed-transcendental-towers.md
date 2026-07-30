@@ -13,11 +13,12 @@ Every non-base level must admit a derivation-bound replay proof that it
 preserves constants. `ConstantFieldStatus` is only diagnostic metadata.
 Within the replay-certified scope, exact, radical-logarithmic, parametric
 logarithmic, dependency, and no-new-constants decisions cover every P/E/T
-ordering. Scalar and parametric RDEs cover every recursively checked P/E/T
-prefix over the admitted finite constant fields. Recursive elementary
-integration still covers its documented cells rather than every accepted
-tower. An unsupported integration exit remains an implementation boundary,
-never an incorrect integrability verdict.
+ordering. Scalar and parametric RDEs, together with limited integration as
+their affine consumer, cover every recursively checked P/E/T prefix over the
+admitted finite constant fields. Recursive elementary integration still
+covers its documented cells rather than every accepted tower. An unsupported
+integration exit remains an implementation boundary, never an incorrect
+integrability verdict.
 
 ## Admission is not integrability
 

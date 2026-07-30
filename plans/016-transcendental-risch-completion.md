@@ -227,7 +227,7 @@ P/E/T matrix.
 
 ### T4. Implement parametric RDE and limited integration
 
-**Progress:** the full parametric solution space now recurses through every
+**Progress:** complete. The full parametric solution space recurses through every
 checked P/E/T stack over each supported finite algebraic constant field
 `C/QQ`. Primitive and hyperexponential normal denominators and SPDE restrict
 the live parameter space by exact constant-linear kernels. Primitive
@@ -236,8 +236,11 @@ top generator; hyperexponential recurrences add the special denominator at
 zero, proven Laurent support bounds, forced-edge cancellation, and shifted
 lower equations `D(y_k) + (a + k*eta)*y_k = b_k`. Hypertangent levels use the
 certified Cayley transform and descend the complete Gaussian basis, including
-its parameter coordinates, to the original real field. The
-limited-integration consumer remains.
+its parameter coordinates, to the original real field. Limited integration
+intersects this complete space with the affine constraint that the integrand
+coefficient is one. It returns a normalized particular solution and the full
+direction basis, or retains the complete parametric result as an exact
+in-field obstruction.
 
 Implement the Chapter 7 problem:
 

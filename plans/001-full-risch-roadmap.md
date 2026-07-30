@@ -222,7 +222,7 @@ The existing design conventions to preserve are:
 | 0. Completeness contract and coverage ledger | Partial, completed by Plans 016 T0 and 017 F0/F7: structural P/E/T admission distinguishes unsupported towers from theorem-backed obstructions, but the operation-specific totality matrix and full expression-cell corpus remain. |
 | 1. Effective field and tower kernel | Partial, shared by Plans 015 A0-A2 and 016 T0-T1: exact `QQ` towers, recursively checked P/E/T towers over native finite algebraic number-field constants, exact `C(i)` tangent normalization for provably real `C`, and finite extensions exist. General effective-field capabilities, algebraic-function-field proof transport, presentation normalization, and canonical mixed towers remain. |
 | 2. Dependency and structure decisions | Complete on the classical finite-constant P/E/T cell through Plan 016 T1-T2: every family ordering has direct real/complex relations, fundamental signatures, checked dependencies, and Gaussian oracles. General effective constants, Riccati/Darboux discovery, and automatic non-family special-polynomial decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial, expanded in Plan 016 T3-T5: scalar and parametric RDE return complete reconstruction-checked solutions across the finite-constant P/E/T cell, and coupled RDEs cover documented normalized P/E/T shapes plus one local special-pole consumer. Limited integration and complete real coupled coverage remain. |
+| 3. Scalar, parametric, and coupled RDEs | Partial, expanded in Plan 016 T3-T5: scalar and parametric RDE plus their limited-integration consumer return complete reconstruction-checked solutions across the finite-constant P/E/T cell, and coupled RDEs cover documented normalized P/E/T shapes plus one local special-pole consumer. Complete real coupled coverage remains. |
 | 4. Transcendental integration | Partial, expanded in Plan 016 T6-T8: explicit P/E/T integration covers documented shapes rather than every family ordering. Complete P/E/T totality and the admitted general-polynomial special-factor/denominator branch remain. |
 | 5. Algebraic-function-field kernel | Partial, expanded in Plan 015 A0-A6: direct admitted models have maximal orders, places, local expansions, divisors, complete long-basis Hess spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess parametric/large-divisor algorithms, scalable class operations, and algebraic-number-field good reduction remain. |
 | 6. Pure algebraic integration | Partial, expanded in Plan 015 A7-A8: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and verified `QQ` torsion decisions, continues through compatible constant composita, and solves an in-field residue-free exactness problem. General compatible residue descent and divisor combinations, full second-kind cohomology, normalization, and automatic dispatch remain. |
@@ -507,6 +507,10 @@ The current Bronstein recurrence remains the production polynomial solver and
 bounded exact matrix ansatzes remain test oracles.
 
 ### 3.2 Parametric RDE and limited integration
+
+Status: complete across the certified finite-constant P/E/T cell. The solver
+returns the complete parameter space, and limited integration computes its
+affine section with integrand coefficient one.
 
 Implement Chapter 7:
 
