@@ -984,9 +984,12 @@ weak normalization, normal and special denominator bounds, degree bounds, and
 paired SPDE reduce a general rational system to the terminal shapes. The same
 immutable Cayley normalization lets hypertangent-over-hyperexponential and
 hypertangent-over-hypertangent towers use the documented lower solver without
-changing the public real representation. The remaining boundaries include
-algebraic or generalized-monomial lower fields and recursive primitive
-logarithmic-derivative calls below `QQ(x)`.
+changing the public real representation. The general diagonal-plus-rotation
+seam falls back to the scalar RDE over exact `C(i)` whenever a direct terminal
+recurrence does not apply. The elementary hypertangent reducer is the current
+real-integration consumer; its generated systems have zero diagonal and now
+work over every supported provably real finite algebraic constant field.
+Remaining boundaries include algebraic and generalized-monomial lower fields.
 
 ### Nonlinear monomials without special polynomials
 
@@ -1005,8 +1008,14 @@ currently presented as a Liouville obstruction.
 
 The rational base has two independent Hermite reducers:
 
-- Horowitz--Ostrogradsky is the production implementation;
+- domain-generic Horowitz--Ostrogradsky is the production implementation over
+  an exact characteristic-zero coefficient field;
 - recursive Hermite reduction is retained as an independent oracle.
+
+Elementary integration uses the domain-generic reducer and LRT logarithmic
+reconstruction at a standard `C(x)` base. Thus a supported finite algebraic
+constant field does not need to be collapsed back to `QQ` at the final
+recursive step.
 
 The logarithmic part is likewise exercised through Rothstein--Trager and an
 independent Lazard--Rioboo--Trager implementation. Complex algebraic residues
@@ -1306,15 +1315,13 @@ boundary:
 | [016](../plans/016-transcendental-risch-completion.md) | Effective constants, structure theorems, scalar/parametric/coupled RDEs, and total explicit transcendental integration |
 | [017](../plans/017-automatic-presentation-and-upstream.md) | Automatic tower construction, reversible compilation, real/complex presentation, completeness evidence, and SymPy upstreaming |
 
-The latest transcendental checkpoints establish the declared explicit P/E/T
-*structural* contract: finite primitive, hyperexponential, and hypertangent
-prefixes over `QQ(x)` with replay-proved preserved constants.  They include
-general rational scalar and coupled RDE frontends, direct Chapter 8
-cancellation recurrences, immutable Gaussian Cayley fallbacks, recursive
-lower-field certificates, worked examples, and independent generated
-matrix-oracle comparisons.  This is not yet a claim that every ordering
-reaches every recursive solver: primitive logarithmic-derivative recursion is
-currently implemented only over `QQ(x)`.
+The latest transcendental checkpoints complete the declared explicit P/E/T
+cell over standard `C(x)` bases for supported finite algebraic constant fields,
+with replay-proved preserved constants. They include complete scalar,
+parametric, and required coupled RDE decisions, direct Chapter 8 cancellation
+recurrences, immutable exact `C(i)` fallbacks, recursive lower-field
+certificates, domain-generic rational-base integration, worked examples, and
+independent generated matrix-oracle comparisons.
 
 The normalization layer now includes the verified hyperbolic law
 `Dt = eta*(1 - t**2) -> Du = 2*eta*u` and an explicit quadratic/Riccati
@@ -1333,8 +1340,8 @@ as a boundary, rather than being promoted to a non-elementarity result,
 because higher-order pole cancellation can make the whole integrand exact.
 The signature checkpoint exposes the certified P/E/T directions without
 widening their theorem domain. The next transcendental work is a complete
-special-factor decision and the remaining complete special-denominator,
-parametric, coupled, and logarithmic branches.
+special-factor decision and the remaining general-monomial special-denominator
+and logarithmic branches.
 Plan 016 orders that work without reopening the implemented P/E/T
 recurrences. Plan 015 separately records the expanded Hess/function-field,
 pure algebraic, algebraic-RDE, and relative mixed-tower program.

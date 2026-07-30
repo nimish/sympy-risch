@@ -1432,7 +1432,7 @@ def solve_coupled_risch_differential_equation(
     r"""Solve ``Dp-lambda*q=u`` and ``Dq+lambda*p=v`` recursively.
 
     Primitive and non-Laurent hyperexponential cases use the equivalent scalar
-    equation over an immutable ``QQ_I`` rebase. General rational
+    equation over an immutable exact ``C(i)`` rebase. General rational
     hypertangent cases use a certified Cayley normal form whose top generator
     is hyperexponential, then map the scalar answer back to real coordinates.
     Hyperexponential Laurent cancellation and implemented hypertangent

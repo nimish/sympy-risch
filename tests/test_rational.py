@@ -4,6 +4,7 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from sympy import Abs, Poly, Rational, atan, cancel, log, sqrt, symbols
+from sympy.polys.domains import QQ
 
 from sympy_risch import (
     hermite_reduce_rational,
@@ -13,6 +14,7 @@ from sympy_risch import (
     rothstein_trager_residue_polynomial,
     solve_rational_exact_derivative,
 )
+from sympy_risch.rational import integrate_rational_over_domain
 
 x, z = symbols("x z")
 
@@ -285,6 +287,15 @@ def test_integrate_rational_example() -> None:
     result = integrate_rational(1 / (x**2 * (x + 1)), x)
 
     assert result.expand(log=True, force=True) == -1 / x - log(x) + log(x + 1)
+
+
+def test_integrate_rational_over_real_algebraic_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    integrand = -sqrt(2) / (x - 1) ** 2 + sqrt(2) / (x + 1)
+
+    result = integrate_rational_over_domain(integrand, x, constants)
+
+    assert cancel(result.diff(x) - integrand) == 0
 
 
 def test_rothstein_trager_rejects_repeated_denominator() -> None:

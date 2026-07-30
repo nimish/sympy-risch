@@ -53,7 +53,10 @@ from .monomial import (
     reduce_hypertangent_monomial,
     reduce_primitive_monomial,
 )
-from .rational import hermite_reduce_rational, integrate_rational
+from .rational import (
+    hermite_reduce_rational_over_domain,
+    integrate_rational_over_domain,
+)
 from .tower.core import (
     AlgebraicExtension,
     Derivation,
@@ -352,17 +355,23 @@ def _rational_base(
     derivation: Derivation,
     extension: MonomialExtension,
 ) -> ElementaryIntegralResult:
-    """Integrate the terminal ``QQ(x)`` level constructively."""
+    """Integrate the terminal ``C(x)`` level constructively."""
     field = derivation.field
+    constants = derivation.tower.constants
     expression = field.to_sympy(element)
-    exact_expression, reduced_expression = hermite_reduce_rational(
+    exact_expression, reduced_expression = hermite_reduce_rational_over_domain(
         expression,
         extension.generator,
+        constants,
     )
     exact_part = _coerce(field, exact_expression)
     logarithmic_derivative = _coerce(field, reduced_expression)
     logarithmic_antiderivative = (
-        integrate_rational(reduced_expression, extension.generator)
+        integrate_rational_over_domain(
+            reduced_expression,
+            extension.generator,
+            constants,
+        )
         if reduced_expression != 0
         else reduced_expression
     )
@@ -705,13 +714,11 @@ def integrate_elementary(
 ) -> ElementaryIntegralResult:
     r"""Integrate ``integrand`` recursively in an explicit differential tower.
 
-    Implemented tower levels are the standard rational base ``QQ(x)`` with
-    ``Dx = 1`` and the documented recursive primitive, hyperexponential, and
-    hypertangent shapes above it, provided replay proves constant preservation
-    at every non-base level. Structural admission recognizes finite P/E/T
-    prefixes, but primitive logarithmic-derivative recursion currently
-    requires a ``QQ(x)`` lower field, so some mixed orderings remain an
-    explicit unsupported boundary. The exact hyperbolic law
+    Implemented tower levels are the standard rational base ``C(x)`` with
+    ``Dx = 1`` over an effective finite algebraic constant field ``C`` and the
+    documented recursive primitive, hyperexponential, and hypertangent shapes
+    above it, provided replay proves constant preservation at every non-base
+    level. Some mixed orderings remain explicit unsupported boundaries. The exact hyperbolic law
     ``Dt = eta*(1 - t**2)`` is normalized immutably to a hyperexponential
     coordinate. General nonlinear no-special reduction remains unavailable:
     a bare special-polynomial status is not an absence certificate.
@@ -761,7 +768,7 @@ def integrate_elementary(
     if derivation.level == 0:
         raise NotImplementedError(
             "elementary integration requires the standard rational base "
-            "QQ(x) with Dx = 1"
+            "C(x) with Dx = 1 over an effective finite algebraic constant field"
         )
 
     if extension.family is MonomialFamily.PRIMITIVE:

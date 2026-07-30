@@ -3,7 +3,7 @@
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from sympy import Poly, cancel, diff, exp, log, symbols, tan, trigsimp
+from sympy import Poly, cancel, diff, exp, log, sqrt, symbols, tan, trigsimp
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -66,6 +66,25 @@ def test_rational_base_returns_structured_exact_and_logarithmic_parts() -> None:
 def test_rational_base_encodes_irreducible_quadratic_residues() -> None:
     tower = rational_tower()
     integrand = tower.field().from_sympy(1 / (x**2 + 1))
+
+    result = integrate_elementary(integrand, tower.derivation())
+
+    assert result.is_elementary
+    assert result.reconstructs
+    assert result.antiderivative is not None
+    assert cancel(diff(result.antiderivative, x) - integrand.as_expr()) == 0
+
+
+def test_rational_base_over_real_algebraic_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower = DifferentialTower(constants).extend(
+        MonomialExtension(
+            Poly(1, x, domain=constants),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    field = tower.field()
+    integrand = field.from_sympy(-sqrt(2) / (x - 1) ** 2 + sqrt(2) / (x + 1))
 
     result = integrate_elementary(integrand, tower.derivation())
 
@@ -363,7 +382,7 @@ def test_nonstandard_base_is_rejected_before_family_dispatch() -> None:
 
     with pytest.raises(
         NotImplementedError,
-        match=r"standard rational base QQ\(x\) with Dx = 1",
+        match=r"standard rational base C\(x\) with Dx = 1",
     ):
         integrate_elementary(tower.field().one, tower.derivation())
 

@@ -11,6 +11,7 @@ from sympy_risch import (
     CoupledRDEObstruction,
     DifferentialTower,
     MonomialExtension,
+    integrate_elementary,
     reduce_hypertangent_monomial,
     reduce_hypertangent_special,
 )
@@ -76,6 +77,12 @@ def test_special_reduction_uses_c_i_over_real_algebraic_constants() -> None:
     assert len(result.steps) == 1
     assert result.steps[0].rde_result.reconstructs
     assert result.exact_part == planted
+
+    integral = integrate_elementary(derivation(planted), derivation)
+
+    assert integral.is_elementary
+    assert integral.reconstructs
+    assert integral.exact_part == planted
 
 
 def test_special_reduction_pairs_a_purely_imaginary_cayley_mode() -> None:

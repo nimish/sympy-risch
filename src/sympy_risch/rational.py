@@ -1,4 +1,4 @@
-r"""Rational-function integration over :math:`\mathbb{Q}`."""
+r"""Rational-function integration over exact characteristic-zero fields."""
 
 from __future__ import annotations
 
@@ -206,7 +206,7 @@ def _integrate_polynomial_over_domain(
     ).as_expr()
 
 
-def _hermite_reduce_rational_over_domain(
+def hermite_reduce_rational_over_domain(
     f: Expr,
     x: Symbol,
     domain: Domain,
@@ -214,8 +214,10 @@ def _hermite_reduce_rational_over_domain(
     """Hermite-reduce ``f`` over the exact constant field ``domain``."""
     if not isinstance(x, Symbol):
         raise TypeError("the differentiation variable must be a Symbol")
-    if not domain.is_Field or domain.characteristic() != 0:
-        raise ValueError("Hermite reduction requires a characteristic-zero field")
+    if not domain.is_Exact or not domain.is_Field or domain.characteristic() != 0:
+        raise ValueError(
+            "Hermite reduction requires an exact characteristic-zero field"
+        )
     numerator, denominator = _as_reduced_fraction_over_domain(f, x, domain)
     polynomial_part, proper_numerator = numerator.div(denominator)
 
@@ -299,7 +301,7 @@ def hermite_reduce_rational(f: Expr, x: Symbol) -> tuple[Expr, Expr]:
     Both the polynomial part of the integral and the rational function ``g``
     are included in the first return value.
     """
-    return _hermite_reduce_rational_over_domain(f, x, QQ)
+    return hermite_reduce_rational_over_domain(f, x, QQ)
 
 
 def hermite_reduce_rational_recursive(
@@ -388,7 +390,7 @@ def _solve_rational_exact_derivative_over_domain(
     domain: Domain,
 ) -> RationalExactDerivativeResult:
     """Decide rational exactness over the exact constant field ``domain``."""
-    exact_part, obstruction = _hermite_reduce_rational_over_domain(
+    exact_part, obstruction = hermite_reduce_rational_over_domain(
         f,
         x,
         domain,
@@ -537,20 +539,32 @@ def rothstein_trager_residue_polynomial(
     return Poly(residue_polynomial, residue)
 
 
-def integrate_rational(f: Expr, x: Symbol) -> Expr:
-    r"""Integrate a rational function in ``QQ(x)``.
+def integrate_rational_over_domain(
+    f: Expr,
+    x: Symbol,
+    domain: Domain,
+) -> Expr:
+    r"""Integrate a rational function in ``C(x)`` over an exact field ``C``.
 
     Hermite reduction extracts the derivative of a rational function. The
     Lazard--Rioboo--Trager form of Rothstein--Trager then constructs the
     logarithmic part without splitting the denominator over an algebraic
     closure explicitly.
     """
-    exact_part, reduced_remainder = hermite_reduce_rational(f, x)
+    exact_part, reduced_remainder = hermite_reduce_rational_over_domain(
+        f,
+        x,
+        domain,
+    )
 
     if reduced_remainder == 0:
         return exact_part
 
-    numerator, denominator = _as_reduced_fraction(reduced_remainder, x)
+    numerator, denominator = _as_reduced_fraction_over_domain(
+        reduced_remainder,
+        x,
+        domain,
+    )
     residue = Dummy("z")
     logarithmic_terms = []
 
@@ -569,6 +583,11 @@ def integrate_rational(f: Expr, x: Symbol) -> Expr:
         )
 
     return exact_part + Add(*logarithmic_terms)
+
+
+def integrate_rational(f: Expr, x: Symbol) -> Expr:
+    r"""Integrate a rational function in ``QQ(x)``."""
+    return integrate_rational_over_domain(f, x, QQ)
 
 
 def _integrate_real_linear_or_quadratic(

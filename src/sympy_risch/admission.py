@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
 from .constant_fields import finite_constant_field_profile
@@ -108,11 +107,12 @@ class TowerAdmission:
 
 
 def is_standard_rational_base(extension: MonomialExtension) -> bool:
-    """Whether ``extension`` is the standard base ``QQ(x)`` with ``Dx = 1``."""
-    return extension.parent_field == QQ and extension.generator_derivative == Poly(
-        1,
-        extension.generator,
-        domain=QQ,
+    """Whether ``extension`` is the standard base ``C(x)``, ``Dx = 1``."""
+    constants = extension.parent_field
+    return finite_constant_field_profile(
+        constants
+    ) is not None and extension.generator_derivative == Poly(
+        1, extension.generator, domain=constants
     )
 
 
@@ -121,7 +121,7 @@ def _accepted(
     *,
     problem: str = _ELEMENTARY_INTEGRATION_PROBLEM,
     detail: str = (
-        "the active tower has a replay-certified finite P/E/T structural shape over QQ(x), "
+        "the active tower has a replay-certified finite P/E/T structural shape over C(x), "
         "possibly with a hyperbolic Möbius normalization at its top level"
     ),
 ) -> TowerAdmission:
@@ -182,12 +182,11 @@ def _constant_field_rejection(
 def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
     r"""Classify an active tower for certified recursive P/E/T integration.
 
-    The admitted class has the standard rational base ``QQ(x)``, ``Dx=1`` and
-    finite primitive, hyperexponential, or hypertangent prefixes with
-    certified preserved constants.  This classifies structural theorem
-    preconditions, not completion of every current recursive solver branch:
-    primitive logarithmic-derivative recursion still requires a ``QQ(x)``
-    lower field.  The exact hyperbolic law
+    The admitted class has a standard rational base ``C(x)``, ``Dx=1``, over
+    an effective finite algebraic extension ``C`` of ``QQ``, followed by finite
+    primitive, hyperexponential, or hypertangent prefixes with certified
+    preserved constants.  This classifies structural theorem preconditions,
+    not completion of every current recursive solver branch.  The exact hyperbolic law
     ``Dt=eta*(1-t**2)`` is also admitted when it is the active top level,
     because the dispatcher normalizes that level immutably to a
     hyperexponential coordinate.
@@ -204,7 +203,7 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
         return _unsupported(
             derivation,
             TowerAdmissionReason.NO_RATIONAL_BASE,
-            "the constant field alone has no standard rational QQ(x) base",
+            "the constant field alone has no standard rational C(x) base",
         )
 
     active_levels = derivation.tower.levels[: derivation.level + 1]
@@ -221,11 +220,13 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
             TowerAdmissionReason.UNSUPPORTED_EXTENSION,
             "level 0 is not a monomial extension",
         )
-    if base.parent_field != QQ:
+    constant_profile = finite_constant_field_profile(base.parent_field)
+    if constant_profile is None:
         return _unsupported(
             derivation,
             TowerAdmissionReason.BASE_FIELD,
-            "the rational base must be over QQ",
+            "the rational base must be over an effective finite algebraic "
+            "extension of QQ",
         )
     if not is_standard_rational_base(base):
         return _unsupported(
@@ -252,6 +253,17 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
             MonomialFamily.HYPEREXPONENTIAL,
             MonomialFamily.HYPERTANGENT,
         }:
+            if (
+                extension.family is MonomialFamily.HYPERTANGENT
+                and not constant_profile.is_real
+            ):
+                return _unsupported(
+                    derivation,
+                    TowerAdmissionReason.HYPERTANGENT_RDE_BASE,
+                    f"level {index} is hypertangent, but real elementary "
+                    "integration requires a provably real finite algebraic "
+                    "constant field",
+                )
             rejection = _constant_field_rejection(
                 derivation,
                 index,

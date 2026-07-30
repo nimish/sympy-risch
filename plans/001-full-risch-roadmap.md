@@ -222,8 +222,8 @@ The existing design conventions to preserve are:
 | 0. Completeness contract and coverage ledger | Partial, completed by Plans 016 T0 and 017 F0/F7: structural P/E/T admission distinguishes unsupported towers from theorem-backed obstructions, but the operation-specific totality matrix and full expression-cell corpus remain. |
 | 1. Effective field and tower kernel | Partial, shared by Plans 015 A0-A2 and 016 T0-T1: exact `QQ` towers, recursively checked P/E/T towers over native finite algebraic number-field constants, exact `C(i)` tangent normalization for provably real `C`, and finite extensions exist. General effective-field capabilities, algebraic-function-field proof transport, presentation normalization, and canonical mixed towers remain. |
 | 2. Dependency and structure decisions | Complete on the classical finite-constant P/E/T cell through Plan 016 T1-T2: every family ordering has direct real/complex relations, fundamental signatures, checked dependencies, and Gaussian oracles. General effective constants, Riccati/Darboux discovery, and automatic non-family special-polynomial decisions remain. |
-| 3. Scalar, parametric, and coupled RDEs | Partial, expanded in Plan 016 T3-T5: scalar and parametric RDE plus their limited-integration consumer return complete reconstruction-checked solutions across the finite-constant P/E/T cell, and coupled RDEs cover documented normalized P/E/T shapes plus one local special-pole consumer. Complete real coupled coverage remains. |
-| 4. Transcendental integration | Partial, expanded in Plan 016 T6-T8: explicit P/E/T integration covers documented shapes rather than every family ordering. Complete P/E/T totality and the admitted general-polynomial special-factor/denominator branch remain. |
+| 3. Scalar, parametric, and coupled RDEs | Complete for the finite-constant P/E/T cell under Plan 016 T3-T5: scalar and parametric RDE, limited integration, and every real-integration coupled system return reconstruction-checked solutions or theorem-backed obstructions. General polynomial monomials and algebraic lower fields remain separate milestones. |
+| 4. Transcendental integration | Complete for the classical finite-constant P/E/T cell. Plan 016 T6-T8 remains for any additionally admitted general-polynomial monomial families: special-factor decision, special-denominator reduction, and logarithmic reconstruction. |
 | 5. Algebraic-function-field kernel | Partial, expanded in Plan 015 A0-A6: direct admitted models have maximal orders, places, local expansions, divisors, complete long-basis Hess spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess parametric/large-divisor algorithms, scalable class operations, and algebraic-number-field good reduction remain. |
 | 6. Pure algebraic integration | Partial, expanded in Plan 015 A7-A8: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and verified `QQ` torsion decisions, continues through compatible constant composita, and solves an in-field residue-free exactness problem. General compatible residue descent and divisor combinations, full second-kind cohomology, normalization, and automatic dispatch remain. |
 | 7. Mixed algebraic/transcendental towers | Started, expanded in Plan 015 A9-A10: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic scalar/parametric RDEs, relative geometry, residue/logarithmic reduction, and arbitrary interleavings remain. |
@@ -477,10 +477,12 @@ otherwise that family is rejected at admission. See Plan 016 T1-T2 and T6.
 
 ## Milestone 3: Complete scalar, parametric, and coupled RDEs
 
-Status: scalar and coupled RDE dispatch is implemented for documented
-normalized P/E/T solver shapes. The work below applies to general special polynomial monomials and
-to the public parametric/limited-integration layer; it must not reopen or
-replace the P/E/T production recurrences.
+Status: complete for the finite-constant P/E/T cell. Scalar and parametric RDE,
+limited integration, and the general real two-coordinate system are total
+there. Direct Chapter 8 recurrences cover their documented normalized shapes;
+an exact `C(i)` scalar reduction supplies the remaining coupled cases. Work
+below applies only to general special-polynomial monomials and algebraic lower
+fields; it must not reopen or replace the P/E/T production recurrences.
 
 ### 3.1 Scalar RDE over arbitrary supported lower towers
 
@@ -911,9 +913,9 @@ separate commit after focused and full-suite verification.
    - [x] **Plan 010**: admit native finite algebraic `C/QQ` at the standard
      `C(x)` base, retain rational-coordinate relation constraints, and enable
      direct checked primitive/hyperexponential proposals.
-8. [ ] **Plan 016 T3-T5**: fill every missing P/E/T scalar RDE ordering and
-   implement complete parametric RDE, limited integration, and required real
-   coupled systems.
+8. [x] **Plan 016 T3-T5**: filled every P/E/T scalar RDE ordering and
+   implemented complete parametric RDE, limited integration, and required real
+   coupled systems over supported finite algebraic constants.
 9. [ ] **Plan 016 T6-T8**: decide special polynomials for each additionally
    advertised general-monomial family, complete the special-denominator and
    logarithmic branches, and make explicit transcendental dispatch total. A

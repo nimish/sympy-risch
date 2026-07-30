@@ -106,6 +106,21 @@ def test_standard_rational_base_is_admitted_and_integrates() -> None:
     assert result.obstruction is None
 
 
+def test_real_algebraic_constant_rational_base_is_admitted() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower = DifferentialTower(constants).extend(
+        MonomialExtension(
+            Poly(1, x, domain=constants),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+
+    admission = assess_elementary_admission(tower.derivation())
+
+    assert admission.accepted
+    assert admission.reason is None
+
+
 @pytest.mark.parametrize(
     ("family", "eta", "obstruction", "expected_kind"),
     (
@@ -243,9 +258,10 @@ def _unknown_constant_tower() -> DifferentialTower:
 
 
 def _non_rational_base_field_tower() -> DifferentialTower:
-    return DifferentialTower(QQ_I).extend(
+    constants = QQ.frac_field(a)
+    return DifferentialTower(constants).extend(
         MonomialExtension(
-            Poly(1, x, domain=QQ_I),
+            Poly(1, x, domain=constants),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -422,7 +438,7 @@ def test_scalar_rde_admission_accepts_recursive_native_constants() -> None:
     assert assess_scalar_rde_admission(hypertangent.derivation()).accepted
 
 
-def test_scalar_rde_admission_rejects_hypertangent_over_gaussian_constants() -> None:
+def test_real_admission_rejects_hypertangent_over_gaussian_constants() -> None:
     base = DifferentialTower(QQ_I).extend(
         MonomialExtension(Poly(1, x, domain=QQ_I), ConstantFieldStatus.UNKNOWN),
     )
@@ -433,11 +449,13 @@ def test_scalar_rde_admission_rejects_hypertangent_over_gaussian_constants() -> 
         ),
     )
 
-    admission = assess_scalar_rde_admission(tower.derivation())
-
-    assert admission.unsupported
-    assert admission.reason is TowerAdmissionReason.HYPERTANGENT_RDE_BASE
-    assert "provably real finite algebraic constant field" in admission.detail
+    for admission in (
+        assess_elementary_admission(tower.derivation()),
+        assess_scalar_rde_admission(tower.derivation()),
+    ):
+        assert admission.unsupported
+        assert admission.reason is TowerAdmissionReason.HYPERTANGENT_RDE_BASE
+        assert "provably real finite algebraic constant field" in admission.detail
 
 
 def test_scalar_rde_admission_checks_the_entire_active_prefix() -> None:
