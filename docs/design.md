@@ -1218,13 +1218,30 @@ the reduced generators `v_i` and invariant degrees `d_i`: one
 `L(D + r*(x)_infinity)` as the powers `x**j*v_i` with
 `0 <= j <= d_i + r`, without repeating ideal or Popov reduction. The retained
 polynomial rows verify membership algebraically, while the long-basis view
-keeps the independent all-place check. Reduced divisor-class arithmetic uses
-these spaces relative to any effective positive-degree anchor. The
-finite-prime service now reduces the finite and reciprocal maximal orders and
-the divisor, checks genus and degree preservation, and searches the finite
-class through a Weil bound. It currently handles prime reductions of `QQ`
-models; number-field primes and repeated-discriminant finite models remain
-outside its declared domain.
+keeps the independent all-place check. The height-efficient divisor reducer
+implements Hess's Algorithm 21 independently of class arithmetic. It
+decomposes signed coefficients in binary, reduces their support, and combines
+the results by Horner's rule. Its result records
+
+```text
+D = D_reduced + r*A - div(w)
+```
+
+with an effective divisor of degree below `genus + deg(A)`. The correcting
+function `w` remains an exact power product, so large input coefficients do
+not force eager construction of a high-height field element. The default
+anchor is the complete pole divisor `(x)_infinity`, including every place
+above infinity; custom effective positive-degree anchors remain supported.
+Algorithm 24 will consume this reduction together with
+`HessParametricBasis` to provide short large-divisor spaces and differential
+spaces.
+
+Reduced divisor-class arithmetic uses complete spaces relative to an
+effective positive-degree anchor. The finite-prime service now reduces the
+finite and reciprocal maximal orders and the divisor, checks genus and degree
+preservation, and searches the finite class through a Weil bound. It currently
+handles prime reductions of `QQ` models; number-field primes and
+repeated-discriminant finite models remain outside its declared domain.
 
 The next layer computes an exact intersection `V ∩ L(D)` for a supplied finite
 constant subspace `V`, using all-place Laurent-coefficient constraints. Each

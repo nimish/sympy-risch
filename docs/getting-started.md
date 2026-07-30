@@ -1301,6 +1301,32 @@ Popov, or principal-divisor computation. Unsupported maximal-order or
 presentation arithmetic remains an explicit boundary; a bounded candidate
 search is never mistaken for a complete basis.
 
+Large divisor coefficients should likewise remain compressed. Hess's
+Algorithm 21 reduces their signed binary digits and records the correcting
+function as a power product:
+
+```python
+from sympy_risch.algebraic_geometry import reduce_hess_divisor
+
+large_divisor = curve.principal_divisor(parameter).scale(37)
+reduction = reduce_hess_divisor(curve, large_divisor)
+
+assert reduction.reduced_divisor.is_effective
+assert reduction.binary_layers == (37).bit_length()
+assert large_divisor == (
+    reduction.reduced_divisor
+    + reduction.anchor.scale(reduction.anchor_multiple)
+    - reduction.witness.principal_divisor
+)
+assert reduction.reconstructs
+```
+
+The final assertion deliberately expands the power product and recomputes its
+principal divisor. Normal callers can retain `reduction.witness` in compressed
+form. The default anchor is the full pole divisor `(x)_infinity`; callers may
+instead supply any effective positive-degree anchor and select maximal rather
+than degree reduction.
+
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
@@ -1354,6 +1380,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
 | Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; `HessParametricBasis` reuses one reduction across `D + r*(x)_infinity`, while unavailable ideal arithmetic returns `UNSUPPORTED` |
+| Height-efficient algebraic divisor reduction | Hess Algorithm 21 over supported direct models: signed binary support/exponent reduction, degree or maximal strategy, and exact power-product witnesses |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Algebraic divisor classes and torsion | General Riemann--Roch reduction; supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly |
 | Algebraic principality decision | Generic AFF decision through primitive coefficient content and reduced class addition, with complete direct `L(-D)` fallback |

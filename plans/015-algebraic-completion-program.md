@@ -211,6 +211,16 @@ with the existing long basis on all current tests.
 
 ### A4. Implement Hess Algorithm 21 divisor reduction
 
+**Progress:** complete for the direct function-field presentations supported
+by the current Riemann--Roch engine. `reduce_hess_divisor` decomposes arbitrary
+signed divisor coefficients in binary, reduces each signed-support digit, and
+combines the results by Horner composition. The exact correcting function is
+retained as a `HessPowerProduct`; expanding it is optional. Both Hess's degree
+strategy and maximal reduction are available. With the default
+`(x)_infinity` anchor, the implementation reads shifts from one
+`HessParametricBasis` per elementary step; a general effective anchor uses
+complete Riemann--Roch spaces and monotone search.
+
 Replace linear repeated addition and repeated full Riemann--Roch construction
 with Hess's height-efficient reduction:
 
@@ -229,7 +239,10 @@ additions.
 
 **Exit gate:** reduction of high-height divisors agrees with direct small
 cases, reconstructs every witness, and has a regression showing logarithmic
-growth in the exponent rather than linear growth.
+growth in the exponent rather than linear growth. This gate is complete:
+focused tests independently expand moderate witnesses, cover split infinity,
+check maximality, and make the binary-layer bound observable without a timing
+assertion.
 
 ### A5. Implement Hess Algorithm 24 and differential spaces
 

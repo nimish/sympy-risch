@@ -12,6 +12,14 @@ from .divisor_classes import (
     reduce_algebraic_divisor_class,
     search_algebraic_divisor_torsion,
 )
+from .divisor_reduction import (
+    HessDivisorReduction,
+    HessPowerProduct,
+    HessPowerProductFactor,
+    HessReductionStrategy,
+    parameter_pole_divisor,
+    reduce_hess_divisor,
+)
 from .finite_places import FiniteAlgebraicPlace, LocalLaurentExpansion
 from .finite_reduction import (
     AlgebraicFunctionFieldReduction,
@@ -62,7 +70,11 @@ __all__ = [
     "FiniteAlgebraicPlace",
     "FiniteDivisorClassOrder",
     "HessDivisorIdeals",
+    "HessDivisorReduction",
     "HessParametricBasis",
+    "HessPowerProduct",
+    "HessPowerProductFactor",
+    "HessReductionStrategy",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
@@ -74,8 +86,10 @@ __all__ = [
     "hess_divisor_ideals",
     "hess_parametric_basis",
     "integral_closure",
+    "parameter_pole_divisor",
     "polynomial_order",
     "reduce_algebraic_divisor_class",
     "reduce_algebraic_function_field",
+    "reduce_hess_divisor",
     "search_algebraic_divisor_torsion",
 ]
