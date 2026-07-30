@@ -22,10 +22,6 @@ class SupportsAsExpr(Protocol):
     def as_expr(self) -> Expr: ...
 
 
-type ExactInput = Expr | int | SupportsAsExpr
-"""Public exact input accepted by SymPy conversion boundaries."""
-
-
 class FieldElement(Protocol):
     """Native element of one exact field in a differential tower."""
 
@@ -48,6 +44,13 @@ class FieldElement(Protocol):
     def __pow__(self, exponent: int, /) -> FieldElement: ...
 
     def __neg__(self) -> FieldElement: ...
+
+
+type ExactInput = Expr | int | SupportsAsExpr
+"""Public exact input accepted by expression conversion boundaries."""
+
+type FieldInput = ExactInput | FieldElement
+"""Public exact input accepted when the owning differential field is known."""
 
 
 def is_field_zero(value: FieldElement) -> bool:

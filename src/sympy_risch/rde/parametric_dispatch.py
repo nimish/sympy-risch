@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import InitVar, dataclass
 
-from .._typing import ExactInput, FieldElement
+from .._typing import FieldElement, FieldInput
 from ..admission import assess_scalar_rde_admission
 from ..constant_fields import finite_constant_field_profile
 from ..gaussian import build_hypertangent_gaussian_normal_form
@@ -237,8 +237,8 @@ def _solve_parametric_rde_basis(
 
 
 def solve_parametric_risch_differential_equation(
-    coefficient: ExactInput,
-    right_hand_sides: Iterable[ExactInput],
+    coefficient: FieldInput,
+    right_hand_sides: Iterable[FieldInput],
     derivation: Derivation,
 ) -> ParametricRischDifferentialEquationResult:
     r"""Return the complete PRDE solution space over an implemented tower."""

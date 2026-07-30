@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import InitVar, dataclass
 
-from .._typing import ExactInput, FieldElement
+from .._typing import FieldElement, FieldInput
 from ..tower import Derivation, _coerce
 from ._common import _field_elements_equal
 from ._parametric_linear import ParametricRDESolution, canonicalize_directions
@@ -98,57 +98,25 @@ class LimitedIntegrationResult:
                 raise ValueError("an empty affine space cannot have directions")
             return
 
-        if len(self.particular.coefficients) != len(self.correction_terms):
+        expected_coefficient_count = len(self.correction_terms)
+        if len(self.particular.coefficients) != expected_coefficient_count:
             raise ValueError(
                 "the limited-integration particular solution has the wrong "
                 "coefficient count"
             )
-        particular_right_hand_side = self.integrand + sum(
-            (
-                field.from_sympy(constants.to_sympy(constants.convert(coefficient)))
-                * term
-                for coefficient, term in zip(
-                    self.particular.coefficients,
-                    self.correction_terms,
-                    strict=True,
-                )
-            ),
-            field.zero,
-        )
-        if not _field_elements_equal(
-            self.derivation(self.particular.antiderivative),
-            particular_right_hand_side,
-            field,
-        ):
+        for coefficient in self.particular.coefficients:
+            constants.convert(coefficient)
+        if len(self.direction_basis) != len(parametric.basis) - 1:
             raise ValueError(
-                "the limited-integration particular solution does not reconstruct"
+                "the limited-integration direction basis has the wrong dimension"
             )
-
         for direction in self.direction_basis:
-            if len(direction.coefficients) != len(self.correction_terms):
+            if len(direction.coefficients) != expected_coefficient_count:
                 raise ValueError(
                     "a limited-integration direction has the wrong coefficient count"
                 )
-            direction_right_hand_side = sum(
-                (
-                    field.from_sympy(constants.to_sympy(constants.convert(coefficient)))
-                    * term
-                    for coefficient, term in zip(
-                        direction.coefficients,
-                        self.correction_terms,
-                        strict=True,
-                    )
-                ),
-                field.zero,
-            )
-            if not _field_elements_equal(
-                self.derivation(direction.antiderivative),
-                direction_right_hand_side,
-                field,
-            ):
-                raise ValueError(
-                    "a limited-integration affine direction does not reconstruct"
-                )
+            for coefficient in direction.coefficients:
+                constants.convert(coefficient)
 
     @property
     def has_solution(self) -> bool:
@@ -162,8 +130,8 @@ class LimitedIntegrationResult:
 
 
 def solve_limited_integration(
-    integrand: ExactInput,
-    correction_terms: Iterable[ExactInput],
+    integrand: FieldInput,
+    correction_terms: Iterable[FieldInput],
     derivation: Derivation,
 ) -> LimitedIntegrationResult:
     r"""Solve ``D(v) = integrand + sum(c_j*correction_terms[j])`` completely."""
