@@ -3,7 +3,7 @@
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-from sympy import I, Poly, cancel, symbols
+from sympy import I, Poly, cancel, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -22,11 +22,12 @@ x, t = symbols("x t")
 def hypertangent_tower(
     eta,
     *,
+    constants=QQ,
     constant_field_status=ConstantFieldStatus.PRESERVED,
 ) -> DifferentialTower:
-    base = DifferentialTower(QQ).extend(
+    base = DifferentialTower(constants).extend(
         MonomialExtension(
-            Poly(1, x, domain=QQ),
+            Poly(1, x, domain=constants),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -59,6 +60,22 @@ def test_special_reduction_of_inverse_special_polynomial_stays_real() -> None:
     assert not result.has_obstruction
     assert result.reduced_to_lower_field
     assert not field.to_sympy(result.exact_part).has(I)
+
+
+def test_special_reduction_uses_c_i_over_real_algebraic_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower = hypertangent_tower(sqrt(2), constants=constants)
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy(2 * t / (1 + t**2))
+
+    result = reduce_hypertangent_special(derivation(planted), derivation)
+
+    assert result.reduced_to_lower_field
+    assert result.remainder == field.zero
+    assert len(result.steps) == 1
+    assert result.steps[0].rde_result.reconstructs
+    assert result.exact_part == planted
 
 
 def test_special_reduction_pairs_a_purely_imaginary_cayley_mode() -> None:

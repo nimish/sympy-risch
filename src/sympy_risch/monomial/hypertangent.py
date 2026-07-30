@@ -6,11 +6,15 @@ from dataclasses import dataclass
 
 from sympy.core.numbers import I
 from sympy.core.symbol import Dummy, Symbol
-from sympy.polys.domains import QQ, QQ_I
+from sympy.polys.domains import QQ
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from .._typing import FieldElement
+from ..constant_fields import (
+    finite_constant_field_profile,
+    gaussian_constant_field,
+)
 from ..constant_proofs import require_preserved_constant_field
 from ..dependency import (
     analyze_hypertangent_extension,
@@ -290,6 +294,12 @@ def _validate_hypertangent_reduction(
 
     lower_derivation = derivation.lower()
     _standard_rational_base_variable(Derivation(derivation.tower, 0))
+    profile = finite_constant_field_profile(derivation.tower.constants)
+    if profile is None or not profile.is_real:
+        raise NotImplementedError(
+            "real hypertangent reduction requires a provably real finite "
+            "algebraic constant field"
+        )
     for level in range(1, lower_derivation.level + 1):
         lower_extension = derivation.tower.levels[level]
         if not isinstance(
@@ -301,7 +311,7 @@ def _validate_hypertangent_reduction(
         }:
             raise NotImplementedError(
                 "hypertangent reduction currently supports primitive, "
-                "hyperexponential, and hypertangent levels above QQ(x)"
+                "hyperexponential, and hypertangent levels above C(x)"
             )
         require_preserved_constant_field(
             Derivation(derivation.tower, level),
@@ -334,6 +344,7 @@ def _gaussian_conjugate(
 def _hypertangent_cayley_coefficients(
     element: FieldElement,
     extension: MonomialExtension,
+    constants: Domain,
 ) -> tuple[Domain, dict[int, FieldElement]]:
     r"""Return Laurent coefficients after ``u=(1+i*t)/(1-i*t)``.
 
@@ -346,12 +357,12 @@ def _hypertangent_cayley_coefficients(
     cayley_generator = Dummy("u")
     parent = extension.parent_field
     parent_symbols = tuple(getattr(parent, "symbols", ()) or ())
-    if getattr(parent, "domain", None) != QQ or not parent_symbols:
+    if getattr(parent, "domain", None) != constants or not parent_symbols:
         raise NotImplementedError(
             "hypertangent Cayley reduction requires a rational-function "
-            "lower field over QQ"
+            "lower field over its declared finite constant field"
         )
-    gaussian_field = QQ_I.frac_field(*parent_symbols)
+    gaussian_field = gaussian_constant_field(constants).frac_field(*parent_symbols)
     inverse_cayley = I * (1 - cayley_generator) / (1 + cayley_generator)
     transformed = cancel(
         extension.field.to_sympy(element).subs(generator, inverse_cayley)
@@ -402,6 +413,7 @@ def _reduce_hypertangent_special_validated(
     gaussian_field, coefficients = _hypertangent_cayley_coefficients(
         element,
         extension,
+        derivation.tower.constants,
     )
     zero = gaussian_field.zero
 
@@ -460,7 +472,7 @@ def _reduce_hypertangent_special_validated(
             ),
         )
         lower_derivation = derivation.lower()
-        if lower_derivation.level == 0:
+        if lower_derivation.level == 0 and derivation.tower.constants == QQ:
             variable = _standard_rational_base_variable(lower_derivation)
             rde_result = solve_coupled_rational_rde(
                 2 * power * parent.to_sympy(eta),
