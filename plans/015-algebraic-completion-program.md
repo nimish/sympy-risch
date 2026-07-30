@@ -246,15 +246,21 @@ assertion.
 
 ### A5. Implement Hess Algorithm 24 and differential spaces
 
-**Progress:** Algorithm 24 is complete for the direct function-field
-presentations supported by the current Hess engine.
+**Progress:** Algorithm 24 and its basic differential-space application are
+complete for the direct function-field presentations supported by the current
+Hess engine.
 `HessLargeRiemannRochSpace` combines Algorithm 21's compact correction with
 the reduced divisor's `HessParametricBasis`. It stores the rank-sized
 power-product generators and shifted invariant degrees, computes dimensions
 without expansion, and expands or independently verifies the long basis only
 on request. Small spaces agree with the original direct Hess construction,
 while a regression keeps a 514-dimensional example in short form.
-Differential spaces and their duality checks remain the next A5 slice.
+`HessDifferentialSpace` applies the exact correspondence
+`Omega(D) = L(div(dx) - D)`, retaining the same compact representation for
+coefficients. Holomorphic spaces have dimension equal to the genus, and tests
+check Riemann--Roch duality for positive, negative, and mixed divisors.
+Residue-constrained spaces of the second and third kind remain the next A5
+slice.
 
 Use divisor reduction plus the parametric basis to compute large
 Riemann--Roch spaces in short power-product form. Then expose the standard
@@ -270,10 +276,11 @@ function-field consequences:
 Expansion to individual field elements is a view requested by a caller, not
 the internal representation used throughout class arithmetic.
 
-**Exit gate:** the large-divisor half is complete: dimensions satisfy
-Riemann--Roch, and requested expansions have exact membership and constant
-rank. The remaining gate is differential-space dimension, residue, and
-duality reconstruction.
+**Exit gate:** large divisor and unrestricted differential spaces are
+complete: dimensions satisfy Riemann--Roch, requested expansions have exact
+membership and constant rank, holomorphic dimensions agree with genus, and
+duality reconstructs. The remaining gate is residue-constrained
+second-/third-kind spaces and independent genus consistency checks.
 
 ### A6. Complete scalable divisor-class and Jacobian operations
 

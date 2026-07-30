@@ -1246,7 +1246,27 @@ and long-basis expansion is an explicit view rather than stored state. The
 factory-owned result ties the power-product correction to the reduced
 parametric certificate; an optional verifier expands the basis, checks every
 global valuation bound, and confirms constant-linear rank. Differential
-spaces are the remaining Algorithm 24 application in this milestone.
+spaces reuse this machinery without a second linear-algebra implementation.
+With the convention
+
+```text
+Omega(D) = {omega : div(omega) >= D},
+```
+
+every differential is uniquely `f*dx`, so its coefficient belongs to
+`L(div(dx) - D)`. `HessDifferentialSpace` retains that compact coefficient
+space and constructs individual `AlgebraicDifferential` objects only on
+request. In particular, `Omega(0)` is the holomorphic differential space and
+has dimension equal to the genus. The implementation checks the corresponding
+Riemann--Roch identity
+
+```text
+dim L(D) = deg(D) + 1 - genus + dim Omega(D).
+```
+
+Residue kernels and prescribed-residue affine spaces for differentials of the
+second and third kind remain a separate layer over this complete ambient
+space.
 
 Reduced divisor-class arithmetic uses complete spaces relative to an
 effective positive-degree anchor. The finite-prime service now reduces the

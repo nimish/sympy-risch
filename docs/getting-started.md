@@ -1349,6 +1349,28 @@ For testing or a trust boundary, `verify_expansion()` additionally checks
 global membership and constant-linear independence; its cost necessarily
 depends on the expanded dimension.
 
+The corresponding differential space uses the divisor of `dx` automatically.
+Here `Omega(D)` means the differentials whose divisor is at least `D`:
+
+```python
+from sympy_risch.algebraic_geometry import (
+    hess_differential_space,
+    holomorphic_differential_space,
+)
+
+holomorphic = holomorphic_differential_space(curve)
+assert holomorphic.dimension == curve.genus
+
+bounded_differentials = hess_differential_space(curve, pole_divisor)
+assert bounded_differentials.coefficient_divisor == (
+    curve.canonical_divisor() - pole_divisor
+)
+```
+
+Both results remain in Algorithm 24's short form. Use `expand()` only when
+individual differentials `f*dx` are needed. Residue-constrained subspaces of
+the second and third kind are not yet exposed by this API.
+
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
@@ -1401,7 +1423,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
-| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; `HessParametricBasis` reuses one reduction across `D + r*(x)_infinity`, and `HessLargeRiemannRochSpace` implements Algorithm 24's compact large-divisor basis |
+| Certified algebraic Riemann--Roch and differential spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; `HessParametricBasis` reuses one reduction across `D + r*(x)_infinity`, `HessLargeRiemannRochSpace` implements Algorithm 24's compact large-divisor basis, and `HessDifferentialSpace` represents `Omega(D)` through `L(div(dx) - D)` |
 | Height-efficient algebraic divisor reduction | Hess Algorithm 21 over supported direct models: signed binary support/exponent reduction, degree or maximal strategy, and exact power-product witnesses |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Algebraic divisor classes and torsion | General Riemann--Roch reduction; supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly |

@@ -5,6 +5,11 @@ from .constant_extensions import (
     AlgebraicConstantFieldExtension,
     extend_algebraic_constants,
 )
+from .differential_spaces import (
+    HessDifferentialSpace,
+    hess_differential_space,
+    holomorphic_differential_space,
+)
 from .divisor_classes import (
     AlgebraicTorsionSearch,
     AlgebraicTorsionStatus,
@@ -72,6 +77,7 @@ __all__ = [
     "BadAlgebraicReduction",
     "FiniteAlgebraicPlace",
     "FiniteDivisorClassOrder",
+    "HessDifferentialSpace",
     "HessDivisorIdeals",
     "HessDivisorReduction",
     "HessLargeRiemannRochSpace",
@@ -87,9 +93,11 @@ __all__ = [
     "decide_algebraic_principality",
     "extend_algebraic_constants",
     "finite_divisor_class_order",
+    "hess_differential_space",
     "hess_divisor_ideals",
     "hess_large_riemann_roch_space",
     "hess_parametric_basis",
+    "holomorphic_differential_space",
     "integral_closure",
     "polynomial_order",
     "reduce_algebraic_divisor_class",
