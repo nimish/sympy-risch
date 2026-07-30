@@ -46,7 +46,7 @@ class HessReductionStrategy(Enum):
 
 
 @dataclass(frozen=True, slots=True)
-class HessPowerProductFactor:
+class _HessPowerProductFactor:
     """One exact factor and its already-computed principal divisor."""
 
     element: ExtensionElement
@@ -59,7 +59,7 @@ class HessPowerProduct:
     r"""A compact product ``prod(factor.element**factor.exponent)``."""
 
     model: AlgebraicFunctionField
-    factors: tuple[HessPowerProductFactor, ...] = ()
+    factors: tuple[_HessPowerProductFactor, ...] = ()
 
     @property
     def principal_divisor(self) -> AlgebraicDivisor:
@@ -85,7 +85,7 @@ class HessPowerProduct:
         return HessPowerProduct(
             self.model,
             tuple(
-                HessPowerProductFactor(
+                _HessPowerProductFactor(
                     factor.element,
                     factor.principal_divisor,
                     factor.exponent * exponent,
@@ -101,7 +101,7 @@ class HessPowerProduct:
         return HessPowerProduct(self.model, self.factors + other.factors)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class HessDivisorReduction:
     r"""An exact Algorithm 21 reduction of one arbitrary divisor.
 
@@ -109,9 +109,9 @@ class HessDivisorReduction:
 
     ``divisor = reduced_divisor + anchor_multiple*anchor - div(witness)``.
 
-    ``support_reductions`` counts elementary reductions while processing
-    binary digits. ``composition_reductions`` counts Horner combination
-    steps.  They make the height behavior observable without timing tests.
+    The derived ``support_reductions`` and ``composition_reductions``
+    properties describe the binary work without storing duplicate trace
+    metadata.
     """
 
     model: AlgebraicFunctionField
@@ -121,11 +121,33 @@ class HessDivisorReduction:
     reduced_divisor: AlgebraicDivisor
     anchor_multiple: int
     witness: HessPowerProduct
-    binary_layers: int
-    support_reductions: int
-    composition_reductions: int
 
-    def __post_init__(self) -> None:
+    def __init__(self) -> None:
+        raise TypeError("Hess reductions must be created by reduce_hess_divisor")
+
+    @classmethod
+    def _create(
+        cls,
+        model: AlgebraicFunctionField,
+        divisor: AlgebraicDivisor,
+        anchor: AlgebraicDivisor,
+        strategy: HessReductionStrategy,
+        reduced_divisor: AlgebraicDivisor,
+        anchor_multiple: int,
+        witness: HessPowerProduct,
+    ) -> HessDivisorReduction:
+        result = object.__new__(cls)
+        object.__setattr__(result, "model", model)
+        object.__setattr__(result, "divisor", divisor)
+        object.__setattr__(result, "anchor", anchor)
+        object.__setattr__(result, "strategy", strategy)
+        object.__setattr__(result, "reduced_divisor", reduced_divisor)
+        object.__setattr__(result, "anchor_multiple", anchor_multiple)
+        object.__setattr__(result, "witness", witness)
+        result._validate()
+        return result
+
+    def _validate(self) -> None:
         if self.divisor.model is not self.model:
             raise ValueError("the input divisor belongs to another function field")
         if self.anchor.model is not self.model:
@@ -153,6 +175,29 @@ class HessDivisorReduction:
             == self.witness.principal_divisor
         )
 
+    @property
+    def binary_layers(self) -> int:
+        """Number of signed binary layers in the input divisor."""
+        return max(
+            (
+                abs(coefficient).bit_length()
+                for _place, coefficient in self.divisor.terms
+            ),
+            default=0,
+        )
+
+    @property
+    def support_reductions(self) -> int:
+        """Number of nonzero signed-place digits processed."""
+        return sum(
+            abs(coefficient).bit_count() for _place, coefficient in self.divisor.terms
+        )
+
+    @property
+    def composition_reductions(self) -> int:
+        """Number of Horner composition layers."""
+        return max(self.binary_layers - 1, 0)
+
 
 @dataclass(frozen=True, slots=True)
 class _ElementaryReduction:
@@ -161,14 +206,6 @@ class _ElementaryReduction:
     divisor: AlgebraicDivisor
     anchor_multiple: int
     factor: HessPowerProduct
-
-
-def parameter_pole_divisor(model: AlgebraicFunctionField) -> AlgebraicDivisor:
-    r"""Return the full pole divisor ``(x)_infinity`` of the base parameter."""
-    return AlgebraicDivisor(
-        model,
-        tuple((place, place.ramification_index) for place in model.infinite_places()),
-    )
 
 
 def _validate_inputs(
@@ -186,7 +223,7 @@ def _validate_inputs(
     if not isinstance(strategy, HessReductionStrategy):
         raise TypeError("the Hess reduction strategy has the wrong type")
 
-    result = parameter_pole_divisor(model) if anchor is None else anchor
+    result = model.base_parameter_pole_divisor() if anchor is None else anchor
     if not isinstance(result, AlgebraicDivisor):
         raise TypeError("the reduction anchor must be an algebraic divisor")
     if result.model is not model:
@@ -283,7 +320,7 @@ def _elementary_reduce(
         raise ValueError("the Riemann--Roch witness did not make the divisor effective")
     factor = HessPowerProduct(
         model,
-        (HessPowerProductFactor(element, principal),),
+        (_HessPowerProductFactor(element, principal),),
     )
     return _ElementaryReduction(reduced, multiple, factor)
 
@@ -310,12 +347,11 @@ def _reduce_digit(
     anchor: AlgebraicDivisor,
     strategy: HessReductionStrategy,
     parameter_anchor: bool,
-) -> tuple[_ElementaryReduction, int]:
+) -> _ElementaryReduction:
     """Reduce one signed-support digit one place at a time."""
     current = AlgebraicDivisor(model)
     multiple = 0
     witness = HessPowerProduct(model)
-    steps = 0
     for place, coefficient in digit.terms:
         step = _elementary_reduce(
             model,
@@ -327,8 +363,7 @@ def _reduce_digit(
         current = step.divisor
         multiple += step.anchor_multiple
         witness = witness.multiply(step.factor)
-        steps += 1
-    return _ElementaryReduction(current, multiple, witness), steps
+    return _ElementaryReduction(current, multiple, witness)
 
 
 def reduce_hess_divisor(
@@ -348,10 +383,10 @@ def reduce_hess_divisor(
     spaces and a monotone binary search for maximal reduction.
     """
     reduction_anchor = _validate_inputs(model, divisor, anchor, strategy)
-    parameter_anchor = reduction_anchor == parameter_pole_divisor(model)
+    parameter_anchor = reduction_anchor == model.base_parameter_pole_divisor()
     digits = _binary_digits(divisor)
     if not digits:
-        return HessDivisorReduction(
+        return HessDivisorReduction._create(
             model,
             divisor,
             reduction_anchor,
@@ -359,26 +394,21 @@ def reduce_hess_divisor(
             divisor,
             0,
             HessPowerProduct(model),
-            0,
-            0,
-            0,
         )
 
     reduced_digits: list[_ElementaryReduction] = []
-    support_steps = 0
     for digit in digits:
-        reduced, steps = _reduce_digit(
-            model,
-            digit,
-            reduction_anchor,
-            strategy,
-            parameter_anchor,
+        reduced_digits.append(
+            _reduce_digit(
+                model,
+                digit,
+                reduction_anchor,
+                strategy,
+                parameter_anchor,
+            ),
         )
-        reduced_digits.append(reduced)
-        support_steps += steps
 
     current = reduced_digits[-1]
-    composition_steps = 0
     for digit in reversed(reduced_digits[:-1]):
         combined = _elementary_reduce(
             model,
@@ -394,9 +424,8 @@ def reduce_hess_divisor(
             + combined.anchor_multiple,
             current.factor.scaled(2).multiply(digit.factor).multiply(combined.factor),
         )
-        composition_steps += 1
 
-    return HessDivisorReduction(
+    return HessDivisorReduction._create(
         model,
         divisor,
         reduction_anchor,
@@ -404,7 +433,4 @@ def reduce_hess_divisor(
         current.divisor,
         current.anchor_multiple,
         current.factor,
-        len(digits),
-        support_steps,
-        composition_steps,
     )

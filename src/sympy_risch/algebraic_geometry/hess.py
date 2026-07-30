@@ -278,12 +278,7 @@ class HessParametricBasis:
             raise TypeError("a Hess family needs the parameter pole divisor")
         if pole_divisor.model is not model:
             raise ValueError("the parameter pole divisor belongs to another model")
-        expected_poles = AlgebraicDivisor(
-            model,
-            tuple(
-                (place, place.ramification_index) for place in model.infinite_places()
-            ),
-        )
+        expected_poles = model.base_parameter_pole_divisor()
         if pole_divisor != expected_poles:
             raise ValueError("the parameter pole divisor is not (x)_infinity")
 
@@ -456,10 +451,7 @@ def hess_parametric_basis(
     )
     denominator_degree = denominator.degree()
     invariant_degrees = tuple(denominator_degree - degree for _column, degree in pivots)
-    parameter_poles = AlgebraicDivisor(
-        model,
-        tuple((place, place.ramification_index) for place in model.infinite_places()),
-    )
+    parameter_poles = model.base_parameter_pole_divisor()
     return HessParametricBasis(
         representation,
         parameter,

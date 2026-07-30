@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
+from functools import cached_property
 from typing import cast
 
 from sympy.core.expr import Expr
@@ -88,6 +89,15 @@ class AlgebraicFunctionField:
                 InfiniteAlgebraicPlace(chart, place) for place in finite_places
             )
         return self._infinite_cache
+
+    def base_parameter_pole_divisor(self) -> AlgebraicDivisor:
+        r"""Return the full pole divisor ``(x)_infinity``."""
+        return AlgebraicDivisor(
+            self,
+            tuple(
+                (place, place.ramification_index) for place in self.infinite_places()
+            ),
+        )
 
     def principal_divisor(self, element: object) -> AlgebraicDivisor:
         """Return the complete divisor of a nonzero field element."""
@@ -174,7 +184,7 @@ class AlgebraicFunctionField:
                 terms.append((place, exponent))
         return AlgebraicDivisor(self, tuple(terms))
 
-    @property
+    @cached_property
     def genus(self) -> int:
         """Genus obtained from the degree of a canonical divisor."""
         canonical_degree = self.canonical_divisor().degree

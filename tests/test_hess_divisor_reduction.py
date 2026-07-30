@@ -1,5 +1,6 @@
 """Hess Algorithm 21 divisor reduction and compact witnesses."""
 
+import pytest
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
@@ -8,10 +9,10 @@ from sympy_risch import (
     AlgebraicExtension,
     AlgebraicFunctionField,
     DifferentialTower,
+    HessDivisorReduction,
     HessReductionStrategy,
     MonomialExtension,
     compute_riemann_roch_space,
-    parameter_pole_divisor,
     reduce_hess_divisor,
 )
 
@@ -25,6 +26,11 @@ def algebraic_model(modulus) -> AlgebraicFunctionField:
     )
     extension = AlgebraicExtension(Poly(modulus, y, domain=rational.field()))
     return AlgebraicFunctionField(extension)
+
+
+def test_reduction_results_are_factory_owned() -> None:
+    with pytest.raises(TypeError, match="created by reduce_hess_divisor"):
+        HessDivisorReduction()
 
 
 def test_degree_reduction_returns_exact_bounded_power_product() -> None:
@@ -68,6 +74,42 @@ def test_maximal_reduction_stops_at_the_last_nonzero_space() -> None:
     assert reduction.reconstructs
 
 
+def test_default_anchor_maximal_reduction_uses_parametric_family() -> None:
+    model = algebraic_model(y**2 - x**3 + x)
+    (point,) = model.finite_places(Poly(x, x, domain=QQ))
+    (infinity,) = model.infinite_places()
+    divisor = AlgebraicDivisor(model, ((point, 3), (infinity, -2)))
+
+    reduction = reduce_hess_divisor(
+        model,
+        divisor,
+        strategy=HessReductionStrategy.MAXIMAL,
+    )
+
+    next_space = compute_riemann_roch_space(
+        model,
+        reduction.reduced_divisor - reduction.anchor,
+    )
+    assert next_space.complete
+    assert not next_space.basis
+    assert reduction.reconstructs
+
+
+def test_custom_anchor_degree_reduction_uses_complete_spaces() -> None:
+    model = algebraic_model(y**2 - x**3 + x)
+    (point,) = model.finite_places(Poly(x, x, domain=QQ))
+    (infinity,) = model.infinite_places()
+    divisor = AlgebraicDivisor(model, ((point, 3), (infinity, -2)))
+    anchor = AlgebraicDivisor(model, ((infinity, 1),))
+
+    reduction = reduce_hess_divisor(model, divisor, anchor=anchor)
+
+    assert reduction.anchor == anchor
+    assert reduction.reduced_divisor.is_effective
+    assert reduction.reduced_divisor.degree < model.genus + anchor.degree
+    assert reduction.reconstructs
+
+
 def test_default_anchor_uses_every_place_above_infinity() -> None:
     model = algebraic_model(y**2 - x**2 + 1)
     infinity_places = model.infinite_places()
@@ -79,7 +121,7 @@ def test_default_anchor_uses_every_place_above_infinity() -> None:
 
     reduction = reduce_hess_divisor(model, divisor)
 
-    assert reduction.anchor == parameter_pole_divisor(model)
+    assert reduction.anchor == model.base_parameter_pole_divisor()
     assert reduction.anchor.support == infinity_places
     assert reduction.reconstructs
 
