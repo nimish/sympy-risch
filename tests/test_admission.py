@@ -21,6 +21,11 @@ from sympy_risch import (
     assess_scalar_rde_admission,
     certify_primitive_extension,
     integrate_elementary,
+    solve_coupled_risch_differential_equation,
+    solve_exact_derivative,
+    solve_limited_integration,
+    solve_parametric_logarithmic_derivative,
+    solve_parametric_risch_differential_equation,
     solve_risch_differential_equation,
 )
 from sympy_risch.dependency import (
@@ -197,18 +202,46 @@ def test_every_two_level_pet_arrow_is_admitted_and_reconstructs(
     assert result.obstruction is None
 
 
-def test_operation_matrix_accepts_a_certified_mixed_pet_prefix() -> None:
+def test_public_operations_execute_on_an_admitted_mixed_pet_prefix() -> None:
     tower = _certified_matrix_tower(("P", "E"))
+    field = tower.field()
+    derivation = tower.derivation()
+    planted = field.from_sympy((b**2 + a * b + 1) / (b + 1))
+    derivative = derivation(planted)
 
-    admissions = {
-        operation: assess_risch_operation(tower.derivation(), operation)
-        for operation in RischOperation
-    }
-
-    assert all(admission.accepted for admission in admissions.values())
-    assert {admission.operation for admission in admissions.values()} == set(
-        RischOperation
+    exact = solve_exact_derivative(derivative, derivation)
+    scalar = solve_risch_differential_equation(0, derivative, derivation)
+    parametric = solve_parametric_risch_differential_equation(
+        0,
+        (derivative,),
+        derivation,
     )
+    limited = solve_limited_integration(derivative, (), derivation)
+    elementary = integrate_elementary(derivative, derivation)
+
+    eta = field.from_sympy(x + 2)
+    proposal = MonomialExtension(Poly((x + 2) * y, y, domain=field))
+    plogd = solve_parametric_logarithmic_derivative(
+        (derivation(planted) / planted + 2 * eta) / 3,
+        proposal,
+        derivation,
+    )
+
+    planted_imaginary = field.from_sympy((a + 1) / (b + 1))
+    coupled = solve_coupled_risch_differential_equation(
+        field.one,
+        derivative - planted_imaginary,
+        derivation(planted_imaginary) + planted,
+        derivation,
+    )
+
+    assert exact.has_solution
+    assert scalar.has_solution and scalar.reconstructs
+    assert parametric.parameter_basis
+    assert limited.has_solution
+    assert elementary.is_elementary and elementary.reconstructs
+    assert plogd.has_solution and plogd.reconstructs
+    assert coupled.has_solution and coupled.reconstructs
 
 
 def test_exact_hyperbolic_mobius_normalization_is_admitted() -> None:

@@ -16,7 +16,6 @@ from sympy.polys.polytools import Poly, cancel
 from .._typing import FieldElement
 from ..admission import RischOperation, assess_risch_operation
 from ..constant_fields import (
-    finite_constant_field_profile,
     gaussian_constant_field,
 )
 from ..constant_proofs import require_preserved_constant_field
@@ -1153,14 +1152,8 @@ def _require_supported_coupled_tower(
         if admission.reason is None:
             raise RuntimeError("unsupported coupled RDE admission omitted its reason")
         raise NotImplementedError(
-            "recursive coupled RDEs require an admitted scalar tower prefix: "
+            "recursive coupled RDEs require an admitted coupled-RDE tower prefix: "
             f"{admission.reason.value}: {admission.detail}"
-        )
-    profile = finite_constant_field_profile(derivation.tower.constants)
-    if profile is None or not profile.is_real:
-        raise NotImplementedError(
-            "real coupled RDE solving requires a provably real finite "
-            "algebraic constant field"
         )
 
 

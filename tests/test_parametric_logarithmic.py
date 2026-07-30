@@ -715,6 +715,43 @@ def test_nonrational_lower_field_is_reported_as_unsupported() -> None:
     assert "standard C(x) base" in result.detail
 
 
+def test_public_solver_admits_nontrivial_queries_but_keeps_universal_witnesses() -> (
+    None
+):
+    """Unsupported lower families retain only the two theorem-free identities."""
+    rational = rational_base()
+    lower = rational.extend(
+        MonomialExtension(
+            Poly(t**2, t, domain=rational.field()),
+            ConstantFieldStatus.UNKNOWN,
+        ),
+    )
+    extension = hyperexponential_extension(lower, x)
+
+    unsupported = solve_parametric_logarithmic_derivative(
+        1,
+        extension,
+        lower.derivation(),
+    )
+    zero = solve_parametric_logarithmic_derivative(
+        0,
+        extension,
+        lower.derivation(),
+    )
+    eta = solve_parametric_logarithmic_derivative(
+        x,
+        extension,
+        lower.derivation(),
+    )
+
+    assert unsupported.is_unsupported
+    assert "unsupported_monomial_family" in unsupported.detail
+    assert (zero.n, zero.m, zero.argument) == (1, 0, lower.field().one)
+    assert (eta.n, eta.m, eta.argument) == (1, 1, lower.field().one)
+    assert zero.reconstructs
+    assert eta.reconstructs
+
+
 @settings(max_examples=50, deadline=None)
 @given(
     n=st.integers(min_value=1, max_value=6),

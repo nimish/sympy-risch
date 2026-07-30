@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sympy.polys.polytools import Poly
 
+from ..admission import RischOperation, assess_risch_operation
 from ..relations.linear import solve_logarithmic_relation_system
 from ..tower.core import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._common import (
@@ -199,17 +200,18 @@ def solve_parametric_logarithmic_derivative(
     field = lower_derivation.field
     element = _coerce(field, f)
 
-    has_hypertangent_level = _tower_contains_hypertangent_level(
+    admission = assess_risch_operation(
         lower_derivation,
+        RischOperation.PARAMETRIC_LOGARITHMIC_DERIVATIVE,
     )
-    has_hyperexponential_level = _tower_contains_hyperexponential_level(
+    needs_relation_system = _tower_contains_hypertangent_level(
         lower_derivation,
-    )
-    if has_hypertangent_level or has_hyperexponential_level:
-        # These two witnesses do not need any structural theorem about the
-        # lower tower. In particular, an unavailable lower solver must not
-        # turn ``D(1)/1`` or ``Dtheta/theta`` into an unsupported (and later
-        # potentially negative) parametric query.
+    ) or _tower_contains_hyperexponential_level(lower_derivation)
+    # These identities need no theorem about the lower field. Preserve them
+    # outside the admitted cell and before a mixed E/T relation-system descent.
+    # Rational and primitive solvers still run so they retain their stronger
+    # structure certificates for these inputs.
+    if needs_relation_system or not admission.accepted:
         if element == field.zero:
             return ParametricLogarithmicDerivativeResult(
                 extension,
@@ -231,6 +233,45 @@ def solve_parametric_logarithmic_derivative(
                 argument=field.one,
             )
 
+    if not admission.accepted:
+        if admission.reason is None:
+            raise RuntimeError("unsupported PLogD admission omitted its reason")
+        return ParametricLogarithmicDerivativeResult(
+            extension,
+            lower_derivation,
+            element,
+            ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
+            detail=(
+                "parametric logarithmic derivatives are unsupported for this "
+                f"lower tower prefix: {admission.reason.value}: {admission.detail}"
+            ),
+        )
+
+    result = _solve_admitted_parametric_logarithmic_derivative(
+        element,
+        extension,
+        lower_derivation,
+    )
+    if not (result.has_solution or result.proves_no_solution):
+        raise RuntimeError(
+            "the admitted parametric logarithmic-derivative solver did not "
+            f"return a decision: {result.detail}"
+        )
+    return result
+
+
+def _solve_admitted_parametric_logarithmic_derivative(
+    element: object,
+    extension: MonomialExtension,
+    lower_derivation: Derivation,
+) -> ParametricLogarithmicDerivativeResult:
+    """Run the complete PLogD dispatch after public operation admission."""
+    has_hypertangent_level = _tower_contains_hypertangent_level(
+        lower_derivation,
+    )
+    has_hyperexponential_level = _tower_contains_hyperexponential_level(
+        lower_derivation,
+    )
     if has_hypertangent_level:
         return _solve_monomial_relation_system_parametric_logarithmic_derivative(
             element,
@@ -239,22 +280,6 @@ def solve_parametric_logarithmic_derivative(
         )
 
     if has_hyperexponential_level:
-        from ..constant_proofs import first_nonpreserved_constant_level
-
-        evidence = first_nonpreserved_constant_level(lower_derivation)
-        if evidence is not None:
-            suffix = f": {evidence.detail}" if evidence.detail else ""
-            return ParametricLogarithmicDerivativeResult(
-                extension,
-                lower_derivation,
-                element,
-                ParametricLogarithmicDerivativeOutcome.UNSUPPORTED,
-                detail=(
-                    "parametric logarithmic derivatives require "
-                    "Const(K(t)) = Const(K) at every lower monomial level"
-                    f"{suffix}"
-                ),
-            )
         return _solve_monomial_relation_system_parametric_logarithmic_derivative(
             element,
             extension,
@@ -268,13 +293,13 @@ def solve_parametric_logarithmic_derivative(
             and lower_extension.family is MonomialFamily.PRIMITIVE
         ):
             return _solve_primitive_parametric_logarithmic_derivative(
-                f,
+                element,
                 extension,
                 lower_derivation,
             )
 
     heuristic_result = solve_parametric_logarithmic_derivative_heuristic(
-        f,
+        element,
         extension,
         lower_derivation,
     )

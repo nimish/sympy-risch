@@ -32,10 +32,10 @@ The finite-constant P/E/T structure, exact, logarithmic-derivative,
 scalar-RDE, parametric-RDE, required coupled-RDE, and elementary-integration
 cells are algorithmically complete. A typed executable operation matrix now
 separates those total cells from structural tower recognition and guards the
-public exact, RDE, limited-integration, coupled, and elementary dispatchers.
-General polynomial monomials remain deliberately outside that cell: they lack
-an exhaustive derivation-bound special-polynomial decision and the complete
-special-denominator branch.
+public exact, parametric-logarithmic, RDE, limited-integration, coupled, and
+elementary dispatchers. General polynomial monomials remain deliberately
+outside that cell: they lack an exhaustive derivation-bound
+special-polynomial decision and the complete special-denominator branch.
 
 This plan closes those gaps without rewriting the working rational and P/E/T
 algorithms.
@@ -165,8 +165,11 @@ dependency evidence over every constant field admitted by T0.
 constant field admitted by T0. The production relation compiler handles the
 real tangent divisor `1+t**2` directly, uses a saturated Smith kernel for
 minimal radical powers, and retains the Cayley/Gaussian implementation as an
-independent oracle. General effective constants and unknown special-polynomial
-families remain outside the declared classical cell.
+independent oracle. The public PLogD solver now enforces this operation cell:
+an admitted query returns a witness or a theorem-backed negative result,
+while an unsupported lower family remains explicitly unsupported. General
+effective constants and unknown special-polynomial families remain outside
+the declared classical cell.
 
 Turn the existing fundamental signatures into a total recursive structure
 decision:

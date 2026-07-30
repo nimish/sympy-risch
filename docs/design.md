@@ -504,6 +504,12 @@ precondition error. Acceptance means the selected algorithm is total on its
 declared cell; it is still not a claim that a particular equation is
 solvable.
 
+PLogD uses the same boundary for its lower field. The identities `f = 0` and
+`f = D(theta)/theta` remain constructive even outside the total cell; every
+other unsupported lower family returns `UNSUPPORTED`. Once admission accepts
+a lower P/E/T prefix, the recursive solver must return either a verified
+witness or a theorem-backed negative result.
+
 SymPy fraction fields over an `AlgebraicField` can retain different constant
 units in equal numerator/denominator representations. The neutral
 `reduction.polynomials` helpers make only those affected coefficient
@@ -1330,6 +1336,11 @@ independent generated matrix-oracle comparisons. Recursive elementary
 integration is total on the declared classical P/E/T cell. The typed
 `RischOperation` matrix makes that contract executable and keeps unsupported
 general-polynomial or algebraic families outside it.
+
+Expression compilation and operation admission have separate ownership.
+Compilation validates the source-to-tower translation and the individual
+extension certificates. The integration dispatcher then performs elementary
+admission once, when it actually executes the operation.
 
 The normalization layer now includes the verified hyperbolic law
 `Dt = eta*(1 - t**2) -> Du = 2*eta*u` and an explicit quadratic/Riccati

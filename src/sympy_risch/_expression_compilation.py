@@ -38,7 +38,6 @@ from ._expression_validation import (
     validate_compiled_extension_sources,
 )
 from ._typing import FieldElement, SupportsAsExpr
-from .admission import assess_elementary_admission
 from .dependency import (
     TranscendentalExtensionAnalysis,
     certify_hyperexponential_extension,
@@ -49,7 +48,6 @@ from .tower.core import (
     AlgebraicExtension,
     ConstantFieldStatus,
     DifferentialTower,
-    MonomialExtension,
 )
 
 
@@ -72,7 +70,6 @@ class ExpressionUnsupportedReason(Enum):
     CONSTANT_EXTENSION = "constant_extension"
     DEPENDENT_EXTENSION = "dependent_extension"
     UNCERTIFIED_EXTENSION = "uncertified_extension"
-    TOWER_ADMISSION = "tower_admission"
     INTEGRATION_BACKEND = "integration_backend"
 
 
@@ -278,13 +275,6 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
     tower, element = compilation._require_compiled()
     substitutions = dict(compilation.generator_substitutions)
     validate_compiled_extension_sources(compilation, substitutions)
-    if all(isinstance(level, MonomialExtension) for level in tower.levels):
-        admission = assess_elementary_admission(tower.derivation())
-        if not admission.accepted:
-            raise ValueError(
-                "a compiled transcendental expression needs an admitted "
-                "certified P/E/T tower"
-            )
     normalized_element = _embed_native_element(tower, element)
     source_generators = {
         source: generator for generator, source in substitutions.items()
@@ -629,18 +619,6 @@ def compile_expression(
             failure.detail,
         )
 
-    if all(isinstance(level, MonomialExtension) for level in compiler.tower.levels):
-        admission = assess_elementary_admission(compiler.tower.derivation())
-        if not admission.accepted:
-            if admission.reason is None:
-                raise RuntimeError("an unsupported tower admission omitted its reason")
-            return _unsupported_compilation(
-                expression,
-                variable,
-                ExpressionUnsupportedReason.TOWER_ADMISSION,
-                f"the compiled tower is outside elementary admission: "
-                f"{admission.reason.value}: {admission.detail}",
-            )
     return ExpressionCompilation(
         expression,
         variable,

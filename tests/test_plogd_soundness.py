@@ -237,10 +237,10 @@ def test_hyperexponential_dependency_is_transcendental_only_after_a_proved_negat
     assert lower_result.proves_no_solution
 
 
-def test_unsupported_nested_plogd_is_not_a_transcendence_certificate(
+def test_admitted_plogd_cannot_degrade_to_unsupported(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A missing relation solver stays unsupported through dependency analysis."""
+    """An accepted total cell treats a missing internal solver as a defect."""
     tower = _adversarial_hyperexponential_tower()
     lower_derivation = tower.derivation().lower()
     extension = tower.levels[-1]
@@ -251,25 +251,27 @@ def test_unsupported_nested_plogd_is_not_a_transcendence_certificate(
         _unavailable_relation_system,
     )
 
-    parametric_result = solve_parametric_logarithmic_derivative(
-        x**2,
-        extension,
-        lower_derivation,
-    )
-    assert parametric_result.is_unsupported
-    assert not parametric_result.proves_no_solution
+    with pytest.raises(
+        RuntimeError,
+        match="admitted parametric logarithmic-derivative solver",
+    ):
+        solve_parametric_logarithmic_derivative(
+            x**2,
+            extension,
+            lower_derivation,
+        )
 
     with pytest.raises(
-        NotImplementedError,
-        match="test relation system is unavailable",
+        RuntimeError,
+        match="admitted parametric logarithmic-derivative solver",
     ):
         analyze_hyperexponential_extension(extension, lower_derivation)
 
-    analysis = certify_hyperexponential_extension(
-        extension.generator_derivative,
-        lower_derivation,
-    )
-    assert analysis.status is ConstantFieldStatus.UNKNOWN
-    assert analysis.dependency is None
-    assert analysis.detail is not None
-    assert "test relation system is unavailable" in analysis.detail
+    with pytest.raises(
+        RuntimeError,
+        match="admitted parametric logarithmic-derivative solver",
+    ):
+        certify_hyperexponential_extension(
+            extension.generator_derivative,
+            lower_derivation,
+        )
