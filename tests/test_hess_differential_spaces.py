@@ -15,6 +15,9 @@ from sympy_risch import (
     hess_large_riemann_roch_space,
     holomorphic_differential_space,
 )
+from sympy_risch.algebraic_geometry.riemann_roch import (
+    constant_coordinate_matrix,
+)
 
 x, y = symbols("x y")
 
@@ -56,6 +59,31 @@ def test_holomorphic_differential_dimension_equals_genus(
     assert all(space.contains(differential) for differential in expanded)
     assert space.reconstructs
     assert space.verify_expansion()
+
+
+def test_genus_two_holomorphic_basis_matches_the_classical_forms() -> None:
+    model = algebraic_model(y**2 - x**5 + x)
+    field = model.extension.field
+    generator = field.generator
+    known_coefficients = (
+        generator**-1,
+        field.from_sympy(x) / generator,
+    )
+
+    space = holomorphic_differential_space(model)
+    computed_coefficients = tuple(
+        differential.coefficient for differential in space.expand()
+    )
+
+    assert len(computed_coefficients) == 2
+    assert space.verify_expansion()
+    assert (
+        constant_coordinate_matrix(
+            model,
+            known_coefficients + computed_coefficients,
+        ).rank()
+        == 2
+    )
 
 
 def test_differential_spaces_satisfy_riemann_roch_duality() -> None:

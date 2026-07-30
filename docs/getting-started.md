@@ -1361,10 +1361,12 @@ from sympy_risch.algebraic_geometry import (
 holomorphic = holomorphic_differential_space(curve)
 assert holomorphic.dimension == curve.genus
 
-bounded_differentials = hess_differential_space(curve, pole_divisor)
+pole_bound = pole_divisor.scale(3)
+bounded_differentials = hess_differential_space(curve, -pole_bound)
 assert bounded_differentials.coefficient_divisor == (
-    curve.canonical_divisor() - pole_divisor
+    curve.canonical_divisor() + pole_bound
 )
+assert bounded_differentials.dimension == 2
 ```
 
 Both results remain in Algorithm 24's short form. Use `expand()` only when
