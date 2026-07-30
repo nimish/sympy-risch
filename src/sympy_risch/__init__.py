@@ -2,10 +2,12 @@
 
 from ._version import __version__
 from .admission import (
+    RischOperation,
     TowerAdmission,
     TowerAdmissionOutcome,
     TowerAdmissionReason,
     assess_elementary_admission,
+    assess_risch_operation,
     assess_scalar_rde_admission,
 )
 from .algebraic import (
@@ -462,6 +464,7 @@ __all__ = [
     "RiemannRochSpace",
     "RiemannRochSpaceStatus",
     "RischDifferentialEquationResult",
+    "RischOperation",
     "SimpleRadicalData",
     "SpecialPolynomialAnalysis",
     "SpecialPolynomialCertificate",
@@ -481,6 +484,7 @@ __all__ = [
     "analyze_special_polynomials",
     "analyze_tower_representation",
     "assess_elementary_admission",
+    "assess_risch_operation",
     "assess_scalar_rde_admission",
     "bronstein_residue_criterion",
     "build_algebraic_residue_profile",

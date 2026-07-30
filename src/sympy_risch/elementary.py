@@ -708,29 +708,11 @@ def integrate_relative_simple_radical(
     return result
 
 
-def integrate_elementary(
+def _integrate_elementary_admitted(
     integrand: object,
     derivation: Derivation,
 ) -> ElementaryIntegralResult:
-    r"""Integrate ``integrand`` recursively in an explicit differential tower.
-
-    Implemented tower levels are the standard rational base ``C(x)`` with
-    ``Dx = 1`` over an effective finite algebraic constant field ``C`` and the
-    documented recursive primitive, hyperexponential, and hypertangent shapes
-    above it, provided replay proves constant preservation at every non-base
-    level. Some mixed orderings remain explicit unsupported boundaries. The exact hyperbolic law
-    ``Dt = eta*(1 - t**2)`` is normalized immutably to a hyperexponential
-    coordinate. General nonlinear no-special reduction remains unavailable:
-    a bare special-polynomial status is not an absence certificate.
-
-    Terminal simple radicals have one constructive mixed route: exact
-    nonconstant power-basis modes descend to lower scalar RDEs, then the
-    lower coordinate is integrated recursively.  General algebraic levels,
-    generalized monomials without the needed structure theorem, and automatic
-    tower discovery remain deliberately unsupported.  An unsupported shape
-    raises :class:`NotImplementedError`; it is never presented as a proof of
-    non-elementarity.
-    """
+    """Run recursive integration inside a checked or specialized route."""
     field = derivation.field
     element = _coerce(field, integrand)
 
@@ -780,10 +762,9 @@ def integrate_elementary(
     elif is_hyperbolic_mobius_law(extension):
         return _integrate_hyperbolic_mobius_level(element, derivation)
     else:
-        raise NotImplementedError(
-            "elementary integration has no complete reduction for this "
-            "monomial family; a general polynomial level requires a "
-            "library-derived complete no-special-polynomial certificate"
+        raise RuntimeError(
+            "operation admission accepted a monomial family with no "
+            "elementary integration dispatcher"
         )
 
     lower_result = None
@@ -799,7 +780,7 @@ def integrate_elementary(
             raise ValueError(
                 "level remainder does not equal the embedded lower remainder"
             )
-        lower_result = integrate_elementary(
+        lower_result = _integrate_elementary_admitted(
             lower_remainder,
             derivation.lower(),
         )
@@ -819,3 +800,44 @@ def integrate_elementary(
     if not result.reconstructs:
         raise ValueError("recursive elementary integration reconstruction failed")
     return result
+
+
+def integrate_elementary(
+    integrand: object,
+    derivation: Derivation,
+) -> ElementaryIntegralResult:
+    r"""Integrate ``integrand`` recursively in an explicit differential tower.
+
+    Implemented tower levels are the standard rational base ``C(x)`` with
+    ``Dx = 1`` over an effective finite algebraic constant field ``C`` and the
+    documented recursive primitive, hyperexponential, and hypertangent shapes
+    above it, provided replay proves constant preservation at every non-base
+    level.  The exact hyperbolic law ``Dt = eta*(1 - t**2)`` is normalized
+    immutably to a hyperexponential coordinate.
+
+    Terminal simple radicals have one constructive mixed route: exact
+    nonconstant power-basis modes descend to lower scalar RDEs, then the
+    lower coordinate is integrated recursively.  General algebraic levels,
+    generalized monomials without the needed structure theorem, and automatic
+    tower discovery remain deliberately unsupported.  An unsupported shape
+    raises :class:`NotImplementedError`; it is never presented as a proof of
+    non-elementarity.
+    """
+    if not isinstance(derivation, Derivation):
+        raise TypeError("elementary integration requires a Derivation")
+    if derivation.level == -1:
+        return _integrate_elementary_admitted(integrand, derivation)
+
+    extension = derivation.tower.levels[derivation.level]
+    if isinstance(extension, AlgebraicExtension):
+        return _integrate_elementary_admitted(integrand, derivation)
+
+    admission = assess_elementary_admission(derivation)
+    if not admission.accepted:
+        if admission.reason is None:
+            raise RuntimeError("unsupported elementary admission omitted its reason")
+        raise NotImplementedError(
+            "elementary integration is unsupported for this tower prefix: "
+            f"{admission.reason.value}: {admission.detail}"
+        )
+    return _integrate_elementary_admitted(integrand, derivation)

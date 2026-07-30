@@ -22,6 +22,12 @@
 - **Category**: direction / tests / DX
 - **Planned at**: commit `97fccfc`, 2026-07-25
 
+> **Current follow-up:** Plan 016 T0/T8 has since replaced the original
+> structural `problem` string with the typed `RischOperation` matrix. Accepted
+> results now identify a total operation cell; the historical steps below
+> describe the narrower checkpoint that established the first admission
+> boundary.
+
 ## Why this matters
 
 The library has a structural admission boundary for a deliberately narrow
@@ -35,9 +41,9 @@ front-end work one authoritative boundary.
 
 ## Completed state
 
-- `src/sympy_risch/admission.py` exposes immutable `TowerAdmission` results,
-  stable rejection reasons, and the solver-free
-  `assess_elementary_admission` boundary check.
+- `src/sympy_risch/admission.py` now exposes immutable `TowerAdmission`
+  results, stable rejection reasons, the typed `assess_risch_operation`
+  matrix, and elementary/scalar convenience wrappers.
 - `tests/test_admission.py` covers the rational base, all three top P/E/T
   families, all nine directed two-level P/E/T arrows, exact and structured
   obstruction cells, and every current rejection category.

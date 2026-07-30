@@ -725,7 +725,7 @@ def test_generic_dispatch_handles_terminal_simple_radicals_and_rejects_other_fam
             ConstantFieldStatus.PRESERVED,
         ),
     )
-    with pytest.raises(NotImplementedError, match="supports rational"):
+    with pytest.raises(NotImplementedError, match="base must have derivative Dx = 1"):
         solve_exact_derivative(
             scaled_base.field().one,
             scaled_base.derivation(),
@@ -757,7 +757,7 @@ def test_generic_dispatch_replays_transcendental_structure() -> None:
             ConstantFieldStatus.PRESERVED,
         )
     )
-    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
+    with pytest.raises(NotImplementedError, match="constant_field_enlarged"):
         solve_exact_derivative(
             dependent_exponential.field().one,
             dependent_exponential.derivation(),
@@ -773,7 +773,7 @@ def test_generic_dispatch_replays_transcendental_structure() -> None:
             ConstantFieldStatus.PRESERVED,
         )
     )
-    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
+    with pytest.raises(NotImplementedError, match="constant_field_enlarged"):
         solve_exact_derivative(
             dependent_tangent.field().one,
             dependent_tangent.derivation(),

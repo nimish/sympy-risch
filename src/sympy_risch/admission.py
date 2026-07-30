@@ -1,14 +1,16 @@
-r"""Admission boundary for the certified elementary P/E/T contract.
+r"""Operation admission for the certified finite-constant P/E/T cell.
 
-The elementary dispatcher is intentionally broader than this boundary in a
-few isolated, separately documented cases.  This module answers a different
-question: whether an explicit active tower belongs to the finite
-primitive/hyperexponential/hypertangent (P/E/T) class satisfying the
-library's structural theorem preconditions.  It does not promise that every
-recursive solver branch has been implemented, nor does it run an integrand
-reduction.  It replays the structural constant-field criterion; an
-unsupported answer is not a statement about whether a particular integrand
-is elementary.
+Structural validity and algorithmic support are different questions.  This
+module implements the latter as a small matrix indexed by an active tower
+prefix and a :class:`RischOperation`.  An accepted result means that the
+selected operation is total on its declared input cell; it does not predict
+whether a particular equation has a solution.  An unsupported result is an
+algorithm boundary, never a proof of nonexistence.
+
+The elementary dispatcher has a few explicitly checked routes outside the
+classical cell, notably terminal simple radicals.  Those routes retain their
+own narrower contracts rather than being advertised here as total algebraic
+integration.
 """
 
 from __future__ import annotations
@@ -30,15 +32,24 @@ from .tower.core import (
     MonomialFamily,
 )
 
-_ELEMENTARY_INTEGRATION_PROBLEM = "elementary_integration"
-_SCALAR_RDE_PROBLEM = "scalar_rde"
-
 
 class TowerAdmissionOutcome(Enum):
     """Whether a tower is inside the declared algorithmic contract."""
 
     ACCEPTED = "accepted"
     UNSUPPORTED = "unsupported"
+
+
+class RischOperation(Enum):
+    """A public solver operation with an independently checkable input cell."""
+
+    EXACT_DERIVATIVE = "exact_derivative"
+    PARAMETRIC_LOGARITHMIC_DERIVATIVE = "parametric_logarithmic_derivative"
+    SCALAR_RDE = "scalar_rde"
+    PARAMETRIC_RDE = "parametric_rde"
+    LIMITED_INTEGRATION = "limited_integration"
+    COUPLED_RDE = "coupled_rde"
+    ELEMENTARY_INTEGRATION = "elementary_integration"
 
 
 class TowerAdmissionReason(Enum):
@@ -50,22 +61,23 @@ class TowerAdmissionReason(Enum):
     ALGEBRAIC_EXTENSION = "algebraic_extension"
     CONSTANT_FIELD_UNKNOWN = "constant_field_unknown"
     CONSTANT_FIELD_ENLARGED = "constant_field_enlarged"
+    COUPLED_RDE_BASE = "coupled_rde_base"
     HYPERBOLIC_LOWER_LEVEL = "hyperbolic_lower_level"
-    HYPERTANGENT_RDE_BASE = "hypertangent_rde_base"
+    HYPERTANGENT_REAL_CONSTANTS = "hypertangent_real_constants"
     UNSUPPORTED_MONOMIAL_FAMILY = "unsupported_monomial_family"
     UNSUPPORTED_EXTENSION = "unsupported_extension"
 
 
 @dataclass(frozen=True, slots=True)
 class TowerAdmission:
-    r"""A structural classification of one active tower prefix.
+    r"""Operation support for one active tower prefix.
 
-    ``tower`` and ``level`` describe the derivation on which an elementary
-    integration request would operate.  Levels above ``level`` are inactive
-    and deliberately have no effect on the classification.
+    ``tower`` and ``level`` describe the derivation on which ``operation``
+    would run. Levels above ``level`` are inactive and deliberately have no
+    effect on the classification.
     """
 
-    problem: str
+    operation: RischOperation
     tower: DifferentialTower
     level: int
     outcome: TowerAdmissionOutcome
@@ -73,8 +85,8 @@ class TowerAdmission:
     detail: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.problem, str) or not self.problem:
-            raise ValueError("an admission result needs a nonempty problem name")
+        if not isinstance(self.operation, RischOperation):
+            raise TypeError("an admission result needs a RischOperation")
         if not isinstance(self.tower, DifferentialTower):
             raise TypeError("an admission result needs a DifferentialTower")
         if not isinstance(self.level, int):
@@ -119,14 +131,11 @@ def is_standard_rational_base(extension: MonomialExtension) -> bool:
 def _accepted(
     derivation: Derivation,
     *,
-    problem: str = _ELEMENTARY_INTEGRATION_PROBLEM,
-    detail: str = (
-        "the active tower has a replay-certified finite P/E/T structural shape over C(x), "
-        "possibly with a hyperbolic Möbius normalization at its top level"
-    ),
+    operation: RischOperation,
+    detail: str,
 ) -> TowerAdmission:
     return TowerAdmission(
-        problem,
+        operation,
         derivation.tower,
         derivation.level,
         TowerAdmissionOutcome.ACCEPTED,
@@ -140,10 +149,10 @@ def _unsupported(
     reason: TowerAdmissionReason,
     detail: str,
     *,
-    problem: str = _ELEMENTARY_INTEGRATION_PROBLEM,
+    operation: RischOperation,
 ) -> TowerAdmission:
     return TowerAdmission(
-        problem,
+        operation,
         derivation.tower,
         derivation.level,
         TowerAdmissionOutcome.UNSUPPORTED,
@@ -156,7 +165,7 @@ def _constant_field_rejection(
     derivation: Derivation,
     index: int,
     *,
-    problem: str,
+    operation: RischOperation,
 ) -> TowerAdmission | None:
     """Reject a level whose independent replay is not preserved."""
     evidence = replay_constant_field(Derivation(derivation.tower, index))
@@ -166,7 +175,7 @@ def _constant_field_rejection(
             TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
             f"independent certification proves that level {index} enlarges "
             "the constant field",
-            problem=problem,
+            operation=operation,
         )
     if evidence.status is ConstantFieldStatus.UNKNOWN:
         suffix = f": {evidence.detail}" if evidence.detail else ""
@@ -174,36 +183,38 @@ def _constant_field_rejection(
             derivation,
             TowerAdmissionReason.CONSTANT_FIELD_UNKNOWN,
             f"independent certification is unavailable for level {index}{suffix}",
-            problem=problem,
+            operation=operation,
         )
     return None
 
 
-def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
-    r"""Classify an active tower for certified recursive P/E/T integration.
+def assess_risch_operation(
+    derivation: Derivation,
+    operation: RischOperation,
+) -> TowerAdmission:
+    r"""Classify one active tower prefix for a selected Risch operation.
 
-    The admitted class has a standard rational base ``C(x)``, ``Dx=1``, over
-    an effective finite algebraic extension ``C`` of ``QQ``, followed by finite
-    primitive, hyperexponential, or hypertangent prefixes with certified
-    preserved constants.  This classifies structural theorem preconditions,
-    not completion of every current recursive solver branch.  The exact hyperbolic law
-    ``Dt=eta*(1-t**2)`` is also admitted when it is the active top level,
-    because the dispatcher normalizes that level immutably to a
-    hyperexponential coordinate.
+    The classical accepted cell has a standard rational base ``C(x)``,
+    ``Dx=1``, over an effective finite algebraic extension ``C/QQ``, followed
+    by a replay-certified primitive, hyperexponential, or hypertangent prefix.
+    Hypertangent and real coupled operations require provably real constants.
 
-    This is an admission check, not an integration decision: it replays the
-    structural constant-field criteria but never reduces an integrand.  In
-    particular, ``UNSUPPORTED`` does not mean that an integrand has no
-    elementary antiderivative.
+    Elementary integration additionally accepts an exact hyperbolic Möbius law
+    at the active top level because that dispatcher owns a complete immutable
+    normalization to the classical cell.  Other operations do not silently
+    inherit that coordinate change.
     """
     if not isinstance(derivation, Derivation):
-        raise TypeError("elementary admission requires a Derivation")
+        raise TypeError("Risch operation admission requires a Derivation")
+    if not isinstance(operation, RischOperation):
+        raise TypeError("Risch operation admission requires a RischOperation")
 
     if derivation.level < 0:
         return _unsupported(
             derivation,
             TowerAdmissionReason.NO_RATIONAL_BASE,
-            "the constant field alone has no standard rational C(x) base",
+            f"{operation.value} requires a standard rational C(x) base",
+            operation=operation,
         )
 
     active_levels = derivation.tower.levels[: derivation.level + 1]
@@ -212,13 +223,15 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
         return _unsupported(
             derivation,
             TowerAdmissionReason.ALGEBRAIC_EXTENSION,
-            "level 0 is algebraic; algebraic elementary integration is not admitted",
+            f"level 0 is algebraic; it is outside the classical {operation.value} cell",
+            operation=operation,
         )
     if not isinstance(base, MonomialExtension):
         return _unsupported(
             derivation,
             TowerAdmissionReason.UNSUPPORTED_EXTENSION,
             "level 0 is not a monomial extension",
+            operation=operation,
         )
     constant_profile = finite_constant_field_profile(base.parent_field)
     if constant_profile is None:
@@ -227,12 +240,22 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
             TowerAdmissionReason.BASE_FIELD,
             "the rational base must be over an effective finite algebraic "
             "extension of QQ",
+            operation=operation,
         )
     if not is_standard_rational_base(base):
         return _unsupported(
             derivation,
             TowerAdmissionReason.BASE_DERIVATIVE,
             "the rational base must have derivative Dx = 1",
+            operation=operation,
+        )
+    if operation is RischOperation.COUPLED_RDE and not constant_profile.is_real:
+        return _unsupported(
+            derivation,
+            TowerAdmissionReason.COUPLED_RDE_BASE,
+            "real coupled RDE solving requires a provably real finite "
+            "algebraic constant field",
+            operation=operation,
         )
 
     for index, extension in enumerate(active_levels[1:], start=1):
@@ -241,12 +264,14 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
                 derivation,
                 TowerAdmissionReason.ALGEBRAIC_EXTENSION,
                 f"level {index} is algebraic",
+                operation=operation,
             )
         if not isinstance(extension, MonomialExtension):
             return _unsupported(
                 derivation,
                 TowerAdmissionReason.UNSUPPORTED_EXTENSION,
                 f"level {index} is not a monomial extension",
+                operation=operation,
             )
         if extension.family in {
             MonomialFamily.PRIMITIVE,
@@ -259,15 +284,16 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
             ):
                 return _unsupported(
                     derivation,
-                    TowerAdmissionReason.HYPERTANGENT_RDE_BASE,
-                    f"level {index} is hypertangent, but real elementary "
-                    "integration requires a provably real finite algebraic "
+                    TowerAdmissionReason.HYPERTANGENT_REAL_CONSTANTS,
+                    f"level {index} is hypertangent, but {operation.value} "
+                    "requires a provably real finite algebraic "
                     "constant field",
+                    operation=operation,
                 )
             rejection = _constant_field_rejection(
                 derivation,
                 index,
-                problem=_ELEMENTARY_INTEGRATION_PROBLEM,
+                operation=operation,
             )
             if rejection is not None:
                 return rejection
@@ -276,153 +302,69 @@ def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
             rejection = _constant_field_rejection(
                 derivation,
                 index,
-                problem=_ELEMENTARY_INTEGRATION_PROBLEM,
+                operation=operation,
             )
             if rejection is not None:
                 return rejection
-            if index == derivation.level:
+            if (
+                operation is RischOperation.ELEMENTARY_INTEGRATION
+                and index == derivation.level
+            ):
                 continue
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.HYPERBOLIC_LOWER_LEVEL,
-                f"level {index} is hyperbolic, but Möbius normalization is "
-                "implemented only for the active top level",
-            )
+            if operation is RischOperation.ELEMENTARY_INTEGRATION:
+                return _unsupported(
+                    derivation,
+                    TowerAdmissionReason.HYPERBOLIC_LOWER_LEVEL,
+                    f"level {index} is hyperbolic, but Möbius normalization is "
+                    "implemented only for the active top level",
+                    operation=operation,
+                )
         return _unsupported(
             derivation,
             TowerAdmissionReason.UNSUPPORTED_MONOMIAL_FAMILY,
-            f"level {index} has unsupported monomial family {extension.family.value}; "
-            "a caller-supplied no-special status is not a certificate",
+            f"level {index} has monomial family {extension.family.value}, "
+            f"which is outside the complete {operation.value} cell",
+            operation=operation,
         )
-
-    return _accepted(derivation)
-
-
-def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
-    r"""Classify a tower prefix for recursive scalar RDE dispatch.
-
-    The current dispatcher supports ``C(x)`` bases with ``Dx=1`` when ``C``
-    is an effective finite algebraic extension of ``QQ``, followed by
-    certified primitive and hyperexponential levels. Provably real ``C`` also
-    supports hypertangent levels through the exact compositum ``C(i)``.
-    Unlike elementary integration admission, this narrower solver contract
-    neither needs a special-polynomial hypothesis nor normalizes
-    hyperbolic/Riccati polynomial levels.
-
-    This check replays structural constant-field criteria, but neither solves
-    a requested RDE nor promises that every recursive solver branch is
-    implemented. An ``UNSUPPORTED`` result says only that the current scalar
-    RDE dispatcher cannot be called safely on the prefix; it says nothing
-    about solvability of a particular equation.
-    """
-    if not isinstance(derivation, Derivation):
-        raise TypeError("scalar RDE admission requires a Derivation")
-
-    if derivation.level < 0:
-        return _unsupported(
-            derivation,
-            TowerAdmissionReason.NO_RATIONAL_BASE,
-            "scalar RDE solving requires a nonconstant differential field",
-            problem=_SCALAR_RDE_PROBLEM,
-        )
-
-    active_levels = derivation.tower.levels[: derivation.level + 1]
-    base = active_levels[0]
-    if isinstance(base, AlgebraicExtension):
-        return _unsupported(
-            derivation,
-            TowerAdmissionReason.ALGEBRAIC_EXTENSION,
-            "level 0 is algebraic; scalar RDE dispatch has no algebraic base",
-            problem=_SCALAR_RDE_PROBLEM,
-        )
-    if not isinstance(base, MonomialExtension):
-        return _unsupported(
-            derivation,
-            TowerAdmissionReason.UNSUPPORTED_EXTENSION,
-            "level 0 is not a monomial extension",
-            problem=_SCALAR_RDE_PROBLEM,
-        )
-    constant_profile = finite_constant_field_profile(base.parent_field)
-    if constant_profile is None:
-        return _unsupported(
-            derivation,
-            TowerAdmissionReason.BASE_FIELD,
-            "the scalar RDE base must be over an effective finite algebraic "
-            "extension of QQ",
-            problem=_SCALAR_RDE_PROBLEM,
-        )
-    if base.generator_derivative != Poly(
-        1,
-        base.generator,
-        domain=base.parent_field,
-    ):
-        return _unsupported(
-            derivation,
-            TowerAdmissionReason.BASE_DERIVATIVE,
-            "the scalar RDE rational base must have derivative Dx = 1",
-            problem=_SCALAR_RDE_PROBLEM,
-        )
-
-    for index, extension in enumerate(active_levels[1:], start=1):
-        if isinstance(extension, AlgebraicExtension):
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.ALGEBRAIC_EXTENSION,
-                f"level {index} is algebraic",
-                problem=_SCALAR_RDE_PROBLEM,
-            )
-        if not isinstance(extension, MonomialExtension):
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.UNSUPPORTED_EXTENSION,
-                f"level {index} is not a monomial extension",
-                problem=_SCALAR_RDE_PROBLEM,
-            )
-        if extension.family not in {
-            MonomialFamily.PRIMITIVE,
-            MonomialFamily.HYPEREXPONENTIAL,
-            MonomialFamily.HYPERTANGENT,
-        }:
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.UNSUPPORTED_MONOMIAL_FAMILY,
-                f"level {index} has unsupported monomial family "
-                f"{extension.family.value}",
-                problem=_SCALAR_RDE_PROBLEM,
-            )
-        if (
-            not constant_profile.is_real
-            and extension.family is MonomialFamily.HYPERTANGENT
-        ):
-            return _unsupported(
-                derivation,
-                TowerAdmissionReason.HYPERTANGENT_RDE_BASE,
-                f"level {index} is hypertangent, but scalar RDE dispatch "
-                "requires a provably real finite algebraic constant field",
-                problem=_SCALAR_RDE_PROBLEM,
-            )
-        rejection = _constant_field_rejection(
-            derivation,
-            index,
-            problem=_SCALAR_RDE_PROBLEM,
-        )
-        if rejection is not None:
-            return rejection
 
     return _accepted(
         derivation,
-        problem=_SCALAR_RDE_PROBLEM,
+        operation=operation,
         detail=(
-            "the active tower is a certified finite P/E prefix over C(x), "
-            "with hypertangent levels admitted when C is provably real"
+            f"{operation.value} is total on this replay-certified finite "
+            "P/E/T tower prefix"
+            + (
+                ", including its top-level hyperbolic Möbius normalization"
+                if isinstance(active_levels[-1], MonomialExtension)
+                and is_hyperbolic_mobius_law(active_levels[-1])
+                else ""
+            )
         ),
     )
 
 
+def assess_elementary_admission(derivation: Derivation) -> TowerAdmission:
+    r"""Classify a tower prefix for total recursive elementary integration."""
+    return assess_risch_operation(
+        derivation,
+        RischOperation.ELEMENTARY_INTEGRATION,
+    )
+
+
+def assess_scalar_rde_admission(derivation: Derivation) -> TowerAdmission:
+    r"""Classify a tower prefix for total recursive scalar RDE solving."""
+    return assess_risch_operation(
+        derivation,
+        RischOperation.SCALAR_RDE,
+    )
+
+
 __all__ = [
+    "RischOperation",
     "TowerAdmission",
     "TowerAdmissionOutcome",
     "TowerAdmissionReason",
     "assess_elementary_admission",
+    "assess_risch_operation",
     "assess_scalar_rde_admission",
 ]

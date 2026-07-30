@@ -116,8 +116,9 @@ remaining execution cells depend on those services rather than on more
 syntax-directed special cases.
 Plan 016 gives the transcendental track the same decomposition: effective
 constants, recursive structure decisions, total P/E/T scalar, parametric, and
-coupled RDEs, the optional general-monomial special-polynomial branch, and a
-total explicit-tower dispatcher. Plan 017 then owns the remaining user-facing
+coupled RDEs, an executable typed operation matrix, a total classical P/E/T
+dispatcher, and the optional general-monomial special-polynomial branch.
+Plan 017 then owns the remaining user-facing
 work: automatic verified tower construction, reversible compilation,
 complex-local and branch-aware real presentation, completeness evidence,
 performance, and incremental SymPy upstreaming.

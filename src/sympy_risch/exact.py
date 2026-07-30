@@ -9,6 +9,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly
 
 from ._typing import FieldElement, is_field_zero
+from .admission import RischOperation, assess_risch_operation
 from .algebraic.relative import (
     RelativeSimpleRadicalRDEResult,
     solve_relative_simple_radical_exact_derivative,
@@ -192,7 +193,7 @@ def _finish_transcendental_exact_derivative(
     lower_remainder = _transcendental_lower_remainder(active_reduction)
     if lower_remainder is not None:
         lower_derivation = derivation.lower()
-        lower_result = solve_exact_derivative(
+        lower_result = _solve_exact_derivative_admitted(
             lower_remainder,
             lower_derivation,
         )
@@ -241,16 +242,11 @@ def _solve_hypertangent_exact_derivative_via_rde(
     )
 
 
-def solve_exact_derivative(
+def _solve_exact_derivative_admitted(
     integrand: object,
     derivation: Derivation,
 ) -> ExactDerivativeResult:
-    r"""Dispatch the exact-derivative problem at an implemented tower level.
-
-    Results are normalized into ``derivation.field`` even though the rational
-    base solver has an expression API and the primitive solver works directly
-    with native fraction-field elements.
-    """
+    """Run recursive exactness inside a checked or specialized route."""
     field = derivation.field
     element = _coerce(field, integrand)
 
@@ -284,8 +280,8 @@ def solve_exact_derivative(
         )
 
     if not isinstance(extension, MonomialExtension):
-        raise NotImplementedError(
-            "exact-derivative dispatch does not support this tower level"
+        raise RuntimeError(
+            "operation admission accepted a non-monomial exact-derivative level"
         )
 
     constant_field = _standard_rational_constant_field(extension)
@@ -320,10 +316,9 @@ def solve_exact_derivative(
             reduction,
         )
     else:
-        raise NotImplementedError(
-            "exact-derivative dispatch currently supports rational, "
-            "primitive, hyperexponential, hypertangent, and terminal "
-            "simple-radical algebraic levels"
+        raise RuntimeError(
+            "operation admission accepted a monomial family with no "
+            "exact-derivative dispatcher"
         )
 
     return ExactDerivativeResult(
@@ -331,3 +326,40 @@ def solve_exact_derivative(
         _coerce(field, certificate.obstruction),
         certificate,
     )
+
+
+def solve_exact_derivative(
+    integrand: object,
+    derivation: Derivation,
+) -> ExactDerivativeResult:
+    r"""Decide exactness in an explicit differential tower.
+
+    Results are normalized into ``derivation.field`` even though the rational
+    base solver has an expression API and the primitive solver works directly
+    with native fraction-field elements. Classical P/E/T input is admitted at
+    the public operation boundary.
+
+    Terminal simple radicals retain a separate constructive route outside the
+    total classical operation cell.
+    """
+    if not isinstance(derivation, Derivation):
+        raise TypeError("exact-derivative solving requires a Derivation")
+    if derivation.level < 0:
+        return _solve_exact_derivative_admitted(integrand, derivation)
+
+    extension = derivation.tower.levels[derivation.level]
+    if isinstance(extension, AlgebraicExtension):
+        return _solve_exact_derivative_admitted(integrand, derivation)
+
+    admission = assess_risch_operation(
+        derivation,
+        RischOperation.EXACT_DERIVATIVE,
+    )
+    if not admission.accepted:
+        if admission.reason is None:
+            raise RuntimeError("unsupported exact admission omitted its reason")
+        raise NotImplementedError(
+            "exact-derivative solving is unsupported for this tower prefix: "
+            f"{admission.reason.value}: {admission.detail}"
+        )
+    return _solve_exact_derivative_admitted(integrand, derivation)

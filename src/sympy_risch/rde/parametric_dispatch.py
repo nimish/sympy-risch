@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from dataclasses import InitVar, dataclass
 
 from .._typing import FieldElement, FieldInput
-from ..admission import assess_scalar_rde_admission
+from ..admission import RischOperation, assess_risch_operation
 from ..constant_fields import finite_constant_field_profile
 from ..gaussian import build_hypertangent_gaussian_normal_form
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
@@ -245,7 +245,7 @@ def solve_parametric_risch_differential_equation(
     right_hand_side_inputs = tuple(right_hand_sides)
     if not right_hand_side_inputs:
         raise ValueError("a parametric RDE needs at least one right-hand side")
-    admission = assess_scalar_rde_admission(derivation)
+    admission = assess_risch_operation(derivation, RischOperation.PARAMETRIC_RDE)
     if not admission.accepted:
         if admission.reason is None:
             raise RuntimeError(
@@ -255,7 +255,22 @@ def solve_parametric_risch_differential_equation(
             "parametric RDE dispatch is unsupported for this tower prefix: "
             f"{admission.reason.value}: {admission.detail}"
         )
+    return _solve_admitted_parametric_risch_differential_equation(
+        coefficient,
+        right_hand_side_inputs,
+        derivation,
+    )
 
+
+def _solve_admitted_parametric_risch_differential_equation(
+    coefficient: FieldInput,
+    right_hand_sides: Iterable[FieldInput],
+    derivation: Derivation,
+) -> ParametricRischDifferentialEquationResult:
+    """Solve a nonempty PRDE after operation admission has been checked."""
+    right_hand_side_inputs = tuple(right_hand_sides)
+    if not right_hand_side_inputs:
+        raise ValueError("a parametric RDE needs at least one right-hand side")
     field = derivation.field
     coefficient_element = _coerce(field, coefficient)
     right_hand_side_elements = tuple(

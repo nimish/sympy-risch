@@ -80,7 +80,7 @@ def test_hyperbolic_mobius_dispatch_preserves_a_non_elementary_obstruction() -> 
 def test_hyperbolic_mobius_dispatch_rejects_a_false_constant_field_claim() -> None:
     tower = hyperbolic_tower(1 / x)
 
-    with pytest.raises(ValueError, match="constant-field replay is enlarged"):
+    with pytest.raises(NotImplementedError, match="constant_field_enlarged"):
         integrate_elementary(tower.field().one, tower.derivation())
 
 

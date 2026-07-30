@@ -104,10 +104,12 @@ from sympy_risch import (
     IntegrationObstructionKind,
     MonomialExtension,
     ParametricLogarithmicDerivativeOutcome,
+    RischOperation,
     TowerAdmission,
     TowerAdmissionOutcome,
     TowerAdmissionReason,
     assess_elementary_admission,
+    assess_risch_operation,
     build_riccati_mobius_normal_form,
     certify_primitive_extension,
     certify_special_polynomial,
@@ -158,25 +160,33 @@ simple-pole logarithmic part.
 
 ## Check the admission boundary
 
-Before relying on the elementary dispatcher, ask whether the explicit tower
-belongs to its certified P/E/T contract:
+Before dispatch, ask whether the explicit tower belongs to the total cell for
+the operation you need:
 
 ```python
-admission = assess_elementary_admission(base.derivation())
+admission = assess_risch_operation(
+    base.derivation(),
+    RischOperation.ELEMENTARY_INTEGRATION,
+)
 
 assert isinstance(admission, TowerAdmission)
 assert admission.outcome is TowerAdmissionOutcome.ACCEPTED
 ```
 
-`TowerAdmissionOutcome.ACCEPTED` says that the tower has a supported
-structural shape, not that a particular integrand has an elementary
-antiderivative or that every current recursive solver applies. If the outcome
-is `TowerAdmissionOutcome.UNSUPPORTED`, the failed assumption is represented
-by `TowerAdmissionReason`; that result also says nothing about integrability.
-The admitted family is primitive, hyperexponential, or hypertangent levels
-with replay-proved preserved constants, together with an exact hyperbolic Möbius
-normalization at the active top level described below. The explicit
-certificate-driven Riccati route below is intentionally separate: it first
+`TowerAdmissionOutcome.ACCEPTED` says that the selected operation is total on
+this tower cell: dispatch will return a constructive result or a
+theorem-backed obstruction rather than an unsupported-algorithm exit. It does
+not say that a particular equation has a solution. If the outcome is
+`TowerAdmissionOutcome.UNSUPPORTED`, the failed assumption is represented by
+`TowerAdmissionReason`; that result also says nothing about integrability.
+
+The elementary convenience wrapper `assess_elementary_admission` selects
+`RischOperation.ELEMENTARY_INTEGRATION`. The classical admitted family is a
+replay-certified primitive, hyperexponential, or hypertangent prefix. Exact,
+PLogD, scalar RDE, parametric RDE, limited integration, coupled RDE, and
+elementary integration are separate operation cells. The exact hyperbolic
+Möbius normalization belongs only to elementary integration at the active top
+level. The certificate-driven Riccati route below is also separate: it first
 changes coordinates, then checks the resulting hyperexponential target.
 For the automatic hyperbolic law, the derivative law itself constructs and
 checks its two linear special factors. Radical and parametric logarithmic
@@ -280,8 +290,7 @@ This is different from an unsupported input. A structured obstruction records
 a completed negative decision for the supported case. Query
 `assess_elementary_admission` first when the caller needs that distinction:
 an unsupported `TowerAdmission` is a support-boundary result, not a negative
-mathematical conclusion. Direct calls outside the advertised boundary can
-still raise `NotImplementedError` from a lower-level implementation gap.
+mathematical conclusion.
 
 ## Hyperexponential and hypertangent levels
 
@@ -1302,11 +1311,11 @@ boundary, not a mathematical claim about the integral.
 | Tower shape or operation | Status |
 | --- | --- |
 | Polynomial integration over `QQ[x]`; rational integration over standard `C(x)` for supported finite algebraic constants | End-to-end |
-| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Structure, scalar-RDE, parametric-RDE, and required coupled-RDE decisions are complete across the declared P/E/T solver cell; elementary integration covers the documented recursive cells pending the executable operation-totality matrix |
+| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Exact, PLogD, scalar-RDE, parametric-RDE, limited-integration, required coupled-RDE, and elementary-integration operation cells are executable and total across the declared finite-constant P/E/T contract |
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
-| Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_elementary_admission` reports support separately from elementary integrability |
+| Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_risch_operation` checks a typed operation cell; `assess_elementary_admission` is the elementary-integration convenience wrapper |
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
 | Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants and recursively checked P/E/T prefixes; tangent results descend exactly to the original real field |
@@ -1350,7 +1359,7 @@ principal groups are:
 | Rational logarithmic analysis | `lazard_rioboo_trager`, `rothstein_trager_residue_polynomial`, `solve_rational_logarithmic_derivative` |
 | Expression tower discovery | `discover_expression_tower`, `ExpressionTowerDiscovery`, `ExpressionTowerCandidate` |
 | Tower construction and differentiation | `DifferentialTower`, `MonomialExtension`, `AlgebraicExtension`, `Derivation` |
-| Algorithm admission | `assess_elementary_admission`, `assess_scalar_rde_admission`, `TowerAdmission`, `TowerAdmissionOutcome`, `TowerAdmissionReason` |
+| Algorithm admission | `assess_risch_operation`, `RischOperation`, `assess_elementary_admission`, `assess_scalar_rde_admission`, `TowerAdmission`, `TowerAdmissionOutcome`, `TowerAdmissionReason` |
 | Monomial reduction | `hermite_reduce_monomial`, `residue_reduce_monomial`, and the family-specific `reduce_*_monomial` functions |
 | Exact derivatives and RDEs | `solve_exact_derivative`, `solve_risch_differential_equation`, and the field-specific RDE solvers |
 | Primitive logarithmic analysis | `solve_radical_logarithmic_derivative`, `primitive_logarithmic_derivative_signature` |

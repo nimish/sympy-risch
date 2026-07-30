@@ -16,31 +16,31 @@ logarithmic, dependency, and no-new-constants decisions cover every P/E/T
 ordering. Scalar and parametric RDEs, together with limited integration as
 their affine consumer, cover every recursively checked P/E/T prefix over the
 admitted finite constant fields. Recursive elementary integration still
-covers its documented cells rather than every accepted tower. An unsupported
-integration exit remains an implementation boundary, never an incorrect
-integrability verdict.
+covers every tower accepted for `RischOperation.ELEMENTARY_INTEGRATION`.
+General polynomial monomials and algebraic tower levels remain outside that
+classical cell.
 
 ## Admission is not integrability
 
-`assess_elementary_admission` exposes this support boundary before a caller
-asks for an integral. It returns an immutable `TowerAdmission` whose
-`TowerAdmissionOutcome` is one of the following:
+`assess_risch_operation(derivation, operation)` exposes the support boundary
+for exact derivatives, PLogD, scalar RDE, parametric RDE, limited integration,
+coupled RDE, and elementary integration. It returns an immutable
+`TowerAdmission` whose `TowerAdmissionOutcome` is one of the following:
 
 | Outcome | Meaning |
 | --- | --- |
-| `TowerAdmissionOutcome.ACCEPTED` | The explicit tower satisfies the current base, constant-field, and P/E/T-family contract, including an exact hyperbolic Möbius normalization only at its active top level. |
+| `TowerAdmissionOutcome.ACCEPTED` | The selected operation is total on this explicit tower cell. It will return a solution or a theorem-backed obstruction, not an unsupported-algorithm exit. |
 | `TowerAdmissionOutcome.UNSUPPORTED` | The tower is outside that contract. Its failed requirement is recorded as a `TowerAdmissionReason` when one applies. |
 
-Admission answers only whether the tower has a recognized structural shape. It
-is not a per-algorithm solver matrix: an accepted tower can still reach a
-documented `NotImplementedError` in an unavailable recursive branch. Neither
-that boundary nor an unsupported admission is a non-elementarity result. Call
-`integrate_elementary` to obtain the mathematical result; never treat
-`NotImplementedError` as a proof.
+Admission is operation-specific. It does not say whether a particular
+equation is solvable, and an unsupported cell is not a non-elementarity
+result. `assess_elementary_admission` and `assess_scalar_rde_admission` are
+convenience wrappers for their corresponding `RischOperation` values.
 
-The exact law `Dt = eta*(1 - t**2)` is admitted only when it is the active
-top level, because the dispatcher normalizes that level before its recursive
-descent; it cannot yet normalize a hyperbolic level below another extension.
+The exact law `Dt = eta*(1 - t**2)` is admitted for elementary integration
+only when it is the active top level, because that dispatcher owns the
+normalization before recursive descent; the other operation cells do not
+silently inherit this coordinate change.
 The law itself constructs and checks its two linear special factors.
 An active quadratic/Riccati level with two caller-supplied checked linear
 special factors has a separate explicit route:

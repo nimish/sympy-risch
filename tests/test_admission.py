@@ -13,9 +13,11 @@ from sympy_risch import (
     DifferentialTower,
     IntegrationObstructionKind,
     MonomialExtension,
+    RischOperation,
     TowerAdmissionOutcome,
     TowerAdmissionReason,
     assess_elementary_admission,
+    assess_risch_operation,
     assess_scalar_rde_admission,
     certify_primitive_extension,
     integrate_elementary,
@@ -195,6 +197,20 @@ def test_every_two_level_pet_arrow_is_admitted_and_reconstructs(
     assert result.obstruction is None
 
 
+def test_operation_matrix_accepts_a_certified_mixed_pet_prefix() -> None:
+    tower = _certified_matrix_tower(("P", "E"))
+
+    admissions = {
+        operation: assess_risch_operation(tower.derivation(), operation)
+        for operation in RischOperation
+    }
+
+    assert all(admission.accepted for admission in admissions.values())
+    assert {admission.operation for admission in admissions.values()} == set(
+        RischOperation
+    )
+
+
 def test_exact_hyperbolic_mobius_normalization_is_admitted() -> None:
     base = _rational_tower()
     tower = base.extend(
@@ -210,6 +226,24 @@ def test_exact_hyperbolic_mobius_normalization_is_admitted() -> None:
     result = integrate_elementary(tower.field().one, tower.derivation())
     assert result.is_elementary
     assert result.reconstructs
+
+
+def test_hyperbolic_normalization_belongs_only_to_the_integration_cell() -> None:
+    base = _rational_tower()
+    tower = base.extend(
+        MonomialExtension(
+            Poly(1 - t**2, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+    for operation in RischOperation:
+        admission = assess_risch_operation(tower.derivation(), operation)
+        if operation is RischOperation.ELEMENTARY_INTEGRATION:
+            assert admission.accepted
+        else:
+            assert admission.unsupported
+            assert admission.reason is TowerAdmissionReason.UNSUPPORTED_MONOMIAL_FAMILY
 
 
 def test_hyperbolic_mobius_normalization_ignores_stale_absence_metadata() -> None:
@@ -416,7 +450,10 @@ def test_scalar_rde_admission_accepts_a_gaussian_rational_base() -> None:
     admission = assess_scalar_rde_admission(tower.derivation())
 
     assert admission.accepted
-    assert admission.problem == "scalar_rde"
+    assert admission.operation is RischOperation.SCALAR_RDE
+    coupled = assess_risch_operation(tower.derivation(), RischOperation.COUPLED_RDE)
+    assert coupled.unsupported
+    assert coupled.reason is TowerAdmissionReason.COUPLED_RDE_BASE
 
 
 def test_scalar_rde_admission_accepts_recursive_native_constants() -> None:
@@ -454,7 +491,7 @@ def test_real_admission_rejects_hypertangent_over_gaussian_constants() -> None:
         assess_scalar_rde_admission(tower.derivation()),
     ):
         assert admission.unsupported
-        assert admission.reason is TowerAdmissionReason.HYPERTANGENT_RDE_BASE
+        assert admission.reason is TowerAdmissionReason.HYPERTANGENT_REAL_CONSTANTS
         assert "provably real finite algebraic constant field" in admission.detail
 
 

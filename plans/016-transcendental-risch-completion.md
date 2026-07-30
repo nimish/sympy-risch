@@ -28,13 +28,13 @@ The repository already has a substantial transcendental kernel:
 - primitive, hyperexponential, and hypertangent reducers; and
 - recursive elementary integration for the implemented family orderings.
 
-The finite-constant P/E/T structure, scalar-RDE, parametric-RDE, and required
-coupled-RDE cells are now algorithmically complete. Recursive elementary
-integration covers the documented family orderings, but T8 still must tie
-structural admission to an executable operation-totality matrix before the
-whole P/E/T integration cell is declared total. General polynomial monomials
-remain deliberately outside that cell: they lack an exhaustive
-derivation-bound special-polynomial decision and the complete
+The finite-constant P/E/T structure, exact, logarithmic-derivative,
+scalar-RDE, parametric-RDE, required coupled-RDE, and elementary-integration
+cells are algorithmically complete. A typed executable operation matrix now
+separates those total cells from structural tower recognition and guards the
+public exact, RDE, limited-integration, coupled, and elementary dispatchers.
+General polynomial monomials remain deliberately outside that cell: they lack
+an exhaustive derivation-bound special-polynomial decision and the complete
 special-denominator branch.
 
 This plan closes those gaps without rewriting the working rational and P/E/T
@@ -101,10 +101,11 @@ not import the public dispatcher or a global engine to recurse.
 
 ### T0. Define the effective constant-field and solver matrix
 
-**Progress:** the finite-number-field half now has one shared
-`FiniteConstantFieldProfile` for exact arithmetic, rational coordinates,
-degree, reality, and the presence of `i`. The full per-operation solver matrix
-and the algebraic-function-field capability half remain open.
+**Progress:** complete for the explicit finite-constant transcendental cell.
+One shared `FiniteConstantFieldProfile` supplies exact arithmetic, rational
+coordinates, degree, reality, and the presence of `i`; `RischOperation` and
+`assess_risch_operation` publish the executable per-operation matrix. The
+algebraic-function-field capability half remains owned by Plan 015.
 
 Replace scattered domain checks with one small capability boundary shared with
 Plan 015. It must state whether the current constant field supplies:
@@ -350,6 +351,13 @@ useful fast path.
 its special-polynomial family.
 
 ### T8. Make explicit transcendental integration total
+
+**Progress:** complete for the classical finite-constant P/E/T cell. Public
+elementary integration checks its typed operation cell once, then recurses
+through the already-admitted prefix without repeated admission scans.
+Accepted inputs return a reconstruction-checked elementary presentation or a
+theorem-backed Liouville obstruction. General polynomial monomials remain
+outside this cell pending T6-T7.
 
 Unify the completed services through the recursive composition engine:
 

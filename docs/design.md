@@ -489,8 +489,10 @@ Liouville obstruction or an elementary-integration decision. A higher-pole
 antiderivative can cancel down to an apparent pole whose local RDE is
 unsolved.
 
-The shared `assess_scalar_rde_admission` check protects this boundary before
-the recursive solver starts. It scans the **entire** active lower prefix:
+The shared operation matrix protects this boundary before the recursive
+solver starts. `assess_scalar_rde_admission` is the scalar-RDE convenience
+wrapper around `assess_risch_operation`. The check scans the **entire** active
+lower prefix:
 certified P/E prefixes are supported over every effective finite algebraic
 constant field `C/QQ`, and provably real `C` additionally supports
 hypertangent levels through the exact `C(i)` Gaussian normal form. An
@@ -498,7 +500,9 @@ algebraic tower level, a general-polynomial level, a hypertangent level over
 constants not proved real, or an uncertified-constants level is therefore
 reported as
 `UNSUPPORTED_LOWER_RDE` by this consumer rather than leaking a lower solver
-precondition error. The admission check is still not a solvability decision.
+precondition error. Acceptance means the selected algorithm is total on its
+declared cell; it is still not a claim that a particular equation is
+solvable.
 
 SymPy fraction fields over an `AlgebraicField` can retain different constant
 units in equal numerator/denominator representations. The neutral
@@ -1323,9 +1327,9 @@ replay-proved preserved constants. They include direct Chapter 8 cancellation
 recurrences, immutable exact `C(i)` fallbacks, recursive lower-field
 certificates, domain-generic rational-base integration, worked examples, and
 independent generated matrix-oracle comparisons. Recursive elementary
-integration covers the documented family orderings; the executable
-operation-totality matrix remains the gate before declaring the entire P/E/T
-integration cell total.
+integration is total on the declared classical P/E/T cell. The typed
+`RischOperation` matrix makes that contract executable and keeps unsupported
+general-polynomial or algebraic families outside it.
 
 The normalization layer now includes the verified hyperbolic law
 `Dt = eta*(1 - t**2) -> Du = 2*eta*u` and an explicit quadratic/Riccati

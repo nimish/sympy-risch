@@ -390,7 +390,7 @@ def test_constant_lower_field_is_a_structured_rde_boundary() -> None:
     assert result.exact_part == tower.field().zero
     assert result.remainder == integrand
     assert result.unsupported_detail is not None
-    assert "nonconstant differential field" in result.unsupported_detail
+    assert "standard rational C(x) base" in result.unsupported_detail
 
 
 def test_replayed_lower_constants_enable_linear_special_reduction() -> None:

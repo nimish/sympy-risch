@@ -269,10 +269,13 @@ def test_direct_tan_log_x_field_reaches_the_rational_base() -> None:
     assert result.lower_result.integrand == lower
 
 
-def test_general_polynomial_level_requires_a_library_no_special_proof() -> None:
+def test_general_polynomial_level_is_outside_the_complete_operation_cell() -> None:
     tower = monomial_tower(t**2 + x)
 
-    with pytest.raises(NotImplementedError, match="library-derived complete"):
+    with pytest.raises(
+        NotImplementedError,
+        match="outside the complete elementary_integration cell",
+    ):
         integrate_elementary(tower.field().from_sympy(t), tower.derivation())
 
 
@@ -362,12 +365,12 @@ def test_general_algebraic_top_level_remains_outside_simple_radical_scope() -> N
         integrate_elementary(tower.field().one, tower.derivation())
 
 
-def test_general_polynomial_level_requires_no_special_certificate() -> None:
+def test_general_polynomial_level_refuses_even_a_trivial_integrand() -> None:
     tower = monomial_tower(t**2 + x)
 
     with pytest.raises(
         NotImplementedError,
-        match="library-derived complete",
+        match="outside the complete elementary_integration cell",
     ):
         integrate_elementary(tower.field().one, tower.derivation())
 
@@ -382,7 +385,7 @@ def test_nonstandard_base_is_rejected_before_family_dispatch() -> None:
 
     with pytest.raises(
         NotImplementedError,
-        match=r"standard rational base C\(x\) with Dx = 1",
+        match="rational base must have derivative Dx = 1",
     ):
         integrate_elementary(tower.field().one, tower.derivation())
 

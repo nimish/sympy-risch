@@ -230,10 +230,12 @@ def test_relations_public_annotations_are_runtime_resolvable() -> None:
 
 def test_admission_exports_are_public() -> None:
     expected = {
+        "RischOperation",
         "TowerAdmission",
         "TowerAdmissionOutcome",
         "TowerAdmissionReason",
         "assess_elementary_admission",
+        "assess_risch_operation",
         "assess_scalar_rde_admission",
     }
 

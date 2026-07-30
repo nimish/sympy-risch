@@ -62,7 +62,10 @@ def test_explicit_riccati_normal_form_integrates_a_planted_derivative() -> None:
     normal_form = _riccati_normal_form(tower)
     planted = field.from_sympy((t**2 + x) / (t + 1))
 
-    with pytest.raises(NotImplementedError, match="general polynomial"):
+    with pytest.raises(
+        NotImplementedError,
+        match="outside the complete elementary_integration cell",
+    ):
         integrate_elementary(derivation(planted), derivation)
 
     result = integrate_riccati_mobius_normal_form(

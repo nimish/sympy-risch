@@ -14,7 +14,7 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly, cancel
 
 from .._typing import FieldElement
-from ..admission import assess_scalar_rde_admission
+from ..admission import RischOperation, assess_risch_operation
 from ..constant_fields import (
     finite_constant_field_profile,
     gaussian_constant_field,
@@ -1148,7 +1148,7 @@ def _require_supported_coupled_tower(
     derivation: Derivation,
 ) -> None:
     """Replay admission for a real tower before Gaussian scalar transport."""
-    admission = assess_scalar_rde_admission(derivation)
+    admission = assess_risch_operation(derivation, RischOperation.COUPLED_RDE)
     if not admission.accepted:
         if admission.reason is None:
             raise RuntimeError("unsupported coupled RDE admission omitted its reason")

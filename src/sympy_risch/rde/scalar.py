@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sympy.polys.polytools import Poly, cancel
 
-from ..admission import assess_scalar_rde_admission
+from ..admission import RischOperation, assess_risch_operation
 from ..constant_fields import finite_constant_field_profile
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._tower_polynomials import (
@@ -32,7 +32,7 @@ def solve_risch_differential_equation(
     derivation: Derivation,
 ) -> RischDifferentialEquationResult:
     r"""Dispatch ``Dy + a*y = b`` over an implemented differential level."""
-    admission = assess_scalar_rde_admission(derivation)
+    admission = assess_risch_operation(derivation, RischOperation.SCALAR_RDE)
     if not admission.accepted:
         if admission.reason is None:
             raise RuntimeError("unsupported scalar RDE admission omitted its reason")

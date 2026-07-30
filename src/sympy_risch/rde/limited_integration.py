@@ -16,12 +16,13 @@ from collections.abc import Iterable
 from dataclasses import InitVar, dataclass
 
 from .._typing import FieldElement, FieldInput
+from ..admission import RischOperation, assess_risch_operation
 from ..tower import Derivation, _coerce
 from ._common import _field_elements_equal
 from ._parametric_linear import ParametricRDESolution, canonicalize_directions
 from .parametric_dispatch import (
     ParametricRischDifferentialEquationResult,
-    solve_parametric_risch_differential_equation,
+    _solve_admitted_parametric_risch_differential_equation,
 )
 
 _RESULT_CONSTRUCTION_TOKEN = object()
@@ -135,10 +136,24 @@ def solve_limited_integration(
     derivation: Derivation,
 ) -> LimitedIntegrationResult:
     r"""Solve ``D(v) = integrand + sum(c_j*correction_terms[j])`` completely."""
+    admission = assess_risch_operation(
+        derivation,
+        RischOperation.LIMITED_INTEGRATION,
+    )
+    if not admission.accepted:
+        if admission.reason is None:
+            raise RuntimeError(
+                "unsupported limited-integration admission omitted its reason"
+            )
+        raise NotImplementedError(
+            "limited integration is unsupported for this tower prefix: "
+            f"{admission.reason.value}: {admission.detail}"
+        )
+
     field = derivation.field
     constants = derivation.tower.constants
     correction_inputs = tuple(correction_terms)
-    parametric = solve_parametric_risch_differential_equation(
+    parametric = _solve_admitted_parametric_risch_differential_equation(
         0,
         (integrand, *correction_inputs),
         derivation,
