@@ -1327,6 +1327,28 @@ form. The default anchor is the full pole divisor `(x)_infinity`; callers may
 instead supply any effective positive-degree anchor and select maximal rather
 than degree reduction.
 
+Algorithm 24 carries that compression through a complete Riemann--Roch space.
+Only the field-rank number of power-product generators is retained, even when
+the expanded vector-space dimension is large:
+
+```python
+from sympy_risch.algebraic_geometry import hess_large_riemann_roch_space
+
+short_space = hess_large_riemann_roch_space(
+    curve,
+    pole_divisor.scale(50),
+)
+
+assert short_space.dimension == 51
+assert len(short_space.generators) == curve.extension.field.rank
+assert short_space.reconstructs
+```
+
+Call `short_space.expand()` only when ordinary field elements are required.
+For testing or a trust boundary, `verify_expansion()` additionally checks
+global membership and constant-linear independence; its cost necessarily
+depends on the expanded dimension.
+
 ## Mathematical assumptions
 
 Risch structure theorems require proof that a transcendental adjunction does
@@ -1379,7 +1401,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
-| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; `HessParametricBasis` reuses one reduction across `D + r*(x)_infinity`, while unavailable ideal arithmetic returns `UNSUPPORTED` |
+| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; `HessParametricBasis` reuses one reduction across `D + r*(x)_infinity`, and `HessLargeRiemannRochSpace` implements Algorithm 24's compact large-divisor basis |
 | Height-efficient algebraic divisor reduction | Hess Algorithm 21 over supported direct models: signed binary support/exponent reduction, degree or maximal strategy, and exact power-product witnesses |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Algebraic divisor classes and torsion | General Riemann--Roch reduction; supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly |

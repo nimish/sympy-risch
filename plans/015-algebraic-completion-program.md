@@ -246,6 +246,16 @@ assertion.
 
 ### A5. Implement Hess Algorithm 24 and differential spaces
 
+**Progress:** Algorithm 24 is complete for the direct function-field
+presentations supported by the current Hess engine.
+`HessLargeRiemannRochSpace` combines Algorithm 21's compact correction with
+the reduced divisor's `HessParametricBasis`. It stores the rank-sized
+power-product generators and shifted invariant degrees, computes dimensions
+without expansion, and expands or independently verifies the long basis only
+on request. Small spaces agree with the original direct Hess construction,
+while a regression keeps a 514-dimensional example in short form.
+Differential spaces and their duality checks remain the next A5 slice.
+
 Use divisor reduction plus the parametric basis to compute large
 Riemann--Roch spaces in short power-product form. Then expose the standard
 function-field consequences:
@@ -260,8 +270,10 @@ function-field consequences:
 Expansion to individual field elements is a view requested by a caller, not
 the internal representation used throughout class arithmetic.
 
-**Exit gate:** large-divisor and differential-space dimensions satisfy
-Riemann--Roch and duality, with exact membership reconstruction.
+**Exit gate:** the large-divisor half is complete: dimensions satisfy
+Riemann--Roch, and requested expansions have exact membership and constant
+rank. The remaining gate is differential-space dimension, residue, and
+duality reconstruction.
 
 ### A6. Complete scalable divisor-class and Jacobian operations
 

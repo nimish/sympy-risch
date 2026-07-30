@@ -43,6 +43,11 @@ from .hess import (
     hess_parametric_basis,
 )
 from .infinity import InfiniteAlgebraicPlace
+from .large_riemann_roch import (
+    HessLargeRiemannRochSpace,
+    HessPowerProductElement,
+    hess_large_riemann_roch_space,
+)
 from .orders import AlgebraicFractionalIdeal, AlgebraicOrder
 from .principal import (
     AlgebraicPrincipalityDecision,
@@ -69,8 +74,10 @@ __all__ = [
     "FiniteDivisorClassOrder",
     "HessDivisorIdeals",
     "HessDivisorReduction",
+    "HessLargeRiemannRochSpace",
     "HessParametricBasis",
     "HessPowerProduct",
+    "HessPowerProductElement",
     "HessReductionStrategy",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
@@ -81,6 +88,7 @@ __all__ = [
     "extend_algebraic_constants",
     "finite_divisor_class_order",
     "hess_divisor_ideals",
+    "hess_large_riemann_roch_space",
     "hess_parametric_basis",
     "integral_closure",
     "polynomial_order",

@@ -1232,9 +1232,21 @@ function `w` remains an exact power product, so large input coefficients do
 not force eager construction of a high-height field element. The default
 anchor is the complete pole divisor `(x)_infinity`, including every place
 above infinity; custom effective positive-degree anchors remain supported.
-Algorithm 24 will consume this reduction together with
-`HessParametricBasis` to provide short large-divisor spaces and differential
-spaces.
+Algorithm 24 consumes this reduction together with
+`HessParametricBasis`; that composition is implemented by
+`HessLargeRiemannRochSpace`. If Algorithm 21 returns
+
+```text
+D = D_reduced + r*(x)_infinity - div(w),
+```
+
+the short space retains the rank-sized generators `w*v_i` and invariant
+degrees `d_i+r`. Its dimension is the sum of the nonnegative degree ranges,
+and long-basis expansion is an explicit view rather than stored state. The
+factory-owned result ties the power-product correction to the reduced
+parametric certificate; an optional verifier expands the basis, checks every
+global valuation bound, and confirms constant-linear rank. Differential
+spaces are the remaining Algorithm 24 application in this milestone.
 
 Reduced divisor-class arithmetic uses complete spaces relative to an
 effective positive-degree anchor. The finite-prime service now reduces the

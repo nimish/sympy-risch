@@ -110,12 +110,13 @@ Plan 015 expands the algebraic path into its actual dependency program. Hess
 Algorithm 13 now exposes a reusable parametric Riemann--Roch family for the
 direct models it admits. Hess Algorithm 21 now reduces high-height divisors
 through binary support/exponent composition and retains the correcting
-function as an exact power product. The full engine still needs presentation
-normalization, total maximal-order arithmetic, Algorithm 24 large-divisor and
-differential spaces, scalable class arithmetic, complete algebraic
-integration, algebraic RDEs, and their relative mixed-tower forms. Plan 014's
-remaining execution cells depend on those services rather than on more
-syntax-directed special cases.
+function as an exact power product. Algorithm 24 now combines that reduction
+with the parametric basis to represent large Riemann--Roch spaces without
+eager long-basis expansion. The full engine still needs presentation
+normalization, total maximal-order arithmetic, differential spaces, scalable
+class arithmetic, complete algebraic integration, algebraic RDEs, and their
+relative mixed-tower forms. Plan 014's remaining execution cells depend on
+those services rather than on more syntax-directed special cases.
 Plan 016 gives the transcendental track the same decomposition: effective
 constants, recursive structure decisions, total P/E/T scalar, parametric, and
 coupled RDEs, an executable typed operation matrix, a total classical P/E/T
