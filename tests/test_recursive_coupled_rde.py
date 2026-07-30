@@ -3,8 +3,8 @@
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-from sympy import Poly, symbols
-from sympy.polys.domains import QQ
+from sympy import I, Poly, sqrt, symbols
+from sympy.polys.domains import QQ, QQ_I
 
 from sympy_risch import (
     ConstantFieldStatus,
@@ -266,6 +266,80 @@ def test_recursive_solver_handles_a_hyperexponential_level() -> None:
     assert result.real_solution == planted_real
     assert result.imaginary_solution == planted_imaginary
     assert result.direct_result is not None
+
+
+@pytest.mark.parametrize(
+    "top_derivative",
+    (
+        None,
+        1 / x,
+        s,
+        1 + s**2,
+    ),
+    ids=("rational", "primitive", "hyperexponential", "hypertangent"),
+)
+def test_recursive_solver_uses_the_exact_gaussian_constant_compositum(
+    top_derivative,
+) -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower = DifferentialTower(constants).extend(
+        MonomialExtension(
+            Poly(1, x, domain=constants),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    if top_derivative is not None:
+        tower = tower.extend(
+            MonomialExtension(
+                Poly(top_derivative, s, domain=tower.field()),
+                ConstantFieldStatus.PRESERVED,
+            )
+        )
+
+    field = tower.field()
+    derivation = tower.derivation()
+    if top_derivative is None:
+        planted_real = field.from_sympy(x)
+        planted_imaginary = field.zero
+        rotation = field.from_sympy(sqrt(2) / (x + 1))
+    else:
+        planted_real = field.from_sympy(s)
+        planted_imaginary = field.zero
+        # A top-generator rotation bypasses the direct lower-coefficient
+        # recurrences and exercises the C(i) scalar fallback in every family.
+        rotation = field.from_sympy(s)
+    real_rhs = derivation(planted_real) - rotation * planted_imaginary
+    imaginary_rhs = derivation(planted_imaginary) + rotation * planted_real
+
+    result = solve_coupled_risch_differential_equation(
+        rotation,
+        real_rhs,
+        imaginary_rhs,
+        derivation,
+    )
+
+    assert result.has_solution
+    assert result.reconstructs
+    assert result.real_solution == planted_real
+    assert result.imaginary_solution == planted_imaginary
+
+
+def test_real_coupled_solver_rejects_a_nonreal_source_constant_field() -> None:
+    tower = DifferentialTower(QQ_I).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ_I),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    field = tower.field()
+
+    with pytest.raises(NotImplementedError, match="provably real"):
+        solve_coupled_risch_differential_equation(
+            field.one,
+            field.from_sympy(I),
+            field.from_sympy(I * x),
+            tower.derivation(),
+        )
 
 
 @given(

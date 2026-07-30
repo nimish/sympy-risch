@@ -922,12 +922,15 @@ Following the opening reduction of Bronstein Chapter 8, this is the scalar RDE
 D(p + i*q) + i*lambda*(p + i*q) = a + i*b
 ```
 
-over `K(i)`. For a rational or recursively primitive lower field, the
-implementation immutably rebases the same tower metadata over `QQ_I`, invokes
-the ordinary scalar RDE dispatcher, and splits the answer exactly back into
-the real field. The scalar certificate retains weak normalization,
-denominator reduction, degree bounds, SPDE, and recursive lower-field
-decisions.
+over `K(i)`. For a rational, primitive, or hyperexponential tower over a
+provably real finite constant field `C`, the implementation immutably rebases
+the same tower metadata over the exact compositum `C(i)`, invokes the ordinary
+scalar RDE dispatcher, and splits the answer exactly back over `C`. This
+specializes to `QQ_I` when `C = QQ`. The scalar certificate retains weak
+normalization, denominator reduction, degree bounds, SPDE, and recursive
+lower-field decisions. A source constant field that is not provably real is
+outside the real coupled contract rather than being split by a noncanonical
+conjugation.
 
 Adjoining `i` preserves primitive and hyperexponential derivative shapes, so
 the Gaussian scalar route remains a valid general fallback for the cases

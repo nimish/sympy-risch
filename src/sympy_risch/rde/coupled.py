@@ -12,6 +12,10 @@ from sympy.polys.polytools import Poly, cancel
 
 from .._typing import FieldElement
 from ..admission import assess_scalar_rde_admission
+from ..constant_fields import (
+    finite_constant_field_profile,
+    gaussian_constant_field,
+)
 from ..constant_proofs import require_preserved_constant_field
 from ..tower import (
     Derivation,
@@ -1137,7 +1141,7 @@ def _coupled_obstruction_from_scalar(
 def _require_supported_coupled_tower(
     derivation: Derivation,
 ) -> None:
-    """Replay scalar admission before transporting to Gaussian coordinates."""
+    """Replay admission for a real tower before Gaussian scalar transport."""
     admission = assess_scalar_rde_admission(derivation)
     if not admission.accepted:
         if admission.reason is None:
@@ -1145,6 +1149,12 @@ def _require_supported_coupled_tower(
         raise NotImplementedError(
             "recursive coupled RDEs require an admitted scalar tower prefix: "
             f"{admission.reason.value}: {admission.detail}"
+        )
+    profile = finite_constant_field_profile(derivation.tower.constants)
+    if profile is None or not profile.is_real:
+        raise NotImplementedError(
+            "real coupled RDE solving requires a provably real finite "
+            "algebraic constant field"
         )
 
 
@@ -1326,7 +1336,10 @@ def _solve_general_coupled_risch_differential_equation(
 
     gaussian_normal_form = None
     if _coupled_tower_is_gaussian_safe(derivation):
-        gaussian_derivation = _rebase_monomial_derivation(derivation, QQ_I)
+        gaussian_derivation = _rebase_monomial_derivation(
+            derivation,
+            gaussian_constant_field(derivation.tower.constants),
+        )
     else:
         from ..gaussian import build_hypertangent_gaussian_normal_form
 

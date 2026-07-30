@@ -506,10 +506,12 @@ assert field.from_sympy(result.antiderivative) == planted
 ```
 
 Internally the tangent special place is converted into conjugate Cayley
-modes. Each mode produces a real coupled RDE over `QQ(x,t)`. The solver
-temporarily rebases the immutable primitive tower over `QQ_I`, solves one
-ordinary scalar RDE, and converts the exact real and imaginary coordinates
-back. Its direct block-matrix test oracle does not use that conversion.
+modes. Each mode produces a real coupled RDE. For a provably real finite
+constant field `C`, the solver temporarily rebases the immutable tower over
+the exact compositum `C(i)`, solves one ordinary scalar RDE, and converts the
+exact real and imaginary coordinates back over `C`. For `C = QQ`, this is
+SymPy's `QQ_I`. Its direct block-matrix test oracle does not use that
+conversion.
 
 For example, start from the earlier `log_x` tower and adjoin
 `u = exp(t**2)`. Since `Dt = 1/x`, its derivative law is
@@ -1309,7 +1311,7 @@ boundary, not a mathematical claim about the integral.
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
 | Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants and recursively checked P/E/T prefixes; tangent results descend exactly to the original real field |
 | Limited integration over recursive P/E/T levels | Complete affine solution family, or a PRDE-backed proof that no solution exists in the current field |
-| Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes |
+| Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes over provably real finite constants; the scalar fallback uses the exact compositum `C(i)` |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |
 | Coupled polynomial RDE over a hypertangent level, lower-field or `b0 - n*eta*t` diagonal | Complete terminal decision |
 | General rational coupled RDE over a hypertangent level | Complete for the documented dispatch shapes |
