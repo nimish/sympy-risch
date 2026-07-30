@@ -162,11 +162,9 @@ The current implementation already has a strong exact-arithmetic kernel:
   logarithmic reconstruction, and complete in-field exactness for supported
   direct curves. `src/sympy_risch/algebraic_geometry/` provides certified
   maximal orders, ramified and infinite places, residue fields, divisors,
-  Hess ideal arithmetic, complete long-basis Riemann--Roch spaces for admitted
-  direct models, and principality. Its Hess implementation is currently the
-  Algorithm 13 ideal-intersection core: it does not yet expose Theorem 7's
-  reusable parametric basis or Algorithms 21 and 24 for height-efficient
-  divisor reduction and large spaces.
+  Hess ideal arithmetic, reusable Theorem 7 parametric Riemann--Roch families
+  for admitted direct models, and principality. Algorithm 21 divisor reduction
+  and Algorithm 24 large-space/differential infrastructure remain open.
   Constant base change now lifts exact number-field embeddings coefficientwise
   through `C(x)[y]/(f)` and iterates through compatible rationally defined
   residue factors, rebuilding and rechecking every target. Independent
@@ -219,17 +217,17 @@ The existing design conventions to preserve are:
 
 | Milestone | Current status |
 | --- | --- |
-| 0. Completeness contract and coverage ledger | Partial, completed by Plans 016 T0 and 017 F0/F7: structural P/E/T admission distinguishes unsupported towers from theorem-backed obstructions, but the operation-specific totality matrix and full expression-cell corpus remain. |
+| 0. Completeness contract and coverage ledger | Partial, completed by Plans 016 T0 and 017 F0/F7: the executable operation matrix guards every total classical P/E/T solver cell and distinguishes unsupported towers from theorem-backed obstructions; the full algebraic/mixed expression-cell corpus remains. |
 | 1. Effective field and tower kernel | Partial, shared by Plans 015 A0-A2 and 016 T0-T1: exact `QQ` towers, recursively checked P/E/T towers over native finite algebraic number-field constants, exact `C(i)` tangent normalization for provably real `C`, and finite extensions exist. General effective-field capabilities, algebraic-function-field proof transport, presentation normalization, and canonical mixed towers remain. |
 | 2. Dependency and structure decisions | Complete on the classical finite-constant P/E/T cell through Plan 016 T1-T2: every family ordering has direct real/complex relations, fundamental signatures, checked dependencies, and Gaussian oracles. General effective constants, Riccati/Darboux discovery, and automatic non-family special-polynomial decisions remain. |
 | 3. Scalar, parametric, and coupled RDEs | Complete for the finite-constant P/E/T cell under Plan 016 T3-T5: scalar and parametric RDE, limited integration, and every real-integration coupled system return reconstruction-checked solutions or theorem-backed obstructions. General polynomial monomials and algebraic lower fields remain separate milestones. |
 | 4. Transcendental integration | Complete on the classical finite-constant P/E/T cell through Plan 016 T8: the executable operation matrix guards total exact, PLogD, RDE, limited, coupled, and elementary dispatch, and accepted integration returns a verified answer or Liouville obstruction. General-polynomial monomial families additionally need T6-T7 special-factor and special-denominator work. |
-| 5. Algebraic-function-field kernel | Partial, expanded in Plan 015 A0-A6: direct admitted models have maximal orders, places, local expansions, divisors, complete long-basis Hess spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess parametric/large-divisor algorithms, scalable class operations, and algebraic-number-field good reduction remain. |
+| 5. Algebraic-function-field kernel | Partial through Plan 015 A3: direct admitted models have maximal orders, places, local expansions, divisors, reusable Hess parametric spaces, principality, class reduction, and good-prime torsion decisions. General presentation normalization and exact constants, total maximal-order arithmetic, Hess Algorithms 21/24, scalable class operations, and algebraic-number-field good reduction remain. |
 | 6. Pure algebraic integration | Partial, expanded in Plan 015 A7-A8: direct `C(x)`, for `C/QQ` finite algebraic, reconstructs displayed-constant residues through complete principality and verified `QQ` torsion decisions, continues through compatible constant composita, and solves an in-field residue-free exactness problem. General compatible residue descent and divisor combinations, full second-kind cohomology, normalization, and automatic dispatch remain. |
 | 7. Mixed algebraic/transcendental towers | Started, expanded in Plan 015 A9-A10: terminal pure-radical exact/RDE descent, positive elementary composition, and normal-pole Hermite reduction reduce exact upper coordinates to scalar P/E/T RDEs, then recurse on the lower coordinate. General algebraic scalar/parametric RDEs, relative geometry, residue/logarithmic reduction, and arbitrary interleavings remain. |
 | 8. Automatic expression towers | Active through Plan 014; completion is split across Plan 015 A1/A11 and Plan 017 F0-F3. A backend-independent candidate DAG covers rational powers and P/E/T calls in either mixed order; the native compiler executes rational-power and terminal algebraic-over-P/E/T towers and finite-power exponential reclassification. General algebraic relation objects/composita, monomial-over-algebraic execution, canonical minimization, and exact round trips remain. |
 | 9. Real/complex presentation | Partial, expanded in Plan 017 F4-F5: rational real logarithmic output and internal Gaussian tangent normalization exist; exact source back-substitution, algebraic root isolation, interval validity, and branch/unwinding metadata remain. |
-| 10. Completeness evidence | Partial, expanded in Plan 017 F7-F8: the declared P/E/T cell matrix, testing conventions, and independent oracles exist; operation-specific totality, algebraic/mixed/frontend coverage, and end-to-end performance families remain. |
+| 10. Completeness evidence | Partial, expanded in Plan 017 F7-F8: operation-specific totality is executable for the declared P/E/T cell, with testing conventions and independent oracles; algebraic/mixed/frontend coverage and end-to-end performance families remain. |
 | 11. SymPy upstreaming | Planned in Plan 017 F9; no upstream extraction has started. |
 
 ## Reference map
@@ -590,20 +588,19 @@ simple-radical bases, lazy refinement, algebraic Hermite reduction over
 `QQ(x)`, and Trager's nested-resultant finite-residue polynomial are
 implemented. Certified maximal orders, ramified/infinite places, exact residue
 fields, uniformizers, valuations, local expansions, differents, and divisor
-arithmetic now exist in `algebraic_geometry/`. Its current Hess routine
-computes a verified complete long basis for `L(D)` by finite/infinite ideal
-intersection on the direct models whose maximal orders are available. A
-narrow constant-field gate and an all-place residue collector already consume
-that canonical geometry API for admitted preserved presentations.
+arithmetic now exist in `algebraic_geometry/`. Hess Algorithm 13 now retains
+its short Theorem 7 generators and invariant degrees, so a single
+finite/infinite ideal reduction expands `L(D + r*(x)_infinity)` for many
+shifts. The original verified long basis remains available as an on-demand
+view. A narrow constant-field gate and an all-place residue collector already
+consume that canonical geometry API for admitted preserved presentations.
 
-Plan 015 records the larger remaining Hess/function-field program. The current
-space routine is Hess's Algorithm 13 core, not the whole infrastructure:
-Theorem 7's reusable parametric basis, Algorithm 21's logarithmic-height
-divisor reduction, Algorithm 24's short large-divisor spaces, general
-presentation normalization, total maximal-order arithmetic, differential
-spaces, and scalable class arithmetic remain. Those services precede the
-complete algebraic logarithmic, second-kind, algebraic-RDE, and mixed-tower
-branches.
+Plan 015 records the larger remaining Hess/function-field program. Algorithm
+21's logarithmic-height divisor reduction, Algorithm 24's short large-divisor
+spaces, general presentation normalization, total maximal-order arithmetic,
+differential spaces, and scalable class arithmetic remain. Those services
+precede the complete algebraic logarithmic, second-kind, algebraic-RDE, and
+mixed-tower branches.
 
 ### 5.1 Integral closure and bases
 

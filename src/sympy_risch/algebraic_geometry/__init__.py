@@ -30,7 +30,12 @@ from .function_field import (
     AlgebraicDivisor,
     AlgebraicFunctionField,
 )
-from .hess import HessDivisorIdeals, hess_divisor_ideals
+from .hess import (
+    HessDivisorIdeals,
+    HessParametricBasis,
+    hess_divisor_ideals,
+    hess_parametric_basis,
+)
 from .infinity import InfiniteAlgebraicPlace
 from .orders import AlgebraicFractionalIdeal, AlgebraicOrder
 from .principal import (
@@ -57,6 +62,7 @@ __all__ = [
     "FiniteAlgebraicPlace",
     "FiniteDivisorClassOrder",
     "HessDivisorIdeals",
+    "HessParametricBasis",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
@@ -66,6 +72,7 @@ __all__ = [
     "extend_algebraic_constants",
     "finite_divisor_class_order",
     "hess_divisor_ideals",
+    "hess_parametric_basis",
     "integral_closure",
     "polynomial_order",
     "reduce_algebraic_divisor_class",

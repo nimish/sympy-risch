@@ -20,8 +20,8 @@
 The current function-field layer implements the central finite/infinite ideal
 intersection behind Hess's first Riemann--Roch algorithm. For an admitted
 direct monogenic function field whose maximal orders are available,
-`hess_riemann_roch_basis` computes a complete long basis and verifies every
-member by its principal divisor.
+`hess_parametric_basis` retains the reduced Theorem 7 generators and invariant
+degrees, while `hess_riemann_roch_basis` remains the checked long-basis view.
 
 That is not the entire computational framework assumed by Hess, and it is not
 yet a complete algebraic Risch implementation. A practical general
@@ -29,7 +29,6 @@ implementation also needs:
 
 - normalized function-field presentations and the exact constant field;
 - total maximal-order, ideal, prime, and residue-field arithmetic;
-- Hess's short parametric Riemann--Roch representation;
 - height-efficient divisor reduction and large-divisor Riemann--Roch spaces;
 - differential spaces and scalable divisor-class operations;
 - residue descent in a common algebraic constant field;
@@ -170,6 +169,13 @@ Risch-specific parallel ideal type.
 their prime factorization, and both charts give identical global divisors.
 
 ### A3. Implement Hess Algorithm 13 as a parametric space
+
+**Progress:** complete for the direct function-field presentations admitted by
+the existing Hess ideal arithmetic. `HessParametricBasis` retains the
+weak-Popov lattice certificate, generators, and invariant degrees; dimensions
+and shifted bases for `D + r*(x)_infinity` reuse that one reduction. The
+long-basis API is a checked expansion view, and small spaces agree with the
+independent local Laurent-valuation kernel.
 
 Preserve the current verified long-basis API, but make the primary result the
 short parametric data from Hess's Theorem 7:

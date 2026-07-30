@@ -1212,13 +1212,19 @@ decisions and an exact backend representation for the mixed tower.
 The global-space service computes complete `L(D)` spaces by Hess's
 finite/infinite ideal intersection, with smaller theorem-backed shortcuts for
 negative and zero divisors, supplied degree-zero witnesses, nonspecial bases,
-and powers of a degree-one-pole rational parameter. Reduced divisor-class
-arithmetic uses these spaces relative to any effective positive-degree
-anchor. The finite-prime service now reduces the finite and reciprocal
-maximal orders and the divisor, checks genus and degree preservation, and
-searches the finite class through a Weil bound. It currently handles prime
-reductions of `QQ` models; number-field primes and repeated-discriminant
-finite models remain outside its declared domain.
+and powers of a degree-one-pole rational parameter. The Hess route retains
+the reduced generators `v_i` and invariant degrees `d_i`: one
+`HessParametricBasis` expands
+`L(D + r*(x)_infinity)` as the powers `x**j*v_i` with
+`0 <= j <= d_i + r`, without repeating ideal or Popov reduction. The retained
+polynomial rows verify membership algebraically, while the long-basis view
+keeps the independent all-place check. Reduced divisor-class arithmetic uses
+these spaces relative to any effective positive-degree anchor. The
+finite-prime service now reduces the finite and reciprocal maximal orders and
+the divisor, checks genus and degree preservation, and searches the finite
+class through a Weil bound. It currently handles prime reductions of `QQ`
+models; number-field primes and repeated-discriminant finite models remain
+outside its declared domain.
 
 The next layer computes an exact intersection `V ∩ L(D)` for a supplied finite
 constant subspace `V`, using all-place Laurent-coefficient constraints. Each

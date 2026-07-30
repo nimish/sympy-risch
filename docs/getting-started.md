@@ -1275,9 +1275,31 @@ assert space.dimension == 4
 assert space.basis == tuple(parameter**power for power in range(4))
 ```
 
-For arbitrary divisors, the function returns an empty `UNSUPPORTED` result
-until the finite/infinite lattice-intersection algorithm is implemented. It
-does not mistake a bounded candidate search for a complete basis.
+For an arbitrary divisor, Hess's finite/infinite ideal intersection computes
+the complete space when the required maximal-order arithmetic is available.
+If several divisors differ only by multiples of the pole divisor of the base
+variable `x`, retain the short Theorem 7 form instead of repeating that
+reduction:
+
+```python
+from sympy_risch.algebraic_geometry import hess_parametric_basis
+
+hess_family = hess_parametric_basis(curve, pole_divisor)
+base_basis = hess_family.expand()
+shifted_basis = hess_family.expand(2)
+
+assert len(base_basis) == hess_family.dimension()
+assert len(shifted_basis) == hess_family.dimension(2)
+assert hess_family.shifted_divisor(
+    2
+) == pole_divisor + hess_family.parameter_pole_divisor.scale(2)
+```
+
+The stored generators `v_i` and invariant degrees `d_i` describe the shifted
+basis as `x**j*v_i` for `0 <= j <= d_i + r`. Expansion performs no new ideal,
+Popov, or principal-divisor computation. Unsupported maximal-order or
+presentation arithmetic remains an explicit boundary; a bounded candidate
+search is never mistaken for a complete basis.
 
 ## Mathematical assumptions
 
@@ -1331,7 +1353,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic finite-residue polynomial | Low-level API for monic polynomial models with square-free unbranched finite poles |
 | Algebraic orders, ideals, all places, valuations, local expansions, and divisors | Complete low-level infrastructure over supported `C(x)` constants |
 | Algebraic constant-field analysis and all-place residues | Low-level API: exact Hermite success, plus complete pole data for admitted preserved direct `C(x)` simple-radical presentations; other nonzero cases return an explicit boundary with no partial list |
-| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; unavailable ideal arithmetic returns `UNSUPPORTED` |
+| Certified algebraic Riemann--Roch spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; `HessParametricBasis` reuses one reduction across `D + r*(x)_infinity`, while unavailable ideal arithmetic returns `UNSUPPORTED` |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Algebraic divisor classes and torsion | General Riemann--Roch reduction; supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly |
 | Algebraic principality decision | Generic AFF decision through primitive coefficient content and reduced class addition, with complete direct `L(-D)` fallback |

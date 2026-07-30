@@ -9,16 +9,17 @@ Popov reduction over ``C[x]``.
 
 This module is deliberately a function-field service: it knows about
 divisors, orders, ideals, and reciprocal charts, but nothing about Risch
-derivations or elementary integration.  It implements the long-basis branch
-of Algorithm 13 in Hess, ``Computing Riemann--Roch Spaces in Algebraic
-Function Fields and Related Topics``, JSC 33 (2002).  Theorem 7's reusable
-parametric representation and Algorithms 21 and 24 are separate future work.
+derivations or elementary integration.  It implements Algorithm 13 and the
+reusable parametric representation of Hess's Theorem 7 in
+``Computing Riemann--Roch Spaces in Algebraic Function Fields and Related
+Topics``, JSC 33 (2002).  Algorithms 21 and 24 remain separate future work.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
+from operator import index as integer_index
+from typing import SupportsIndex, cast
 
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.domains.fractionfield import FractionField
@@ -220,15 +221,182 @@ def hess_divisor_ideals(
     return HessDivisorIdeals(model, divisor, finite, infinite)
 
 
-def hess_riemann_roch_basis(
+def _shift_index(shift: SupportsIndex) -> int:
+    """Return an exact integer shift, rejecting booleans and inexact values."""
+    if isinstance(shift, bool):
+        raise TypeError("a Hess parameter shift must be an integer")
+    try:
+        return int(integer_index(shift))
+    except TypeError as exc:
+        raise TypeError("a Hess parameter shift must be an integer") from exc
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class HessParametricBasis:
+    r"""The short reusable form of a family of Riemann--Roch spaces.
+
+    If ``v_i`` are :attr:`generators` and ``d_i`` are
+    :attr:`invariant_degrees`, Hess's Theorem 7 gives
+
+    ``L(D + r*(x)_infinity) = <x**j*v_i : 0 <= j <= d_i + r>_C``.
+
+    The weak-Popov rows and their common denominator are retained as the exact
+    lattice certificate.  Expanding a shifted space performs only field
+    multiplications; it does not repeat ideal construction, Popov reduction,
+    or principal-divisor computations.
+    """
+
+    representation: HessDivisorIdeals
+    parameter: ExtensionElement
+    parameter_pole_divisor: AlgebraicDivisor
+    generators: tuple[ExtensionElement, ...]
+    invariant_degrees: tuple[int, ...]
+    denominator: Poly
+    reduced_rows: tuple[tuple[Poly, ...], ...]
+    pivots: tuple[tuple[int, int], ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.representation, HessDivisorIdeals):
+            raise TypeError("a parametric Hess basis needs its ideal representation")
+        model = self.representation.model
+        extension = model.extension
+        parent, constants, variable = _base_polynomial_ring(extension)
+        if not isinstance(parent, FractionField):
+            raise TypeError("a parametric Hess basis needs a rational-function base")
+
+        parameter = cast(ExtensionElement, extension.field.convert(self.parameter))
+        expected_parameter = _embed_parent(
+            extension,
+            Poly(variable, variable, domain=constants),
+        )
+        if parameter != expected_parameter:
+            raise ValueError("the Hess family parameter must be the base variable")
+        object.__setattr__(self, "parameter", parameter)
+
+        pole_divisor = self.parameter_pole_divisor
+        if not isinstance(pole_divisor, AlgebraicDivisor):
+            raise TypeError("a Hess family needs the parameter pole divisor")
+        if pole_divisor.model is not model:
+            raise ValueError("the parameter pole divisor belongs to another model")
+        expected_poles = AlgebraicDivisor(
+            model,
+            tuple(
+                (place, place.ramification_index) for place in model.infinite_places()
+            ),
+        )
+        if pole_divisor != expected_poles:
+            raise ValueError("the parameter pole divisor is not (x)_infinity")
+
+        rank = extension.field.rank
+        generators = tuple(
+            cast(ExtensionElement, extension.field.convert(generator))
+            for generator in self.generators
+        )
+        degrees = tuple(self.invariant_degrees)
+        rows = tuple(tuple(row) for row in self.reduced_rows)
+        pivots = tuple(self.pivots)
+        object.__setattr__(self, "generators", generators)
+        object.__setattr__(self, "invariant_degrees", degrees)
+        object.__setattr__(self, "reduced_rows", rows)
+        object.__setattr__(self, "pivots", pivots)
+
+        if not (len(generators) == len(degrees) == len(rows) == len(pivots) == rank):
+            raise ValueError("parametric Hess data must have one row per field rank")
+        if any(
+            isinstance(degree, bool) or not isinstance(degree, int)
+            for degree in degrees
+        ):
+            raise TypeError("Hess invariant degrees must be integers")
+        if any(len(row) != rank for row in rows):
+            raise ValueError("the reduced Hess matrix must be square")
+        if not isinstance(self.denominator, Poly):
+            raise TypeError("a parametric Hess basis needs a polynomial denominator")
+        if (
+            self.denominator.gens != (variable,)
+            or self.denominator.domain != constants
+            or self.denominator.is_zero
+        ):
+            raise ValueError(
+                "the Hess denominator belongs to the wrong polynomial ring"
+            )
+
+        denominator_degree = self.denominator.degree()
+        for row, pivot, invariant_degree in zip(
+            rows,
+            pivots,
+            degrees,
+            strict=True,
+        ):
+            if any(
+                entry.gens != (variable,) or entry.domain != constants for entry in row
+            ):
+                raise ValueError("a reduced Hess row belongs to the wrong ring")
+            if _pivot(list(row)) != pivot:
+                raise ValueError("stored Hess pivot data does not match its row")
+            if invariant_degree != denominator_degree - pivot[1]:
+                raise ValueError("a Hess invariant degree does not match its pivot")
+        if len({column for column, _degree in pivots}) != rank:
+            raise ValueError("reduced Hess rows need distinct leading positions")
+
+    @property
+    def model(self) -> AlgebraicFunctionField:
+        """Return the underlying algebraic function field."""
+        return self.representation.model
+
+    @property
+    def divisor(self) -> AlgebraicDivisor:
+        """Return the base divisor ``D`` of the parametric family."""
+        return self.representation.divisor
+
+    def shifted_divisor(self, shift: SupportsIndex = 0) -> AlgebraicDivisor:
+        r"""Return ``D + shift*(x)_infinity``."""
+        exponent = _shift_index(shift)
+        return self.divisor + self.parameter_pole_divisor.scale(exponent)
+
+    def dimension(self, shift: SupportsIndex = 0) -> int:
+        """Return the constant-field dimension without expanding a basis."""
+        exponent = _shift_index(shift)
+        return sum(
+            max(invariant_degree + exponent + 1, 0)
+            for invariant_degree in self.invariant_degrees
+        )
+
+    def expand(self, shift: SupportsIndex = 0) -> tuple[ExtensionElement, ...]:
+        r"""Expand a concrete basis of ``L(D + shift*(x)_infinity)``."""
+        exponent = _shift_index(shift)
+        maximum_power = max(
+            (
+                invariant_degree + exponent
+                for invariant_degree in self.invariant_degrees
+            ),
+            default=-1,
+        )
+        if maximum_power < 0:
+            return ()
+        powers = [self.model.extension.field.one]
+        for _power in range(maximum_power):
+            powers.append(powers[-1] * self.parameter)
+        return tuple(
+            powers[power] * generator
+            for generator, invariant_degree in zip(
+                self.generators,
+                self.invariant_degrees,
+                strict=True,
+            )
+            for power in range(invariant_degree + exponent + 1)
+        )
+
+
+def hess_parametric_basis(
     model: AlgebraicFunctionField,
     divisor: AlgebraicDivisor,
-) -> tuple[ExtensionElement, ...]:
-    r"""Compute the complete Riemann--Roch space ``L(D)`` by Hess reduction.
+) -> HessParametricBasis:
+    r"""Compute Hess's reusable short basis for ``D + r*(x)_infinity``.
 
     The input is represented by inverted ideals at finite places and in the
     reciprocal chart.  Weak Popov reduction of their transition matrix yields
-    a finite basis for their intersection, without local Laurent expansion.
+    generators ``v_i`` and invariant degrees ``d_i``.  The concrete basis for
+    any integer shift ``r`` is expanded only on request.
     """
     representation = hess_divisor_ideals(model, divisor)
     extension = model.extension
@@ -250,18 +418,19 @@ def hess_riemann_roch_basis(
         parent,
     )
     try:
-        transition = finite_matrix * infinite_matrix.inv()
+        infinite_inverse = infinite_matrix.inv()
     except DMNonInvertibleMatrixError as exc:
         raise ValueError(
             "the reciprocal ideal has no full-rank coordinate basis"
         ) from exc
+    transition = finite_matrix * infinite_inverse
 
     entries = tuple(
         cast(FracElement, entry) for row in transition.to_list() for entry in row
     )
     denominator = _common_denominator(entries, constants, variable)
     polynomial_rows = _polynomial_rows(transition, denominator, model)
-    _reduced_rows, reduced_generators, pivots = _weak_popov_reduce(
+    reduced_rows, reduced_generators, pivots = _weak_popov_reduce(
         polynomial_rows,
         finite_generators,
         model,
@@ -269,22 +438,52 @@ def hess_riemann_roch_basis(
     if len({column for column, _degree in pivots}) != extension.field.rank:
         raise ValueError("Hess reduction did not produce distinct leading positions")
 
-    base_variable = _embed_parent(
+    reduced_generator_matrix = _row_matrix(
+        tuple(model.order.coordinates(element) for element in reduced_generators),
+        parent,
+    )
+    reconstructed_rows = _polynomial_rows(
+        reduced_generator_matrix * infinite_inverse,
+        denominator,
+        model,
+    )
+    if reconstructed_rows != reduced_rows:
+        raise ValueError("reduced Hess generators do not match the lattice rows")
+
+    parameter = _embed_parent(
         extension,
         Poly(variable, variable, domain=constants),
     )
-    basis: list[ExtensionElement] = []
     denominator_degree = denominator.degree()
-    for generator, (_column, degree) in zip(
-        reduced_generators,
-        pivots,
-        strict=True,
-    ):
-        basis.extend(
-            base_variable**power * generator
-            for power in range(denominator_degree - degree + 1)
-        )
-    result = tuple(basis)
+    invariant_degrees = tuple(denominator_degree - degree for _column, degree in pivots)
+    parameter_poles = AlgebraicDivisor(
+        model,
+        tuple((place, place.ramification_index) for place in model.infinite_places()),
+    )
+    return HessParametricBasis(
+        representation,
+        parameter,
+        parameter_poles,
+        tuple(reduced_generators),
+        invariant_degrees,
+        denominator,
+        tuple(tuple(row) for row in reduced_rows),
+        tuple(pivots),
+    )
+
+
+def hess_riemann_roch_basis(
+    model: AlgebraicFunctionField,
+    divisor: AlgebraicDivisor,
+) -> tuple[ExtensionElement, ...]:
+    r"""Expand and independently check the Hess basis of ``L(D)``.
+
+    New callers that need several infinity shifts should construct one
+    :class:`HessParametricBasis` with :func:`hess_parametric_basis` instead.
+    """
+    parametric = hess_parametric_basis(model, divisor)
+    result = parametric.expand()
+    representation = parametric.representation
     if not all(representation.contains(element) for element in result):
         raise ValueError("Hess reduction produced an element outside L(D)")
     return result
@@ -292,6 +491,8 @@ def hess_riemann_roch_basis(
 
 __all__ = [
     "HessDivisorIdeals",
+    "HessParametricBasis",
     "hess_divisor_ideals",
+    "hess_parametric_basis",
     "hess_riemann_roch_basis",
 ]

@@ -106,14 +106,14 @@ uses that algebraic foundation at the expression boundary: it discovers
 algebraic and P/E/T candidates as a dependency graph, constructs mixed towers
 where the native domain backend permits them, and keeps successful structural
 discovery separate from the set of integration backends implemented so far.
-Plan 015 expands the algebraic path into its actual dependency program. The
-current Hess ideal-intersection routine remains a complete Riemann--Roch
-algorithm for the direct models it admits, but the full engine still needs
-presentation normalization, total maximal-order arithmetic, Hess's parametric
-and large-divisor algorithms, scalable class arithmetic, complete algebraic
-integration, algebraic RDEs, and their relative mixed-tower forms. Plan 014's
-remaining execution cells depend on those services rather than on more
-syntax-directed special cases.
+Plan 015 expands the algebraic path into its actual dependency program. Hess
+Algorithm 13 now exposes a reusable parametric Riemann--Roch family for the
+direct models it admits. The full engine still needs presentation
+normalization, total maximal-order arithmetic, Hess's large-divisor
+algorithms, scalable class arithmetic, complete algebraic integration,
+algebraic RDEs, and their relative mixed-tower forms. Plan 014's remaining
+execution cells depend on those services rather than on more syntax-directed
+special cases.
 Plan 016 gives the transcendental track the same decomposition: effective
 constants, recursive structure decisions, total P/E/T scalar, parametric, and
 coupled RDEs, an executable typed operation matrix, a total classical P/E/T
