@@ -1283,7 +1283,14 @@ would divide every place degree. Risch's preserved-constant analysis is
 accepted only through an explicit adapter outside the geometry package.
 This operation is intentionally dimension-sized rather than short: its matrix
 needs one column for every ambient vector. Prescribed residues of the third
-kind will reuse the same map as an affine solve.
+kind reuse the same map in `HessPrescribedResidueSpace`. For a target residue
+vector `r`, the exact system `M*c = r` either returns one particular
+differential plus the second-kind kernel, or an explicit row `u` with
+`u*M = 0` and `u*r != 0`. The latter is a checkable incompatibility witness;
+in the degree-one rational case it recovers the global residue theorem.
+Because the solution set is affine rather than a vector subspace, the
+prescribed-residue result contains its homogeneous second-kind space instead
+of inheriting from it.
 
 Reduced divisor-class arithmetic uses complete spaces relative to an
 effective positive-degree anchor. The finite-prime service now reduces the

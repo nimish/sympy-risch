@@ -27,7 +27,7 @@ plan with exact file scope, tests, and a separate commit.
 | 012 | Decide general divisor torsion by exact reduction | P1 | L | 005, 011 | DONE |
 | 013 | Bound torsion with good finite-prime reductions | P1 | M | 012 | DONE |
 | 014 | Discover algebraic and mixed expression towers | P1 | L | 007, 010-013 | IN PROGRESS |
-| 015 | Complete the algebraic and mixed Risch program | P1 | XL | 004-006, 010-013; A11: 014 | TODO |
+| 015 | Complete the algebraic and mixed Risch program | P1 | XL | 004-006, 010-013; A11: 014 | IN PROGRESS |
 | 016 | Complete the explicit transcendental Risch algorithm | P1 | XL | 002, 003, 008-010 | TODO |
 | 017 | Complete automatic construction, presentation, and upstreaming | P1 | XL | 014-016 | TODO |
 
@@ -117,11 +117,14 @@ eager long-basis expansion. The same short representation now computes
 Riemann--Roch duality checks. Exact residue matrices on `Omega(-E)` now give
 complete bounded second-kind kernels for constant-certified models, including
 nonradical fields certified by a degree-one place and higher-degree closed
-residue coordinates. The full engine still needs presentation normalization,
-total maximal-order arithmetic, broader constant-field certification, and
-prescribed-residue third-kind spaces. Before the third-kind slice, the shared
-differential path now batches local residue expansions, caches repeated
-membership work, and streams zero-residue checks. Scalable class arithmetic
+residue coordinates. The same matrices now solve prescribed-residue
+third-kind problems as exact affine spaces, returning either a particular
+differential plus the second-kind kernel or a left-kernel obstruction. The
+full engine still needs presentation normalization, total maximal-order
+arithmetic, broader constant-field certification, and independent genus
+consistency checks. The shared differential path batches local residue
+expansions, caches repeated membership work, and streams zero-residue checks.
+Scalable class arithmetic
 now replaces linear Weil-bound torsion scans with certified
 baby-step/giant-step order search when a degree-one anchor gives canonical
 representatives, and separates validated public ideal construction from

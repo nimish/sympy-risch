@@ -266,7 +266,11 @@ uses a degree-one place without depending on the Risch derivation analyzer;
 an explicit adapter accepts an existing preserved Risch analysis. This
 includes the nonradical `y**3 + y + x` regression. Closed places of arbitrary
 degree contribute their full native constant-coordinate blocks.
-Prescribed-residue spaces of the third kind remain the next A5 slice.
+`HessPrescribedResidueSpace` now solves the corresponding affine system for
+third-kind differentials. A consistent target returns an exact particular
+differential plus the second-kind translation space; an inconsistent target
+returns a left-kernel obstruction. Tests cover the global residue obstruction,
+nontrivial affine families, and a degree-two closed residue field.
 
 Use divisor reduction plus the parametric basis to compute large
 Riemann--Roch spaces in short power-product form. Then expose the standard
@@ -288,10 +292,11 @@ membership and constant rank, holomorphic dimensions agree with genus, and
 duality reconstructs. Bounded second-kind residue kernels are also complete
 when the displayed constants have geometric or adapted Risch evidence. Models
 with neither a supplied degree-one place nor a preserved Risch analysis remain
-an explicit constant-field boundary. The remaining gate is prescribed-residue
-third-kind spaces and independent genus consistency checks.
+an explicit constant-field boundary. Prescribed-residue third-kind spaces are
+complete over the same admitted models. The remaining A5 gate is independent
+genus consistency checks.
 
-#### A5-P. Harden the differential-space path before third-kind spaces
+#### A5-P. Harden the differential-space path
 
 **Progress:** complete. Residue matrices now expand each compact Hess
 generator and the base parameter once per place, with direct per-basis
@@ -299,8 +304,8 @@ residues retained as an exact oracle. Differential membership reuses the
 differential's cached divisor, zero-residue membership streams by place, and
 sparse coordinate rows are allocated only when first encountered.
 
-The prescribed-residue solver will reuse the same ambient differential basis
-and local expansions as the second-kind kernel. Before adding that solver:
+The prescribed-residue solver reuses the same ambient differential basis and
+local expansions as the second-kind kernel. Its prerequisite work was:
 
 - construct residue columns by place and compact Hess generator, propagating
   through its powers of the separating parameter instead of independently

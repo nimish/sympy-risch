@@ -1376,7 +1376,9 @@ the second kind add one exact linear-algebra step:
 ```python
 from sympy_risch.algebraic_geometry import (
     AlgebraicDivisor,
+    HessPrescribedResidueStatus,
     certify_function_field_constants,
+    hess_prescribed_residue_space,
     hess_second_kind_differential_space,
 )
 
@@ -1404,7 +1406,32 @@ Here the degree-one place at infinity proves that the displayed constants are
 the full function-field constants; callers may instead supply another
 degree-one place. A preserved derivation-specific analysis can be converted
 with `adapt_risch_constant_field_analysis` at the Risch/geometry boundary.
-Prescribed-residue third-kind spaces are the next layer.
+
+The same residue map solves the affine third-kind problem. Missing entries in
+the residue mapping mean zero:
+
+```python
+third_kind = hess_prescribed_residue_space(
+    curve,
+    two_sided_pole_bound,
+    {
+        branch_place: branch_place.residue_field.one,
+        infinity: -infinity.residue_field.one,
+    },
+    constant_field,
+)
+
+assert third_kind.status is HessPrescribedResidueStatus.SOLVABLE
+assert third_kind.particular_differential is not None
+assert third_kind.contains(third_kind.particular_differential)
+assert third_kind.translation_dimension == second_kind.dimension
+```
+
+Every answer is `particular_differential + second_kind`. If the requested
+residues are impossible, the status is `INCONSISTENT` and
+`obstruction_coordinates` gives an exact linear relation that all realizable
+residue vectors satisfy but the target violates. Thus inconsistency is a
+certificate, not a failed search.
 
 ## Mathematical assumptions
 
