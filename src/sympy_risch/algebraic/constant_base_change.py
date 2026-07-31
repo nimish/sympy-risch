@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from sympy.core.expr import Expr
 from sympy.core.symbol import Dummy
 from sympy.polys.domains import QQ
+from sympy.polys.polyerrors import BasePolynomialError
 from sympy.polys.polytools import Poly
 
 from ..algebraic_geometry.base_change import (
@@ -190,7 +191,7 @@ def _automatic_constant_factor_candidates(
         )
     try:
         _content, factors = polynomial.factor_list()
-    except (NotImplementedError, TypeError, ValueError) as exc:
+    except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
         return (), "the residue profile could not be factored over QQ: " + str(exc)
 
     rational_factors: list[Poly] = []
@@ -206,7 +207,7 @@ def _automatic_constant_factor_candidates(
                 candidate.gens[0],
                 domain=QQ,
             ).monic()
-        except (NotImplementedError, TypeError, ValueError):
+        except (BasePolynomialError, NotImplementedError, TypeError, ValueError):
             continue
         if rational.is_irreducible is True:
             rational_factors.append(rational)

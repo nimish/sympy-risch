@@ -150,10 +150,22 @@ def extend_algebraic_constants(
     """
     _field_degree(source)
     normalized = _normalized_rational_factor(factor)
-
     root_field = QQ.alg_field_from_poly(normalized)
     if not isinstance(root_field, AlgebraicField):
         raise TypeError("SymPy did not construct an algebraic root field")
+    return _extend_algebraic_constants_with_root_field(
+        source,
+        normalized,
+        root_field,
+    )
+
+
+def _extend_algebraic_constants_with_root_field(
+    source: Domain,
+    factor: Poly,
+    root_field: AlgebraicField,
+) -> AlgebraicConstantFieldExtension:
+    """Join a precomputed root field without rebuilding it."""
     if source == QQ:
         target = root_field
         source_image = None
@@ -170,7 +182,7 @@ def extend_algebraic_constants(
 
     return AlgebraicConstantFieldExtension(
         source,
-        normalized,
+        factor,
         target,
         source_image,
     )
@@ -245,11 +257,11 @@ def extend_algebraic_constant_compositum(
 ) -> AlgebraicConstantFieldCompositum:
     r"""Construct one exact field in which every requested factor splits.
 
-    Factors are considered in caller order.  Each nonsplit factor is joined
-    through :func:`extend_algebraic_constants`; after every join the old
-    constants have an explicit primitive-element image.  A nonnormal factor
-    whose one-root compositum still does not contain all conjugates is an
-    explicit unsupported boundary rather than a partially certified result.
+    Each admitted factor must already split in its own one-root field. This is
+    the current constructive boundary: general splitting-field construction
+    remains unsupported, independent of caller order. Root fields are computed
+    once, joined in caller order, and the final certificate rechecks that every
+    requested factor splits completely.
     """
     _field_degree(source)
     if not isinstance(factors, tuple):
@@ -258,12 +270,33 @@ def extend_algebraic_constant_compositum(
     if len(set(normalized)) != len(normalized):
         raise ValueError("constant-compositum factors must be distinct")
 
+    root_fields: list[AlgebraicField | None] = []
+    for factor in normalized:
+        if _splits_completely(factor, source):
+            root_fields.append(None)
+            continue
+        root_field = QQ.alg_field_from_poly(factor)
+        if not isinstance(root_field, AlgebraicField):
+            raise TypeError("SymPy did not construct an algebraic root field")
+        if not _splits_completely(factor, root_field):
+            raise ValueError(
+                "general splitting fields are unsupported: a requested factor "
+                "does not split in its one-root field"
+            )
+        root_fields.append(root_field)
+
     current = source
     steps: list[AlgebraicConstantFieldExtension] = []
-    for factor in normalized:
+    for factor, root_field in zip(normalized, root_fields, strict=True):
+        if root_field is None:
+            continue
         if _splits_completely(factor, current):
             continue
-        step = extend_algebraic_constants(current, factor)
+        step = _extend_algebraic_constants_with_root_field(
+            current,
+            factor,
+            root_field,
+        )
         steps.append(step)
         current = step.target
     return AlgebraicConstantFieldCompositum(source, normalized, tuple(steps))

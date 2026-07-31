@@ -214,6 +214,8 @@ def test_profile_base_change_combines_two_independent_residue_fields() -> None:
     assert result.base_change.certified
     assert len(result.steps) == 1
     assert len(result.base_change.factors) == 2
+    assert result.base_change.constant_compositum is not None
+    assert len(result.base_change.constant_compositum.steps) == 2
     assert result.base_change.target_constants is not None
     assert result.base_change.target_constants.ext.minpoly.degree() == 4
     assert result.target_result is not None
@@ -221,6 +223,26 @@ def test_profile_base_change_combines_two_independent_residue_fields() -> None:
     assert result.is_elementary
     assert result.reconstructs
     assert result.antiderivative is not None
+
+
+def test_profile_base_change_reports_algebraic_coefficient_boundary() -> None:
+    """A non-rational profile factor remains unsupported without an exception."""
+    constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, basis = algebraic_tower(y**2 - x, constants)
+
+    result = integrate_algebraic_with_constant_base_change(
+        extension.field.from_sympy(y / (x - sqrt(2))),
+        tower.derivation(),
+        basis,
+    )
+
+    assert (
+        result.source_result.status
+        is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+    )
+    assert result.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+    assert result.steps == ()
+    assert "no new rationally defined irreducible factor" in result.detail
 
 
 def test_logarithmic_reconstruction_adds_an_exact_residue_free_correction() -> None:

@@ -1,5 +1,6 @@
 """Conservative algebraic-constant transport for closed finite places."""
 
+import pytest
 from sympy import Poly, Rational, sqrt, symbols
 from sympy.polys.domains import QQ
 
@@ -159,6 +160,24 @@ def test_common_constant_compositum_splits_independent_factors() -> None:
         assert all(component.degree() == 1 for component, _multiplicity in factors)
 
 
+def test_common_compositum_is_independent_of_factor_order() -> None:
+    """Support and rejection do not depend on caller ordering."""
+    first = Poly(z**2 - 2, z, domain=QQ)
+    second = Poly(z**2 - 3, z, domain=QQ)
+
+    forward = extend_algebraic_constant_compositum(QQ, (first, second))
+    reverse = extend_algebraic_constant_compositum(QQ, (second, first))
+
+    assert forward.target.ext.minpoly.degree() == 4
+    assert reverse.target.ext.minpoly.degree() == 4
+
+    cubic = Poly(z**3 - 2, z, domain=QQ)
+    discriminant = Poly(z**2 + 3, z, domain=QQ)
+    for factors in ((cubic, discriminant), (discriminant, cubic)):
+        with pytest.raises(ValueError, match="general splitting fields"):
+            extend_algebraic_constant_compositum(QQ, factors)
+
+
 def test_common_compositum_skips_a_factor_already_in_the_source() -> None:
     """An absorbed residue field does not create a redundant extension step."""
     constants = QQ.algebraic_field(sqrt(2))
@@ -255,7 +274,7 @@ def test_cubic_factor_that_does_not_split_in_its_root_field_is_unsupported() -> 
     assert change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED
     assert not change.certified
     assert change.target_extension is None
-    assert "does not split completely" in change.detail
+    assert "general splitting fields are unsupported" in change.detail
 
 
 def test_unsupported_factor_does_not_return_a_partial_common_field() -> None:
@@ -275,6 +294,22 @@ def test_unsupported_factor_does_not_return_a_partial_common_field() -> None:
     assert not change.certified
     assert change.constant_compositum is None
     assert change.target_extension is None
+
+
+def test_algebraic_coefficient_factor_is_an_explicit_boundary() -> None:
+    """Foreign constant coefficients must not escape as coercion exceptions."""
+    constants, tower, _extension, model = _algebraic_source_model()
+    factor = Poly(z**2 - sqrt(2), z, domain=constants)
+
+    change = build_algebraic_constant_compositum_base_change(
+        model,
+        tower.derivation(),
+        (factor,),
+    )
+
+    assert change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED
+    assert not change.certified
+    assert "cannot be normalized over QQ" in change.detail
 
 
 def test_infinite_places_are_an_explicit_boundary_of_the_finite_layer() -> None:

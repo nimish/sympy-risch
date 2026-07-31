@@ -395,7 +395,7 @@ def build_algebraic_constant_compositum_base_change(
 
     try:
         source_parent, constants, variable = _base_polynomial_ring(model.extension)
-    except (NotImplementedError, TypeError, ValueError) as exc:
+    except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_base_change(model, derivation, factors, str(exc))
     if constants != QQ and not isinstance(constants, AlgebraicField):
         return _unsupported_base_change(
@@ -427,7 +427,7 @@ def build_algebraic_constant_compositum_base_change(
                 factor_variable,
                 domain=QQ,
             ).monic()
-        except (NotImplementedError, TypeError, ValueError) as exc:
+        except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
             return _unsupported_base_change(
                 model,
                 derivation,
@@ -467,7 +467,7 @@ def build_algebraic_constant_compositum_base_change(
             constants,
             normalized_tuple,
         )
-    except (NotImplementedError, TypeError, ValueError) as exc:
+    except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_base_change(
             model,
             derivation,
@@ -523,7 +523,7 @@ def build_algebraic_constant_compositum_base_change(
                 f"{target_analysis.detail}",
             )
         target_model = AlgebraicFunctionField(target_extension)
-    except (NotImplementedError, TypeError, ValueError) as exc:
+    except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_base_change(
             model,
             derivation,
@@ -546,7 +546,7 @@ def build_algebraic_constant_compositum_base_change(
     )
     try:
         derivatives_commute = _generator_derivatives_commute(candidate)
-    except (NotImplementedError, TypeError, ValueError) as exc:
+    except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
         return _unsupported_base_change(
             model,
             derivation,
