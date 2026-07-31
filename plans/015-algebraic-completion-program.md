@@ -266,11 +266,14 @@ uses a degree-one place without depending on the Risch derivation analyzer;
 an explicit adapter accepts an existing preserved Risch analysis. This
 includes the nonradical `y**3 + y + x` regression. Closed places of arbitrary
 degree contribute their full native constant-coordinate blocks.
-`HessPrescribedResidueSpace` now solves the corresponding affine system for
-third-kind differentials. A consistent target returns an exact particular
-differential plus the second-kind translation space; an inconsistent target
-returns a left-kernel obstruction. Tests cover the global residue obstruction,
-nontrivial affine families, and a degree-two closed residue field.
+`solve_hess_prescribed_residues` now solves the corresponding affine system
+for third-kind differentials over a reusable second-kind residue operator. A
+consistent target returns `HessPrescribedResidueSpace`, with an exact
+particular differential and translation space; an inconsistent target returns
+the distinct `HessPrescribedResidueInconsistency` carrying a left-kernel
+obstruction. Tests cover operator reuse, the global residue obstruction,
+nontrivial affine families, higher-degree closed residue fields, and invalid
+public residue values.
 
 Use divisor reduction plus the parametric basis to compute large
 Riemann--Roch spaces in short power-product form. Then expose the standard

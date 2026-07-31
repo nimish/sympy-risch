@@ -7,21 +7,30 @@ Prescribing residues gives the affine system
 ``M c = r``.
 
 If it is consistent, one particular differential together with the
-second-kind kernel describes every solution.  If it is inconsistent, a row
-in the left kernel of ``M`` whose pairing with ``r`` is nonzero is an exact
-obstruction.  This includes the global residue theorem automatically; no
+second-kind kernel describes every solution. If it is inconsistent, a row in
+the left kernel of ``M`` whose pairing with ``r`` is nonzero is an exact
+obstruction. This includes the global residue theorem automatically; no
 separate degree-one-place special case is needed.
+
+Building the residue operator is substantially more expensive than solving
+one constant-field system. :func:`solve_hess_prescribed_residues` therefore
+accepts an existing second-kind space so callers can reuse the operator for
+many targets. :func:`hess_prescribed_residues` is the one-shot convenience
+entry point.
 """
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
 from typing import cast
 
 from sympy.polys.agca.extensions import ExtensionElement
+from sympy.polys.domains.domain import Domain
 from sympy.polys.matrices import DomainMatrix
+from sympy.polys.polyerrors import CoercionFailed
 
 from .._typing import FieldElement
 from ..algebraic._field import _base_polynomial_ring
@@ -69,7 +78,12 @@ def _target_column(
         try:
             residue = cast(ExtensionElement, place.residue_field.convert(raw_value))
             local_coordinates = _residue_coordinates(place, residue, constants)
-        except (TypeError, ValueError, _UnsupportedValuationConstraint) as exc:
+        except (
+            CoercionFailed,
+            TypeError,
+            ValueError,
+            _UnsupportedValuationConstraint,
+        ) as exc:
             raise ValueError(
                 "a prescribed residue does not belong to its place's residue field"
             ) from exc
@@ -125,95 +139,43 @@ def _left_kernel_obstruction(
     raise ValueError("an inconsistent residue system has no left-kernel obstruction")
 
 
-@dataclass(frozen=True, slots=True, init=False)
-class HessPrescribedResidueSpace:
-    r"""The affine solution set of one prescribed-residue problem.
+def _coordinate_column(
+    coordinates: tuple[FieldElement, ...],
+    domain: Domain,
+) -> DomainMatrix:
+    """Return one exact coordinate column over ``domain``."""
+    return DomainMatrix(
+        [[coordinate] for coordinate in coordinates],
+        (len(coordinates), 1),
+        domain,
+    )
 
-    A solvable result is
 
-    ``particular_differential + homogeneous_space``.
-
-    An inconsistent result instead carries ``obstruction_coordinates``, an
-    exact linear relation annihilating every realizable residue vector but
-    not the requested target.
-    """
+@dataclass(frozen=True, slots=True)
+class HessPrescribedResidueResult(ABC):
+    """Common data for a solved or inconsistent prescribed-residue system."""
 
     homogeneous_space: HessSecondKindDifferentialSpace
     prescribed_residues: tuple[ExtensionElement, ...]
     target_coordinates: tuple[FieldElement, ...]
-    status: HessPrescribedResidueStatus
-    particular_coordinates: tuple[FieldElement, ...] | None
-    particular_differential: AlgebraicDifferential | None
-    obstruction_coordinates: tuple[FieldElement, ...] | None
 
-    def __init__(self) -> None:
-        raise TypeError(
-            "prescribed-residue spaces must be created by hess_prescribed_residue_space"
-        )
-
-    @classmethod
-    def _create(
-        cls,
-        homogeneous_space: HessSecondKindDifferentialSpace,
-        prescribed_residues: tuple[ExtensionElement, ...],
-        target_coordinates: tuple[FieldElement, ...],
-        status: HessPrescribedResidueStatus,
-        particular_coordinates: tuple[FieldElement, ...] | None,
-        particular_differential: AlgebraicDifferential | None,
-        obstruction_coordinates: tuple[FieldElement, ...] | None,
-    ) -> HessPrescribedResidueSpace:
-        result = object.__new__(cls)
-        object.__setattr__(result, "homogeneous_space", homogeneous_space)
-        object.__setattr__(result, "prescribed_residues", prescribed_residues)
-        object.__setattr__(result, "target_coordinates", target_coordinates)
-        object.__setattr__(result, "status", status)
-        object.__setattr__(
-            result,
-            "particular_coordinates",
-            particular_coordinates,
-        )
-        object.__setattr__(
-            result,
-            "particular_differential",
-            particular_differential,
-        )
-        object.__setattr__(
-            result,
-            "obstruction_coordinates",
-            obstruction_coordinates,
-        )
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         if not isinstance(self.homogeneous_space, HessSecondKindDifferentialSpace):
-            raise TypeError("an affine residue space needs a second-kind kernel")
+            raise TypeError("a residue result needs a second-kind operator")
         if len(self.prescribed_residues) != len(self.residue_places):
             raise ValueError("the prescribed residues do not match the residue places")
         if len(self.target_coordinates) != self.residue_coordinate_dimension:
             raise ValueError("the prescribed residue vector has the wrong dimension")
-        if not isinstance(self.status, HessPrescribedResidueStatus):
-            raise TypeError("an affine residue space has an unknown status")
 
-        if self.status is HessPrescribedResidueStatus.SOLVABLE:
-            if (
-                self.particular_coordinates is None
-                or self.particular_differential is None
-                or self.obstruction_coordinates is not None
-            ):
-                raise ValueError("a solvable residue space needs one particular point")
-            if len(self.particular_coordinates) != len(self.ambient_basis):
-                raise ValueError("the particular coordinates have the wrong dimension")
-            return
+    @property
+    @abstractmethod
+    def status(self) -> HessPrescribedResidueStatus:
+        """Outcome of the exact affine system."""
 
-        if (
-            self.particular_coordinates is not None
-            or self.particular_differential is not None
-            or self.obstruction_coordinates is None
-        ):
-            raise ValueError("an inconsistent residue space needs one obstruction")
-        if len(self.obstruction_coordinates) != self.residue_coordinate_dimension:
-            raise ValueError("the residue obstruction has the wrong dimension")
+    @property
+    def is_nonempty(self) -> bool:
+        """Whether at least one differential realizes the prescribed residues."""
+        return self.status is HessPrescribedResidueStatus.SOLVABLE
 
     @property
     def model(self) -> AlgebraicFunctionField:
@@ -232,7 +194,7 @@ class HessPrescribedResidueSpace:
 
     @property
     def ambient_basis(self) -> tuple[AlgebraicDifferential, ...]:
-        """Basis in which the particular coordinates are expressed."""
+        """Basis used by the residue operator."""
         return self.homogeneous_space.ambient_basis
 
     @property
@@ -241,21 +203,42 @@ class HessPrescribedResidueSpace:
         return self.homogeneous_space.residue_coordinate_dimension
 
     @property
+    @abstractmethod
+    def reconstructs(self) -> bool:
+        """Verify the result against the exact residue matrix."""
+
+
+@dataclass(frozen=True, slots=True)
+class HessPrescribedResidueSpace(HessPrescribedResidueResult):
+    r"""A nonempty affine space with the requested residues.
+
+    Every solution is ``particular_differential + homogeneous_space``.
+    """
+
+    particular_coordinates: tuple[FieldElement, ...]
+    particular_differential: AlgebraicDifferential
+
+    def __post_init__(self) -> None:
+        HessPrescribedResidueResult.__post_init__(self)
+        if len(self.particular_coordinates) != len(self.ambient_basis):
+            raise ValueError("the particular coordinates have the wrong dimension")
+        if not isinstance(self.particular_differential, AlgebraicDifferential):
+            raise TypeError("an affine residue space needs a particular differential")
+
+    @property
+    def status(self) -> HessPrescribedResidueStatus:
+        """The affine system is solvable."""
+        return HessPrescribedResidueStatus.SOLVABLE
+
+    @property
     def translation_dimension(self) -> int:
         """Dimension of the second-kind translation space."""
         return self.homogeneous_space.dimension
 
-    @property
-    def is_nonempty(self) -> bool:
-        """Whether at least one differential realizes the prescribed residues."""
-        return self.status is HessPrescribedResidueStatus.SOLVABLE
-
     def contains(self, differential: AlgebraicDifferential) -> bool:
-        """Whether ``differential`` belongs to this affine solution set."""
+        """Whether ``differential`` belongs to this affine solution space."""
         if not isinstance(differential, AlgebraicDifferential):
             raise TypeError("affine residue membership needs a differential")
-        if not self.is_nonempty:
-            return False
         if not self.homogeneous_space.ambient_space.contains(differential):
             return False
         return (
@@ -265,41 +248,57 @@ class HessPrescribedResidueSpace:
 
     @property
     def reconstructs(self) -> bool:
-        """Verify the particular point or the exact inconsistency obstruction."""
+        """Verify the particular point and the homogeneous residue kernel."""
         if not self.homogeneous_space.reconstructs:
             return False
         matrix = self.homogeneous_space.residue_matrix
-        target = DomainMatrix(
-            [[coordinate] for coordinate in self.target_coordinates],
-            (len(self.target_coordinates), 1),
-            matrix.domain,
+        target = _coordinate_column(self.target_coordinates, matrix.domain)
+        column = _coordinate_column(self.particular_coordinates, matrix.domain)
+        if matrix * column != target:
+            return False
+        ambient_coefficients = tuple(
+            cast(ExtensionElement, differential.coefficient)
+            for differential in self.ambient_basis
         )
-        if self.is_nonempty:
-            assert self.particular_coordinates is not None
-            assert self.particular_differential is not None
-            column = DomainMatrix(
-                [[coordinate] for coordinate in self.particular_coordinates],
-                (len(self.particular_coordinates), 1),
-                matrix.domain,
+        reconstructed = self.model.differential(
+            _linear_combination(
+                self.model,
+                ambient_coefficients,
+                self.particular_coordinates,
             )
-            if matrix * column != target:
-                return False
-            ambient_coefficients = tuple(
-                cast(ExtensionElement, differential.coefficient)
-                for differential in self.ambient_basis
-            )
-            reconstructed = self.model.differential(
-                _linear_combination(
-                    self.model,
-                    ambient_coefficients,
-                    self.particular_coordinates,
-                )
-            )
-            return reconstructed == self.particular_differential and self.contains(
-                reconstructed
-            )
+        )
+        return reconstructed == self.particular_differential and self.contains(
+            reconstructed
+        )
 
-        assert self.obstruction_coordinates is not None
+
+@dataclass(frozen=True, slots=True)
+class HessPrescribedResidueInconsistency(HessPrescribedResidueResult):
+    r"""Exact proof that no bounded differential has the requested residues.
+
+    ``obstruction_coordinates`` gives ``u`` with ``u M = 0`` and
+    ``u r != 0`` for the residue operator ``M`` and target ``r``.
+    """
+
+    obstruction_coordinates: tuple[FieldElement, ...]
+
+    def __post_init__(self) -> None:
+        HessPrescribedResidueResult.__post_init__(self)
+        if len(self.obstruction_coordinates) != self.residue_coordinate_dimension:
+            raise ValueError("the residue obstruction has the wrong dimension")
+
+    @property
+    def status(self) -> HessPrescribedResidueStatus:
+        """The affine system is inconsistent."""
+        return HessPrescribedResidueStatus.INCONSISTENT
+
+    @property
+    def reconstructs(self) -> bool:
+        """Verify the exact left-kernel obstruction."""
+        if not self.homogeneous_space.reconstructs:
+            return False
+        matrix = self.homogeneous_space.residue_matrix
+        target = _coordinate_column(self.target_coordinates, matrix.domain)
         obstruction = DomainMatrix(
             [list(self.obstruction_coordinates)],
             (1, len(self.obstruction_coordinates)),
@@ -314,24 +313,20 @@ class HessPrescribedResidueSpace:
         return annihilates_image and pairing != matrix.domain.zero
 
 
-def hess_prescribed_residue_space(
-    model: AlgebraicFunctionField,
-    pole_bound: AlgebraicDivisor,
+def solve_hess_prescribed_residues(
+    homogeneous_space: HessSecondKindDifferentialSpace,
     prescribed_residues: Mapping[AlgebraicPlace, object],
-    constant_field_certificate: FunctionFieldConstantCertificate,
-) -> HessPrescribedResidueSpace:
-    r"""Solve for all differentials in ``Omega(-pole_bound)`` with given residues.
+) -> HessPrescribedResidueResult:
+    r"""Solve one target using an existing bounded residue operator.
 
-    Residues omitted from ``prescribed_residues`` are zero.  Every supplied
-    place must occur in the pole-bound support.
+    Residues omitted from ``prescribed_residues`` are zero. Every supplied
+    place must occur in the pole-bound support. Reuse ``homogeneous_space``
+    when solving more than one target for the same pole bound.
     """
+    if not isinstance(homogeneous_space, HessSecondKindDifferentialSpace):
+        raise TypeError("prescribed residues need a second-kind residue operator")
     if not isinstance(prescribed_residues, Mapping):
         raise TypeError("prescribed residues must be a mapping from places to values")
-    homogeneous_space = hess_second_kind_differential_space(
-        model,
-        pole_bound,
-        constant_field_certificate,
-    )
     residues, target_coordinates, target = _target_column(
         homogeneous_space,
         prescribed_residues,
@@ -341,40 +336,56 @@ def hess_prescribed_residue_space(
         target,
     )
     if particular_coordinates is None:
-        return HessPrescribedResidueSpace._create(
-            homogeneous_space,
-            residues,
-            target_coordinates,
-            HessPrescribedResidueStatus.INCONSISTENT,
-            None,
-            None,
-            _left_kernel_obstruction(homogeneous_space.residue_matrix, target),
+        return HessPrescribedResidueInconsistency(
+            homogeneous_space=homogeneous_space,
+            prescribed_residues=residues,
+            target_coordinates=target_coordinates,
+            obstruction_coordinates=_left_kernel_obstruction(
+                homogeneous_space.residue_matrix,
+                target,
+            ),
         )
 
     ambient_coefficients = tuple(
         cast(ExtensionElement, differential.coefficient)
         for differential in homogeneous_space.ambient_basis
     )
-    particular_differential = model.differential(
+    particular_differential = homogeneous_space.model.differential(
         _linear_combination(
-            model,
+            homogeneous_space.model,
             ambient_coefficients,
             particular_coordinates,
         )
     )
-    return HessPrescribedResidueSpace._create(
-        homogeneous_space,
-        residues,
-        target_coordinates,
-        HessPrescribedResidueStatus.SOLVABLE,
-        particular_coordinates,
-        particular_differential,
-        None,
+    return HessPrescribedResidueSpace(
+        homogeneous_space=homogeneous_space,
+        prescribed_residues=residues,
+        target_coordinates=target_coordinates,
+        particular_coordinates=particular_coordinates,
+        particular_differential=particular_differential,
     )
 
 
+def hess_prescribed_residues(
+    model: AlgebraicFunctionField,
+    pole_bound: AlgebraicDivisor,
+    prescribed_residues: Mapping[AlgebraicPlace, object],
+    constant_field_certificate: FunctionFieldConstantCertificate,
+) -> HessPrescribedResidueResult:
+    """Build a bounded residue operator and solve one prescribed target."""
+    homogeneous_space = hess_second_kind_differential_space(
+        model,
+        pole_bound,
+        constant_field_certificate,
+    )
+    return solve_hess_prescribed_residues(homogeneous_space, prescribed_residues)
+
+
 __all__ = [
+    "HessPrescribedResidueInconsistency",
+    "HessPrescribedResidueResult",
     "HessPrescribedResidueSpace",
     "HessPrescribedResidueStatus",
-    "hess_prescribed_residue_space",
+    "hess_prescribed_residues",
+    "solve_hess_prescribed_residues",
 ]

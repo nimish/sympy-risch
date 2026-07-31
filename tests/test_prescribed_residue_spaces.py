@@ -9,11 +9,14 @@ from sympy_risch import (
     AlgebraicExtension,
     AlgebraicFunctionField,
     DifferentialTower,
+    HessPrescribedResidueInconsistency,
     HessPrescribedResidueSpace,
     HessPrescribedResidueStatus,
     MonomialExtension,
     certify_function_field_constants,
-    hess_prescribed_residue_space,
+    hess_prescribed_residues,
+    hess_second_kind_differential_space,
+    solve_hess_prescribed_residues,
 )
 
 x, y = symbols("x y")
@@ -29,67 +32,52 @@ def certified_model(modulus):
     return model, certify_function_field_constants(model)
 
 
-def test_prescribed_residue_results_are_factory_owned() -> None:
-    with pytest.raises(TypeError, match="created by hess_prescribed_residue_space"):
-        HessPrescribedResidueSpace()
-
-
-def test_opposite_simple_residues_determine_one_rational_differential() -> None:
+def test_one_residue_operator_solves_consistent_and_inconsistent_targets() -> None:
     model, constants = certified_model(y**2 - x)
     (zero,) = model.finite_places(Poly(x, x, domain=QQ))
     (infinity,) = model.infinite_places()
     pole_bound = AlgebraicDivisor(model, ((zero, 1), (infinity, 1)))
+    operator = hess_second_kind_differential_space(model, pole_bound, constants)
 
-    space = hess_prescribed_residue_space(
-        model,
-        pole_bound,
+    space = solve_hess_prescribed_residues(
+        operator,
         {zero: zero.residue_field.one, infinity: -infinity.residue_field.one},
-        constants,
+    )
+    inconsistency = solve_hess_prescribed_residues(
+        operator,
+        {zero: zero.residue_field.one},
     )
 
+    assert isinstance(space, HessPrescribedResidueSpace)
+    assert space.homogeneous_space is operator
     assert space.status is HessPrescribedResidueStatus.SOLVABLE
     assert space.is_nonempty
     assert space.translation_dimension == 0
     assert space.target_coordinates == (QQ.one, -QQ.one)
-    assert space.particular_differential is not None
     assert space.contains(space.particular_differential)
     assert space.reconstructs
-
-
-def test_global_residue_obstruction_is_returned_exactly() -> None:
-    model, constants = certified_model(y**2 - x)
-    (zero,) = model.finite_places(Poly(x, x, domain=QQ))
-    (infinity,) = model.infinite_places()
-    pole_bound = AlgebraicDivisor(model, ((zero, 1), (infinity, 1)))
-
-    space = hess_prescribed_residue_space(
-        model,
-        pole_bound,
-        {zero: zero.residue_field.one},
-        constants,
-    )
-
-    assert space.status is HessPrescribedResidueStatus.INCONSISTENT
-    assert not space.is_nonempty
-    assert space.particular_differential is None
-    assert space.obstruction_coordinates is not None
-    assert space.reconstructs
+    assert isinstance(inconsistency, HessPrescribedResidueInconsistency)
+    assert inconsistency.homogeneous_space is operator
+    assert inconsistency.status is HessPrescribedResidueStatus.INCONSISTENT
+    assert not inconsistency.is_nonempty
+    assert inconsistency.reconstructs
 
 
 def test_empty_residue_problem_is_the_holomorphic_space() -> None:
     model, constants = certified_model(y**2 - x**3 + x)
 
-    space = hess_prescribed_residue_space(
+    result = hess_prescribed_residues(
         model,
         AlgebraicDivisor(model),
         {},
         constants,
     )
 
+    assert isinstance(result, HessPrescribedResidueSpace)
+    space = result
     assert space.status is HessPrescribedResidueStatus.SOLVABLE
     assert space.target_coordinates == ()
     assert space.translation_dimension == model.genus == 1
-    assert space.particular_differential is not None
     assert space.particular_differential.coefficient == model.extension.field.zero
     assert space.reconstructs
 
@@ -100,15 +88,16 @@ def test_every_solution_is_a_particular_form_plus_the_second_kind_kernel() -> No
     (infinity,) = model.infinite_places()
     pole_bound = AlgebraicDivisor(model, ((zero, 2), (infinity, 2)))
 
-    space = hess_prescribed_residue_space(
+    result = hess_prescribed_residues(
         model,
         pole_bound,
         {zero: zero.residue_field.one, infinity: -infinity.residue_field.one},
         constants,
     )
 
+    assert isinstance(result, HessPrescribedResidueSpace)
+    space = result
     assert space.translation_dimension == 2
-    assert space.particular_differential is not None
     translated = model.differential(
         space.particular_differential.coefficient
         + space.homogeneous_space.basis[0].coefficient
@@ -122,29 +111,24 @@ def test_closed_place_residue_is_solved_in_its_native_coordinate_field() -> None
     place = model.finite_places(Poly(x**2 + 1, x, domain=QQ))[0]
     pole_bound = AlgebraicDivisor(model, ((place, 1),))
 
-    zero_target = hess_prescribed_residue_space(
-        model,
-        pole_bound,
-        {},
-        constants,
-    )
+    operator = hess_second_kind_differential_space(model, pole_bound, constants)
     seed = next(
         differential
-        for differential in zero_target.homogeneous_space.ambient_basis
+        for differential in operator.ambient_basis
         if differential.residue(place) != place.residue_field.zero
     )
     residue = seed.residue(place)
-    space = hess_prescribed_residue_space(
-        model,
-        pole_bound,
+    result = solve_hess_prescribed_residues(
+        operator,
         {place: residue},
-        constants,
     )
 
+    assert isinstance(result, HessPrescribedResidueSpace)
+    space = result
+    assert space.homogeneous_space is operator
     assert place.degree == 2
     assert space.status is HessPrescribedResidueStatus.SOLVABLE
     assert space.target_coordinates == place.constant_coordinates(residue)
-    assert space.particular_differential is not None
     assert space.contains(space.particular_differential)
     assert space.reconstructs
 
@@ -156,9 +140,20 @@ def test_residue_outside_the_pole_bound_is_rejected() -> None:
     pole_bound = AlgebraicDivisor(model, ((zero, 1),))
 
     with pytest.raises(ValueError, match="outside the pole-bound support"):
-        hess_prescribed_residue_space(
-            model,
-            pole_bound,
+        solve_hess_prescribed_residues(
+            hess_second_kind_differential_space(model, pole_bound, constants),
             {infinity: infinity.residue_field.one},
-            constants,
         )
+
+
+def test_invalid_residue_value_has_a_public_value_error() -> None:
+    model, constants = certified_model(y**2 - x)
+    (zero,) = model.finite_places(Poly(x, x, domain=QQ))
+    pole_bound = AlgebraicDivisor(model, ((zero, 1),))
+    operator = hess_second_kind_differential_space(model, pole_bound, constants)
+
+    with pytest.raises(
+        ValueError,
+        match="does not belong to its place's residue field",
+    ):
+        solve_hess_prescribed_residues(operator, {zero: object()})

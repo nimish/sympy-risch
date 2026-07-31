@@ -1376,10 +1376,11 @@ the second kind add one exact linear-algebra step:
 ```python
 from sympy_risch.algebraic_geometry import (
     AlgebraicDivisor,
+    HessPrescribedResidueSpace,
     HessPrescribedResidueStatus,
     certify_function_field_constants,
-    hess_prescribed_residue_space,
     hess_second_kind_differential_space,
+    solve_hess_prescribed_residues,
 )
 
 constant_field = certify_function_field_constants(curve)
@@ -1411,27 +1412,28 @@ The same residue map solves the affine third-kind problem. Missing entries in
 the residue mapping mean zero:
 
 ```python
-third_kind = hess_prescribed_residue_space(
-    curve,
-    two_sided_pole_bound,
+third_kind = solve_hess_prescribed_residues(
+    second_kind,
     {
         branch_place: branch_place.residue_field.one,
         infinity: -infinity.residue_field.one,
     },
-    constant_field,
 )
 
+assert isinstance(third_kind, HessPrescribedResidueSpace)
 assert third_kind.status is HessPrescribedResidueStatus.SOLVABLE
-assert third_kind.particular_differential is not None
 assert third_kind.contains(third_kind.particular_differential)
 assert third_kind.translation_dimension == second_kind.dimension
 ```
 
-Every answer is `particular_differential + second_kind`. If the requested
-residues are impossible, the status is `INCONSISTENT` and
-`obstruction_coordinates` gives an exact linear relation that all realizable
-residue vectors satisfy but the target violates. Thus inconsistency is a
-certificate, not a failed search.
+Every element is `particular_differential + second_kind`. If the requested
+residues are impossible, the result is a
+`HessPrescribedResidueInconsistency`; its `obstruction_coordinates` give an
+exact linear relation that all realizable residue vectors satisfy but the
+target violates. Thus inconsistency is a certificate, not a failed search.
+Reuse `second_kind` to solve further targets without rebuilding its Hess space
+or residue matrix. `hess_prescribed_residues` remains a one-shot convenience
+function when only one target is needed.
 
 ## Mathematical assumptions
 

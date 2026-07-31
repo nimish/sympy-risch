@@ -64,9 +64,12 @@ from .large_riemann_roch import (
 )
 from .orders import AlgebraicFractionalIdeal, AlgebraicOrder
 from .prescribed_residues import (
+    HessPrescribedResidueInconsistency,
+    HessPrescribedResidueResult,
     HessPrescribedResidueSpace,
     HessPrescribedResidueStatus,
-    hess_prescribed_residue_space,
+    hess_prescribed_residues,
+    solve_hess_prescribed_residues,
 )
 from .principal import (
     AlgebraicPrincipalityDecision,
@@ -100,6 +103,8 @@ __all__ = [
     "HessParametricBasis",
     "HessPowerProduct",
     "HessPowerProductElement",
+    "HessPrescribedResidueInconsistency",
+    "HessPrescribedResidueResult",
     "HessPrescribedResidueSpace",
     "HessPrescribedResidueStatus",
     "HessReductionStrategy",
@@ -117,7 +122,7 @@ __all__ = [
     "hess_divisor_ideals",
     "hess_large_riemann_roch_space",
     "hess_parametric_basis",
-    "hess_prescribed_residue_space",
+    "hess_prescribed_residues",
     "hess_second_kind_differential_space",
     "holomorphic_differential_space",
     "integral_closure",
@@ -126,4 +131,5 @@ __all__ = [
     "reduce_algebraic_function_field",
     "reduce_hess_divisor",
     "search_algebraic_divisor_torsion",
+    "solve_hess_prescribed_residues",
 ]
