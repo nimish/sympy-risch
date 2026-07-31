@@ -983,8 +983,7 @@ class FiniteAlgebraicPlace:
                 coefficient_expansion.start,
                 coefficient_expansion.stop,
             )
-            if coefficient_expansion.coefficient(exponent)
-            != self.residue_field.zero
+            if coefficient_expansion.coefficient(exponent) != self.residue_field.zero
         }
 
         maximum_series_exponent = -1 - coefficient_start
@@ -1004,8 +1003,7 @@ class FiniteAlgebraicPlace:
                     parameter_expansion.start,
                     parameter_expansion.stop,
                 )
-                if parameter_expansion.coefficient(exponent)
-                != self.residue_field.zero
+                if parameter_expansion.coefficient(exponent) != self.residue_field.zero
             }
 
         power_series = {0: self.residue_field.one}

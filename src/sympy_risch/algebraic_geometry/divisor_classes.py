@@ -261,10 +261,8 @@ class AlgebraicTorsionSearch:
                         self.model,
                         product * reduction.correction,
                     )
-                if (
-                    not previous.is_zero
-                    or self.witness
-                    != _normalize_constant_multiple(self.model, product)
+                if not previous.is_zero or self.witness != _normalize_constant_multiple(
+                    self.model, product
                 ):
                     raise ValueError(
                         "a sequential torsion result failed reconstruction"
@@ -400,7 +398,9 @@ def _scalar_class_multiple(
 
 def _divisor_identity_key(divisor: AlgebraicDivisor) -> tuple[tuple[int, int], ...]:
     """Hash a model-owned divisor by exact place identity and coefficient."""
-    return tuple(sorted((id(place), coefficient) for place, coefficient in divisor.terms))
+    return tuple(
+        sorted((id(place), coefficient) for place, coefficient in divisor.terms)
+    )
 
 
 def _search_algebraic_divisor_torsion_bsgs(

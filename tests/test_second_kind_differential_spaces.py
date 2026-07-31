@@ -72,8 +72,7 @@ def test_double_pole_bound_has_an_exact_two_dimensional_residue_kernel() -> None
     assert space.residue_matrix.rank() == 1
     assert space.dimension == 2
     direct_columns = tuple(
-        space.residue_vector(differential)
-        for differential in space.ambient_basis
+        space.residue_vector(differential) for differential in space.ambient_basis
     )
     assert space.residue_matrix.to_list() == [
         [column[row] for column in direct_columns]
