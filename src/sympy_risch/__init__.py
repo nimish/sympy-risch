@@ -1,5 +1,6 @@
 """Risch integration algorithms built directly on SymPy."""
 
+from . import _sympy_compat as _sympy_compat
 from ._version import __version__
 from .admission import (
     RischOperation,

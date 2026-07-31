@@ -1628,6 +1628,14 @@ divisor stage; they are not yet a logarithmic answer.
 
 ### Front end and upstreaming
 
+The released dependency range currently targets SymPy 1.14. Importing
+`sympy_risch` therefore installs a temporary compatibility fast path for
+`Field.gcd` and `Field.lcm` when a field has no associated ring. It preserves
+the existing fallback results while avoiding repeated `DomainError`
+construction for algebraic constants. The patch is version-gated and should
+be removed once the minimum SymPy release contains upstream commit
+`48bf879232`.
+
 - [x] Compile the narrow one-variable P/E/T expression grammar into checked
   towers and present local back-substituted answers.
 - [ ] Build and minimize general towers from SymPy expressions.
