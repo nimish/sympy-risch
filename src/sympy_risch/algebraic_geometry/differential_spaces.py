@@ -123,7 +123,9 @@ class HessDifferentialSpace:
             raise TypeError("differential-space membership needs a differential")
         if differential.model is not self.model:
             raise ValueError("the differential belongs to another global model")
-        return self.coefficient_space.contains(differential.coefficient)
+        if differential.coefficient == self.model.extension.field.zero:
+            return True
+        return (differential.divisor() - self.lower_bound).is_effective
 
     def verify_expansion(self) -> bool:
         """Expand and independently verify the coefficient-space basis."""

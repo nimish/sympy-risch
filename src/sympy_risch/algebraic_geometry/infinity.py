@@ -255,3 +255,26 @@ class InfiniteAlgebraicPlace:
             ),
         )
         return self.finite_place.differential_residue(-transformed / reciprocal_base**2)
+
+    def differential_residues_for_powers(
+        self,
+        coefficient: object,
+        parameter: object,
+        count: int,
+    ) -> tuple[ExtensionElement, ...]:
+        r"""Return residues for a power family after one reciprocal-chart map."""
+        transformed = self.chart.forward(coefficient)
+        transformed_parameter = self.chart.forward(parameter)
+        reciprocal_base = _embed_parent(
+            self.chart.extension,
+            Poly(
+                self.chart.variable,
+                self.chart.variable,
+                domain=_base_polynomial_ring(self.chart.extension)[1],
+            ),
+        )
+        return self.finite_place.differential_residues_for_powers(
+            -transformed / reciprocal_base**2,
+            transformed_parameter,
+            count,
+        )

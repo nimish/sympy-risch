@@ -69,21 +69,52 @@ def _residue_vector(
 
 
 def _residue_matrix(
-    model: AlgebraicFunctionField,
+    ambient_space: HessDifferentialSpace,
     places: tuple[AlgebraicPlace, ...],
-    basis: tuple[AlgebraicDifferential, ...],
 ) -> DomainMatrix:
-    """Return the exact constant matrix of the residue map."""
+    """Return the residue matrix from the compact Hess power families."""
+    model = ambient_space.model
     _parent, constants, _variable = _base_polynomial_ring(model.extension)
     height = sum(place.degree for place in places)
-    columns = tuple(
-        _residue_vector(model, places, differential) for differential in basis
-    )
+    columns: list[tuple[FieldElement, ...]] = []
+    for generator, invariant_degree in zip(
+        ambient_space.generators,
+        ambient_space.invariant_degrees,
+        strict=True,
+    ):
+        count = max(invariant_degree + 1, 0)
+        if count == 0:
+            continue
+        coefficient = generator.evaluate()
+        residues_by_place = tuple(
+            place.differential_residues_for_powers(
+                coefficient,
+                ambient_space.coefficient_space.parameter,
+                count,
+            )
+            for place in places
+        )
+        for power in range(count):
+            columns.append(
+                tuple(
+                    coordinate
+                    for place, residues in zip(
+                        places,
+                        residues_by_place,
+                        strict=True,
+                    )
+                    for coordinate in _residue_coordinates(
+                        place,
+                        residues[power],
+                        constants,
+                    )
+                )
+            )
     rows = [
         [columns[column][row] for column in range(len(columns))]
         for row in range(height)
     ]
-    return DomainMatrix(rows, (height, len(basis)), constants)
+    return DomainMatrix(rows, (height, len(columns)), constants)
 
 
 def _matrix_annihilates_coordinates(
@@ -208,14 +239,17 @@ class HessSecondKindDifferentialSpace:
         if not self.ambient_space.contains(differential):
             return False
         _parent, constants, _variable = _base_polynomial_ring(self.model.extension)
-        return all(
-            coordinate == constants.zero
-            for coordinate in _residue_vector(
-                self.model,
-                self.residue_places,
-                differential,
-            )
-        )
+        for place in self.residue_places:
+            if any(
+                coordinate != constants.zero
+                for coordinate in _residue_coordinates(
+                    place,
+                    differential.residue(place),
+                    constants,
+                )
+            ):
+                return False
+        return True
 
     @property
     def reconstructs(self) -> bool:
@@ -280,7 +314,7 @@ def hess_second_kind_differential_space(
     ambient_basis = ambient_space.expand()
     residue_places = pole_bound.support
     try:
-        residue_matrix = _residue_matrix(model, residue_places, ambient_basis)
+        residue_matrix = _residue_matrix(ambient_space, residue_places)
     except _UnsupportedValuationConstraint as exc:
         raise NotImplementedError(
             f"second-kind residue coordinates are unavailable: {exc}"

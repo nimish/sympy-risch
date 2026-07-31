@@ -112,10 +112,11 @@ def constant_coordinate_matrix(
                 variable,
             )
             for (degree,), coefficient in polynomial.terms():
-                row = rows.setdefault(
-                    (power, degree),
-                    [constants.zero for _ in elements],
-                )
+                key = (power, degree)
+                row = rows.get(key)
+                if row is None:
+                    row = [constants.zero for _ in elements]
+                    rows[key] = row
                 row[column] = constants.convert(coefficient)
 
     if not rows:

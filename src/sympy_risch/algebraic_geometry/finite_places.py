@@ -938,6 +938,102 @@ class FiniteAlgebraicPlace:
         expansion = self.local_expansion(local_coefficient, stop=0)
         return expansion.coefficient(-1)
 
+    def differential_residues_for_powers(
+        self,
+        coefficient: object,
+        parameter: object,
+        count: int,
+    ) -> tuple[ExtensionElement, ...]:
+        r"""Return residues of ``coefficient*parameter**i*dx`` in one expansion.
+
+        The direct residue operation expands every differential separately.
+        Hess bases contain long runs of powers of one parameter, so expanding
+        the coefficient and parameter once and multiplying their truncated
+        Laurent series avoids repeating the local algebra for every power.
+        """
+        if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+            raise ValueError("the residue power count must be a nonnegative integer")
+        if count == 0:
+            return ()
+
+        value = _extension_element(self.extension, coefficient)
+        local_parameter = _extension_element(self.extension, parameter)
+        if local_parameter == self.extension.field.zero:
+            raise ValueError("a residue expansion parameter must be nonzero")
+        if value == self.extension.field.zero:
+            return tuple(self.residue_field.zero for _ in range(count))
+
+        uniformizer_derivative = _standard_derivative(
+            self.extension,
+            self.uniformizer,
+        )
+        local_coefficient = value / uniformizer_derivative
+        coefficient_start = cast(int, self.valuation(local_coefficient))
+        parameter_start = cast(int, self.valuation(local_parameter))
+        maximum_power = count - 1
+
+        coefficient_stop = max(0, -maximum_power * parameter_start)
+        coefficient_expansion = self.local_expansion(
+            local_coefficient,
+            stop=coefficient_stop,
+        )
+        coefficient_series = {
+            exponent: coefficient_expansion.coefficient(exponent)
+            for exponent in range(
+                coefficient_expansion.start,
+                coefficient_expansion.stop,
+            )
+            if coefficient_expansion.coefficient(exponent)
+            != self.residue_field.zero
+        }
+
+        maximum_series_exponent = -1 - coefficient_start
+        parameter_series: dict[int, ExtensionElement] = {}
+        if maximum_power:
+            parameter_stop = -coefficient_start - min(
+                0,
+                (maximum_power - 1) * parameter_start,
+            )
+            parameter_expansion = self.local_expansion(
+                local_parameter,
+                stop=parameter_stop,
+            )
+            parameter_series = {
+                exponent: parameter_expansion.coefficient(exponent)
+                for exponent in range(
+                    parameter_expansion.start,
+                    parameter_expansion.stop,
+                )
+                if parameter_expansion.coefficient(exponent)
+                != self.residue_field.zero
+            }
+
+        power_series = {0: self.residue_field.one}
+        residues: list[ExtensionElement] = []
+        for power in range(count):
+            residue = self.residue_field.zero
+            for exponent, coefficient_value in coefficient_series.items():
+                residue += coefficient_value * power_series.get(
+                    -1 - exponent,
+                    self.residue_field.zero,
+                )
+            residues.append(cast(ExtensionElement, residue))
+            if power == maximum_power:
+                break
+            next_power: dict[int, ExtensionElement] = {}
+            for left_exponent, left_value in power_series.items():
+                for right_exponent, right_value in parameter_series.items():
+                    exponent = left_exponent + right_exponent
+                    if exponent > maximum_series_exponent:
+                        continue
+                    next_power[exponent] = cast(
+                        ExtensionElement,
+                        next_power.get(exponent, self.residue_field.zero)
+                        + left_value * right_value,
+                    )
+            power_series = next_power
+        return tuple(residues)
+
 
 def _polynomial_multiplicity(polynomial: Poly, prime: Poly) -> int:
     exponent = 0
