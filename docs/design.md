@@ -1269,7 +1269,10 @@ dim L(D) = deg(D) + 1 - genus + dim Omega(D).
 `(deg(K) + 2)/2` from the different-derived canonical divisor, then computes
 `dim L(K)` directly with Algorithm 13's finite/infinite ideal intersection.
 Agreement checks the different, both maximal-order charts, and the direct Hess
-lattice calculation independently of Algorithm 24.
+lattice calculation independently of Algorithm 24. Because both genus
+identities are over the full constant field, the operation requires a
+model-owned `FunctionFieldConstantCertificate`; an unchecked displayed field
+is never treated as the constant field.
 
 Residue kernels and prescribed-residue affine spaces for differentials of the
 second and third kind form a separate layer over this complete ambient space.

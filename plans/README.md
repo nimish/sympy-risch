@@ -122,7 +122,8 @@ third-kind problems through a reusable operator, returning either a distinct
 affine-space result or an exact left-kernel inconsistency certificate. An
 independent genus check now compares the different-derived canonical degree
 with the direct Algorithm 13 dimension of `L(K)`, without consuming
-`model.genus` or Algorithm 24. The
+`model.genus` or Algorithm 24 and only after receiving model-owned
+full-constant-field evidence. The
 full engine still needs presentation normalization, total maximal-order
 arithmetic, and broader constant-field certification. The shared differential
 path batches local residue

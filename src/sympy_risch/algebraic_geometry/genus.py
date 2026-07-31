@@ -10,12 +10,18 @@ and infinite ideal lattices. The canonical-space theorem identifies
 ``dim L(K)`` with the genus. Agreement checks the different, both maximal
 orders, and the direct Riemann--Roch lattice construction without routing
 through Algorithm 24 or :attr:`AlgebraicFunctionField.genus`.
+
+Both identities are stated over the full constant field. The public factory
+therefore requires model-owned :class:`FunctionFieldConstantCertificate`
+evidence rather than treating a displayed coefficient field as exact by
+assumption.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .constant_fields import FunctionFieldConstantCertificate
 from .function_field import (
     AlgebraicDivisor,
     AlgebraicFunctionField,
@@ -28,12 +34,20 @@ class HessGenusConsistency:
     """Two independently computed genus values for one global model."""
 
     model: AlgebraicFunctionField
+    constant_field_certificate: FunctionFieldConstantCertificate
     canonical_divisor: AlgebraicDivisor
     canonical_space: HessParametricBasis
 
     def __post_init__(self) -> None:
         if not isinstance(self.model, AlgebraicFunctionField):
             raise TypeError("a genus consistency result needs a function field")
+        if not isinstance(
+            self.constant_field_certificate,
+            FunctionFieldConstantCertificate,
+        ):
+            raise TypeError("a genus consistency result needs full-constant evidence")
+        if self.constant_field_certificate.model is not self.model:
+            raise ValueError("the constant-field certificate belongs to another model")
         if not isinstance(self.canonical_divisor, AlgebraicDivisor):
             raise TypeError("a genus consistency result needs a canonical divisor")
         if self.canonical_divisor.model is not self.model:
@@ -74,13 +88,26 @@ class HessGenusConsistency:
 
 def hess_genus_consistency(
     model: AlgebraicFunctionField,
+    constant_field_certificate: FunctionFieldConstantCertificate,
 ) -> HessGenusConsistency:
-    r"""Compare the different genus with a direct Algorithm 13 ``L(K)``."""
+    r"""Compare the different genus with a certified direct Algorithm 13 ``L(K)``."""
     if not isinstance(model, AlgebraicFunctionField):
         raise TypeError("genus consistency needs an algebraic function field")
+    if not isinstance(
+        constant_field_certificate,
+        FunctionFieldConstantCertificate,
+    ):
+        raise TypeError("genus consistency needs a constant-field certificate")
+    if constant_field_certificate.model is not model:
+        raise ValueError("the constant-field certificate belongs to another model")
     canonical_divisor = model.canonical_divisor()
     canonical_space = hess_parametric_basis(model, canonical_divisor)
-    return HessGenusConsistency(model, canonical_divisor, canonical_space)
+    return HessGenusConsistency(
+        model,
+        constant_field_certificate,
+        canonical_divisor,
+        canonical_space,
+    )
 
 
 __all__ = [

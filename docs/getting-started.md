@@ -1354,6 +1354,7 @@ Here `Omega(D)` means the differentials whose divisor is at least `D`:
 
 ```python
 from sympy_risch.algebraic_geometry import (
+    certify_function_field_constants,
     hess_differential_space,
     hess_genus_consistency,
     holomorphic_differential_space,
@@ -1362,7 +1363,8 @@ from sympy_risch.algebraic_geometry import (
 holomorphic = holomorphic_differential_space(curve)
 assert holomorphic.dimension == curve.genus
 
-genus_check = hess_genus_consistency(curve)
+constant_field = certify_function_field_constants(curve)
+genus_check = hess_genus_consistency(curve, constant_field)
 assert genus_check.riemann_hurwitz_genus == curve.genus
 assert genus_check.holomorphic_dimension == curve.genus
 assert genus_check.consistent
@@ -1384,12 +1386,10 @@ from sympy_risch.algebraic_geometry import (
     AlgebraicDivisor,
     HessPrescribedResidueSpace,
     HessPrescribedResidueStatus,
-    certify_function_field_constants,
     hess_second_kind_differential_space,
     solve_hess_prescribed_residues,
 )
 
-constant_field = certify_function_field_constants(curve)
 two_sided_pole_bound = AlgebraicDivisor(
     curve,
     ((branch_place, 2), (infinity, 2)),

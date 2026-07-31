@@ -275,8 +275,10 @@ nontrivial affine families, higher-degree closed residue fields, and invalid
 public residue values.
 `hess_genus_consistency` independently compares the genus obtained from the
 different-derived canonical degree with `dim L(K)` computed by Algorithm 13.
-The latter path does not consume `model.genus` or Algorithm 24. Regressions
-cover genus zero through three, including a nonradical cubic presentation.
+The latter path does not consume `model.genus` or Algorithm 24, and both
+identities require model-owned full-constant-field evidence. Regressions cover
+genus zero through three, a nonradical cubic presentation, split infinity, and
+rejection of an enlarged displayed constant field.
 
 Use divisor reduction plus the parametric basis to compute large
 Riemann--Roch spaces in short power-product form. Then expose the standard
@@ -301,7 +303,8 @@ when the displayed constants have geometric or adapted Risch evidence. Models
 with neither a supplied degree-one place nor a preserved Risch analysis remain
 an explicit constant-field boundary. Prescribed-residue third-kind spaces are
 complete over the same admitted models. The different genus and direct
-Algorithm 13 canonical-space dimension agree independently.
+Algorithm 13 canonical-space dimension agree independently after the full
+constant field has been certified.
 
 #### A5-P. Harden the differential-space path
 
