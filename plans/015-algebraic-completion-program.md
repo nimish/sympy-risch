@@ -293,6 +293,12 @@ third-kind spaces and independent genus consistency checks.
 
 #### A5-P. Harden the differential-space path before third-kind spaces
 
+**Progress:** complete. Residue matrices now expand each compact Hess
+generator and the base parameter once per place, with direct per-basis
+residues retained as an exact oracle. Differential membership reuses the
+differential's cached divisor, zero-residue membership streams by place, and
+sparse coordinate rows are allocated only when first encountered.
+
 The prescribed-residue solver will reuse the same ambient differential basis
 and local expansions as the second-kind kernel. Before adding that solver:
 
@@ -345,6 +351,14 @@ The first performance slice of A6 is explicit:
 
 The internal path must retain enough source evidence to replay validation at a
 public boundary. It is not permission to make arbitrary unvalidated ideals.
+
+**Progress:** complete for the current exact class-arithmetic cell. A
+degree-one anchor supplies canonical representatives for certified
+baby-step/giant-step order search and prime-factor refinement; higher-degree
+anchors retain the complete linear fallback. Internally derived ideal sums,
+products, powers, inverses, colons, and intersections skip the redundant
+module-stability replay, while the public ideal constructor still performs
+the full check.
 
 ### A7. Complete pure algebraic logarithmic reconstruction
 

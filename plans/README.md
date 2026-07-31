@@ -120,12 +120,14 @@ nonradical fields certified by a degree-one place and higher-degree closed
 residue coordinates. The full engine still needs presentation normalization,
 total maximal-order arithmetic, broader constant-field certification, and
 prescribed-residue third-kind spaces. Before the third-kind slice, the shared
-differential path will batch local residue expansions, cache repeated
-membership work, and stream zero-residue checks. Scalable class arithmetic
-then replaces linear Weil-bound torsion scans with certified order algorithms
-and separates validated public ideal construction from proof-carrying
-internal operations. Complete algebraic integration, algebraic RDEs, and
-their relative mixed-tower forms remain after those foundations.
+differential path now batches local residue expansions, caches repeated
+membership work, and streams zero-residue checks. Scalable class arithmetic
+now replaces linear Weil-bound torsion scans with certified
+baby-step/giant-step order search when a degree-one anchor gives canonical
+representatives, and separates validated public ideal construction from
+closure-preserving internal operations. Complete algebraic integration,
+algebraic RDEs, and their relative mixed-tower forms remain after those
+foundations.
 Plan 014's remaining execution cells depend on those services rather than on
 more syntax-directed special cases.
 Plan 016 gives the transcendental track the same decomposition: effective

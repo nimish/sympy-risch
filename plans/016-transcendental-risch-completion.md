@@ -414,9 +414,9 @@ has previously broken isolated imports.
 - Measure degree, coefficient height, and tower-depth growth on generated
   families.
 - Retain fast family-specific paths before general structure fallbacks.
-- Perform the Cayley/Mobius substitution on native numerator and denominator
-  polynomials; converting through SymPy expressions and global `cancel` is an
-  independent oracle, not the generated-example production path.
+- The Cayley/Mobius substitution now operates on native numerator and
+  denominator polynomials. Converting through SymPy expressions and global
+  `cancel` is no longer part of the generated-example production path.
 - Keep matrix or exhaustive methods bounded to independent tests unless their
   completeness bound is proved.
 
