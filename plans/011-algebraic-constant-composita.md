@@ -24,6 +24,13 @@ continue algebraic integration through every compatible residue factor.
    factor, or unsupported rebuilt relation remains an explicit unknown
    boundary, never a non-elementarity claim.
 
+The final implementation constructs all currently visible supported residue
+fields in one exact number-field compositum before rebuilding the curve. The
+primitive-element steps retain the source embedding, while the function field
+and its places are rebuilt and recollected only once. If a candidate lies
+outside the supported splitting-root cell, individual-factor fallback
+preserves progress without returning a partial compositum as certified.
+
 ## Non-goals
 
 This checkpoint does not solve divisor-class torsion, arbitrary extensions

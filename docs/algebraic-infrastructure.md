@@ -178,12 +178,14 @@ correctly inapplicable.
 
 It is deliberately **not** itself a common algebraic constant field or a
 logarithmic residue basis. The native coordinate systems of two closed places
-do not choose compatible conjugates in a common algebraic closure. A first
-narrow continuation now accepts a caller-selected factor and constructs the
-compatible `QQ -> QQ(alpha)` target, but profile-driven factor planning and
-general common-residue-field descent remain later work. This distinction
-prevents a locally correct but globally inconsistent logarithmic
-reconstruction.
+do not choose compatible conjugates in a common algebraic closure. The
+constant-compositum layer now joins every supported rationally defined profile
+factor into one exact number field, retains the source embedding, and rebuilds
+the curve only after that common field exists. Recollecting the differential
+in the target then chooses compatible target places and residues. General
+splitting fields and factors genuinely defined over algebraic constants remain
+later work. This distinction prevents a locally correct but globally
+inconsistent logarithmic reconstruction.
 
 ## Displayed-constant logarithmic reconstruction
 
@@ -421,29 +423,30 @@ not the direct-curve `C(x)` integral-basis code.  A resonant leading equation
 is an explicit `NotImplementedError` boundary; its treatment belongs to the
 relative logarithmic/RDE stage rather than to Hermite reduction.
 
-## Algebraic constant composita and iterative profile selection
+## Algebraic constant composita and profile selection
 
 `integrate_algebraic_with_constant_base_change` continues the displayed-
-constant boundary with either one explicit irreducible factor `q(alpha)` or
-an iterative profile plan. The automatic path factors the square-free
-all-place residue profile, orders its supported rationally defined non-linear
-factors by degree and exact coefficients, and tries them until a certified
-target no longer needs another constant base change.
+constant boundary with either one explicit irreducible factor `q(alpha)` or a
+profile plan. The automatic path factors the square-free all-place residue
+profile, orders its supported rationally defined non-linear factors by degree
+and exact coefficients, and first constructs their common constant field.
+Only then does it rebuild and recollect the curve. If one candidate is outside
+the supported splitting-root cell, it falls back to individual candidates so
+that an unsupported factor cannot mask an independent supported extension.
 
-The underlying map is reusable beyond that one-step planner. It accepts
+The underlying number-field map is reusable beyond integration. It accepts
 constants `C = QQ` or an existing SymPy algebraic number field and constructs
-the exact compositum with the root field of a rational irreducible `q`.
-Constants are embedded by an explicit number-field isomorphism; the map is
-then lifted coefficientwise through `C(x)[y]/(f)`. Thus successive manual
-changes such as
-`QQ -> QQ(sqrt(2)) -> QQ(sqrt(2), sqrt(3))` do not rely on reparsing a whole
-function-field expression. At every step the target relation is rebuilt, the
-target constant field is checked again, and commutation with the derivation is
-verified on the field generators.
+the exact compositum of several rational irreducible splitting root fields.
+Each primitive-element step retains an explicit image of the preceding
+constants, and the composed map is lifted coefficientwise through
+`C(x)[y]/(f)`. Thus `QQ(sqrt(2), sqrt(3))` is built before the function field
+is rebuilt. The target relation and full constant field are checked once, and
+commutation with the derivation is verified on the field generators.
 
-After each successful step, the planner profiles the new target result rather
-than assuming that source residue data survived unchanged. Every step strictly
-enlarges the constant field, so an absorbed factor cannot be selected again.
+After each successful base change, the planner profiles the new target result
+rather than assuming that source residue data survived unchanged. Every step
+strictly enlarges the constant field, and a factor already split by the source
+or an earlier primitive-element step is skipped without rebuilding the curve.
 Its current certified place layer supports finite-place splitting with
 ramification index one. The preceding differential is embedded and collected
 again at every target place. Recollecting is required: transported source
@@ -668,7 +671,7 @@ override.
 | `AlgebraicExactnessResult` | Verified primitive, complete in-field no-primitive decision, or unsupported AFF boundary |
 | `solve_algebraic_exactness` | Low-level residue-free exactness decision in a direct algebraic function field |
 | `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus an explicit chain of target-field continuations |
-| `integrate_algebraic_with_constant_base_change` | Recollect and integrate through explicit or iteratively profile-selected compatible factors |
+| `integrate_algebraic_with_constant_base_change` | Build common supported residue constants, then recollect and integrate in each target |
 
 The constructors `polynomial_order` and `integral_closure` are available for
 lower-level consumers. Most code should start from

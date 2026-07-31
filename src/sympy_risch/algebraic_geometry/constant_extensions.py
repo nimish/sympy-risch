@@ -2,8 +2,8 @@ r"""Exact embeddings between supported algebraic constant fields.
 
 This module contains no algebraic-function-field or Risch policy.  It builds
 the compositum of ``QQ`` (or a SymPy algebraic number field over ``QQ``) with
-the root field of an irreducible polynomial over ``QQ`` and records the exact
-embedding of the old constants into that compositum.
+one or more splitting root fields of irreducible polynomials over ``QQ`` and
+records the exact embedding of the old constants into that compositum.
 """
 
 from __future__ import annotations
@@ -41,6 +41,28 @@ def _evaluate_in_target(
     for coefficient in source_value.to_list():
         result = result * generator_image + target.convert(coefficient)
     return result
+
+
+def _normalized_rational_factor(factor: Poly) -> Poly:
+    """Return the admitted monic irreducible representative of ``factor``."""
+    if not isinstance(factor, Poly):
+        raise TypeError("an algebraic constant extension needs a SymPy Poly")
+    if len(factor.gens) != 1:
+        raise ValueError("the adjoining polynomial must be univariate")
+    normalized = Poly(factor.as_expr(), factor.gens[0], domain=QQ).monic()
+    if normalized.degree() < 2 or normalized.is_irreducible is not True:
+        raise ValueError("the adjoining polynomial must be irreducible over QQ")
+    return normalized
+
+
+def _splits_completely(factor: Poly, field: Domain) -> bool:
+    """Whether the separable rational ``factor`` splits linearly in ``field``."""
+    target_factor = Poly(factor.as_expr(), factor.gens[0], domain=field)
+    _unit, factors = target_factor.factor_list()
+    return len(factors) == factor.degree() and all(
+        component.degree() == 1 and multiplicity == 1
+        for component, multiplicity in factors
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,16 +118,7 @@ class AlgebraicConstantFieldExtension:
                 )
             object.__setattr__(self, "source_generator_image", image)
 
-        target_factor = Poly(
-            self.factor.as_expr(),
-            self.factor.gens[0],
-            domain=self.target,
-        )
-        _unit, factors = target_factor.factor_list()
-        if len(factors) != self.factor.degree() or any(
-            component.degree() != 1 or multiplicity != 1
-            for component, multiplicity in factors
-        ):
+        if not _splits_completely(self.factor, self.target):
             raise ValueError(
                 "the adjoining factor does not split completely in the target field"
             )
@@ -136,13 +149,7 @@ def extend_algebraic_constants(
     image of the old primitive generator.
     """
     _field_degree(source)
-    if not isinstance(factor, Poly):
-        raise TypeError("an algebraic constant extension needs a SymPy Poly")
-    if len(factor.gens) != 1:
-        raise ValueError("the adjoining polynomial must be univariate")
-    normalized = Poly(factor.as_expr(), factor.gens[0], domain=QQ).monic()
-    if normalized.degree() < 2 or normalized.is_irreducible is not True:
-        raise ValueError("the adjoining polynomial must be irreducible over QQ")
+    normalized = _normalized_rational_factor(factor)
 
     root_field = QQ.alg_field_from_poly(normalized)
     if not isinstance(root_field, AlgebraicField):
@@ -167,3 +174,96 @@ def extend_algebraic_constants(
         target,
         source_image,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicConstantFieldCompositum:
+    r"""A certified common field for several rational splitting factors.
+
+    ``steps`` is an exact tower of primitive-element embeddings.  The final
+    target is therefore one number field even though it may have been built
+    from several independent residue fields.  A requested factor already
+    split over ``source`` or an earlier step remains in ``factors`` but does
+    not create a redundant extension.
+
+    The empty chain is the identity compositum.  This is useful to number-
+    field clients, although a function-field base change will reject it
+    because there is then no field change to perform.
+    """
+
+    source: Domain
+    factors: tuple[Poly, ...]
+    steps: tuple[AlgebraicConstantFieldExtension, ...]
+
+    def __post_init__(self) -> None:
+        _field_degree(self.source)
+        normalized = tuple(
+            _normalized_rational_factor(factor) for factor in self.factors
+        )
+        if normalized != self.factors:
+            raise ValueError("compositum factors must be normalized over QQ")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("compositum factors must be distinct")
+        if not isinstance(self.steps, tuple) or any(
+            not isinstance(step, AlgebraicConstantFieldExtension) for step in self.steps
+        ):
+            raise TypeError("compositum steps must be exact constant extensions")
+
+        current = self.source
+        for step in self.steps:
+            if step.source is not current:
+                raise ValueError("constant-compositum steps do not form a chain")
+            if step.factor not in normalized:
+                raise ValueError("a compositum step adjoins an unrequested factor")
+            current = step.target
+        if any(not _splits_completely(factor, current) for factor in normalized):
+            raise ValueError("the compositum does not split every requested factor")
+
+    @property
+    def target(self) -> Domain:
+        """The final common constant field."""
+        if self.steps:
+            return self.steps[-1].target
+        return self.source
+
+    @property
+    def is_identity(self) -> bool:
+        """Whether every requested factor already split over ``source``."""
+        return not self.steps
+
+    def embed(self, value: object) -> object:
+        """Map a native source constant through the complete exact chain."""
+        embedded = self.source.convert(value)
+        for step in self.steps:
+            embedded = step.embed(embedded)
+        return embedded
+
+
+def extend_algebraic_constant_compositum(
+    source: Domain,
+    factors: tuple[Poly, ...],
+) -> AlgebraicConstantFieldCompositum:
+    r"""Construct one exact field in which every requested factor splits.
+
+    Factors are considered in caller order.  Each nonsplit factor is joined
+    through :func:`extend_algebraic_constants`; after every join the old
+    constants have an explicit primitive-element image.  A nonnormal factor
+    whose one-root compositum still does not contain all conjugates is an
+    explicit unsupported boundary rather than a partially certified result.
+    """
+    _field_degree(source)
+    if not isinstance(factors, tuple):
+        raise TypeError("constant-compositum factors must be a tuple")
+    normalized = tuple(_normalized_rational_factor(factor) for factor in factors)
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("constant-compositum factors must be distinct")
+
+    current = source
+    steps: list[AlgebraicConstantFieldExtension] = []
+    for factor in normalized:
+        if _splits_completely(factor, current):
+            continue
+        step = extend_algebraic_constants(current, factor)
+        steps.append(step)
+        current = step.target
+    return AlgebraicConstantFieldCompositum(source, normalized, tuple(steps))

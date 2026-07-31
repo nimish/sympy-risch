@@ -18,6 +18,7 @@ from sympy.polys.polytools import Poly
 from ..algebraic_geometry.base_change import (
     AlgebraicConstantBaseChange,
     build_algebraic_constant_base_change,
+    build_algebraic_constant_compositum_base_change,
 )
 from ..tower import Derivation
 from .basis import IntegralBasis
@@ -237,24 +238,32 @@ def _automatic_constant_factor_candidates(
 
 def _continue_source_result(
     source_result: AlgebraicIntegrationResult,
-    factor: Poly,
+    factors: tuple[Poly, ...],
     *,
     lazy: bool,
     torsion_order_bound: int | None,
 ) -> tuple[AlgebraicConstantBaseChangeStep | None, str]:
-    """Reintegrate one boundary over a caller- or profile-chosen factor."""
+    """Reintegrate one boundary over a chosen common constant field."""
     source_model = source_result.collection.model
     if source_model is None:
         raise ValueError("a base-change boundary lacks its source function field")
-    change = build_algebraic_constant_base_change(
-        source_model,
-        source_result.collection.derivation,
-        factor,
+    change = (
+        build_algebraic_constant_base_change(
+            source_model,
+            source_result.collection.derivation,
+            factors[0],
+        )
+        if len(factors) == 1
+        else build_algebraic_constant_compositum_base_change(
+            source_model,
+            source_result.collection.derivation,
+            factors,
+        )
     )
     if not change.certified:
         return (
             None,
-            "the selected algebraic constant base change is unsupported: "
+            "the selected algebraic constant compositum is unsupported: "
             + change.detail,
         )
 
@@ -271,8 +280,8 @@ def _continue_source_result(
     )
     return (
         AlgebraicConstantBaseChangeStep(change, target_result),
-        "the source differential was integrated again after certified algebraic "
-        "constant base change",
+        "the source differential was integrated again after one certified "
+        "algebraic constant-compositum base change",
     )
 
 
@@ -291,10 +300,11 @@ def integrate_algebraic_with_constant_base_change(
     slice. If and only if that ends at
     :attr:`AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE`, an explicit
     ``factor`` requests one selected extension. When ``factor`` is omitted,
-    every unresolved target is profiled anew and its deterministic
-    rationally-defined factors are tried. Each certified factor strictly
-    enlarges the constants, so a factor already absorbed by the compositum
-    cannot be selected again.
+    every unresolved target is profiled anew and its deterministic rationally
+    defined factors are joined into one common constant field before the curve
+    is rebuilt. If the common join is unsupported, individual factors are
+    tried so one unavailable candidate cannot suppress valid progress. Each
+    certified base change strictly enlarges the constants.
 
     Every step embeds the preceding differential and collects it again at all
     target places before logarithmic reconstruction. Merely transporting a
@@ -326,7 +336,7 @@ def integrate_algebraic_with_constant_base_change(
     if factor is not None:
         step, detail = _continue_source_result(
             source_result,
-            factor,
+            (factor,),
             lazy=lazy,
             torsion_order_bound=torsion_order_bound,
         )
@@ -343,6 +353,7 @@ def integrate_algebraic_with_constant_base_change(
     while current.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE:
         candidates, final_detail = _automatic_constant_factor_candidates(current)
         progressed = False
+        pending: list[Poly] = []
         for candidate in candidates:
             key = (
                 id(current.collection.basis.extension),
@@ -351,9 +362,33 @@ def integrate_algebraic_with_constant_base_change(
             if key in attempted:
                 continue
             attempted.add(key)
+            pending.append(candidate)
+
+        # Joining every currently visible residue factor before rebuilding the
+        # curve is the common case and avoids repeating maximal-order and
+        # all-place work. If one factor is outside the supported splitting-root
+        # cell, fall back to individual factors so that it cannot mask an
+        # independent supported extension.
+        if len(pending) > 1:
             step, attempt_detail = _continue_source_result(
                 current,
-                candidate,
+                tuple(pending),
+                lazy=lazy,
+                torsion_order_bound=torsion_order_bound,
+            )
+            if step is not None:
+                steps.append(step)
+                current = step.target_result
+                final_detail = attempt_detail
+                progressed = True
+
+        if progressed:
+            continue
+
+        for candidate in pending:
+            step, attempt_detail = _continue_source_result(
+                current,
+                (candidate,),
                 lazy=lazy,
                 torsion_order_bound=torsion_order_bound,
             )

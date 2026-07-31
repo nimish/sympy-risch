@@ -377,6 +377,14 @@ the full check.
 
 ### A7. Complete pure algebraic logarithmic reconstruction
 
+**Progress:** the admitted rational-factor cell now constructs one exact
+number-field compositum for all currently visible residue factors, retains the
+source embedding through its primitive-element chain, and rebuilds/recollects
+the curve once. Displayed residues are expanded in a rational constant basis
+and their coordinate divisors are combined. General splitting fields,
+residue factors defined over algebraic constants, and the complete
+positive-genus combination solver remain open.
+
 Generalize the current displayed-constant path:
 
 1. perform algebraic Hermite reduction in normalized integral bases;

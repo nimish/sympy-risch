@@ -125,6 +125,7 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "AlgebraicDivisor",
         "AlgebraicDivisorTorsionDecision",
         "AlgebraicDivisorTorsionStatus",
+        "AlgebraicConstantFieldCompositum",
         "AlgebraicConstantFieldExtension",
         "AlgebraicFractionalIdeal",
         "AlgebraicFunctionField",
@@ -176,6 +177,7 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "solve_hess_prescribed_residues",
         "decide_algebraic_principality",
         "certify_function_field_constants",
+        "extend_algebraic_constant_compositum",
         "extend_algebraic_constants",
     }
     assert all(hasattr(algebraic_geometry, name) for name in algebraic_geometry.__all__)

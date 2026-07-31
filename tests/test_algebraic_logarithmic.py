@@ -188,7 +188,7 @@ def test_profile_base_change_selects_a_compatible_constant_factor() -> None:
 
     assert result.base_change is not None
     assert result.base_change.certified
-    candidate = result.base_change.factor
+    (candidate,) = result.base_change.factors
     assert candidate == Poly(
         candidate.gens[0] ** 2 - Rational(1, 2),
         candidate.gens[0],
@@ -212,7 +212,8 @@ def test_profile_base_change_combines_two_independent_residue_fields() -> None:
 
     assert result.base_change is not None
     assert result.base_change.certified
-    assert len(result.steps) == 2
+    assert len(result.steps) == 1
+    assert len(result.base_change.factors) == 2
     assert result.base_change.target_constants is not None
     assert result.base_change.target_constants.ext.minpoly.degree() == 4
     assert result.target_result is not None

@@ -2,7 +2,9 @@ r"""Exact algebraic-curve infrastructure over a rational function field."""
 
 from .closure import IntegralClosureResult, integral_closure, polynomial_order
 from .constant_extensions import (
+    AlgebraicConstantFieldCompositum,
     AlgebraicConstantFieldExtension,
+    extend_algebraic_constant_compositum,
     extend_algebraic_constants,
 )
 from .constant_fields import (
@@ -79,6 +81,7 @@ from .principal import (
 )
 
 __all__ = [
+    "AlgebraicConstantFieldCompositum",
     "AlgebraicConstantFieldExtension",
     "AlgebraicDifferential",
     "AlgebraicDivisor",
@@ -118,6 +121,7 @@ __all__ = [
     "certify_function_field_constants",
     "decide_algebraic_divisor_torsion",
     "decide_algebraic_principality",
+    "extend_algebraic_constant_compositum",
     "extend_algebraic_constants",
     "finite_divisor_class_order",
     "hess_differential_space",

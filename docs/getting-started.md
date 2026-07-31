@@ -1217,11 +1217,12 @@ for the complete current scope and a nonzero-coefficient example.
 ### Continue through profile-selected algebraic constant extensions
 
 Omit `factor` and the integrator factors the square-free all-place residue
-profile. It tries supported rationally defined factors in deterministic order.
-If one target still needs more residue constants, the target is profiled
-again and a new exact compositum is constructed. The result makes every field
-change explicit: an elementary target answer is an answer in the final
-`C'(x, y)`, not automatically one in the original `QQ(x, y)`.
+profile. It orders supported rationally defined factors deterministically,
+builds their exact common number field, and then rebuilds and recollects the
+curve once. If that target still needs more residue constants, it is profiled
+again. The result makes every field change explicit: an elementary target
+answer is an answer in the final `C'(x, y)`, not automatically one in the
+original `QQ(x, y)`.
 
 ```python
 from sympy_risch import integrate_algebraic_with_constant_base_change
@@ -1241,11 +1242,13 @@ assert continued.reconstructs
 ```
 
 Pass an explicit `Poly` as `factor` when a particular constant field is
-desired; that requests one step. Automatic selection can build successive
-composita from `QQ` and existing SymPy algebraic number fields. It currently
-adjoins only factors defined over `QQ` and retains deliberately narrow
-finite-place splitting support. Factors with genuinely algebraic
-coefficients and general splitting fields remain future algebraic work.
+desired; that requests one factor. Automatic selection can join several
+independent residue fields into one compositum over `QQ` or an existing SymPy
+algebraic number field before rebuilding the function field. It currently
+adjoins only factors defined over `QQ` whose one-root composita contain every
+conjugate, and retains deliberately narrow finite-place splitting support.
+Factors with genuinely algebraic coefficients and general splitting fields
+remain future algebraic work.
 For curves over `QQ`, positive divisor-class torsion is selected
 algorithmically by supported good-prime reductions and verified over
 characteristic zero. Factors genuinely defined over algebraic constants,
@@ -1503,7 +1506,7 @@ boundary, not a mathematical claim about the integral.
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |
 | Relative simple-radical normal Hermite reduction | Repeated normal poles are removed coordinatewise over the immediate lower monomial field; special poles and resonant leading equations remain explicit boundaries |
-| One-step algebraic constant-base-change integration | Constructive `QQ(x, y) -> QQ(alpha)(x, y)` continuation for an explicit or profile-selected factor that splits in its root field; a returned elementary answer is explicitly target-field-valued |
+| Algebraic constant-compositum integration | Constructive `C(x, y) -> C'(x, y)` continuation through one or several profile-selected rational factors whose root compositum splits them; a returned elementary answer is explicitly target-field-valued |
 | Terminal pure simple-radical algebraic level | Constructive positive route in `integrate_elementary`: exact nonconstant power-basis modes descend to lower scalar RDEs, then the lower coordinate is integrated recursively; general algebraic logarithmic/residue cases remain unsupported |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |

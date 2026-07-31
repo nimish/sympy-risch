@@ -17,8 +17,12 @@ from sympy_risch.algebraic_geometry.base_change import (
     AlgebraicConstantBaseChangeStatus,
     AlgebraicPlaceSplitStatus,
     build_algebraic_constant_base_change,
+    build_algebraic_constant_compositum_base_change,
     split_algebraic_place,
     split_finite_algebraic_place,
+)
+from sympy_risch.algebraic_geometry.constant_extensions import (
+    extend_algebraic_constant_compositum,
 )
 
 x, y, z = symbols("x y z")
@@ -91,14 +95,14 @@ def test_base_change_embeds_an_existing_algebraic_constant_field() -> None:
     )
 
     assert change.certified
-    assert change.constant_extension is not None
-    assert change.target_constants is change.constant_extension.target
+    assert change.constant_compositum is not None
+    assert change.target_constants is change.constant_compositum.target
     assert change.target_constants.ext.minpoly.degree() == 4
     assert change.target_extension is not None
     assert change.target_derivation is not None
 
     source_constant = constants.from_sympy(sqrt(2))
-    mapped_constant = change.constant_extension.embed(source_constant)
+    mapped_constant = change.constant_compositum.embed(source_constant)
     assert change.target_constants.to_sympy(mapped_constant) == sqrt(2)
 
     value = extension.field.from_sympy((sqrt(2) * y + 1) / (x - 2))
@@ -132,6 +136,71 @@ def test_two_successive_base_changes_form_an_exact_compositum_chain() -> None:
     embedded = second.embed(first.embed(value))
     embedded_derivative = second.embed(first.embed(tower.derivation()(value)))
     assert second.target_derivation(embedded) == embedded_derivative
+
+
+def test_common_constant_compositum_splits_independent_factors() -> None:
+    """The reusable number-field layer retains one exact source embedding."""
+    first = Poly(z**2 - 2, z, domain=QQ)
+    second = Poly(z**2 - 3, z, domain=QQ)
+
+    compositum = extend_algebraic_constant_compositum(QQ, (first, second))
+
+    assert not compositum.is_identity
+    assert len(compositum.steps) == 2
+    assert compositum.target.ext.minpoly.degree() == 4
+    assert compositum.embed(QQ(5, 7)) == compositum.target.convert(QQ(5, 7))
+    for factor in (first, second):
+        _unit, factors = Poly(
+            factor.as_expr(),
+            z,
+            domain=compositum.target,
+        ).factor_list()
+        assert len(factors) == 2
+        assert all(component.degree() == 1 for component, _multiplicity in factors)
+
+
+def test_common_compositum_skips_a_factor_already_in_the_source() -> None:
+    """An absorbed residue field does not create a redundant extension step."""
+    constants = QQ.algebraic_field(sqrt(2))
+    first = Poly(z**2 - 2, z, domain=QQ)
+    second = Poly(z**2 - 3, z, domain=QQ)
+
+    compositum = extend_algebraic_constant_compositum(
+        constants,
+        (first, second),
+    )
+
+    assert len(compositum.steps) == 1
+    assert compositum.steps[0].factor == second
+    assert compositum.target.ext.minpoly.degree() == 4
+    source_generator = constants.from_sympy(sqrt(2))
+    embedded = compositum.embed(source_generator)
+    assert compositum.target.to_sympy(embedded) == sqrt(2)
+
+
+def test_curve_is_rebuilt_once_over_a_common_constant_compositum() -> None:
+    """Independent residue fields share one derivative-commuting target map."""
+    tower, extension, model = _source_model()
+    factors = (
+        Poly(z**2 - 2, z, domain=QQ),
+        Poly(z**2 - 3, z, domain=QQ),
+    )
+
+    change = build_algebraic_constant_compositum_base_change(
+        model,
+        tower.derivation(),
+        factors,
+    )
+
+    assert change.certified
+    assert change.factors == factors
+    assert change.target_constants is not None
+    assert change.target_constants.ext.minpoly.degree() == 4
+    assert change.target_derivation is not None
+    value = extension.field.from_sympy((y + 1) / (x - 5))
+    assert change.target_derivation(change.embed(value)) == change.embed(
+        tower.derivation()(value)
+    )
 
 
 def test_finite_closed_places_split_and_transport_local_residues() -> None:
@@ -187,6 +256,25 @@ def test_cubic_factor_that_does_not_split_in_its_root_field_is_unsupported() -> 
     assert not change.certified
     assert change.target_extension is None
     assert "does not split completely" in change.detail
+
+
+def test_unsupported_factor_does_not_return_a_partial_common_field() -> None:
+    """A nonnormal factor cannot hide behind an otherwise valid quadratic."""
+    tower, _extension, model = _source_model()
+
+    change = build_algebraic_constant_compositum_base_change(
+        model,
+        tower.derivation(),
+        (
+            Poly(z**2 - 2, z, domain=QQ),
+            Poly(z**3 - 3, z, domain=QQ),
+        ),
+    )
+
+    assert change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED
+    assert not change.certified
+    assert change.constant_compositum is None
+    assert change.target_extension is None
 
 
 def test_infinite_places_are_an_explicit_boundary_of_the_finite_layer() -> None:
