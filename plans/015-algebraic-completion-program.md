@@ -377,13 +377,18 @@ the full check.
 
 ### A7. Complete pure algebraic logarithmic reconstruction
 
-**Progress:** the admitted rational-factor cell now constructs one exact
+**Progress:** the admitted rational-factor cell constructs one exact
 number-field compositum for all currently visible residue factors, retains the
 source embedding through its primitive-element chain, and rebuilds/recollects
 the curve once. Displayed residues are expanded in a rational constant basis
-and their coordinate divisors are combined. General splitting fields,
-residue factors defined over algebraic constants, and the complete
-positive-genus combination solver remain open.
+and their coordinate divisors are combined. Exact prime-ideal residue maps
+now reduce integral `QQ(alpha)` constants to `GF(p^f)`; supported split primes
+drive positive-genus divisor-class torsion automatically, and one prepared
+pair of reduced curves is reused across all coordinate divisors. The
+genus-one order-two regression over `QQ(sqrt(2))` reconstructs
+`log(x - sqrt(2))/2` without an order hint. Curve arithmetic over non-prime
+`GF(p^f)`, general splitting fields, residue factors defined over algebraic
+constants, and the complete positive-genus combination solver remain open.
 
 Generalize the current displayed-constant path:
 

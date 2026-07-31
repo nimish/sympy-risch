@@ -36,6 +36,7 @@ from ..algebraic_geometry.finite_places import FiniteAlgebraicPlace
 from ..algebraic_geometry.finite_torsion import (
     AlgebraicDivisorTorsionStatus,
     decide_algebraic_divisor_torsion,
+    prepare_algebraic_torsion_reductions,
 )
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ..algebraic_geometry.principal import (
@@ -698,39 +699,52 @@ def reconstruct_constant_residue_logarithms(
                 )
             decision = decide_algebraic_principality(collection.model, divisor)
             coefficient = constants.convert(basis_element * scale)
-            if decision.status is AlgebraicPrincipalityStatus.NONPRINCIPAL:
-                search = None
-                if torsion_order_bound is not None:
-                    search = search_algebraic_divisor_torsion(
-                        collection.model,
-                        divisor,
-                        max_order=torsion_order_bound,
-                    )
-                else:
-                    torsion = decide_algebraic_divisor_torsion(
-                        collection.model,
-                        divisor,
-                    )
-                    if (
-                        torsion.status is AlgebraicDivisorTorsionStatus.TORSION
-                        and torsion.characteristic_zero_search is not None
-                    ):
-                        search = torsion.characteristic_zero_search
-                if search is not None and (
-                    search.status is AlgebraicTorsionStatus.TORSION
-                ):
-                    if search.order is None:
-                        raise ValueError("a torsion relation omitted its order")
-                    divisor = divisor.scale(search.order)
-                    decision = principality_from_torsion_search(
-                        search,
-                        search.order,
-                    )
-                    coefficient = constants.quo(
-                        coefficient,
-                        constants.convert(search.order),
-                    )
             plans.append((coefficient, divisor, decision))
+
+        pending = tuple(
+            (index, divisor)
+            for index, (_coefficient, divisor, decision) in enumerate(plans)
+            if decision.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
+        )
+        torsion_reductions = (
+            prepare_algebraic_torsion_reductions(
+                collection.model,
+                divisors=tuple(divisor for _index, divisor in pending),
+            )
+            if pending and torsion_order_bound is None
+            else None
+        )
+        for index, divisor in pending:
+            coefficient, _old_divisor, decision = plans[index]
+            if torsion_order_bound is not None:
+                search = search_algebraic_divisor_torsion(
+                    collection.model,
+                    divisor,
+                    max_order=torsion_order_bound,
+                )
+            else:
+                if torsion_reductions is None:
+                    raise ValueError("finite torsion preparation unexpectedly failed")
+                torsion = decide_algebraic_divisor_torsion(
+                    collection.model,
+                    divisor,
+                    reduction_batch=torsion_reductions,
+                )
+                search = (
+                    torsion.characteristic_zero_search
+                    if torsion.status is AlgebraicDivisorTorsionStatus.TORSION
+                    else None
+                )
+            if search is not None and search.status is AlgebraicTorsionStatus.TORSION:
+                if search.order is None:
+                    raise ValueError("a torsion relation omitted its order")
+                divisor = divisor.scale(search.order)
+                decision = principality_from_torsion_search(search, search.order)
+                coefficient = constants.quo(
+                    coefficient,
+                    constants.convert(search.order),
+                )
+            plans[index] = (coefficient, divisor, decision)
 
     decisions = tuple(decision for _coefficient, _divisor, decision in plans)
     if any(

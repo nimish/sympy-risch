@@ -19,8 +19,9 @@ from enum import Enum
 from math import isqrt, lcm
 
 from sympy.polys.agca.extensions import ExtensionElement
-from sympy.polys.domains.fractionfield import FractionField
 
+from ..algebraic._field import _base_polynomial_ring
+from .constant_reduction import constant_field_prime_reductions
 from .divisor_classes import (
     AlgebraicTorsionSearch,
     AlgebraicTorsionStatus,
@@ -33,6 +34,8 @@ from .finite_reduction import (
     reduce_algebraic_function_field,
 )
 from .function_field import AlgebraicDivisor, AlgebraicFunctionField
+
+_DEFAULT_REDUCTION_PRIMES = (3, 5, 7, 11, 13, 17, 19)
 
 
 def _weil_jacobian_upper_bound(field_size: int, genus: int) -> int:
@@ -85,18 +88,30 @@ class FiniteDivisorClassOrder:
 def finite_divisor_class_order(
     model: AlgebraicFunctionField,
     divisor: AlgebraicDivisor,
-    prime: int,
+    prime: int | AlgebraicFunctionFieldReduction,
 ) -> FiniteDivisorClassOrder:
     """Compute the order of ``divisor`` after one supported good reduction."""
-    reduction = reduce_algebraic_function_field(model, prime)
+    if isinstance(prime, AlgebraicFunctionFieldReduction):
+        reduction = prime
+        if reduction.source is not model:
+            raise ValueError("the finite reduction belongs to another model")
+    else:
+        reduction = reduce_algebraic_function_field(model, prime)
     target_divisor = reduction.reduce_divisor(divisor)
-    parent = reduction.target.extension.parent_field
-    if not isinstance(parent, FractionField):
-        raise TypeError("a reduced function field needs a rational parent")
-    constants = parent.domain
-    if constants is None:
-        raise TypeError("a reduced function field needs a constant domain")
-    field_size = int(constants.characteristic())
+    return _finite_divisor_class_order_from_reduction(
+        reduction,
+        divisor,
+        target_divisor,
+    )
+
+
+def _finite_divisor_class_order_from_reduction(
+    reduction: AlgebraicFunctionFieldReduction,
+    source_divisor: AlgebraicDivisor,
+    target_divisor: AlgebraicDivisor,
+) -> FiniteDivisorClassOrder:
+    """Compute a finite order from an already reduced divisor."""
+    field_size = reduction.field_size
     weil_bound = _weil_jacobian_upper_bound(field_size, reduction.target.genus)
     search = _search_algebraic_divisor_torsion_bsgs(
         reduction.target,
@@ -111,7 +126,7 @@ def finite_divisor_class_order(
         )
     return FiniteDivisorClassOrder(
         reduction,
-        divisor,
+        source_divisor,
         target_divisor,
         weil_bound,
         search,
@@ -124,6 +139,153 @@ class AlgebraicDivisorTorsionStatus(Enum):
     TORSION = "torsion"
     NON_TORSION = "non_torsion"
     UNSUPPORTED = "unsupported"
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class AlgebraicFiniteReductionBatch:
+    """Factory-owned good reductions reusable across many source divisors."""
+
+    model: AlgebraicFunctionField
+    source_divisors: tuple[AlgebraicDivisor, ...]
+    reductions: tuple[AlgebraicFunctionFieldReduction, ...]
+    target_divisors: tuple[tuple[AlgebraicDivisor, ...], ...]
+    failures: tuple[str, ...]
+
+    def __init__(self) -> None:
+        raise TypeError("finite-reduction batches must be created by the factory")
+
+    @classmethod
+    def _create(
+        cls,
+        model: AlgebraicFunctionField,
+        source_divisors: tuple[AlgebraicDivisor, ...],
+        reductions: tuple[AlgebraicFunctionFieldReduction, ...],
+        target_divisors: tuple[tuple[AlgebraicDivisor, ...], ...],
+        failures: tuple[str, ...],
+    ) -> AlgebraicFiniteReductionBatch:
+        result = object.__new__(cls)
+        object.__setattr__(result, "model", model)
+        object.__setattr__(result, "source_divisors", source_divisors)
+        object.__setattr__(result, "reductions", reductions)
+        object.__setattr__(result, "target_divisors", target_divisors)
+        object.__setattr__(result, "failures", failures)
+        if any(divisor.model is not model for divisor in source_divisors):
+            raise ValueError("a finite-reduction batch contains a foreign divisor")
+        if any(reduction.source is not model for reduction in reductions):
+            raise ValueError("a finite-reduction batch contains a foreign model")
+        if len(target_divisors) != len(reductions) or any(
+            len(row) != len(source_divisors) for row in target_divisors
+        ):
+            raise ValueError("a finite-reduction batch has inconsistent divisor rows")
+        if any(
+            target.model is not reduction.target
+            for reduction, row in zip(reductions, target_divisors, strict=True)
+            for target in row
+        ):
+            raise ValueError("a reduced divisor belongs to another target model")
+        characteristics = tuple(reduction.prime for reduction in reductions)
+        if len(characteristics) != len(set(characteristics)):
+            raise ValueError("a finite-reduction batch repeats a characteristic")
+        return result
+
+    def reduced_divisor(
+        self,
+        reduction: AlgebraicFunctionFieldReduction,
+        divisor: AlgebraicDivisor,
+    ) -> AlgebraicDivisor:
+        """Return the cached target divisor for one prepared pair."""
+        try:
+            reduction_index = next(
+                index
+                for index, candidate in enumerate(self.reductions)
+                if candidate is reduction
+            )
+            divisor_index = self.source_divisors.index(divisor)
+        except (StopIteration, ValueError) as exc:
+            raise ValueError(
+                "the reduction batch was not prepared for this divisor"
+            ) from exc
+        return self.target_divisors[reduction_index][divisor_index]
+
+
+def prepare_algebraic_torsion_reductions(
+    model: AlgebraicFunctionField,
+    *,
+    primes: tuple[int, ...] = _DEFAULT_REDUCTION_PRIMES,
+    count: int = 2,
+    divisors: tuple[AlgebraicDivisor, ...] = (),
+) -> AlgebraicFiniteReductionBatch:
+    """Build reductions valid for every supplied divisor and cache their images."""
+    if not isinstance(model, AlgebraicFunctionField):
+        raise TypeError("finite-reduction preparation needs a function field")
+    if not isinstance(count, int) or count <= 0:
+        raise ValueError("the requested reduction count must be positive")
+    if any(
+        not isinstance(divisor, AlgebraicDivisor) or divisor.model is not model
+        for divisor in divisors
+    ):
+        raise ValueError("prepared divisors must belong to the source model")
+    unique_divisors: list[AlgebraicDivisor] = []
+    for divisor in divisors:
+        if divisor not in unique_divisors:
+            unique_divisors.append(divisor)
+    source_divisors = tuple(unique_divisors)
+    _parent, constants, _variable = _base_polynomial_ring(model.extension)
+
+    reductions: list[AlgebraicFunctionFieldReduction] = []
+    target_divisors: list[tuple[AlgebraicDivisor, ...]] = []
+    failures: list[str] = []
+    for prime in dict.fromkeys(primes):
+        if any(reduction.prime == prime for reduction in reductions):
+            continue
+        try:
+            constant_reductions = constant_field_prime_reductions(constants, prime)
+        except (NotImplementedError, TypeError, ValueError) as exc:
+            failures.append(f"{prime}: {exc}")
+            continue
+
+        selected: AlgebraicFunctionFieldReduction | None = None
+        selected_divisors: tuple[AlgebraicDivisor, ...] | None = None
+        candidate_failures: list[str] = []
+        for constant_reduction in constant_reductions:
+            try:
+                selected = reduce_algebraic_function_field(
+                    model,
+                    constant_reduction,
+                )
+                selected_divisors = tuple(
+                    selected.reduce_divisor(divisor) for divisor in source_divisors
+                )
+            except (
+                BadAlgebraicReduction,
+                NotImplementedError,
+                TypeError,
+                ValueError,
+                ZeroDivisionError,
+            ) as exc:
+                candidate_failures.append(str(exc))
+                selected = None
+                selected_divisors = None
+                continue
+            break
+        if selected is None:
+            detail = "; ".join(candidate_failures) or "no residue prime was available"
+            failures.append(f"{prime}: {detail}")
+            continue
+        reductions.append(selected)
+        if selected_divisors is None:
+            raise ValueError("a selected reduction omitted its divisor images")
+        target_divisors.append(selected_divisors)
+        if len(reductions) == count:
+            break
+
+    return AlgebraicFiniteReductionBatch._create(
+        model,
+        source_divisors,
+        tuple(reductions),
+        tuple(target_divisors),
+        tuple(failures),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,7 +366,8 @@ def decide_algebraic_divisor_torsion(
     model: AlgebraicFunctionField,
     divisor: AlgebraicDivisor,
     *,
-    primes: tuple[int, ...] = (3, 5, 7, 11, 13, 17, 19),
+    primes: tuple[int, ...] | None = None,
+    reduction_batch: AlgebraicFiniteReductionBatch | None = None,
 ) -> AlgebraicDivisorTorsionDecision:
     r"""Decide torsion from two supported good reductions and exact replay."""
     if not isinstance(model, AlgebraicFunctionField):
@@ -216,13 +379,32 @@ def decide_algebraic_divisor_torsion(
     if divisor.degree != 0:
         raise ValueError("only degree-zero divisor classes can be torsion")
 
+    if reduction_batch is not None:
+        if primes is not None:
+            raise ValueError("pass either primes or a prepared reduction batch")
+        if reduction_batch.model is not model:
+            raise ValueError("the prepared reductions belong to another model")
+        if divisor not in reduction_batch.source_divisors:
+            raise ValueError("the prepared reductions do not contain this divisor")
+        batch = reduction_batch
+    else:
+        batch = prepare_algebraic_torsion_reductions(
+            model,
+            primes=_DEFAULT_REDUCTION_PRIMES if primes is None else primes,
+            divisors=(divisor,),
+        )
+
     finite_orders: list[FiniteDivisorClassOrder] = []
-    failures: list[str] = []
-    for prime in primes:
-        if any(existing.prime == prime for existing in finite_orders):
-            continue
+    failures = list(batch.failures)
+    for reduction in batch.reductions:
         try:
-            finite_orders.append(finite_divisor_class_order(model, divisor, prime))
+            finite_orders.append(
+                _finite_divisor_class_order_from_reduction(
+                    reduction,
+                    divisor,
+                    batch.reduced_divisor(reduction, divisor),
+                )
+            )
         except (
             BadAlgebraicReduction,
             NotImplementedError,
@@ -230,7 +412,7 @@ def decide_algebraic_divisor_torsion(
             ValueError,
             ZeroDivisionError,
         ) as exc:
-            failures.append(f"{prime}: {exc}")
+            failures.append(f"{reduction.prime}: {exc}")
             continue
         if len(finite_orders) == 2:
             break
@@ -324,7 +506,9 @@ def decide_algebraic_divisor_torsion(
 __all__ = [
     "AlgebraicDivisorTorsionDecision",
     "AlgebraicDivisorTorsionStatus",
+    "AlgebraicFiniteReductionBatch",
     "FiniteDivisorClassOrder",
     "decide_algebraic_divisor_torsion",
     "finite_divisor_class_order",
+    "prepare_algebraic_torsion_reductions",
 ]

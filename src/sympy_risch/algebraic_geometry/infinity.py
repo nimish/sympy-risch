@@ -17,6 +17,7 @@ from ..algebraic._field import (
     _base_polynomial_ring,
     _embed_parent,
     _extension_element,
+    _native_or_exact_quotient,
 )
 from ..tower import AlgebraicExtension
 from .closure import IntegralClosureResult, integral_closure
@@ -254,7 +255,13 @@ class InfiniteAlgebraicPlace:
                 domain=_base_polynomial_ring(self.chart.extension)[1],
             ),
         )
-        return self.finite_place.differential_residue(-transformed / reciprocal_base**2)
+        return self.finite_place.differential_residue(
+            _native_or_exact_quotient(
+                self.chart.extension,
+                -transformed,
+                reciprocal_base**2,
+            )
+        )
 
     def differential_residues_for_powers(
         self,
@@ -274,7 +281,11 @@ class InfiniteAlgebraicPlace:
             ),
         )
         return self.finite_place.differential_residues_for_powers(
-            -transformed / reciprocal_base**2,
+            _native_or_exact_quotient(
+                self.chart.extension,
+                -transformed,
+                reciprocal_base**2,
+            ),
             transformed_parameter,
             count,
         )

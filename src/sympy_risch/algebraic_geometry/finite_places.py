@@ -30,6 +30,7 @@ from ..algebraic._field import (
     _common_denominator,
     _embed_parent,
     _extension_element,
+    _native_or_exact_quotient,
     _parent_element_polynomial,
     _polynomial_parent_element,
 )
@@ -44,6 +45,9 @@ from .orders import (
 
 class _LaurentPlace(Protocol):
     """Structural interface shared by finite and infinite local places."""
+
+    @property
+    def extension(self) -> AlgebraicExtension: ...
 
     @property
     def residue_field(self) -> FiniteExtension: ...
@@ -859,7 +863,11 @@ class FiniteAlgebraicPlace:
         quotient = value
         while self._reduce_regular(quotient) == self.residue_field.zero:
             exponent += 1
-            quotient /= uniformizer
+            quotient = _native_or_exact_quotient(
+                self.extension,
+                quotient,
+                uniformizer,
+            )
         return exponent
 
     def local_expansion(
@@ -896,11 +904,21 @@ class FiniteAlgebraicPlace:
                 remainder_valuation=start,
             )
 
-        uniformizer_power = uniformizer**start
+        uniformizer_power = _extension_power(
+            self.extension,
+            uniformizer,
+            start,
+        )
         remainder = value
         coefficients: list[ExtensionElement] = []
         for _ in range(start, stop):
-            coefficient = self._reduce_regular(remainder / uniformizer_power)
+            coefficient = self._reduce_regular(
+                _native_or_exact_quotient(
+                    self.extension,
+                    remainder,
+                    uniformizer_power,
+                )
+            )
             if coefficient != self.residue_field.zero:
                 remainder -= self.lift_residue(coefficient) * uniformizer_power
             coefficients.append(coefficient)
@@ -931,7 +949,11 @@ class FiniteAlgebraicPlace:
             self.extension,
             self.uniformizer,
         )
-        local_coefficient = value / uniformizer_derivative
+        local_coefficient = _native_or_exact_quotient(
+            self.extension,
+            value,
+            uniformizer_derivative,
+        )
         valuation = self.valuation(local_coefficient)
         if valuation is S.Infinity or cast(int, valuation) > -1:
             return self.residue_field.zero
@@ -967,7 +989,11 @@ class FiniteAlgebraicPlace:
             self.extension,
             self.uniformizer,
         )
-        local_coefficient = value / uniformizer_derivative
+        local_coefficient = _native_or_exact_quotient(
+            self.extension,
+            value,
+            uniformizer_derivative,
+        )
         coefficient_start = cast(int, self.valuation(local_coefficient))
         parameter_start = cast(int, self.valuation(local_parameter))
         maximum_power = count - 1
@@ -1162,6 +1188,21 @@ def _standard_derivative(
     )
 
 
+def _extension_power(
+    extension: AlgebraicExtension,
+    value: ExtensionElement,
+    exponent: int,
+) -> ExtensionElement:
+    """Raise a field element without SymPy's faulty nested-field inverse."""
+    if exponent >= 0:
+        return cast(ExtensionElement, value**exponent)
+    return _native_or_exact_quotient(
+        extension,
+        extension.field.one,
+        value ** (-exponent),
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class LocalLaurentExpansion:
     """A certified finite segment of a local Laurent expansion."""
@@ -1196,8 +1237,10 @@ class LocalLaurentExpansion:
         uniformizer = self.place.uniformizer
         for offset, coefficient in enumerate(self.coefficients):
             exponent = self.start + offset
-            reconstructed += (
-                self.place.lift_residue(coefficient) * uniformizer**exponent
+            reconstructed += self.place.lift_residue(coefficient) * _extension_power(
+                self.place.extension,
+                uniformizer,
+                exponent,
             )
         # ``ExtensionElement`` equality can retain different unreduced
         # rational-function presentations of the same field element.  Test

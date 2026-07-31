@@ -6,6 +6,7 @@ from sympy.polys.domains import QQ
 from sympy_risch import (
     AlgebraicExtension,
     AlgebraicFunctionField,
+    AlgebraicFunctionFieldReduction,
     AlgebraicIntegrationStatus,
     DifferentialTower,
     IntegralBasis,
@@ -114,6 +115,62 @@ def test_displayed_algebraic_constants_produce_multiple_logarithmic_terms() -> N
         constants.to_sympy(term.coefficient) for term in result.logarithmic_terms
     } == {1, 2 * sqrt(2)}
     assert result.antiderivative is not None
+
+
+def test_positive_genus_algebraic_constant_torsion_is_automatic(
+    monkeypatch,
+) -> None:
+    r"""The order-two class ``P - infinity`` reconstructs ``log(x-a)/2``."""
+    import sympy_risch.algebraic.logarithmic as logarithmic
+
+    constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, basis = algebraic_tower(
+        y**2 - x * (x - sqrt(2)) * (x - 1),
+        constants,
+    )
+    integrand = extension.field.from_sympy(
+        (1 + sqrt(2)) / (2 * (x - sqrt(2))),
+    )
+    original_prepare = logarithmic.prepare_algebraic_torsion_reductions
+    original_reduce_divisor = AlgebraicFunctionFieldReduction.reduce_divisor
+    preparation_count = 0
+    divisor_reduction_count = 0
+
+    def counted_prepare(model, **kwargs):
+        nonlocal preparation_count
+        preparation_count += 1
+        return original_prepare(model, **kwargs)
+
+    def counted_reduce_divisor(reduction, divisor):
+        nonlocal divisor_reduction_count
+        divisor_reduction_count += 1
+        return original_reduce_divisor(reduction, divisor)
+
+    monkeypatch.setattr(
+        logarithmic,
+        "prepare_algebraic_torsion_reductions",
+        counted_prepare,
+    )
+    monkeypatch.setattr(
+        AlgebraicFunctionFieldReduction,
+        "reduce_divisor",
+        counted_reduce_divisor,
+    )
+
+    result = integrate_algebraic(integrand, tower.derivation(), basis)
+
+    assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
+    assert result.remainder == extension.field.zero
+    assert preparation_count == 1
+    assert divisor_reduction_count == 2
+    assert len(result.logarithmic_terms) == 2
+    assert all(
+        term.principality.divisor_class_search is not None
+        and term.principality.divisor_class_search.order == 2
+        for term in result.logarithmic_terms
+    )
+    expected = (1 + sqrt(2)) * log(x - sqrt(2)) / 2
+    assert (result.antiderivative - expected).expand() == 0
 
 
 def test_target_algebraic_constant_logarithm_uses_exact_field_quotient() -> None:

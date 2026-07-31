@@ -70,6 +70,20 @@ def _quotient_extension_elements(
     )
 
 
+def _native_or_exact_quotient(
+    extension: AlgebraicExtension,
+    numerator: object,
+    denominator: object,
+) -> ExtensionElement:
+    """Use native division, falling back only for its false zero divisors."""
+    top = _extension_element(extension, numerator)
+    bottom = _extension_element(extension, denominator)
+    try:
+        return cast(ExtensionElement, top / bottom)
+    except ZeroDivisionError:
+        return _quotient_extension_elements(extension, top, bottom)
+
+
 def _evaluate_constant_polynomial(
     extension: AlgebraicExtension,
     polynomial: Poly,

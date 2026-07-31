@@ -580,10 +580,19 @@ field element `v` with `div(v) = n*D`. Exhausting `max_order` is
 `INCONCLUSIVE`, because characteristic-zero iteration alone cannot prove that
 the order is infinite.
 
-`finite_divisor_class_order` reduces a `QQ(x)[y]` curve, its finite and
-reciprocal maximal orders, and the divisor modulo a supported good prime. It
+`constant_field_prime_reductions` constructs exact residue maps above a
+rational prime for `QQ` and for an integral monogenic presentation
+`QQ(alpha)`. An irreducible factor of the primitive polynomial modulo `p`
+produces `GF(p^f)` and the map `alpha -> a_bar`; ramified primes and elements
+whose denominators vanish are rejected.
+
+`finite_divisor_class_order` reduces a `C(x)[y]` curve, its finite and
+reciprocal maximal orders, and the divisor at a supported good prime. It
 checks order-basis reduction and genus preservation, then searches through
-the Weil bound to obtain the exact order in the finite Jacobian.
+the Weil bound using the residue-field cardinality `p^f` to obtain the exact
+order in the finite Jacobian. Curve arithmetic currently consumes `f = 1`
+prime ideals. The coefficient map already represents `GF(p^f)`, while general
+curve factorization over `GF(p^f)(x)` remains an explicit backend boundary.
 `decide_algebraic_divisor_torsion` combines two such primes. If the
 characteristic-zero order is `n` and the reduced order is `m_p`, injectivity
 on prime-to-`p` torsion implies that `n/m_p` is a power of `p`. Thus two
@@ -597,7 +606,9 @@ Incompatible finite orders prove nontorsion. A compatible candidate is always
 replayed by the characteristic-zero divisor-class algorithm before it is
 reported as torsion. Unsupported or bad reductions are skipped; if the
 configured prime list supplies fewer than two good reductions, the result is
-`UNSUPPORTED`, not a negative claim.
+`UNSUPPORTED`, not a negative claim. `prepare_algebraic_torsion_reductions`
+builds the reduced curves once and reuses them for every residue-coordinate
+divisor in one logarithmic reconstruction.
 
 ### Pell--Abel target example
 
@@ -646,7 +657,9 @@ override.
 | `AlgebraicDivisor` | Immutable formal sum of closed places |
 | `ReducedAlgebraicDivisorClass` | Bounded representative plus its Riemann--Roch correction |
 | `AlgebraicTorsionSearch` | Exact positive torsion relation or an explicit bounded-search boundary |
+| `ConstantFieldPrimeReduction` | Certified `QQ` or `QQ(alpha)` residue map to `GF(p^f)` |
 | `AlgebraicFunctionFieldReduction` | Verified good-prime reduction of a curve and its orders |
+| `AlgebraicFiniteReductionBatch` | Reusable reduced curves at distinct residue characteristics |
 | `FiniteDivisorClassOrder` | Exact order of a reduced class within the Weil bound |
 | `AlgebraicDivisorTorsionDecision` | Two-prime torsion, nontorsion, or unsupported decision |
 | `AlgebraicDifferential` | Differential represented as `h dx` |
@@ -1030,7 +1043,8 @@ The next algebraic Risch implementation may assume all of the following:
 
 It now also has complete long-basis Hess Riemann--Roch spaces for its admitted
 direct models, reduced divisor-class arithmetic, good-prime finite Jacobian
-order selection over `QQ`, verified torsion/nontorsion decisions,
+order selection over `QQ` and supported split primes of `QQ(alpha)`, verified
+torsion/nontorsion decisions,
 displayed-constant logarithmic reconstruction, residue-free exactness, and an
 integrating-factor RDE endpoint. Plan 015 records the remaining function-field
 and integration program: general presentation and constant-field

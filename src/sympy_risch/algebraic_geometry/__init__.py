@@ -12,6 +12,11 @@ from .constant_fields import (
     FunctionFieldConstantProof,
     certify_function_field_constants,
 )
+from .constant_reduction import (
+    BadConstantFieldReduction,
+    ConstantFieldPrimeReduction,
+    constant_field_prime_reductions,
+)
 from .differential_constraints import (
     HessSecondKindDifferentialSpace,
     hess_second_kind_differential_space,
@@ -43,9 +48,11 @@ from .finite_reduction import (
 from .finite_torsion import (
     AlgebraicDivisorTorsionDecision,
     AlgebraicDivisorTorsionStatus,
+    AlgebraicFiniteReductionBatch,
     FiniteDivisorClassOrder,
     decide_algebraic_divisor_torsion,
     finite_divisor_class_order,
+    prepare_algebraic_torsion_reductions,
 )
 from .function_field import (
     AlgebraicDifferential,
@@ -87,6 +94,7 @@ __all__ = [
     "AlgebraicDivisor",
     "AlgebraicDivisorTorsionDecision",
     "AlgebraicDivisorTorsionStatus",
+    "AlgebraicFiniteReductionBatch",
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",
     "AlgebraicFunctionFieldReduction",
@@ -96,6 +104,8 @@ __all__ = [
     "AlgebraicTorsionSearch",
     "AlgebraicTorsionStatus",
     "BadAlgebraicReduction",
+    "BadConstantFieldReduction",
+    "ConstantFieldPrimeReduction",
     "FiniteAlgebraicPlace",
     "FiniteDivisorClassOrder",
     "FunctionFieldConstantCertificate",
@@ -119,6 +129,7 @@ __all__ = [
     "LocalLaurentExpansion",
     "ReducedAlgebraicDivisorClass",
     "certify_function_field_constants",
+    "constant_field_prime_reductions",
     "decide_algebraic_divisor_torsion",
     "decide_algebraic_principality",
     "extend_algebraic_constant_compositum",
@@ -134,6 +145,7 @@ __all__ = [
     "holomorphic_differential_space",
     "integral_closure",
     "polynomial_order",
+    "prepare_algebraic_torsion_reductions",
     "reduce_algebraic_divisor_class",
     "reduce_algebraic_function_field",
     "reduce_hess_divisor",
