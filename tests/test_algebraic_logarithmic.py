@@ -136,10 +136,10 @@ def test_positive_genus_algebraic_constant_torsion_is_automatic(
     preparation_count = 0
     divisor_reduction_count = 0
 
-    def counted_prepare(model, **kwargs):
+    def counted_prepare(model, constant_field, **kwargs):
         nonlocal preparation_count
         preparation_count += 1
-        return original_prepare(model, **kwargs)
+        return original_prepare(model, constant_field, **kwargs)
 
     def counted_reduce_divisor(reduction, divisor):
         nonlocal divisor_reduction_count

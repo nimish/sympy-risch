@@ -1130,13 +1130,17 @@ assert decision.reconstructs
 For a nonprincipal coordinate divisor, `integrate_algebraic` automatically
 reduces the curve and class at two supported good primes. This now includes
 split prime ideals of an integral algebraic constant field such as
-`QQ(sqrt(2))`; the reduced curves are built once and reused across all
-constant-coordinate divisors. Compatible finite orders determine one
+`QQ(sqrt(2))`. The source full-constant-field analysis is carried into this
+step as theorem evidence. Reduced curves and exact finite orders are cached
+sparsely, so each constant-coordinate divisor can use a different pair of
+good characteristics without recomputation. Compatible finite orders determine one
 characteristic-zero candidate, which is then verified by general
 divisor-class iteration; incompatible orders prove nontorsion. This does not
 special-case hyperelliptic or Pell--Abel curves. Non-prime finite residue
 fields are represented by the coefficient-map layer, but curve factorization
-over `GF(p^f)(x)` is not yet implemented.
+over `GF(p^f)(x)` is not yet implemented. Automatic Weil-bound searches
+require a degree-one reduction anchor; higher-degree anchors remain supported
+only by an explicit user-bounded search rather than an exponential fallback.
 `torsion_order_bound` remains an optional explicit bounded-search override.
 The genus-2 degree-29 example in the algebraic infrastructure guide needs no
 order hint.
@@ -1254,11 +1258,11 @@ adjoins only factors defined over `QQ` whose one-root composita contain every
 conjugate, and retains deliberately narrow finite-place splitting support.
 Factors with genuinely algebraic coefficients and general splitting fields
 remain future algebraic work.
-For curves over `QQ`, positive divisor-class torsion is selected
-algorithmically by supported good-prime reductions and verified over
-characteristic zero. Factors genuinely defined over algebraic constants,
-prime ideals of algebraic number fields, and unsupported bad models remain
-future work.
+For curves over `QQ` and supported split prime ideals of integral algebraic
+constant fields, positive divisor-class torsion is selected algorithmically
+by good-prime reductions and verified over characteristic zero. General
+non-prime residue fields, factors genuinely defined over algebraic constants,
+and unsupported bad models remain future work.
 
 ## Certify a first global algebraic space
 
@@ -1504,7 +1508,7 @@ boundary, not a mathematical claim about the integral.
 | Certified algebraic Riemann--Roch and differential spaces | Low-level API for degree-negative/zero divisors, degree-zero principal witnesses, nonspecial supplied bases, degree-one-pole rational parameters, and Hess ideal intersections; `HessParametricBasis` reuses one reduction across `D + r*(x)_infinity`, `HessLargeRiemannRochSpace` implements Algorithm 24's compact large-divisor basis, and `HessDifferentialSpace` represents `Omega(D)` through `L(div(dx) - D)` |
 | Height-efficient algebraic divisor reduction | Hess Algorithm 21 over supported direct models: signed binary support/exponent reduction, degree or maximal strategy, and exact power-product witnesses |
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
-| Algebraic divisor classes and torsion | General Riemann--Roch reduction; supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly |
+| Algebraic divisor classes and torsion | General Riemann--Roch reduction; with full-constant evidence and degree-one anchors, supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly; higher-degree anchors retain an explicit bounded-search API |
 | Algebraic principality decision | Generic AFF decision through primitive coefficient content and reduced class addition, with complete direct `L(-D)` fallback |
 | Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension; principal coordinate divisors are automatic, and torsion over `QQ` or supported split primes of integral `QQ(alpha)` is selected from reusable good reductions |
 | Algebraic residue-free exactness | Uses the generic complete primitive-pole Riemann--Roch space; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |

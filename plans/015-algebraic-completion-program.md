@@ -370,7 +370,8 @@ public boundary. It is not permission to make arbitrary unvalidated ideals.
 **Progress:** complete for the current exact class-arithmetic cell. A
 degree-one anchor supplies canonical representatives for certified
 baby-step/giant-step order search and prime-factor refinement; higher-degree
-anchors retain the complete linear fallback. Internally derived ideal sums,
+anchors retain an explicit bounded search but are not automatically scanned
+through an exponential Weil bound. Internally derived ideal sums,
 products, powers, inverses, colons, and intersections skip the redundant
 module-stability replay, while the public ideal constructor still performs
 the full check.
@@ -383,8 +384,9 @@ source embedding through its primitive-element chain, and rebuilds/recollects
 the curve once. Displayed residues are expanded in a rational constant basis
 and their coordinate divisors are combined. Exact prime-ideal residue maps
 now reduce integral `QQ(alpha)` constants to `GF(p^f)`; supported split primes
-drive positive-genus divisor-class torsion automatically, and one prepared
-pair of reduced curves is reused across all coordinate divisors. The
+drive positive-genus divisor-class torsion automatically. A sparse prepared
+batch caches the exact orders for each divisor at its own pair of good
+characteristics, while reusing reduced curves wherever possible. The
 genus-one order-two regression over `QQ(sqrt(2))` reconstructs
 `log(x - sqrt(2))/2` without an order hint. Curve arithmetic over non-prime
 `GF(p^f)`, general splitting fields, residue factors defined over algebraic

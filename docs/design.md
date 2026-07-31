@@ -1198,9 +1198,11 @@ basis over the necessary algebraic constant extension, and divisor-class
 relations for logarithmic reconstruction. Displayed constants over `QQ` or a
 finite algebraic extension are expanded in an exact rational basis. Each
 coordinate divisor is reduced through complete Riemann--Roch spaces; its
-coefficient content gives a complete principality bound. For curves over
-`QQ`, two supported good-prime reductions compute finite Jacobian class
-orders. Their prime-primary compatibility selects the only possible
+coefficient content gives a complete principality bound. For curves over `QQ`
+or supported split primes of integral algebraic constant fields, two supported
+good-prime reductions compute finite Jacobian class orders. Full-constant-field
+evidence is required for the source and proved by the degree-one anchor for
+each reduced target. Their prime-primary compatibility selects the only possible
 characteristic-zero torsion order or proves nontorsion, and every positive
 candidate is replayed exactly over `QQ`. Unsupported bad reductions remain an
 explicit boundary. In
@@ -1308,9 +1310,15 @@ operator may serve many targets.
 Reduced divisor-class arithmetic uses complete spaces relative to an
 effective positive-degree anchor. The finite-prime service now reduces the
 finite and reciprocal maximal orders and the divisor, checks genus and degree
-preservation, and searches the finite class through a Weil bound. It currently
-handles prime reductions of `QQ` models; number-field primes and
-repeated-discriminant finite models remain outside its declared domain.
+preservation, and searches the finite class through a Weil bound. Automatic
+order computation requires a degree-one anchor, where canonical reduced
+representatives support baby-step/giant-step. A higher-degree anchor is an
+explicit bounded-search boundary rather than a linear scan through the Weil
+bound. Sparse per-divisor order rows allow different coordinate divisors to
+use different good characteristics. Prime residue fields from `QQ` and
+supported split algebraic-number-field primes are handled; non-prime residue
+fields and repeated-discriminant finite models remain outside the declared
+domain.
 
 The next layer computes an exact intersection `V ∩ L(D)` for a supplied finite
 constant subspace `V`, using all-place Laurent-coefficient constraints. Each

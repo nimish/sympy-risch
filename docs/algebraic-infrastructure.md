@@ -590,9 +590,15 @@ whose denominators vanish are rejected.
 reciprocal maximal orders, and the divisor at a supported good prime. It
 checks order-basis reduction and genus preservation, then searches through
 the Weil bound using the residue-field cardinality `p^f` to obtain the exact
-order in the finite Jacobian. Curve arithmetic currently consumes `f = 1`
-prime ideals. The coefficient map already represents `GF(p^f)`, while general
-curve factorization over `GF(p^f)(x)` remains an explicit backend boundary.
+order in the finite Jacobian. The public operation requires a certificate
+that the displayed source constants are full; the degree-one reduction anchor
+independently certifies the target constants. Curve arithmetic currently
+consumes `f = 1` prime ideals. The coefficient map already represents
+`GF(p^f)`, while general curve factorization over `GF(p^f)(x)` remains an
+explicit backend boundary. Automatic Weil-bound order computation also
+requires a degree-one anchor: a higher-degree anchor remains available to the
+explicitly bounded search, but is not silently sent through an exponential
+linear Weil scan.
 `decide_algebraic_divisor_torsion` combines two such primes. If the
 characteristic-zero order is `n` and the reduced order is `m_p`, injectivity
 on prime-to-`p` torsion implies that `n/m_p` is a power of `p`. Thus two
@@ -607,8 +613,10 @@ replayed by the characteristic-zero divisor-class algorithm before it is
 reported as torsion. Unsupported or bad reductions are skipped; if the
 configured prime list supplies fewer than two good reductions, the result is
 `UNSUPPORTED`, not a negative claim. `prepare_algebraic_torsion_reductions`
-builds the reduced curves once and reuses them for every residue-coordinate
-divisor in one logarithmic reconstruction.
+keeps a sparse cache of exact finite orders. Each residue-coordinate divisor
+may use its own pair of good characteristics, so a prime that is bad for one
+divisor is not discarded for all the others; prepared curves, divisor images,
+and order certificates are reused without replaying finite Jacobian searches.
 
 ### Pell--Abel target example
 

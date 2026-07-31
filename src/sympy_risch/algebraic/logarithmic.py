@@ -45,6 +45,7 @@ from ..algebraic_geometry.principal import (
     decide_algebraic_principality,
     principality_from_torsion_search,
 )
+from ..constant_adapters import adapt_risch_constant_field_analysis
 from ..tower import Derivation
 from ._field import (
     _base_polynomial_ring,
@@ -709,6 +710,10 @@ def reconstruct_constant_residue_logarithms(
         torsion_reductions = (
             prepare_algebraic_torsion_reductions(
                 collection.model,
+                adapt_risch_constant_field_analysis(
+                    collection.model,
+                    collection.constant_field_analysis,
+                ),
                 divisors=tuple(divisor for _index, divisor in pending),
             )
             if pending and torsion_order_bound is None

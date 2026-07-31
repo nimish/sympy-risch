@@ -1,6 +1,6 @@
 # Plan 013: Finite-prime torsion decisions
 
-**Status:** completed
+**Status:** completed in the degree-one-anchor cell
 
 ## Goal
 
@@ -31,6 +31,10 @@ arithmetic.
 5. Feed the automatic result into algebraic logarithmic reconstruction, so
    the degree-29 genus-2 regression no longer supplies
    `torsion_order_bound=29`.
+6. Require proof that the displayed source constants are full and independently
+   certify the reduced target through its degree-one anchor. Cache exact finite
+   orders sparsely per divisor, rather than requiring one pair of primes to be
+   good for every divisor in a reconstruction batch.
 
 ## Initial scope
 
@@ -39,3 +43,9 @@ Reduction from algebraic number fields requires prime ideals of the constant
 field and is a later generalization. Singular reductions, inseparable models,
 and models whose finite or reciprocal polynomial order is not certified
 maximal are skipped as bad primes.
+
+Supported split prime ideals of integral `QQ(alpha)` constants have since been
+added. General `GF(p^f)(x)` curve factorization remains open. Automatic
+Weil-bound order computation requires a degree-one anchor; higher-degree
+anchors retain only the honest explicitly bounded search, not the former
+exponential linear fallback.
