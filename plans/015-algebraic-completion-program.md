@@ -246,9 +246,8 @@ assertion.
 
 ### A5. Implement Hess Algorithm 24 and differential spaces
 
-**Progress:** Algorithm 24 and its basic differential-space application are
-complete for the direct function-field presentations supported by the current
-Hess engine.
+**Progress:** complete for the direct function-field presentations supported
+by the current Hess engine.
 `HessLargeRiemannRochSpace` combines Algorithm 21's compact correction with
 the reduced divisor's `HessParametricBasis`. It stores the rank-sized
 power-product generators and shifted invariant degrees, computes dimensions
@@ -274,6 +273,10 @@ the distinct `HessPrescribedResidueInconsistency` carrying a left-kernel
 obstruction. Tests cover operator reuse, the global residue obstruction,
 nontrivial affine families, higher-degree closed residue fields, and invalid
 public residue values.
+`hess_genus_consistency` independently compares the genus obtained from the
+different-derived canonical degree with `dim L(K)` computed by Algorithm 13.
+The latter path does not consume `model.genus` or Algorithm 24. Regressions
+cover genus zero through three, including a nonradical cubic presentation.
 
 Use divisor reduction plus the parametric basis to compute large
 Riemann--Roch spaces in short power-product form. Then expose the standard
@@ -289,15 +292,16 @@ function-field consequences:
 Expansion to individual field elements is a view requested by a caller, not
 the internal representation used throughout class arithmetic.
 
-**Exit gate:** large divisor and unrestricted differential spaces are
+**Exit gate:** complete for the admitted direct-model cell. Large divisor and
+unrestricted differential spaces are
 complete: dimensions satisfy Riemann--Roch, requested expansions have exact
 membership and constant rank, holomorphic dimensions agree with genus, and
 duality reconstructs. Bounded second-kind residue kernels are also complete
 when the displayed constants have geometric or adapted Risch evidence. Models
 with neither a supplied degree-one place nor a preserved Risch analysis remain
 an explicit constant-field boundary. Prescribed-residue third-kind spaces are
-complete over the same admitted models. The remaining A5 gate is independent
-genus consistency checks.
+complete over the same admitted models. The different genus and direct
+Algorithm 13 canonical-space dimension agree independently.
 
 #### A5-P. Harden the differential-space path
 

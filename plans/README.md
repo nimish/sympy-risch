@@ -119,10 +119,13 @@ complete bounded second-kind kernels for constant-certified models, including
 nonradical fields certified by a degree-one place and higher-degree closed
 residue coordinates. The same matrices now solve prescribed-residue
 third-kind problems through a reusable operator, returning either a distinct
-affine-space result or an exact left-kernel inconsistency certificate. The
+affine-space result or an exact left-kernel inconsistency certificate. An
+independent genus check now compares the different-derived canonical degree
+with the direct Algorithm 13 dimension of `L(K)`, without consuming
+`model.genus` or Algorithm 24. The
 full engine still needs presentation normalization, total maximal-order
-arithmetic, broader constant-field certification, and independent genus
-consistency checks. The shared differential path batches local residue
+arithmetic, and broader constant-field certification. The shared differential
+path batches local residue
 expansions, caches repeated membership work, and streams zero-residue checks.
 Scalable class arithmetic
 now replaces linear Weil-bound torsion scans with certified

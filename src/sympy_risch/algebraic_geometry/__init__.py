@@ -50,6 +50,7 @@ from .function_field import (
     AlgebraicDivisor,
     AlgebraicFunctionField,
 )
+from .genus import HessGenusConsistency, hess_genus_consistency
 from .hess import (
     HessDivisorIdeals,
     HessParametricBasis,
@@ -99,6 +100,7 @@ __all__ = [
     "HessDifferentialSpace",
     "HessDivisorIdeals",
     "HessDivisorReduction",
+    "HessGenusConsistency",
     "HessLargeRiemannRochSpace",
     "HessParametricBasis",
     "HessPowerProduct",
@@ -120,6 +122,7 @@ __all__ = [
     "finite_divisor_class_order",
     "hess_differential_space",
     "hess_divisor_ideals",
+    "hess_genus_consistency",
     "hess_large_riemann_roch_space",
     "hess_parametric_basis",
     "hess_prescribed_residues",

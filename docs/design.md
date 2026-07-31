@@ -1264,6 +1264,13 @@ Riemann--Roch identity
 dim L(D) = deg(D) + 1 - genus + dim Omega(D).
 ```
 
+`hess_genus_consistency` closes the genus check without feeding
+`AlgebraicFunctionField.genus` back into the same computation. It obtains
+`(deg(K) + 2)/2` from the different-derived canonical divisor, then computes
+`dim L(K)` directly with Algorithm 13's finite/infinite ideal intersection.
+Agreement checks the different, both maximal-order charts, and the direct Hess
+lattice calculation independently of Algorithm 24.
+
 Residue kernels and prescribed-residue affine spaces for differentials of the
 second and third kind form a separate layer over this complete ambient space.
 For an effective pole bound `E`, `HessSecondKindDifferentialSpace` expands
