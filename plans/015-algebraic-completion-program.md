@@ -259,8 +259,11 @@ while a regression keeps a 514-dimensional example in short form.
 `Omega(D) = L(div(dx) - D)`, retaining the same compact representation for
 coefficients. Holomorphic spaces have dimension equal to the genus, and tests
 check Riemann--Roch duality for positive, negative, and mixed divisors.
-Residue-constrained spaces of the second and third kind remain the next A5
-slice.
+For an effective pole bound `E`, `HessSecondKindDifferentialSpace` now
+constructs the exact residue map on `Omega(-E)` and returns its complete
+kernel. Closed places of arbitrary degree contribute their full native
+constant-coordinate blocks. Prescribed-residue spaces of the third kind
+remain the next A5 slice.
 
 Use divisor reduction plus the parametric basis to compute large
 Riemann--Roch spaces in short power-product form. Then expose the standard
@@ -279,8 +282,9 @@ the internal representation used throughout class arithmetic.
 **Exit gate:** large divisor and unrestricted differential spaces are
 complete: dimensions satisfy Riemann--Roch, requested expansions have exact
 membership and constant rank, holomorphic dimensions agree with genus, and
-duality reconstructs. The remaining gate is residue-constrained
-second-/third-kind spaces and independent genus consistency checks.
+duality reconstructs. Bounded second-kind residue kernels are also complete.
+The remaining gate is prescribed-residue third-kind spaces and independent
+genus consistency checks.
 
 ### A6. Complete scalable divisor-class and Jacobian operations
 

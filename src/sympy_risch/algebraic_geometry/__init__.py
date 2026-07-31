@@ -5,6 +5,10 @@ from .constant_extensions import (
     AlgebraicConstantFieldExtension,
     extend_algebraic_constants,
 )
+from .differential_constraints import (
+    HessSecondKindDifferentialSpace,
+    hess_second_kind_differential_space,
+)
 from .differential_spaces import (
     HessDifferentialSpace,
     hess_differential_space,
@@ -85,6 +89,7 @@ __all__ = [
     "HessPowerProduct",
     "HessPowerProductElement",
     "HessReductionStrategy",
+    "HessSecondKindDifferentialSpace",
     "InfiniteAlgebraicPlace",
     "IntegralClosureResult",
     "LocalLaurentExpansion",
@@ -97,6 +102,7 @@ __all__ = [
     "hess_divisor_ideals",
     "hess_large_riemann_roch_space",
     "hess_parametric_basis",
+    "hess_second_kind_differential_space",
     "holomorphic_differential_space",
     "integral_closure",
     "polynomial_order",

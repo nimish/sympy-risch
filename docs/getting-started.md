@@ -1371,7 +1371,39 @@ assert bounded_differentials.dimension == 2
 
 Both results remain in Algorithm 24's short form. Use `expand()` only when
 individual differentials `f*dx` are needed. Residue-constrained subspaces of
-the second and third kind are not yet exposed by this API.
+the second kind add one exact linear-algebra step:
+
+```python
+from sympy_risch import analyze_algebraic_constant_field
+from sympy_risch.algebraic_geometry import (
+    AlgebraicDivisor,
+    hess_second_kind_differential_space,
+)
+
+constant_field = analyze_algebraic_constant_field(
+    sqrt_x_extension,
+    sqrt_x.derivation(),
+)
+two_sided_pole_bound = AlgebraicDivisor(
+    curve,
+    ((branch_place, 2), (infinity, 2)),
+)
+second_kind = hess_second_kind_differential_space(
+    curve,
+    two_sided_pole_bound,
+    constant_field,
+)
+
+assert second_kind.ambient_space.dimension == 3
+assert second_kind.dimension == 2
+assert all(second_kind.contains(omega) for omega in second_kind.basis)
+```
+
+The ambient space is `Omega(-two_sided_pole_bound)`. The residue map has one
+coordinate block for each closed pole place, including higher-degree places,
+and `second_kind.basis` is its complete kernel. This step expands the ambient
+basis because the exact residue matrix has one column per basis vector.
+Prescribed-residue third-kind spaces are the next layer.
 
 ## Mathematical assumptions
 
