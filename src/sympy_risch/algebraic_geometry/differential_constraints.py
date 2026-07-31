@@ -25,8 +25,8 @@ from sympy.polys.matrices import DomainMatrix
 
 from .._typing import FieldElement
 from ..algebraic._field import _base_polynomial_ring
-from ..algebraic.constant_analysis import (
-    AlgebraicConstantFieldAnalysis,
+from .constant_fields import (
+    FunctionFieldConstantCertificate,
 )
 from .constraints import (
     _coordinate_rows,
@@ -113,7 +113,7 @@ class HessSecondKindDifferentialSpace:
 
     pole_bound: AlgebraicDivisor
     ambient_space: HessDifferentialSpace
-    constant_field_analysis: AlgebraicConstantFieldAnalysis
+    constant_field_certificate: FunctionFieldConstantCertificate
     residue_places: tuple[AlgebraicPlace, ...]
     ambient_basis: tuple[AlgebraicDifferential, ...]
     residue_matrix: DomainMatrix
@@ -130,7 +130,7 @@ class HessSecondKindDifferentialSpace:
         cls,
         pole_bound: AlgebraicDivisor,
         ambient_space: HessDifferentialSpace,
-        constant_field_analysis: AlgebraicConstantFieldAnalysis,
+        constant_field_certificate: FunctionFieldConstantCertificate,
         residue_places: tuple[AlgebraicPlace, ...],
         ambient_basis: tuple[AlgebraicDifferential, ...],
         residue_matrix: DomainMatrix,
@@ -142,8 +142,8 @@ class HessSecondKindDifferentialSpace:
         object.__setattr__(result, "ambient_space", ambient_space)
         object.__setattr__(
             result,
-            "constant_field_analysis",
-            constant_field_analysis,
+            "constant_field_certificate",
+            constant_field_certificate,
         )
         object.__setattr__(result, "residue_places", residue_places)
         object.__setattr__(result, "ambient_basis", ambient_basis)
@@ -160,12 +160,8 @@ class HessSecondKindDifferentialSpace:
             raise ValueError("the ambient differential space uses another model")
         if self.ambient_space.lower_bound != -self.pole_bound:
             raise ValueError("the ambient differential space has another pole bound")
-        if (
-            self.constant_field_analysis.extension
-            is not self.pole_bound.model.extension
-            or not self.constant_field_analysis.preserved
-        ):
-            raise ValueError("second-kind spaces need proved preserved constants")
+        if self.constant_field_certificate.model is not self.pole_bound.model:
+            raise ValueError("the constant-field certificate belongs to another model")
         if self.residue_places != self.pole_bound.support:
             raise ValueError("the residue places do not match the pole bound")
         expected_shape = (
@@ -178,8 +174,6 @@ class HessSecondKindDifferentialSpace:
             raise ValueError("the expanded ambient basis has the wrong dimension")
         if len(self.basis) != len(self.basis_coordinates):
             raise ValueError("second-kind basis coordinates have the wrong length")
-        if not self.reconstructs:
-            raise ValueError("the second-kind residue kernel does not reconstruct")
 
     @property
     def model(self) -> AlgebraicFunctionField:
@@ -263,7 +257,7 @@ class HessSecondKindDifferentialSpace:
 def hess_second_kind_differential_space(
     model: AlgebraicFunctionField,
     pole_bound: AlgebraicDivisor,
-    constant_field_analysis: AlgebraicConstantFieldAnalysis,
+    constant_field_certificate: FunctionFieldConstantCertificate,
 ) -> HessSecondKindDifferentialSpace:
     r"""Compute the residue-zero kernel in ``Omega(-pole_bound)``."""
     if not isinstance(model, AlgebraicFunctionField):
@@ -274,12 +268,13 @@ def hess_second_kind_differential_space(
         raise ValueError("the pole bound belongs to another global model")
     if not pole_bound.is_effective:
         raise ValueError("a differential pole bound must be effective")
-    if not isinstance(constant_field_analysis, AlgebraicConstantFieldAnalysis):
-        raise TypeError("a second-kind space needs constant-field analysis")
-    if constant_field_analysis.extension is not model.extension:
-        raise ValueError("the constant-field analysis belongs to another field")
-    if not constant_field_analysis.preserved:
-        raise ValueError("second-kind spaces require proved preserved constants")
+    if not isinstance(
+        constant_field_certificate,
+        FunctionFieldConstantCertificate,
+    ):
+        raise TypeError("a second-kind space needs a constant-field certificate")
+    if constant_field_certificate.model is not model:
+        raise ValueError("the constant-field certificate belongs to another model")
 
     ambient_space = hess_differential_space(model, -pole_bound)
     ambient_basis = ambient_space.expand()
@@ -304,7 +299,7 @@ def hess_second_kind_differential_space(
     return HessSecondKindDifferentialSpace._create(
         pole_bound,
         ambient_space,
-        constant_field_analysis,
+        constant_field_certificate,
         residue_places,
         ambient_basis,
         residue_matrix,

@@ -137,6 +137,8 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "BadAlgebraicReduction",
         "FiniteAlgebraicPlace",
         "FiniteDivisorClassOrder",
+        "FunctionFieldConstantCertificate",
+        "FunctionFieldConstantProof",
         "HessDivisorIdeals",
         "HessDivisorReduction",
         "HessDifferentialSpace",
@@ -165,6 +167,7 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "reduce_hess_divisor",
         "search_algebraic_divisor_torsion",
         "decide_algebraic_principality",
+        "certify_function_field_constants",
         "extend_algebraic_constants",
     }
     assert all(hasattr(algebraic_geometry, name) for name in algebraic_geometry.__all__)

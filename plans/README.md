@@ -115,12 +115,14 @@ with the parametric basis to represent large Riemann--Roch spaces without
 eager long-basis expansion. The same short representation now computes
 `Omega(D) = L(div(dx) - D)` and holomorphic differential bases, with
 Riemann--Roch duality checks. Exact residue matrices on `Omega(-E)` now give
-complete bounded second-kind kernels, including higher-degree closed places.
-The full engine still needs presentation normalization, total maximal-order
-arithmetic, prescribed-residue third-kind spaces, scalable class arithmetic,
-complete algebraic integration, algebraic RDEs, and their relative
-mixed-tower forms. Plan 014's remaining execution cells depend on those
-services rather than on more syntax-directed special cases.
+complete bounded second-kind kernels for constant-certified models, including
+nonradical fields certified by a degree-one place and higher-degree closed
+residue coordinates. The full engine still needs presentation normalization,
+total maximal-order arithmetic, broader constant-field certification,
+prescribed-residue third-kind spaces, scalable class arithmetic, complete
+algebraic integration, algebraic RDEs, and their relative mixed-tower forms.
+Plan 014's remaining execution cells depend on those services rather than on
+more syntax-directed special cases.
 Plan 016 gives the transcendental track the same decomposition: effective
 constants, recursive structure decisions, total P/E/T scalar, parametric, and
 coupled RDEs, an executable typed operation matrix, a total classical P/E/T

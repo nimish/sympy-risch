@@ -1275,10 +1275,15 @@ Omega(-E) -> direct_sum(P in support(E)) k(P).
 
 Every closed residue field is flattened only in its own native constant basis;
 no embedding between distinct residue fields is chosen. The nullspace is
-therefore exactly the bounded differentials of the second kind. This operation
-is intentionally dimension-sized rather than short: its matrix needs one
-column for every ambient vector. Prescribed residues of the third kind will
-reuse the same map as an affine solve.
+therefore exactly the bounded differentials of the second kind once the
+displayed constants are certified full. The geometry-owned
+`FunctionFieldConstantCertificate` can use a degree-one closed place: any
+larger constant field would embed into every residue field, so its degree
+would divide every place degree. Risch's preserved-constant analysis is
+accepted only through an explicit adapter outside the geometry package.
+This operation is intentionally dimension-sized rather than short: its matrix
+needs one column for every ambient vector. Prescribed residues of the third
+kind will reuse the same map as an affine solve.
 
 Reduced divisor-class arithmetic uses complete spaces relative to an
 effective positive-degree anchor. The finite-prime service now reduces the

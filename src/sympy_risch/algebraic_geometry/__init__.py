@@ -5,6 +5,11 @@ from .constant_extensions import (
     AlgebraicConstantFieldExtension,
     extend_algebraic_constants,
 )
+from .constant_fields import (
+    FunctionFieldConstantCertificate,
+    FunctionFieldConstantProof,
+    certify_function_field_constants,
+)
 from .differential_constraints import (
     HessSecondKindDifferentialSpace,
     hess_second_kind_differential_space,
@@ -81,6 +86,8 @@ __all__ = [
     "BadAlgebraicReduction",
     "FiniteAlgebraicPlace",
     "FiniteDivisorClassOrder",
+    "FunctionFieldConstantCertificate",
+    "FunctionFieldConstantProof",
     "HessDifferentialSpace",
     "HessDivisorIdeals",
     "HessDivisorReduction",
@@ -94,6 +101,7 @@ __all__ = [
     "IntegralClosureResult",
     "LocalLaurentExpansion",
     "ReducedAlgebraicDivisorClass",
+    "certify_function_field_constants",
     "decide_algebraic_divisor_torsion",
     "decide_algebraic_principality",
     "extend_algebraic_constants",

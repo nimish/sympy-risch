@@ -84,6 +84,8 @@ from .algebraic_geometry import (
     BadAlgebraicReduction,
     FiniteAlgebraicPlace,
     FiniteDivisorClassOrder,
+    FunctionFieldConstantCertificate,
+    FunctionFieldConstantProof,
     HessDifferentialSpace,
     HessDivisorIdeals,
     HessDivisorReduction,
@@ -96,6 +98,7 @@ from .algebraic_geometry import (
     IntegralClosureResult,
     LocalLaurentExpansion,
     ReducedAlgebraicDivisorClass,
+    certify_function_field_constants,
     decide_algebraic_divisor_torsion,
     decide_algebraic_principality,
     finite_divisor_class_order,
@@ -126,6 +129,7 @@ from .algebraic_geometry.riemann_roch import (
     RiemannRochSpaceStatus,
     compute_riemann_roch_space,
 )
+from .constant_adapters import adapt_risch_constant_field_analysis
 from .czichowski import czichowski_groebner
 from .dependency import (
     HyperexponentialDependency,
@@ -388,6 +392,8 @@ __all__ = [
     "ExpressionUnsupportedReason",
     "FiniteAlgebraicPlace",
     "FiniteDivisorClassOrder",
+    "FunctionFieldConstantCertificate",
+    "FunctionFieldConstantProof",
     "FundamentalSignature",
     "FundamentalSignatureOutcome",
     "FundamentalSignatureReason",
@@ -497,6 +503,7 @@ __all__ = [
     "TragerAlgebraicResidueResult",
     "TranscendentalExactDerivativeCertificate",
     "__version__",
+    "adapt_risch_constant_field_analysis",
     "analyze_algebraic_constant_field",
     "analyze_hyperexponential_extension",
     "analyze_hypertangent_extension",
@@ -510,6 +517,7 @@ __all__ = [
     "build_fundamental_signature",
     "build_hyperbolic_mobius_normal_form",
     "build_riccati_mobius_normal_form",
+    "certify_function_field_constants",
     "certify_primitive_extension",
     "certify_primitive_no_special_polynomials",
     "certify_special_polynomial",

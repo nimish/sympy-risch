@@ -1374,16 +1374,13 @@ individual differentials `f*dx` are needed. Residue-constrained subspaces of
 the second kind add one exact linear-algebra step:
 
 ```python
-from sympy_risch import analyze_algebraic_constant_field
 from sympy_risch.algebraic_geometry import (
     AlgebraicDivisor,
+    certify_function_field_constants,
     hess_second_kind_differential_space,
 )
 
-constant_field = analyze_algebraic_constant_field(
-    sqrt_x_extension,
-    sqrt_x.derivation(),
-)
+constant_field = certify_function_field_constants(curve)
 two_sided_pole_bound = AlgebraicDivisor(
     curve,
     ((branch_place, 2), (infinity, 2)),
@@ -1403,6 +1400,10 @@ The ambient space is `Omega(-two_sided_pole_bound)`. The residue map has one
 coordinate block for each closed pole place, including higher-degree places,
 and `second_kind.basis` is its complete kernel. This step expands the ambient
 basis because the exact residue matrix has one column per basis vector.
+Here the degree-one place at infinity proves that the displayed constants are
+the full function-field constants; callers may instead supply another
+degree-one place. A preserved derivation-specific analysis can be converted
+with `adapt_risch_constant_field_analysis` at the Risch/geometry boundary.
 Prescribed-residue third-kind spaces are the next layer.
 
 ## Mathematical assumptions
