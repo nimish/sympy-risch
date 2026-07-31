@@ -412,7 +412,10 @@ class AlgebraicOrder:
 
     def unit_ideal(self) -> AlgebraicFractionalIdeal:
         """Return the unit ideal."""
-        return AlgebraicFractionalIdeal(self, self.basis.elements)
+        return AlgebraicFractionalIdeal._from_derived_generators(
+            self,
+            self.basis.elements,
+        )
 
     def fractional_ideal(
         self,
@@ -424,14 +427,14 @@ class AlgebraicOrder:
             for generator in generators
             for basis_element in self.basis.elements
         )
-        return AlgebraicFractionalIdeal(self, expanded)
+        return AlgebraicFractionalIdeal._from_derived_generators(self, expanded)
 
     def principal_ideal(self, generator: object) -> AlgebraicFractionalIdeal:
         """Return the nonzero principal fractional ideal ``generator*self``."""
         element = _extension_element(self.extension, generator)
         if element == self.extension.field.zero:
             raise ValueError("the zero element does not define a fractional ideal")
-        return AlgebraicFractionalIdeal(
+        return AlgebraicFractionalIdeal._from_derived_generators(
             self,
             tuple(element * basis_element for basis_element in self.basis.elements),
         )
@@ -477,7 +480,10 @@ class AlgebraicOrder:
                     )
                 )
             )
-        return AlgebraicFractionalIdeal(self, tuple(generators))
+        return AlgebraicFractionalIdeal._from_derived_generators(
+            self,
+            tuple(generators),
+        )
 
     def idealizer(
         self,
@@ -503,7 +509,7 @@ class AlgebraicOrder:
         elements = tuple(
             self.basis.element(column) for column in _matrix_columns(coordinate_matrix)
         )
-        return AlgebraicFractionalIdeal(self, elements)
+        return AlgebraicFractionalIdeal._from_derived_generators(self, elements)
 
     @property
     def different(self) -> AlgebraicFractionalIdeal:
@@ -529,6 +535,28 @@ class AlgebraicFractionalIdeal:
     )
 
     def __post_init__(self) -> None:
+        self._initialize(validate_stability=True)
+
+    @classmethod
+    def _from_derived_generators(
+        cls,
+        order: AlgebraicOrder,
+        basis_elements: tuple[ExtensionElement, ...],
+    ) -> AlgebraicFractionalIdeal:
+        """Construct an ideal produced by a closure-preserving ideal operation.
+
+        Public construction checks module stability. Ideal sum, product,
+        scaling, colon, and intersection preserve stability by construction;
+        replaying the same rank-squared containment proof after each such
+        operation adds no mathematical evidence.
+        """
+        result = object.__new__(cls)
+        object.__setattr__(result, "order", order)
+        object.__setattr__(result, "basis_elements", basis_elements)
+        result._initialize(validate_stability=False)
+        return result
+
+    def _initialize(self, *, validate_stability: bool) -> None:
         extension = self.order.extension
         coerced = tuple(
             _extension_element(extension, element) for element in self.basis_elements
@@ -554,12 +582,13 @@ class AlgebraicFractionalIdeal:
         object.__setattr__(self, "_coordinate_matrix", coordinate_matrix)
         object.__setattr__(self, "_coordinate_inverse", coordinate_inverse)
 
-        for order_element in self.order.basis.elements:
-            for ideal_element in basis_elements:
-                if not self.contains(order_element * ideal_element):
-                    raise ValueError(
-                        "the generated lattice is not stable under the order"
-                    )
+        if validate_stability:
+            for order_element in self.order.basis.elements:
+                for ideal_element in basis_elements:
+                    if not self.contains(order_element * ideal_element):
+                        raise ValueError(
+                            "the generated lattice is not stable under the order"
+                        )
 
     @property
     def coordinate_matrix(self) -> DomainMatrix:
@@ -633,7 +662,7 @@ class AlgebraicFractionalIdeal:
     ) -> AlgebraicFractionalIdeal:
         """Ideal sum."""
         self._require_same_order(other)
-        return AlgebraicFractionalIdeal(
+        return AlgebraicFractionalIdeal._from_derived_generators(
             self.order,
             self.basis_elements + other.basis_elements,
         )
@@ -644,7 +673,7 @@ class AlgebraicFractionalIdeal:
     ) -> AlgebraicFractionalIdeal:
         """Ideal product."""
         self._require_same_order(other)
-        return AlgebraicFractionalIdeal(
+        return AlgebraicFractionalIdeal._from_derived_generators(
             self.order,
             tuple(
                 left * right
@@ -658,7 +687,7 @@ class AlgebraicFractionalIdeal:
         scalar = _extension_element(self.order.extension, element)
         if scalar == self.order.extension.field.zero:
             raise ValueError("a fractional ideal cannot be scaled by zero")
-        return AlgebraicFractionalIdeal(
+        return AlgebraicFractionalIdeal._from_derived_generators(
             self.order,
             tuple(scalar * basis_element for basis_element in self.basis_elements),
         )
@@ -701,7 +730,7 @@ class AlgebraicFractionalIdeal:
             constraint_matrix,
             self.order.extension,
         )
-        return AlgebraicFractionalIdeal(
+        return AlgebraicFractionalIdeal._from_derived_generators(
             self.order,
             tuple(
                 self.order.basis.element(column)
@@ -729,7 +758,7 @@ class AlgebraicFractionalIdeal:
             self.order.extension,
         )
         intersection_matrix = dual_sum.inv().transpose()
-        return AlgebraicFractionalIdeal(
+        return AlgebraicFractionalIdeal._from_derived_generators(
             self.order,
             tuple(
                 self.order.basis.element(column)

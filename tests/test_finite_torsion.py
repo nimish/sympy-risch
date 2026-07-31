@@ -40,7 +40,8 @@ def test_good_reduction_preserves_the_genus_and_finds_order_29() -> None:
     assert reduction.reduce_divisor(divisor).degree == 0
     assert finite_order.order == 29
     assert finite_order.search.witness is not None
-    assert finite_order.search.reductions[-1].representative.is_zero
+    assert len(finite_order.search.reductions) < finite_order.weil_bound
+    assert "baby-step/giant-step" in finite_order.search.detail
 
 
 def test_incompatible_finite_orders_prove_nontorsion() -> None:

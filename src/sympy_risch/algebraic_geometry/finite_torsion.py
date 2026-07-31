@@ -24,7 +24,8 @@ from sympy.polys.domains.fractionfield import FractionField
 from .divisor_classes import (
     AlgebraicTorsionSearch,
     AlgebraicTorsionStatus,
-    search_algebraic_divisor_torsion,
+    _search_algebraic_divisor_torsion_bsgs,
+    _validate_anchor,
 )
 from .finite_reduction import (
     AlgebraicFunctionFieldReduction,
@@ -97,10 +98,11 @@ def finite_divisor_class_order(
         raise TypeError("a reduced function field needs a constant domain")
     field_size = int(constants.characteristic())
     weil_bound = _weil_jacobian_upper_bound(field_size, reduction.target.genus)
-    search = search_algebraic_divisor_torsion(
+    search = _search_algebraic_divisor_torsion_bsgs(
         reduction.target,
         target_divisor,
         max_order=max(1, weil_bound),
+        anchor=_validate_anchor(reduction.target, None),
     )
     if search.status is not AlgebraicTorsionStatus.TORSION:
         raise NotImplementedError(
@@ -267,10 +269,11 @@ def decide_algebraic_divisor_torsion(
             "characteristic-zero torsion order",
         )
 
-    search = search_algebraic_divisor_torsion(
+    search = _search_algebraic_divisor_torsion_bsgs(
         model,
         divisor,
         max_order=max(1, candidate),
+        anchor=_validate_anchor(model, None),
     )
     if search.status is AlgebraicTorsionStatus.TORSION:
         if search.order != candidate or search.witness is None:
