@@ -118,9 +118,14 @@ Riemann--Roch duality checks. Exact residue matrices on `Omega(-E)` now give
 complete bounded second-kind kernels for constant-certified models, including
 nonradical fields certified by a degree-one place and higher-degree closed
 residue coordinates. The full engine still needs presentation normalization,
-total maximal-order arithmetic, broader constant-field certification,
-prescribed-residue third-kind spaces, scalable class arithmetic, complete
-algebraic integration, algebraic RDEs, and their relative mixed-tower forms.
+total maximal-order arithmetic, broader constant-field certification, and
+prescribed-residue third-kind spaces. Before the third-kind slice, the shared
+differential path will batch local residue expansions, cache repeated
+membership work, and stream zero-residue checks. Scalable class arithmetic
+then replaces linear Weil-bound torsion scans with certified order algorithms
+and separates validated public ideal construction from proof-carrying
+internal operations. Complete algebraic integration, algebraic RDEs, and
+their relative mixed-tower forms remain after those foundations.
 Plan 014's remaining execution cells depend on those services rather than on
 more syntax-directed special cases.
 Plan 016 gives the transcendental track the same decomposition: effective

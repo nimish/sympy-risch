@@ -291,6 +291,30 @@ with neither a supplied degree-one place nor a preserved Risch analysis remain
 an explicit constant-field boundary. The remaining gate is prescribed-residue
 third-kind spaces and independent genus consistency checks.
 
+#### A5-P. Harden the differential-space path before third-kind spaces
+
+The prescribed-residue solver will reuse the same ambient differential basis
+and local expansions as the second-kind kernel. Before adding that solver:
+
+- construct residue columns by place and compact Hess generator, propagating
+  through its powers of the separating parameter instead of independently
+  expanding every long-basis element;
+- make repeated differential membership use the cached differential divisor
+  (or an equivalent cached principal-divisor service);
+- stream zero-residue membership checks so a nonzero place stops the
+  computation immediately; and
+- avoid eager dense-row allocation while assembling sparse Riemann--Roch
+  constraint matrices.
+
+These are representation fixes, not weakened validation. Publicly supplied
+objects retain their exact checks; the optimized path must produce the same
+residue matrix and membership decisions as the direct local-expansion oracle.
+
+**Exit gate:** small spaces agree column-for-column with direct residue
+expansion, repeated membership does not rebuild principal divisors, and work
+counts for increasing pole bounds scale with compact generators and requested
+precision rather than with independent long-basis expansions.
+
 ### A6. Complete scalable divisor-class and Jacobian operations
 
 Build class arithmetic on A4-A5:
@@ -310,6 +334,17 @@ downstream proof actually needs it.
 **Exit gate:** the existing Pell--Abel/torsion regression no longer depends on
 linear class iteration, and positive decisions still reconstruct in
 characteristic zero.
+
+The first performance slice of A6 is explicit:
+
+- replace the current linear scan through the Weil bound with a certified
+  baby-step/giant-step or factor-refinement order algorithm; and
+- keep full validation for public ideals while providing a proof-carrying
+  internal construction path for multiplication, powers, inverses, and
+  colons, so each result does not repeat the same module-stability proof.
+
+The internal path must retain enough source evidence to replay validation at a
+public boundary. It is not permission to make arbitrary unvalidated ideals.
 
 ### A7. Complete pure algebraic logarithmic reconstruction
 
@@ -465,6 +500,11 @@ Add benchmark families for a high-degree nonradical relation, several
 positive-genus curves, a large-height divisor, and a residue compositum.
 Avoid performance gates tied to one machine; assert algorithmic work counts
 where possible and retain wall-clock benchmarks for regression reporting.
+
+Also track the external SymPy algebraic-field `Field.gcd` fallback separately.
+Its repeated failed `get_ring()` conversion is an upstream domain-layer issue:
+fix and test it in SymPy, then consume the released or pinned correction here
+rather than adding a Risch-local monkey patch.
 
 ## Source map
 
