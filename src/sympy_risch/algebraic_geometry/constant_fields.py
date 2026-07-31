@@ -12,6 +12,7 @@ geometry algorithms do not otherwise depend on that analyzer.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 
@@ -29,76 +30,42 @@ class FunctionFieldConstantProof(Enum):
     RISCH_ANALYSIS = "risch_analysis"
 
 
-@dataclass(frozen=True, slots=True, init=False)
-class FunctionFieldConstantCertificate:
-    """Proof that a global model's displayed constant field is exact."""
+@dataclass(frozen=True, slots=True)
+class FunctionFieldConstantCertificate(ABC):
+    """Base class for proofs that a model's displayed constants are full."""
 
     model: AlgebraicFunctionField
-    proof: FunctionFieldConstantProof
-    degree_one_place: AlgebraicPlace | None
-    source_analysis: object | None
     detail: str
 
-    def __init__(self) -> None:
-        raise TypeError(
-            "constant-field certificates must be created by a certificate factory"
-        )
-
-    @classmethod
-    def _create(
-        cls,
-        model: AlgebraicFunctionField,
-        proof: FunctionFieldConstantProof,
-        degree_one_place: AlgebraicPlace | None,
-        source_analysis: object | None,
-        detail: str,
-    ) -> FunctionFieldConstantCertificate:
-        result = object.__new__(cls)
-        object.__setattr__(result, "model", model)
-        object.__setattr__(result, "proof", proof)
-        object.__setattr__(result, "degree_one_place", degree_one_place)
-        object.__setattr__(result, "source_analysis", source_analysis)
-        object.__setattr__(result, "detail", detail)
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         if not isinstance(self.model, AlgebraicFunctionField):
             raise TypeError("a constant-field certificate needs a global model")
-        if not isinstance(self.proof, FunctionFieldConstantProof):
-            raise TypeError("a constant-field certificate has an unknown proof")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("a constant-field certificate needs a detail")
 
-        if self.proof is FunctionFieldConstantProof.DEGREE_ONE_PLACE:
-            if self.degree_one_place is None or self.source_analysis is not None:
-                raise ValueError("a degree-one proof needs exactly one place")
-            # Divisor construction performs the complete model-ownership check.
-            AlgebraicDivisor(self.model, ((self.degree_one_place, 1),))
-            if self.degree_one_place.degree != 1:
-                raise ValueError("the constant-field witness must have degree one")
-            return
+    @property
+    @abstractmethod
+    def proof(self) -> FunctionFieldConstantProof:
+        """The theorem carried by this concrete certificate."""
 
-        if self.proof is FunctionFieldConstantProof.RISCH_ANALYSIS:
-            if self.degree_one_place is not None or self.source_analysis is None:
-                raise ValueError("a Risch proof needs exactly one analysis")
-            from ..algebraic.constant_analysis import AlgebraicConstantFieldAnalysis
 
-            if not isinstance(
-                self.source_analysis,
-                AlgebraicConstantFieldAnalysis,
-            ):
-                raise TypeError("the Risch constant proof has the wrong type")
-            if (
-                self.source_analysis.extension is not self.model.extension
-                or not self.source_analysis.preserved
-            ):
-                raise ValueError(
-                    "the Risch analysis does not prove this model's constants"
-                )
-            return
+@dataclass(frozen=True, slots=True)
+class DegreeOnePlaceConstantCertificate(FunctionFieldConstantCertificate):
+    """Full-constant proof supplied by one degree-one closed place."""
 
-        raise ValueError("a constant-field certificate has an unknown proof")
+    degree_one_place: AlgebraicPlace
+
+    def __post_init__(self) -> None:
+        FunctionFieldConstantCertificate.__post_init__(self)
+        # Divisor construction performs the complete model-ownership check.
+        AlgebraicDivisor(self.model, ((self.degree_one_place, 1),))
+        if self.degree_one_place.degree != 1:
+            raise ValueError("the constant-field witness must have degree one")
+
+    @property
+    def proof(self) -> FunctionFieldConstantProof:
+        """The degree-one-place theorem."""
+        return FunctionFieldConstantProof.DEGREE_ONE_PLACE
 
 
 def certify_function_field_constants(
@@ -125,12 +92,10 @@ def certify_function_field_constants(
             "no degree-one place was found above infinity; supply another "
             "degree-one place or adapt a preserved Risch analysis"
         )
-    return FunctionFieldConstantCertificate._create(
-        model,
-        FunctionFieldConstantProof.DEGREE_ONE_PLACE,
-        witness,
-        None,
-        "a degree-one closed place proves that the displayed constants are full",
+    return DegreeOnePlaceConstantCertificate(
+        model=model,
+        detail="a degree-one closed place proves that the displayed constants are full",
+        degree_one_place=witness,
     )
 
 
