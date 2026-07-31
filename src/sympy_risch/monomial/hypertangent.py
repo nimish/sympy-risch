@@ -3,12 +3,16 @@ r"""Direct real hypertangent relations and Cayley reduction oracles."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 from sympy.core.numbers import I
 from sympy.core.symbol import Dummy, Symbol
 from sympy.polys.domains import QQ
 from sympy.polys.domains.domain import Domain
+from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.fields import FracElement
 from sympy.polys.polytools import Poly, cancel
+from sympy.polys.rings import PolyElement
 
 from .._typing import FieldElement
 from ..constant_fields import (
@@ -344,6 +348,64 @@ def _gaussian_conjugate(
     return gaussian_field.from_sympy(expression.xreplace({I: -I}))
 
 
+def _native_generator_coefficients(
+    polynomial: PolyElement,
+    generator_index: int,
+    gaussian_field: FractionField,
+) -> dict[int, FieldElement]:
+    """Collect a flattened polynomial by generator degree over ``K(i)``."""
+    source_constants = polynomial.ring.domain
+    target_constants = gaussian_field.domain
+    if target_constants is None:
+        raise TypeError("the Gaussian lower field needs a coefficient domain")
+    grouped: dict[int, dict[tuple[int, ...], object]] = {}
+    for exponents, coefficient in polynomial.to_dict().items():
+        generator_power = exponents[generator_index]
+        lower_exponents = exponents[:generator_index] + exponents[generator_index + 1 :]
+        grouped.setdefault(generator_power, {})[lower_exponents] = (
+            target_constants.convert(coefficient, source_constants)
+        )
+    return {
+        power: gaussian_field.convert(
+            gaussian_field.field.field_new(
+                gaussian_field.field.ring.from_dict(terms),
+            )
+        )
+        for power, terms in grouped.items()
+    }
+
+
+def _native_inverse_cayley_polynomial(
+    polynomial: PolyElement,
+    generator_index: int,
+    cayley_generator: Symbol,
+    gaussian_field: FractionField,
+    imaginary_unit: FieldElement,
+) -> tuple[Poly, int]:
+    r"""Return ``(1+u)^n P(i(1-u)/(1+u))`` and ``n=deg_t(P)``."""
+    coefficients = _native_generator_coefficients(
+        polynomial,
+        generator_index,
+        gaussian_field,
+    )
+    if not coefficients:
+        return Poly(0, cayley_generator, domain=gaussian_field), 0
+    degree = max(coefficients)
+    plus = Poly(cayley_generator + 1, cayley_generator, domain=gaussian_field)
+    minus = Poly(1 - cayley_generator, cayley_generator, domain=gaussian_field)
+    plus_powers = [Poly(1, cayley_generator, domain=gaussian_field)]
+    minus_powers = [Poly(1, cayley_generator, domain=gaussian_field)]
+    for _ in range(degree):
+        plus_powers.append(plus_powers[-1] * plus)
+        minus_powers.append(minus_powers[-1] * minus)
+    result = Poly(0, cayley_generator, domain=gaussian_field)
+    for power, coefficient in coefficients.items():
+        result += (minus_powers[power] * plus_powers[degree - power]).mul_ground(
+            coefficient * imaginary_unit**power
+        )
+    return result, degree
+
+
 def _hypertangent_cayley_coefficients(
     element: FieldElement,
     extension: MonomialExtension,
@@ -365,22 +427,40 @@ def _hypertangent_cayley_coefficients(
             "hypertangent Cayley reduction requires a rational-function "
             "lower field over its declared finite constant field"
         )
-    gaussian_field = gaussian_constant_field(constants).frac_field(*parent_symbols)
-    inverse_cayley = I * (1 - cayley_generator) / (1 + cayley_generator)
-    transformed = cancel(
-        extension.field.to_sympy(element).subs(generator, inverse_cayley)
+    gaussian_field = cast(
+        FractionField,
+        gaussian_constant_field(constants).frac_field(*parent_symbols),
     )
-    numerator_expression, denominator_expression = transformed.as_numer_denom()
-    numerator = Poly(
-        numerator_expression,
+    native_element = extension.field.convert(element)
+    if not isinstance(native_element, FracElement):
+        raise TypeError("a hypertangent field element must be a rational function")
+    field_symbols = tuple(native_element.field.symbols)
+    try:
+        generator_index = field_symbols.index(generator)
+    except ValueError as exc:
+        raise ValueError("the hypertangent generator is absent from its field") from exc
+    imaginary_unit = gaussian_field.from_sympy(I)
+    transformed_numerator, numerator_degree = _native_inverse_cayley_polynomial(
+        native_element.numer,
+        generator_index,
+        cayley_generator,
+        gaussian_field,
+        imaginary_unit,
+    )
+    transformed_denominator, denominator_degree = _native_inverse_cayley_polynomial(
+        native_element.denom,
+        generator_index,
+        cayley_generator,
+        gaussian_field,
+        imaginary_unit,
+    )
+    plus = Poly(
+        cayley_generator + 1,
         cayley_generator,
         domain=gaussian_field,
     )
-    denominator = Poly(
-        denominator_expression,
-        cayley_generator,
-        domain=gaussian_field,
-    )
+    numerator = transformed_numerator * plus**denominator_degree
+    denominator = transformed_denominator * plus**numerator_degree
     coefficient, numerator, denominator = numerator.cancel(denominator)
     numerator = numerator.mul_ground(coefficient)
     denominator_terms = denominator.terms()
