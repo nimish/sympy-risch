@@ -183,9 +183,9 @@ constant-compositum layer now joins every supported profile factor into one
 exact number field, including factors over displayed algebraic constants. It
 retains the source embedding and rebuilds the curve only after that common
 field exists. Recollecting the differential in the target then chooses
-compatible target places and residues. A factor must split in its one-root
-field; constructing a general splitting field remains later work. This
-distinction prevents a locally correct but globally inconsistent logarithmic
+compatible target places and residues. Successive exact root adjunctions now
+continue until every requested factor splits completely. This distinction
+prevents a locally correct but globally inconsistent logarithmic
 reconstruction.
 
 ## Displayed-constant logarithmic reconstruction
@@ -439,21 +439,25 @@ profile plan. The automatic path factors the square-free all-place residue
 profile, orders its supported exact non-linear factors by degree and exact
 coefficients, and first constructs their common constant field. The factors
 may lie over `QQ` or the displayed algebraic number field. Only then does it
-rebuild and recollect the curve. If one candidate is outside the supported
-splitting-root cell, it falls back to individual candidates so that an
-unsupported factor cannot mask an independent supported extension.
+rebuild and recollect the curve. If the combined target falls outside a later
+curve capability, it falls back to individual candidates so that one
+unsupported target cannot mask an independent supported extension.
 
 The underlying number-field map is reusable beyond integration. It accepts
 constants `C = QQ` or an existing SymPy algebraic number field and constructs
-the exact compositum of several splitting root fields. For a factor over an
-algebraic source, a resultant constructs an absolute primitive element for
+the exact common splitting field by adjoining one root of a remaining
+irreducible component at each step. For a factor over an algebraic source, a
+resultant constructs an absolute primitive element for
 `theta = alpha + c*beta`; a linear gcd recovers the exact image of the source
-generator. Each step retains that embedding, and the composed map is lifted
-coefficientwise through `C(x)[y]/(f)`. Thus both
+generator, and `beta = (theta - alpha)/c` records the new root. Each step
+retains both images, and the composed map is lifted coefficientwise through
+`C(x)[y]/(f)`. Thus both
 `QQ(sqrt(2), sqrt(3))` and a field containing a root of
-`Z**2 - sqrt(2)` are built before the function field is rebuilt. The target
-relation and full constant field are checked once, and commutation with the
-derivation is verified on the field generators.
+`Z**2 - sqrt(2)` are built before the function field is rebuilt. A nonnormal
+factor such as `Z**3 - 2` triggers a second adjunction and produces its full
+degree-six splitting field. The target relation and full constant field are
+checked once, and commutation with the derivation is verified on the field
+generators.
 
 After each successful base change, the planner profiles the new target result
 rather than assuming that source residue data survived unchanged. Every step

@@ -296,8 +296,8 @@ def integrate_algebraic_with_constant_base_change(
     Every step embeds the preceding differential and collects it again at all
     target places before logarithmic reconstruction. Merely transporting a
     source residue list would omit target infinity and split descendants.
-    Factors over displayed algebraic constants are admitted; nonsplitting
-    one-root fields remain an explicit unsupported boundary.
+    Factors over displayed algebraic constants are admitted, and successive
+    root adjunctions construct their complete splitting fields.
 
     ``torsion_order_bound`` is forwarded unchanged at the source and every
     rebuilt target field. A found relation is exact; exhaustion is not a
@@ -350,9 +350,9 @@ def integrate_algebraic_with_constant_base_change(
 
         # Joining every currently visible residue factor before rebuilding the
         # curve is the common case and avoids repeating maximal-order and
-        # all-place work. If one factor is outside the supported splitting-root
-        # cell, fall back to individual factors so that it cannot mask an
-        # independent supported extension.
+        # all-place work. If the combined target falls outside a later curve or
+        # constant-field capability, fall back to individual factors so that it
+        # cannot mask an independent supported extension.
         if len(pending) > 1:
             step, attempt_detail = _continue_source_result(
                 current,

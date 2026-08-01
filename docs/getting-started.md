@@ -1266,9 +1266,9 @@ Pass an explicit `Poly` as `factor` when a particular constant field is
 desired; that requests one factor. Automatic selection can join several
 independent residue fields into one compositum over `QQ` or an existing SymPy
 algebraic number field before rebuilding the function field. A factor may have
-coefficients in those displayed algebraic constants. Its one-root extension
-must contain every conjugate needed to split the factor; general splitting-
-field construction remains future work. The place layer also retains
+coefficients in those displayed algebraic constants. The constant-field layer
+adjoins further roots of the remaining irreducible factors until every
+requested polynomial splits completely. The place layer still retains
 deliberately narrow finite-place splitting support.
 For curves over `QQ` and supported split prime ideals of integral algebraic
 constant fields, positive divisor-class torsion is selected algorithmically

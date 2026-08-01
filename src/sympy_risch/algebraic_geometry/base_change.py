@@ -14,9 +14,9 @@ the transported prime ideal.
 
 The constant-field layer constructs exact composita of successive number
 fields, including irreducible factors over displayed algebraic constants. It
-does not yet construct a general splitting field, split infinity, or accept a
-target whose algebraic relation or constant field falls outside the certified
-scope.
+adjoins further roots until each requested factor splits completely. It does
+not yet split infinity or accept a target whose algebraic relation or constant
+field falls outside the certified scope.
 """
 
 from __future__ import annotations
@@ -405,12 +405,12 @@ def build_algebraic_constant_compositum_base_change(
     r"""Build one certified base change through a common constant field.
 
     The source constants may be ``QQ`` or a SymPy algebraic number field.
-    Every selected factor is defined over the displayed source constants and
-    must split in its one-root field. Their splitting root fields are joined
-    before the curve is rebuilt, so several independent residue fields require
-    only one function-field base change. The source relation must remain a
-    supported irreducible relation over the compositum, and the target constant
-    field must again be preserved. Every other case returns
+    Every selected factor is defined over the displayed source constants.
+    Successive exact root adjunctions build their common splitting field before
+    the curve is rebuilt, so several independent residue fields require only
+    one function-field base change. The source relation must remain a supported
+    irreducible relation over the compositum, and the target constant field
+    must again be preserved. Every other case returns
     :class:`AlgebraicConstantBaseChangeUnsupported`.
     """
     if not isinstance(model, AlgebraicFunctionField):

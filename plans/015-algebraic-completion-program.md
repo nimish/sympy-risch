@@ -392,10 +392,11 @@ genus-one order-two regression over `QQ(sqrt(2))` reconstructs
 rational-coordinate divisor certified nontorsion now produces a sealed
 Liouville `NON_ELEMENTARY` obstruction; bounded exhaustion remains
 unsupported. Curve arithmetic over non-prime
-`GF(p^f)`, general splitting fields, and the complete positive-genus
-combination solver remain open. Residue factors over displayed algebraic
-number-field constants are now admitted when their one-root fields split them;
-the exact source embedding is retained through a resultant primitive element.
+`GF(p^f)` and the complete positive-genus combination solver remain open.
+General splitting fields over `QQ` or displayed algebraic number fields are
+constructed by successive exact root adjunctions; every step retains the
+source embedding and its new root through a resultant primitive element, and
+the final certificate rechecks complete splitting.
 
 Generalize the current displayed-constant path:
 

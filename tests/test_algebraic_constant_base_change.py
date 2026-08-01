@@ -17,7 +17,6 @@ from sympy_risch import (
     collect_algebraic_all_place_residues,
 )
 from sympy_risch.algebraic_geometry.base_change import (
-    AlgebraicConstantBaseChangeUnsupported,
     AlgebraicPlaceSplitStatus,
     CertifiedAlgebraicConstantBaseChange,
     build_algebraic_constant_base_change,
@@ -169,7 +168,7 @@ def test_common_constant_compositum_splits_independent_factors() -> None:
 
 
 def test_common_compositum_is_independent_of_factor_order() -> None:
-    """Support and rejection do not depend on caller ordering."""
+    """General splitting-field construction does not depend on caller order."""
     first = Poly(z**2 - 2, z, domain=QQ)
     second = Poly(z**2 - 3, z, domain=QQ)
 
@@ -182,8 +181,11 @@ def test_common_compositum_is_independent_of_factor_order() -> None:
     cubic = Poly(z**3 - 2, z, domain=QQ)
     discriminant = Poly(z**2 + 3, z, domain=QQ)
     for factors in ((cubic, discriminant), (discriminant, cubic)):
-        with pytest.raises(ValueError, match="general splitting fields"):
-            extend_algebraic_constant_compositum(QQ, factors)
+        splitting_field = extend_algebraic_constant_compositum(QQ, factors)
+        assert splitting_field.target.ext.minpoly.degree() == 6
+        for factor in factors:
+            _unit, mapped = splitting_field.embed_polynomial(factor).factor_list()
+            assert all(component.degree() == 1 for component, _multiplicity in mapped)
 
 
 def test_common_compositum_skips_a_factor_already_in_the_source() -> None:
@@ -268,36 +270,46 @@ def test_finite_closed_places_split_and_transport_local_residues() -> None:
     } == {2 * alpha, -2 * alpha}
 
 
-def test_cubic_factor_that_does_not_split_in_its_root_field_is_unsupported() -> None:
+def test_cubic_factor_builds_its_complete_splitting_field() -> None:
     tower, _extension, model = _source_model()
+    factor = Poly(z**3 - 2, z, domain=QQ)
 
     change = build_algebraic_constant_base_change(
         model,
         tower.derivation(),
-        Poly(z**3 - 2, z, domain=QQ),
+        factor,
     )
 
-    assert isinstance(change, AlgebraicConstantBaseChangeUnsupported)
-    assert not hasattr(change, "target_extension")
-    assert "general splitting fields are unsupported" in change.detail
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
+    assert change.target_constants.ext.minpoly.degree() == 6
+    assert [
+        step.target.ext.minpoly.degree() for step in change.constant_compositum.steps
+    ] == [3, 6]
+    _unit, factors = change.constant_compositum.embed_polynomial(factor).factor_list()
+    assert len(factors) == 3
+    assert all(component.degree() == 1 for component, _multiplicity in factors)
 
 
-def test_unsupported_factor_does_not_return_a_partial_common_field() -> None:
-    """A nonnormal factor cannot hide behind an otherwise valid quadratic."""
+def test_quadratic_and_nonnormal_cubic_share_one_complete_field() -> None:
     tower, _extension, model = _source_model()
+    factors = (
+        Poly(z**2 - 2, z, domain=QQ),
+        Poly(z**3 - 3, z, domain=QQ),
+    )
 
     change = build_algebraic_constant_compositum_base_change(
         model,
         tower.derivation(),
-        (
-            Poly(z**2 - 2, z, domain=QQ),
-            Poly(z**3 - 3, z, domain=QQ),
-        ),
+        factors,
     )
 
-    assert isinstance(change, AlgebraicConstantBaseChangeUnsupported)
-    assert not hasattr(change, "constant_compositum")
-    assert not hasattr(change, "target_extension")
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
+    assert change.target_constants.ext.minpoly.degree() == 12
+    for factor in factors:
+        _unit, mapped = change.constant_compositum.embed_polynomial(
+            factor
+        ).factor_list()
+        assert all(component.degree() == 1 for component, _multiplicity in mapped)
 
 
 def test_algebraic_coefficient_factor_builds_an_exact_relative_extension() -> None:
@@ -325,13 +337,29 @@ def test_algebraic_coefficient_factor_builds_an_exact_relative_extension() -> No
     )
 
 
-def test_algebraic_coefficient_general_splitting_field_remains_explicit() -> None:
-    """A nonnormal relative root field is not mistaken for a splitting field."""
+def test_algebraic_coefficient_factor_builds_a_general_splitting_field() -> None:
+    """Successive relative adjunctions retain the original source embedding."""
     constants = QQ.algebraic_field(sqrt(2))
     factor = Poly(z**3 - sqrt(2), z, domain=constants)
 
-    with pytest.raises(ValueError, match="general splitting fields"):
-        extend_algebraic_constant_compositum(constants, (factor,))
+    compositum = extend_algebraic_constant_compositum(constants, (factor,))
+
+    assert len(compositum.steps) == 2
+    assert [step.target.ext.minpoly.degree() for step in compositum.steps] == [6, 12]
+    assert compositum.target.ext.minpoly.degree() == 12
+    source_generator = constants.from_sympy(sqrt(2))
+    assert compositum.embed(source_generator) ** 2 == compositum.target.convert(2)
+    _unit, factors = compositum.embed_polynomial(factor).factor_list()
+    assert len(factors) == 3
+    assert all(component.degree() == 1 for component, _multiplicity in factors)
+
+
+def test_constant_adjunction_rejects_a_forged_root_image() -> None:
+    factor = Poly(z**3 - 2, z, domain=QQ)
+    compositum = extend_algebraic_constant_compositum(QQ, (factor,))
+
+    with pytest.raises(ValueError, match="does not satisfy"):
+        replace(compositum.steps[0], factor_root_image=compositum.steps[0].target.one)
 
 
 def test_relative_factor_extends_a_quartic_source_field() -> None:

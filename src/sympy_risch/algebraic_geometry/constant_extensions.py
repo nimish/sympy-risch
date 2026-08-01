@@ -1,9 +1,9 @@
 r"""Exact embeddings between supported algebraic constant fields.
 
 This module contains no algebraic-function-field or Risch policy.  It builds
-the compositum of ``QQ`` or a SymPy algebraic number field with splitting root
-fields of polynomials over the displayed source field, and records the exact
-embedding of the old constants into that compositum.
+the compositum of ``QQ`` or a SymPy algebraic number field with splitting
+fields of polynomials over the displayed source field, and records each exact
+root adjunction and embedding of the old constants.
 """
 
 from __future__ import annotations
@@ -128,7 +128,7 @@ def _source_element_expression(
 def _relative_root_field(
     source: AlgebraicField,
     factor: Poly,
-) -> tuple[AlgebraicField, object]:
+) -> tuple[AlgebraicField, object, object]:
     r"""Return an absolute field containing ``source`` and one factor root.
 
     For a source generator ``alpha`` and a root ``beta`` of ``factor``, the
@@ -199,25 +199,31 @@ def _relative_root_field(
             continue
         leading, constant = common.rep.to_list()
         source_image = target.quo(-constant, leading)
-        return target, source_image
+        factor_root_image = target.quo(
+            target.unit - source_image,
+            target.convert(primitive_coefficient),
+        )
+        return target, source_image, factor_root_image
 
     raise RuntimeError("the primitive-element search did not terminate")
 
 
 @dataclass(frozen=True, slots=True)
 class AlgebraicConstantFieldExtension:
-    r"""A certified embedding ``source -> target`` of algebraic constants.
+    r"""A certified one-root adjunction ``source -> target``.
 
-    ``factor`` is irreducible over ``source`` and its one-root field contains
-    all of its roots. ``source_generator_image`` is the exact image of the
-    primitive generator when ``source`` is already algebraic; it is absent
-    for ``QQ``.
+    ``factor`` is irreducible over ``source`` and ``factor_root_image`` is one
+    exact root in ``target``. ``source_generator_image`` is the exact image of
+    the primitive generator when ``source`` is already algebraic; it is absent
+    for ``QQ``. A sequence of these adjunctions constructs a general splitting
+    field without pretending that the first root field is already normal.
     """
 
     source: Domain
     factor: Poly
     target: AlgebraicField
     source_generator_image: object | None
+    factor_root_image: object
 
     def __post_init__(self) -> None:
         _field_degree(self.source)
@@ -227,8 +233,11 @@ class AlgebraicConstantFieldExtension:
             )
         if not isinstance(self.target, AlgebraicField):
             raise TypeError("the target constants must be an algebraic number field")
-        if _field_degree(self.target) <= _field_degree(self.source):
-            raise ValueError("the target must strictly enlarge the source constants")
+        expected_degree = _field_degree(self.source) * self.factor.degree()
+        if _field_degree(self.target) != expected_degree:
+            raise ValueError(
+                "a one-root adjunction must have source degree times factor degree"
+            )
 
         if self.source == QQ:
             if self.source_generator_image is not None:
@@ -253,10 +262,13 @@ class AlgebraicConstantFieldExtension:
                 )
             object.__setattr__(self, "source_generator_image", image)
 
-        if not _splits_completely(self.embed_polynomial(self.factor)):
-            raise ValueError(
-                "the adjoining factor does not split completely in the target field"
-            )
+        root = self.target.convert(self.factor_root_image)
+        value = self.target.zero
+        for coefficient in self.factor.all_coeffs():
+            value = value * root + self.embed(coefficient)
+        if value != self.target.zero:
+            raise ValueError("the proposed root does not satisfy the adjoining factor")
+        object.__setattr__(self, "factor_root_image", root)
 
     def embed(self, value: object) -> object:
         """Map a native source constant into the target field."""
@@ -289,12 +301,11 @@ def extend_algebraic_constants(
     source: Domain,
     factor: Poly,
 ) -> AlgebraicConstantFieldExtension:
-    r"""Adjoin the splitting root field of ``factor`` to ``source``.
+    r"""Adjoin one exact root of ``factor`` to ``source``.
 
-    The factor is irreducible over ``source`` and must split in its one-root
-    field. Rational factors use SymPy's native root-field constructor.
-    Algebraic-coefficient factors use a resultant primitive element and retain
-    the exact image of the old generator.
+    Rational factors use SymPy's native root-field constructor. Algebraic-
+    coefficient factors use a resultant primitive element and retain exact
+    images of both the old generator and the newly adjoined root.
     """
     _field_degree(source)
     normalized = _normalized_irreducible_factor(source, factor)
@@ -309,12 +320,13 @@ def extend_algebraic_constants(
             root_field,
         )
     elif isinstance(source, AlgebraicField):
-        target, source_image = _relative_root_field(source, normalized)
+        target, source_image, root_image = _relative_root_field(source, normalized)
         result = AlgebraicConstantFieldExtension(
             source,
             normalized,
             target,
             source_image,
+            root_image,
         )
     else:
         raise NotImplementedError(
@@ -332,12 +344,19 @@ def _extend_algebraic_constants_with_root_field(
     if source == QQ:
         target = root_field
         source_image = None
+        root_image = target.unit
     elif isinstance(source, AlgebraicField):
         target = QQ.algebraic_field(*source.orig_ext, root_field.ext.root)
         coefficients = field_isomorphism(source.ext, target.ext)
         if coefficients is None:
             raise ValueError("the compositum lost the source constant field")
         source_image = target(AlgebraicNumber(target.ext, coefficients).native_coeffs())
+        root_coefficients = field_isomorphism(root_field.ext, target.ext)
+        if root_coefficients is None:
+            raise ValueError("the compositum lost the adjoined root field")
+        root_image = target(
+            AlgebraicNumber(target.ext, root_coefficients).native_coeffs()
+        )
     else:
         raise NotImplementedError(
             "constant composita currently require QQ or an algebraic number field"
@@ -348,6 +367,7 @@ def _extend_algebraic_constants_with_root_field(
         factor,
         target,
         source_image,
+        root_image,
     )
 
 
@@ -450,10 +470,10 @@ def extend_algebraic_constant_compositum(
 ) -> AlgebraicConstantFieldCompositum:
     r"""Construct one exact field in which every requested factor splits.
 
-    Each irreducible component over the original source must already split in
-    its own one-root field. This keeps general splitting-field construction an
-    explicit boundary independent of caller order. Components are then joined
-    in caller order, and the final certificate rechecks every requested factor.
+    One root of a remaining irreducible component is adjoined at each step.
+    The factor is then refactored over the enlarged field until every requested
+    factor splits linearly. The final certificate replays the full embedding
+    chain and rechecks every requested factor.
     """
     _field_degree(source)
     if not isinstance(factors, tuple):
@@ -464,40 +484,43 @@ def extend_algebraic_constant_compositum(
     if len(set(normalized)) != len(normalized):
         raise ValueError("constant-compositum factors must be distinct")
 
-    prechecked: dict[Poly, AlgebraicConstantFieldExtension] = {}
-    for factor in normalized:
-        _unit, components = factor.factor_list()
-        for component, multiplicity in components:
-            if multiplicity != 1:
-                raise ValueError("constant-compositum factors must be square-free")
-            if component.degree() == 1:
-                continue
-            try:
-                prechecked[component] = extend_algebraic_constants(source, component)
-            except ValueError as exc:
-                raise ValueError(
-                    "general splitting fields are unsupported: a requested factor "
-                    "does not split in its one-root field"
-                ) from exc
-
     current = source
     steps: list[AlgebraicConstantFieldExtension] = []
     for factor in normalized:
         transported = factor
         for step in steps:
             transported = step.embed_polynomial(transported)
-        while not _splits_completely(transported):
-            _unit, components = transported.factor_list()
+        _unit, components = transported.factor_list()
+        while True:
             component = next(
-                candidate
-                for candidate, _multiplicity in components
+                (
+                    candidate
+                    for candidate, _multiplicity in components
+                    if candidate.degree() > 1
+                ),
+                None,
+            )
+            if component is None:
+                break
+            unresolved_degree = sum(
+                candidate.degree() * multiplicity
+                for candidate, multiplicity in components
                 if candidate.degree() > 1
             )
-            if current is source and component in prechecked:
-                step = prechecked[component]
-            else:
-                step = extend_algebraic_constants(current, component)
+            step = extend_algebraic_constants(current, component)
             steps.append(step)
             current = step.target
             transported = step.embed_polynomial(transported)
+            _unit, components = transported.factor_list()
+            if (
+                sum(
+                    candidate.degree() * multiplicity
+                    for candidate, multiplicity in components
+                    if candidate.degree() > 1
+                )
+                >= unresolved_degree
+            ):
+                raise RuntimeError(
+                    "adjoining a certified root did not reduce the unresolved degree"
+                )
     return AlgebraicConstantFieldCompositum(source, normalized, tuple(steps))
