@@ -1155,9 +1155,10 @@ performs only a bounded positive search, so exhaustion remains `UNSUPPORTED`.
 Non-rational local residues return `NEEDS_CONSTANT_BASE_CHANGE`, and a nonzero residue-free
 remainder is tested for an algebraic primitive. If its primitive-pole space
 has a complete Riemann--Roch certificate, `integrate_algebraic` either adds
-that primitive or retains `RESIDUE_FREE_REMAINDER` with an exact in-field
-`NO_PRIMITIVE` decision. Those are honest algorithmic boundaries, not
-non-elementarity certificates. Algebraic levels are not yet part of the
+that primitive or returns `NON_ELEMENTARY` with a residue-free Liouville
+obstruction. If the complete space is unavailable, it retains
+`RESIDUE_FREE_REMAINDER`; that unsupported boundary is not a negative claim.
+Algebraic levels are not yet part of the
 recursive `integrate_elementary` dispatcher. The direct-`C(x)`
 integrating-factor RDE and the narrower terminal simple-radical RDE descent
 below are separate low-level endpoints.
@@ -1517,8 +1518,8 @@ boundary, not a mathematical claim about the integral.
 | Finite algebraic valuation constraints | Low-level exact `V ∩ L(D)` kernel over a supplied finite constant subspace, including native coordinates at constructed higher-degree closed places; bounded nonspecial lattice searches are certified only when they reach the Riemann--Roch dimension |
 | Algebraic divisor classes and torsion | General Riemann--Roch reduction; with full-constant evidence and degree-one anchors, supported good-prime finite Jacobians select the unique characteristic-zero candidate or prove nontorsion, and every positive candidate is replayed exactly; higher-degree anchors retain an explicit bounded-search API |
 | Algebraic principality decision | Generic AFF decision through primitive coefficient content and reduced class addition, with complete direct `L(-D)` fallback |
-| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension; principal and finite-torsion coordinate divisors are automatic, while a certified nontorsion coordinate returns a sealed Liouville non-elementarity obstruction |
-| Algebraic residue-free exactness | Uses the generic complete primitive-pole Riemann--Roch space; constructs a primitive or proves no primitive in the present algebraic field, without claiming non-elementarity |
+| Algebraic displayed-constant residue integration | Constructive direct-`C(x)` algebraic Hermite/logarithmic integration for `C = QQ` or a finite algebraic extension; principal and finite-torsion coordinate divisors are automatic, while a certified nontorsion coordinate returns a replay-validated Liouville non-elementarity obstruction |
+| Algebraic residue-free exactness | Uses the generic complete primitive-pole Riemann--Roch space; constructs a primitive or, after all-place residue removal, returns a Liouville non-elementarity obstruction; unavailable complete spaces remain explicit boundaries |
 | Algebraic integrating-factor RDE | A low-level direct-`C(x)` endpoint for `Du + a*u = b` when a verified `h` in the field satisfies `a = D(h)/h`; it reduces to algebraic exactness and leaves general curve RDEs unsupported |
 | Relative simple-radical RDE | A low-level terminal algebraic-over-P/E/T endpoint for `theta**n = u` and lower-field `a`; it diagonalizes to scalar lower RDEs, while non-lower coefficients and general algebraic relations remain unsupported |
 | Relative simple-radical normal Hermite reduction | Repeated normal poles are removed coordinatewise over the immediate lower monomial field; special poles and resonant leading equations remain explicit boundaries |

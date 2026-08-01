@@ -136,9 +136,11 @@ def _solve_constant_derivative_equation(
 class AlgebraicExactnessResult:
     r"""A constructive or complete in-field exactness decision.
 
-    ``NO_PRIMITIVE`` says only that no primitive belongs to the current
-    algebraic function field.  It is not an elementary-integrability
-    obstruction: logarithmic terms are handled by the separate residue step.
+    At this low-level boundary, ``NO_PRIMITIVE`` says only that no primitive
+    belongs to the current algebraic function field.  After the all-place
+    integration pipeline has removed every logarithmic residue, a
+    ``COMPLETE_PRIMITIVE_SPACE`` negative can be adapted to a Liouville
+    non-elementarity obstruction; a nonzero-residue decision cannot.
     """
 
     model: AlgebraicFunctionField

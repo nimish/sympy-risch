@@ -218,13 +218,12 @@ integrand = D(exact_part) + logarithmic_derivative + remainder.
 
 `EXACT` and `ELEMENTARY` are constructive answers.
 `NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a residue outside the
-displayed constants, and `RESIDUE_FREE_REMAINDER` carries the current
-first-/second-kind exactness decision. `NON_ELEMENTARY` is narrower and
-theorem-backed: it is returned only when a factory-owned
-`AlgebraicLiouvilleObstruction` identifies one of these exact rational-coordinate
-divisors and a finite-prime certificate proves that its class is nontorsion.
-Unsupported reductions and bounded-search exhaustion remain nonnegative
-boundaries.
+displayed constants. `NON_ELEMENTARY` is theorem-backed: either a replayable
+rational-coordinate divisor is certified nontorsion, or every logarithmic
+residue has been removed and a complete primitive space proves that the
+remaining differential is not exact. `RESIDUE_FREE_REMAINDER` is retained only
+when that exactness space is unavailable. Unsupported reductions and bounded
+search exhaustion remain nonnegative boundaries.
 
 ## Certified residue-free exactness
 
@@ -245,15 +244,18 @@ proves that no algebraic primitive exists. When all residues vanish, it
 computes the complete `L(E)` through the generic Riemann--Roch service. Only
 then does it solve
 `D(sum_i c_i b_i) = omega` as an exact linear system over the displayed
-constant field. A failed solve in a complete space is a complete statement
-that the current algebraic function field has no primitive; it is **not** an
-elementary-integrability conclusion.
+constant field. For a remainder already certified residue-free by the
+all-place pipeline, a failed solve in this complete space is a Liouville
+non-elementarity obstruction: a zero-residue logarithmic derivative vanishes
+after rational-coordinate descent, while algebraic primitives descend by
+trace. The lower-level exactness API itself continues to report only the
+in-field `NO_PRIMITIVE` fact.
 
 `integrate_algebraic` invokes this step automatically. On `y**2 = x`,
 `dx / y = D(2*y)`, and `y / (x - 1)` is completed by the same `2*y` exact
 correction after its logarithmic term is reconstructed. On an elliptic curve,
-a holomorphic differential such as `dx / y` correctly remains a residue-free
-remainder with a certified no-primitive exactness result.
+a nonzero holomorphic differential such as `dx / y` returns `NON_ELEMENTARY`
+with its complete residue-free exactness obstruction.
 
 ## Integrating-factor algebraic RDEs
 

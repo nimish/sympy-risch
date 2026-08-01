@@ -1206,11 +1206,12 @@ each reduced target. Their prime-primary compatibility selects the only possible
 characteristic-zero torsion order or proves nontorsion, and every positive
 candidate is replayed exactly over `QQ`. Unsupported bad reductions remain an
 explicit boundary. A nontorsion rational-coordinate residue divisor is now
-retained as a factory-owned Liouville obstruction and produces a distinct
+retained as a replay-validated Liouville obstruction and produces a distinct
 `NON_ELEMENTARY` algebraic result; unavailable finite data remains
-`UNSUPPORTED`. In
-parallel, the nonzero zero-residue branch needs exactness decisions for
-second-kind differentials and the Risch equation on an algebraic curve.
+`UNSUPPORTED`. After all logarithmic residues are removed, a complete
+primitive-space decision likewise promotes a nonexact first- or second-kind
+differential to a distinct Liouville obstruction. The general Risch equation
+on an algebraic curve remains open.
 Recursive composition with transcendental levels comes after those field-level
 decisions and an exact backend representation for the mixed tower.
 

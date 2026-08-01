@@ -7,6 +7,9 @@ from sympy import Poly, Rational, log, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicExactnessCertificate,
+    AlgebraicExactnessLiouvilleObstruction,
+    AlgebraicExactnessStatus,
     AlgebraicExtension,
     AlgebraicFunctionField,
     AlgebraicFunctionFieldReduction,
@@ -18,9 +21,14 @@ from sympy_risch import (
     MonomialExtension,
     integrate_algebraic,
     integrate_algebraic_with_constant_base_change,
+    solve_algebraic_exactness,
 )
 from sympy_risch.algebraic_geometry.base_change import (
     build_algebraic_constant_base_change,
+)
+from sympy_risch.algebraic_geometry.riemann_roch import (
+    RiemannRochSpace,
+    RiemannRochSpaceStatus,
 )
 
 x, y = symbols("x y")
@@ -327,8 +335,26 @@ def test_logarithmic_reconstruction_adds_an_exact_residue_free_correction() -> N
     assert result.antiderivative is not None
 
 
-def test_zero_residues_remain_for_first_and_second_kind_exactness() -> None:
+def test_holomorphic_elliptic_differential_is_certified_non_elementary(
+    monkeypatch,
+) -> None:
+    """A complete residue-free exactness decision is a Liouville obstruction."""
+    import sympy_risch.algebraic.exactness as exactness_module
+
     tower, extension, basis = algebraic_tower(y**2 - x**3 + x)
+    original_compute = exactness_module.compute_riemann_roch_space
+    space_count = 0
+
+    def counted_compute(model, divisor):
+        nonlocal space_count
+        space_count += 1
+        return original_compute(model, divisor)
+
+    monkeypatch.setattr(
+        exactness_module,
+        "compute_riemann_roch_space",
+        counted_compute,
+    )
 
     result = integrate_algebraic(
         extension.field.one / extension.field.generator,
@@ -336,7 +362,8 @@ def test_zero_residues_remain_for_first_and_second_kind_exactness() -> None:
         basis,
     )
 
-    assert result.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
+    assert result.status is AlgebraicIntegrationStatus.NON_ELEMENTARY
+    assert result.complete_negative
     assert not result.is_elementary
     assert result.reconstructs
     assert result.logarithmic_argument is None
@@ -344,6 +371,127 @@ def test_zero_residues_remain_for_first_and_second_kind_exactness() -> None:
     assert result.remainder == extension.field.one / extension.field.generator
     assert result.exactness is not None
     assert result.exactness.complete_negative
+    assert (
+        result.exactness.certificate
+        is AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
+    )
+    obstruction = result.liouville_obstruction
+    assert isinstance(obstruction, AlgebraicExactnessLiouvilleObstruction)
+    assert obstruction.exactness is result.exactness
+    assert space_count == 1
+
+    # Independent curve-theoretic oracle: dx/y is a nonzero holomorphic
+    # differential on this elliptic curve, while every global regular function
+    # is constant and therefore has zero differential.
+    assert result.collection.model is not None
+    assert result.collection.model.differential(result.remainder).divisor().is_zero
+    assert result.remainder != extension.field.zero
+
+    with pytest.raises(TypeError):
+        AlgebraicExactnessLiouvilleObstruction()
+
+
+def test_second_kind_obstruction_works_over_algebraic_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, basis = algebraic_tower(y**2 - x**3 + x, constants)
+
+    result = integrate_algebraic(
+        extension.field.from_sympy(sqrt(2) * x) / extension.field.generator,
+        tower.derivation(),
+        basis,
+    )
+
+    assert result.status is AlgebraicIntegrationStatus.NON_ELEMENTARY
+    assert result.complete_negative
+    assert result.reconstructs
+    assert isinstance(
+        result.liouville_obstruction,
+        AlgebraicExactnessLiouvilleObstruction,
+    )
+    assert result.exactness is not None
+    assert result.exactness.status is AlgebraicExactnessStatus.NO_PRIMITIVE
+
+
+def test_nonzero_residue_exactness_cannot_be_promoted_to_liouville() -> None:
+    tower, extension, basis = algebraic_tower(y**2 - x**3 + x)
+    logarithmic = integrate_algebraic(
+        extension.field.from_sympy(1 / x),
+        tower.derivation(),
+        basis,
+    )
+    assert logarithmic.collection.model is not None
+    assert logarithmic.collection.constant_field_analysis is not None
+
+    exactness = solve_algebraic_exactness(
+        extension.field.from_sympy(1 / x),
+        tower.derivation(),
+        logarithmic.collection.model,
+        logarithmic.collection.constant_field_analysis,
+    )
+
+    assert exactness.certificate is AlgebraicExactnessCertificate.NONZERO_RESIDUE
+    with pytest.raises(ValueError, match="complete residue-free decision"):
+        AlgebraicExactnessLiouvilleObstruction(
+            logarithmic.collection,
+            exactness,
+        )
+
+
+def test_logarithmic_terms_are_retained_with_an_exactness_obstruction() -> None:
+    tower, extension, basis = algebraic_tower(y**2 - x**3 + x)
+    integrand = (
+        extension.field.from_sympy(1 / x)
+        + extension.field.one / extension.field.generator
+    )
+
+    result = integrate_algebraic(integrand, tower.derivation(), basis)
+
+    assert result.status is AlgebraicIntegrationStatus.NON_ELEMENTARY
+    assert result.complete_negative
+    assert result.reconstructs
+    assert len(result.logarithmic_terms) == 1
+    assert result.logarithmic_argument is not None
+    assert result.logarithmic_derivative != extension.field.zero
+    assert result.remainder != extension.field.zero
+    assert isinstance(
+        result.liouville_obstruction,
+        AlgebraicExactnessLiouvilleObstruction,
+    )
+    assert result.antiderivative is None
+
+
+def test_unsupported_residue_free_space_is_not_a_negative_claim(monkeypatch) -> None:
+    import sympy_risch.algebraic.exactness as exactness_module
+
+    tower, extension, basis = algebraic_tower(y**2 - x**3 + x)
+
+    def unsupported_space(model, divisor):
+        return RiemannRochSpace(
+            model,
+            divisor,
+            RiemannRochSpaceStatus.UNSUPPORTED,
+            (),
+            None,
+            "forced unsupported boundary",
+        )
+
+    monkeypatch.setattr(
+        exactness_module,
+        "compute_riemann_roch_space",
+        unsupported_space,
+    )
+    result = integrate_algebraic(
+        extension.field.one / extension.field.generator,
+        tower.derivation(),
+        basis,
+    )
+
+    assert result.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
+    assert not result.complete_negative
+    assert not hasattr(result, "liouville_obstruction")
+    assert result.exactness is not None
+    assert result.exactness.status is AlgebraicExactnessStatus.UNSUPPORTED
+    assert result.reconstructs
 
 
 def test_nonrational_residues_request_compatible_constant_base_change() -> None:

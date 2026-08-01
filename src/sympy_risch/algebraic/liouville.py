@@ -21,7 +21,16 @@ from ..algebraic_geometry.principal import (
     AlgebraicPrincipalityDecision,
     AlgebraicPrincipalityStatus,
 )
-from .all_places import AlgebraicAllPlaceResidueResult
+from .all_places import (
+    AlgebraicAllPlaceResidueResult,
+    AlgebraicAllPlaceResidueStatus,
+)
+from .constant_analysis import AlgebraicConstantFieldStatus
+from .exactness import (
+    AlgebraicExactnessCertificate,
+    AlgebraicExactnessResult,
+    AlgebraicExactnessStatus,
+)
 from .residue_coordinates import AlgebraicResidueCoordinateCertificate
 
 
@@ -77,4 +86,59 @@ class AlgebraicLiouvilleObstruction:
         return self.coordinate.divisor
 
 
-__all__ = ["AlgebraicLiouvilleObstruction"]
+@dataclass(frozen=True, slots=True)
+class AlgebraicExactnessLiouvilleObstruction:
+    r"""A residue-free nonexact differential contradicting Liouville's theorem.
+
+    Once every logarithmic residue has been removed, a logarithmic derivative
+    with zero residues is zero: expand its constant coefficients in a rational
+    basis, clear denominators, and each resulting product has zero principal
+    divisor, hence is constant.  Elementary integrability therefore reduces to
+    exactness.  A complete primitive-space decision proving nonexactness is a
+    Liouville obstruction, including after finite algebraic extension by trace
+    descent.
+    """
+
+    collection: AlgebraicAllPlaceResidueResult
+    exactness: AlgebraicExactnessResult
+    detail: ClassVar[str] = (
+        "the complete residue-free primitive space contains no solution"
+    )
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.collection, AlgebraicAllPlaceResidueResult):
+            raise TypeError("a Liouville obstruction needs all-place residue data")
+        if (
+            self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
+            or self.collection.model is None
+            or self.collection.constant_field_analysis is None
+            or self.collection.constant_field_analysis.status
+            is not AlgebraicConstantFieldStatus.PRESERVED
+        ):
+            raise ValueError(
+                "a Liouville obstruction needs complete residues and full constants"
+            )
+        if not isinstance(self.exactness, AlgebraicExactnessResult):
+            raise TypeError("an exactness obstruction needs an exactness decision")
+        if (
+            self.exactness.model is not self.collection.model
+            or not self.exactness.derivation.has_same_position(
+                self.collection.derivation
+            )
+        ):
+            raise ValueError("the exactness obstruction belongs to another problem")
+        if (
+            self.exactness.status is not AlgebraicExactnessStatus.NO_PRIMITIVE
+            or self.exactness.certificate
+            is not AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
+            or not self.exactness.complete_negative
+        ):
+            raise ValueError(
+                "an exactness obstruction needs a complete residue-free decision"
+            )
+
+
+__all__ = [
+    "AlgebraicExactnessLiouvilleObstruction",
+    "AlgebraicLiouvilleObstruction",
+]

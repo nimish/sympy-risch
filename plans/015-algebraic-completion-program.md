@@ -422,6 +422,13 @@ proved obstruction.
 
 ### A8. Complete second-kind exactness and pure algebraic dispatch
 
+**Progress:** complete on the admitted direct-model integration cell. After
+all logarithmic residues are removed, the existing certified primitive-pole
+Riemann--Roch solve now returns an exact primitive or a distinct
+`AlgebraicExactnessLiouvilleObstruction`; unavailable complete spaces remain
+`RESIDUE_FREE_REMAINDER`. Automatic expression dispatch and the broader A7
+residue/constant-field cells remain open.
+
 After logarithmic residues are removed:
 
 - regularize the remaining differential;

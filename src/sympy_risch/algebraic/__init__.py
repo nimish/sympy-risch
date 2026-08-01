@@ -26,7 +26,10 @@ from .exactness import (
     solve_algebraic_exactness,
 )
 from .hermite import hermite_reduce_algebraic, lazy_hermite_reduce_algebraic
-from .liouville import AlgebraicLiouvilleObstruction
+from .liouville import (
+    AlgebraicExactnessLiouvilleObstruction,
+    AlgebraicLiouvilleObstruction,
+)
 from .log_derivative import (
     AlgebraicIntegratingFactorCertificate,
     AlgebraicIntegratingFactorResult,
@@ -74,6 +77,7 @@ __all__ = [
     "AlgebraicConstantFieldAnalysis",
     "AlgebraicConstantFieldStatus",
     "AlgebraicExactnessCertificate",
+    "AlgebraicExactnessLiouvilleObstruction",
     "AlgebraicExactnessResult",
     "AlgebraicExactnessStatus",
     "AlgebraicFraction",

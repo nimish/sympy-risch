@@ -61,11 +61,15 @@ from .all_places import (
 from .basis import IntegralBasis
 from .constant_analysis import AlgebraicConstantFieldStatus
 from .exactness import (
+    AlgebraicExactnessCertificate,
     AlgebraicExactnessResult,
     AlgebraicExactnessStatus,
     solve_algebraic_exactness,
 )
-from .liouville import AlgebraicLiouvilleObstruction
+from .liouville import (
+    AlgebraicExactnessLiouvilleObstruction,
+    AlgebraicLiouvilleObstruction,
+)
 from .residue_coordinates import (
     AlgebraicResidueCoordinateCertificate,
     constant_coordinate_basis,
@@ -144,7 +148,8 @@ class _AlgebraicIntegrationResult:
     correction found after logarithmic residues have been removed.
 
     ``ELEMENTARY`` and ``EXACT`` are constructive successes.
-    ``NON_ELEMENTARY`` carries a nontorsion residue obstruction. A
+    ``NON_ELEMENTARY`` carries either a nontorsion residue obstruction or a
+    complete residue-free nonexactness obstruction. A
     ``RESIDUE_FREE_REMAINDER`` has had every displayed-constant logarithmic
     residue removed. Its optional ``exactness`` record says whether the
     remaining first-/second-kind differential was decided in the current
@@ -166,7 +171,13 @@ class _AlgebraicIntegrationResult:
             raise ValueError("an algebraic integration result needs a detail")
         obstruction = getattr(self, "liouville_obstruction", None)
         if obstruction is not None and (
-            not isinstance(obstruction, AlgebraicLiouvilleObstruction)
+            not isinstance(
+                obstruction,
+                (
+                    AlgebraicLiouvilleObstruction,
+                    AlgebraicExactnessLiouvilleObstruction,
+                ),
+            )
             or obstruction.collection is not self.collection
         ):
             raise ValueError("the Liouville obstruction belongs to another result")
@@ -273,13 +284,23 @@ class _AlgebraicIntegrationResult:
                 raise ValueError(
                     "a non-elementary result needs complete all-place residue data"
                 )
-            valid = isinstance(obstruction, AlgebraicLiouvilleObstruction) and (
-                not terms
-                and obstruction.principality in decisions
-                and exactness is None
-                and correction == extension.field.zero
-                and remainder == self.collection.remainder
-            )
+            if isinstance(obstruction, AlgebraicLiouvilleObstruction):
+                valid = (
+                    not terms
+                    and obstruction.principality in decisions
+                    and exactness is None
+                    and correction == extension.field.zero
+                    and remainder == self.collection.remainder
+                )
+            elif isinstance(obstruction, AlgebraicExactnessLiouvilleObstruction):
+                valid = (
+                    exactness is obstruction.exactness
+                    and correction == extension.field.zero
+                    and remainder == exactness.coefficient
+                    and len(decisions) == len(terms)
+                )
+            else:
+                valid = False
             if not valid:
                 raise ValueError(
                     "a non-elementary result needs its certified Liouville obstruction"
@@ -488,6 +509,29 @@ class AlgebraicResidueNonElementary(_AlgebraicIntegrationResult):
 
 
 @dataclass(frozen=True, slots=True)
+class AlgebraicExactnessNonElementary(_AlgebraicIntegrationResult):
+    """Non-elementarity proved by complete residue-free nonexactness."""
+
+    collection: AlgebraicAllPlaceResidueResult
+    logarithmic_terms: tuple[AlgebraicLogarithmicTerm, ...] = field()
+    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...] = field()
+    remainder: ExtensionElement
+    exactness: AlgebraicExactnessResult = field()
+    liouville_obstruction: AlgebraicExactnessLiouvilleObstruction = field()
+    detail: str
+    status: ClassVar[AlgebraicIntegrationStatus] = (
+        AlgebraicIntegrationStatus.NON_ELEMENTARY
+    )
+
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+
+
+@dataclass(frozen=True, slots=True)
 class AlgebraicResidueFreeRemainder(_AlgebraicIntegrationResult):
     """A nonzero residue-free remainder whose exactness has not been run."""
 
@@ -579,6 +623,7 @@ AlgebraicIntegrationResult = (
     AlgebraicExactIntegral
     | AlgebraicElementaryIntegral
     | AlgebraicResidueNonElementary
+    | AlgebraicExactnessNonElementary
     | AlgebraicResidueFreeRemainder
     | AlgebraicExactnessBoundary
     | AlgebraicNeedsConstantBaseChange
@@ -997,6 +1042,24 @@ def integrate_algebraic(
             collection,
             "the residue-free remainder has a verified algebraic primitive",
             exactness,
+        )
+    if (
+        exactness.status is AlgebraicExactnessStatus.NO_PRIMITIVE
+        and exactness.certificate
+        is AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
+    ):
+        obstruction = AlgebraicExactnessLiouvilleObstruction(
+            collection,
+            exactness,
+        )
+        return AlgebraicExactnessNonElementary(
+            collection,
+            result.logarithmic_terms,
+            result.principality_decisions,
+            result.remainder,
+            exactness,
+            obstruction,
+            "Liouville's residue-free exactness condition fails: " + obstruction.detail,
         )
     return AlgebraicExactnessBoundary(
         collection,

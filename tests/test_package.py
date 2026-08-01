@@ -74,6 +74,7 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "AlgebraicConstantFieldAnalysis",
         "AlgebraicConstantFieldStatus",
         "AlgebraicExactnessCertificate",
+        "AlgebraicExactnessLiouvilleObstruction",
         "AlgebraicExactnessResult",
         "AlgebraicExactnessStatus",
         "AlgebraicFraction",
