@@ -388,7 +388,10 @@ drive positive-genus divisor-class torsion automatically. A sparse prepared
 batch caches the exact orders for each divisor at its own pair of good
 characteristics, while reusing reduced curves wherever possible. The
 genus-one order-two regression over `QQ(sqrt(2))` reconstructs
-`log(x - sqrt(2))/2` without an order hint. Curve arithmetic over non-prime
+`log(x - sqrt(2))/2` without an order hint. Conversely, an elliptic
+rational-coordinate divisor certified nontorsion now produces a sealed
+Liouville `NON_ELEMENTARY` obstruction; bounded exhaustion remains
+unsupported. Curve arithmetic over non-prime
 `GF(p^f)`, general splitting fields, residue factors defined over algebraic
 constants, and the complete positive-genus combination solver remain open.
 

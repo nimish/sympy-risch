@@ -147,6 +147,11 @@ class AlgebraicConstantBaseChangeIntegrationResult:
         return self.active_result.is_elementary
 
     @property
+    def complete_negative(self) -> bool:
+        """Whether the active field carries a Liouville obstruction."""
+        return self.active_result.complete_negative
+
+    @property
     def reconstructs(self) -> bool:
         """Whether the active decomposition reconstructs its input."""
         return self.active_result.reconstructs

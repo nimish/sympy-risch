@@ -218,8 +218,13 @@ integrand = D(exact_part) + logarithmic_derivative + remainder.
 
 `EXACT` and `ELEMENTARY` are constructive answers.
 `NEEDS_CONSTANT_BASE_CHANGE` is the honest boundary for a residue outside the
-displayed constants; and `RESIDUE_FREE_REMAINDER` carries the current
-first-/second-kind exactness decision. None is a non-elementarity claim.
+displayed constants, and `RESIDUE_FREE_REMAINDER` carries the current
+first-/second-kind exactness decision. `NON_ELEMENTARY` is narrower and
+theorem-backed: it is returned only when a factory-owned
+`AlgebraicLiouvilleObstruction` identifies one of these exact rational-coordinate
+divisors and a finite-prime certificate proves that its class is nontorsion.
+Unsupported reductions and bounded-search exhaustion remain nonnegative
+boundaries.
 
 ## Certified residue-free exactness
 
@@ -617,6 +622,10 @@ keeps a sparse cache of exact finite orders. Each residue-coordinate divisor
 may use its own pair of good characteristics, so a prime that is bad for one
 divisor is not discarded for all the others; prepared curves, divisor images,
 and order certificates are reused without replaying finite Jacobian searches.
+When such an incompatible pair belongs to a rational-coordinate residue
+divisor, Liouville's theorem makes it an integration obstruction: clearing the
+rational denominators in any elementary logarithmic representation would make
+that coordinate divisor principal, hence the original class torsion.
 
 ### Pell--Abel target example
 
@@ -670,6 +679,7 @@ override.
 | `AlgebraicFiniteReductionBatch` | Reusable reduced curves at distinct residue characteristics |
 | `FiniteDivisorClassOrder` | Exact order of a reduced class within the Weil bound |
 | `AlgebraicDivisorTorsionDecision` | Two-prime torsion, nontorsion, or unsupported decision |
+| `AlgebraicLiouvilleObstruction` | Sealed nontorsion residue-divisor proof of non-elementarity |
 | `AlgebraicDifferential` | Differential represented as `h dx` |
 | `AlgebraicFunctionField` | Cached global owner for orders and places |
 | `AlgebraicConstantFieldAnalysis` | Narrow, witnessed constant-field decision |

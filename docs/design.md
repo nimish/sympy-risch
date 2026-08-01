@@ -1205,7 +1205,10 @@ evidence is required for the source and proved by the degree-one anchor for
 each reduced target. Their prime-primary compatibility selects the only possible
 characteristic-zero torsion order or proves nontorsion, and every positive
 candidate is replayed exactly over `QQ`. Unsupported bad reductions remain an
-explicit boundary. In
+explicit boundary. A nontorsion rational-coordinate residue divisor is now
+retained as a factory-owned Liouville obstruction and produces a distinct
+`NON_ELEMENTARY` algebraic result; unavailable finite data remains
+`UNSUPPORTED`. In
 parallel, the nonzero zero-residue branch needs exactness decisions for
 second-kind differentials and the Risch equation on an algebraic curve.
 Recursive composition with transcendental levels comes after those field-level

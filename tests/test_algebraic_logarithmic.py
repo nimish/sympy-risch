@@ -1,5 +1,8 @@
 """First displayed-constant logarithmic reconstruction cases."""
 
+from dataclasses import replace
+
+import pytest
 from sympy import Poly, Rational, log, sqrt, symbols
 from sympy.polys.domains import QQ
 
@@ -8,7 +11,9 @@ from sympy_risch import (
     AlgebraicFunctionField,
     AlgebraicFunctionFieldReduction,
     AlgebraicIntegrationStatus,
+    AlgebraicLiouvilleObstruction,
     DifferentialTower,
+    FiniteAlgebraicPlace,
     IntegralBasis,
     MonomialExtension,
     integrate_algebraic,
@@ -361,18 +366,98 @@ def test_nonrational_residues_request_compatible_constant_base_change() -> None:
 
 
 def test_nonprincipal_residue_divisor_is_an_integration_obstruction() -> None:
-    tower, extension, basis = algebraic_tower(y**2 - x**3 + x - 1)
+    tower, extension, basis = algebraic_tower(y**2 - x**3 + x - 3)
 
     result = integrate_algebraic(
-        y / x,
+        (y + 3) / (6 * (x - 2)),
         tower.derivation(),
         basis,
     )
 
-    assert result.status is AlgebraicIntegrationStatus.UNSUPPORTED
+    assert result.status is AlgebraicIntegrationStatus.NON_ELEMENTARY
+    assert result.complete_negative
     assert not result.is_elementary
     assert result.reconstructs
     assert result.principality_decision is not None
     assert result.principality_decision.complete_negative
+    obstruction = result.liouville_obstruction
+    assert obstruction is not None
+    assert obstruction.residue_divisor == result.principality_decision.divisor
+    assert obstruction.torsion.complete_negative
+    assert [
+        (order.prime, order.order) for order in obstruction.torsion.finite_orders
+    ] == [
+        (5, 3),
+        (7, 6),
+    ]
     assert result.logarithmic_argument is None
-    assert result.remainder == extension.field.from_sympy(y / x)
+    assert result.remainder == extension.field.from_sympy(
+        (y + 3) / (6 * (x - 2)),
+    )
+
+    # Independent oracle: P=(2, 3) lies on y^2=x^3-x+3. Lutz--Nagell says an
+    # integral torsion point has y=0 or y^2 dividing the curve discriminant.
+    (finite_place,) = tuple(
+        place
+        for place in obstruction.residue_divisor.support
+        if isinstance(place, FiniteAlgebraicPlace)
+    )
+    assert finite_place.base_prime == Poly(x - 2, x, domain=QQ)
+    assert (
+        finite_place.residue_field.to_sympy(
+            finite_place.reduce_local(extension.field.generator),
+        )
+        == 3
+    )
+    assert 3**2 == 2**3 - 2 + 3
+    assert (-16 * (4 * (-1) ** 3 + 27 * 3**2)) % 3**2 != 0
+
+    with pytest.raises(TypeError, match="created by the integrator"):
+        AlgebraicLiouvilleObstruction()
+    with pytest.raises(TypeError):
+        replace(obstruction, coefficient=QQ.convert(2))
+
+
+def test_bounded_torsion_exhaustion_remains_unsupported() -> None:
+    tower, extension, basis = algebraic_tower(y**2 - x**3 + x - 3)
+
+    result = integrate_algebraic(
+        (y + 3) / (6 * (x - 2)),
+        tower.derivation(),
+        basis,
+        torsion_order_bound=1,
+    )
+
+    assert result.status is AlgebraicIntegrationStatus.UNSUPPORTED
+    assert not result.complete_negative
+    assert result.liouville_obstruction is None
+    assert result.reconstructs
+    assert result.remainder == extension.field.from_sympy(
+        (y + 3) / (6 * (x - 2)),
+    )
+
+
+def test_nontorsion_obstruction_descends_over_algebraic_constants() -> None:
+    constants = QQ.algebraic_field(sqrt(2))
+    tower, extension, basis = algebraic_tower(
+        y**2 - x**3 + x - 3,
+        constants,
+    )
+    integrand = extension.field.from_sympy(
+        sqrt(2) * (y + 3) / (6 * (x - 2)),
+    )
+
+    continued = integrate_algebraic_with_constant_base_change(
+        integrand,
+        tower.derivation(),
+        basis,
+    )
+    result = continued.active_result
+
+    assert continued.steps == ()
+    assert continued.complete_negative
+    assert result.status is AlgebraicIntegrationStatus.NON_ELEMENTARY
+    assert result.complete_negative
+    assert result.liouville_obstruction is not None
+    assert constants.to_sympy(result.liouville_obstruction.coefficient) == sqrt(2)
+    assert result.reconstructs

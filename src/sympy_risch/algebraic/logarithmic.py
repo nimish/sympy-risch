@@ -7,10 +7,10 @@ degree-zero divisors.  A verified principal witness for each divisor produces
 the corresponding logarithmic terms.  Residues that live only in a closed
 residue extension still need compatible algebraic constant base change.
 
-This module keeps that narrow result separate from the general elementary
-dispatcher.  A residual differential with zero residues is explicitly retained
-for the later second-kind exactness decision; it is never called
-non-elementary here.
+This module keeps that result separate from the general elementary dispatcher.
+A residual differential with zero residues is explicitly retained for the
+later second-kind decision; only a certified nontorsion residue coordinate is
+called non-elementary here.
 """
 
 from __future__ import annotations
@@ -65,6 +65,7 @@ from .exactness import (
     AlgebraicExactnessStatus,
     solve_algebraic_exactness,
 )
+from .liouville import AlgebraicLiouvilleObstruction
 
 
 class AlgebraicIntegrationStatus(Enum):
@@ -72,6 +73,7 @@ class AlgebraicIntegrationStatus(Enum):
 
     EXACT = "exact"
     ELEMENTARY = "elementary"
+    NON_ELEMENTARY = "non_elementary"
     RESIDUE_FREE_REMAINDER = "residue_free_remainder"
     NEEDS_CONSTANT_BASE_CHANGE = "needs_constant_base_change"
     UNSUPPORTED = "unsupported"
@@ -134,7 +136,8 @@ class AlgebraicIntegrationResult:
     Here ``exact_part`` is the Hermite exact part plus an optional exact
     correction found after logarithmic residues have been removed.
 
-    ``ELEMENTARY`` and ``EXACT`` are constructive successes. A
+    ``ELEMENTARY`` and ``EXACT`` are constructive successes.
+    ``NON_ELEMENTARY`` carries a sealed nontorsion residue obstruction. A
     ``RESIDUE_FREE_REMAINDER`` has had every displayed-constant logarithmic
     residue removed. Its optional ``exactness`` record says whether the
     remaining first-/second-kind differential was decided in the current
@@ -151,6 +154,7 @@ class AlgebraicIntegrationResult:
     detail: str
     exact_correction: ExtensionElement | None = None
     exactness: AlgebraicExactnessResult | None = None
+    liouville_obstruction: AlgebraicLiouvilleObstruction | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.collection, AlgebraicAllPlaceResidueResult):
@@ -159,6 +163,12 @@ class AlgebraicIntegrationResult:
             raise TypeError("the algebraic integration status has the wrong type")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("an algebraic integration result needs a detail")
+        obstruction = self.liouville_obstruction
+        if obstruction is not None and (
+            not isinstance(obstruction, AlgebraicLiouvilleObstruction)
+            or obstruction.collection is not self.collection
+        ):
+            raise ValueError("the Liouville obstruction belongs to another result")
 
         extension = self.collection.basis.extension
         terms = tuple(self.logarithmic_terms)
@@ -242,6 +252,7 @@ class AlgebraicIntegrationResult:
                 or remainder != extension.field.zero
                 or terms
                 or decisions
+                or obstruction is not None
             ):
                 raise ValueError("an exact result needs an exact zero-remainder input")
             if self.collection.status is AlgebraicAllPlaceResidueStatus.COLLECTED and (
@@ -256,12 +267,28 @@ class AlgebraicIntegrationResult:
                 or remainder != extension.field.zero
                 or not terms
                 or len(decisions) != len(terms)
+                or obstruction is not None
             ):
                 raise ValueError("an elementary result needs a logarithmic witness")
             return
 
+        if self.status is AlgebraicIntegrationStatus.NON_ELEMENTARY:
+            if (
+                self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
+                or obstruction is None
+                or terms
+                or obstruction.principality not in decisions
+                or exactness is not None
+                or correction != extension.field.zero
+                or remainder != self.collection.remainder
+            ):
+                raise ValueError(
+                    "a non-elementary result needs its exact residue obstruction"
+                )
+            return
+
         if self.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE:
-            if terms or decisions:
+            if terms or decisions or obstruction is not None:
                 raise ValueError("a base-change boundary cannot carry a logarithm")
             return
 
@@ -275,10 +302,12 @@ class AlgebraicIntegrationResult:
                 and exactness.status is AlgebraicExactnessStatus.EXACT
             ):
                 raise ValueError("an exactness witness must promote the integration")
+            if obstruction is not None:
+                raise ValueError("a residue-free result cannot carry an obstruction")
             return
 
         if self.status is AlgebraicIntegrationStatus.UNSUPPORTED:
-            if terms:
+            if terms or obstruction is not None:
                 raise ValueError("an unsupported result cannot carry logarithmic terms")
             return
         raise ValueError("the algebraic integration result has an unknown status")
@@ -290,6 +319,11 @@ class AlgebraicIntegrationResult:
             AlgebraicIntegrationStatus.EXACT,
             AlgebraicIntegrationStatus.ELEMENTARY,
         }
+
+    @property
+    def complete_negative(self) -> bool:
+        """Whether a Liouville obstruction proves non-elementarity."""
+        return self.status is AlgebraicIntegrationStatus.NON_ELEMENTARY
 
     @property
     def reconstructs(self) -> bool:
@@ -719,6 +753,7 @@ def reconstruct_constant_residue_logarithms(
             if pending and torsion_order_bound is None
             else None
         )
+        liouville_obstruction: AlgebraicLiouvilleObstruction | None = None
         for index, divisor in pending:
             coefficient, _old_divisor, decision = plans[index]
             if torsion_order_bound is not None:
@@ -735,6 +770,15 @@ def reconstruct_constant_residue_logarithms(
                     divisor,
                     reduction_batch=torsion_reductions,
                 )
+                if torsion.status is AlgebraicDivisorTorsionStatus.NON_TORSION:
+                    liouville_obstruction = AlgebraicLiouvilleObstruction._create(
+                        collection,
+                        coefficient,
+                        divisor,
+                        decision,
+                        torsion,
+                    )
+                    break
                 search = (
                     torsion.characteristic_zero_search
                     if torsion.status is AlgebraicDivisorTorsionStatus.TORSION
@@ -750,6 +794,16 @@ def reconstruct_constant_residue_logarithms(
                     constants.convert(search.order),
                 )
             plans[index] = (coefficient, divisor, decision)
+        if liouville_obstruction is not None:
+            return AlgebraicIntegrationResult(
+                collection,
+                AlgebraicIntegrationStatus.NON_ELEMENTARY,
+                (),
+                tuple(decision for _coefficient, _divisor, decision in plans),
+                collection.remainder,
+                "Liouville's residue condition fails: " + liouville_obstruction.detail,
+                liouville_obstruction=liouville_obstruction,
+            )
 
     decisions = tuple(decision for _coefficient, _divisor, decision in plans)
     if any(

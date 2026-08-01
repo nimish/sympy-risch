@@ -33,6 +33,13 @@ not certify the proposed tower. In particular, a dependent `log`, `exp`, or
 `NON_ELEMENTARY` result is only produced after successful compilation and is
 backed by the contained `ElementaryIntegralResult` obstruction.
 
+The lower-level `integrate_algebraic` API now has the same distinction for one
+pure-algebraic cell. Its `AlgebraicIntegrationStatus.NON_ELEMENTARY` carries a
+sealed `liouville_obstruction`: complete all-place residues produced a rational
+coordinate divisor whose class was certified nontorsion at two good finite
+primes. An unavailable reduction or an exhausted caller-supplied torsion bound
+still returns `UNSUPPORTED`.
+
 The explicit Riccati API has the same discipline. A
 `RiccatiMobiusNormalForm` can be built only from two supplied checked linear
 special-factor certificates; the library does not interpret an unsuccessful

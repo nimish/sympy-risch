@@ -172,7 +172,9 @@ The current implementation already has a strong exact-arithmetic kernel:
   compositum. General reduced divisor-class arithmetic reconstructs positive
   torsion relations, while two supported good-prime reductions over `QQ`
   select the only characteristic-zero candidate or prove nontorsion before
-  exact replay. Factors genuinely defined over the current algebraic
+  exact replay. A proved nontorsion rational-coordinate residue divisor now
+  yields a sealed Liouville non-elementarity obstruction rather than an
+  unsupported result. Factors genuinely defined over the current algebraic
   constants, number-field prime reduction, general splitting fields, and
   arbitrary algebraic-curve RDEs remain open.
 
