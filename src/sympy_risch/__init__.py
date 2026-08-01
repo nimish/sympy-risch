@@ -227,6 +227,13 @@ from .hyperbolic import (
     build_hyperbolic_mobius_normal_form,
     build_riccati_mobius_normal_form,
 )
+from .integration import (
+    ElementaryPrimitive,
+    NonElementary,
+    NotSupported,
+    RischIntegrationResult,
+    integrate_risch,
+)
 from .lrt import lazard_rioboo_trager
 from .monomial import (
     BronsteinResidueCertificate,
@@ -447,6 +454,7 @@ __all__ = [
     "DifferentialExtension",
     "DifferentialTower",
     "ElementaryIntegralResult",
+    "ElementaryPrimitive",
     "ExactDerivativeResult",
     "ExpressionCompilation",
     "ExpressionCompilationOutcome",
@@ -511,7 +519,9 @@ __all__ = [
     "LogarithmicTerm",
     "MonomialExtension",
     "MonomialFamily",
+    "NonElementary",
     "NonlinearMonomialReduction",
+    "NotSupported",
     "ParametricLogarithmicDerivativeHeuristicBranch",
     "ParametricLogarithmicDerivativeHeuristicCertificate",
     "ParametricLogarithmicDerivativeOutcome",
@@ -561,6 +571,7 @@ __all__ = [
     "RiemannRochSpace",
     "RiemannRochUnsupported",
     "RischDifferentialEquationResult",
+    "RischIntegrationResult",
     "RischOperation",
     "SimpleRadicalData",
     "SpecialPolynomialAnalysis",
@@ -626,6 +637,7 @@ __all__ = [
     "integrate_rational_real",
     "integrate_relative_simple_radical",
     "integrate_riccati_mobius_normal_form",
+    "integrate_risch",
     "lazard_rioboo_trager",
     "lazy_hermite_reduce_algebraic",
     "polynomial_order",

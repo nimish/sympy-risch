@@ -4,7 +4,8 @@
 Risch algorithm built directly on SymPy's exact domains. It is not yet a
 drop-in replacement for `sympy.integrate`. The narrow one-variable grammar of
 rational arithmetic, integer powers, and nested `log`/`exp`/`tan` calls can
-use `integrate_expression`; other callers construct the differential tower
+use `integrate_risch`; `integrate_expression` exposes the lower-level compiler
+decision, while other callers construct the differential tower
 explicitly.
 
 The implemented end-to-end dispatcher handles rational functions and explicit

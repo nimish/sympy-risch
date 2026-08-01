@@ -17,13 +17,14 @@ Keep these outcomes separate:
 | --- | --- | --- |
 | Elementary answer | The library constructed an exact tower identity for an antiderivative. | Check `result.reconstructs`; then apply any presentation substitutions you chose. |
 | Proved obstruction | For this supported tower, a Risch/Liouville criterion proves that no elementary antiderivative exists. | Inspect `result.obstruction` and its certificate. This is a mathematical negative result, not a failed simplification. |
-| Unsupported input | The requested tower or algorithm is outside the implemented domain. | The call raises `NotImplementedError`. It says nothing about whether an elementary antiderivative exists. |
+| Unsupported input | The requested expression or algorithm is outside the implemented domain. | `integrate_risch` returns `NotSupported`. Lower-level explicit-tower algorithms may raise `NotImplementedError`; neither outcome says whether an elementary antiderivative exists. |
 | Inconclusive lower-level query | A low-level exploratory algorithm could not yet make a complete decision. | Do not turn it into a negative conclusion; inspect its explicit outcome and boundary. |
 
-The top-level `integrate_elementary` API has the first three outcomes.  Some
-lower-level tools—especially parametric logarithmic-derivative solvers—also
-expose an explicit `UNSUPPORTED` or `INCONCLUSIVE` outcome so callers can
-preserve the fourth distinction.
+The public `integrate_risch` API returns one of `ElementaryPrimitive`,
+`NonElementary`, or `NotSupported`. Some lower-level tools—especially
+parametric logarithmic-derivative solvers—also expose an explicit
+`UNSUPPORTED` or `INCONCLUSIVE` outcome so callers can preserve the fourth
+distinction.
 
 `integrate_expression` adds the same distinction before dispatching to the
 native tower API. Its `UNSUPPORTED` result means either that the narrow

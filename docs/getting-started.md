@@ -13,7 +13,7 @@ remain future work.
 
 ## Start from a SymPy expression
 
-`integrate_expression` is the smallest user-facing entry point. It accepts one
+`integrate_risch` is the public decision entry point. It accepts one
 integration symbol, rational constants, addition, multiplication, rational
 powers, and nested `log`, `exp`, and `tan` calls. A nonintegral rational power
 proposes an algebraic relation; a transcendental call becomes a P/E/T level
@@ -23,15 +23,14 @@ can also reclassify a finite-power exponential dependency as algebraic.
 ```python
 from sympy import log, symbols
 
-from sympy_risch import ExpressionIntegrationOutcome, integrate_expression
+from sympy_risch import ElementaryPrimitive, integrate_risch
 
 x = symbols("x")
-result = integrate_expression(1 / (x * log(x)), x)
+result = integrate_risch(1 / (x * log(x)), x)
 
-assert result.outcome is ExpressionIntegrationOutcome.ELEMENTARY
-assert result.antiderivative == log(log(x))
-assert result.elementary_result is not None
-assert result.elementary_result.reconstructs
+assert isinstance(result, ElementaryPrimitive)
+assert result.primitive == log(log(x))
+assert result.reconstructs
 ```
 
 The returned antiderivative is a *local differential presentation*: ordinary
@@ -42,10 +41,12 @@ call is already dependent on the lower tower, such as `log(exp(x))` after
 `exp(x)` or a second related tangent, the compiler returns `UNSUPPORTED` with
 `DEPENDENT_EXTENSION` rather than silently rewrite it.
 
-`ExpressionIntegrationOutcome.NON_ELEMENTARY` is a certified Liouville
-obstruction in the compiled P/E/T tower. `UNSUPPORTED` instead means that the
-expression grammar, constant field, dependency decision, or dispatcher does
-not yet cover the request; it is never a non-elementarity claim.
+`NonElementary` carries a certified Liouville obstruction in the compiled
+P/E/T tower. `NotSupported` instead means that the expression grammar,
+constant field, dependency decision, or dispatcher does not yet cover the
+request; it is never a non-elementarity claim. The lower-level
+`integrate_expression` API remains available when compiler-specific outcome
+and compilation details are needed.
 
 Tower discovery can be inspected independently of integration:
 
@@ -82,9 +83,9 @@ A simple algebraic expression already runs end to end:
 ```python
 from sympy import Rational, sqrt
 
-radical = integrate_expression(sqrt(x), x)
-assert radical.outcome is ExpressionIntegrationOutcome.ELEMENTARY
-assert radical.antiderivative == 2 * x ** Rational(3, 2) / 3
+radical = integrate_risch(sqrt(x), x)
+assert isinstance(radical, ElementaryPrimitive)
+assert radical.primitive == 2 * x ** Rational(3, 2) / 3
 ```
 
 ## Construct the rational base
