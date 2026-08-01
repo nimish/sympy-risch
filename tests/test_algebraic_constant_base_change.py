@@ -73,6 +73,20 @@ def test_base_change_rebuilds_a_preserved_target_and_commutes_with_d() -> None:
     with pytest.raises(TypeError):
         replace(change, status="unsupported")
 
+    other_rational = DifferentialTower(QQ).extend(
+        MonomialExtension(Poly(1, x, domain=QQ)),
+    )
+    other_extension = AlgebraicExtension(
+        Poly(y**2 - x - 1, y, domain=other_rational.field()),
+    )
+    other_tower = other_rational.extend(other_extension)
+    with pytest.raises(TypeError, match="created by a builder"):
+        replace(
+            change,
+            source_model=AlgebraicFunctionField(other_extension),
+            source_derivation=other_tower.derivation(),
+        )
+
     source_values = (
         extension.field.from_sympy(x),
         extension.field.generator,

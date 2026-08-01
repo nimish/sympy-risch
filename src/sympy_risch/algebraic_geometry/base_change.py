@@ -107,9 +107,13 @@ def _validate_base_change_source(
         raise ValueError("the source derivation is not bound to the source field")
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class CertifiedAlgebraicConstantBaseChange:
-    """A derivative-commuting embedding into certified enlarged constants."""
+    """A derivative-commuting embedding into certified enlarged constants.
+
+    Instances are returned by the base-change builders after the source
+    relation and derivation have both been transported and checked.
+    """
 
     source_model: AlgebraicFunctionField
     source_derivation: Derivation
@@ -120,6 +124,41 @@ class CertifiedAlgebraicConstantBaseChange:
     target_derivation: Derivation
     target_model: AlgebraicFunctionField
     target_constant_field_analysis: AlgebraicConstantFieldAnalysis
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError(
+            "certified algebraic constant base changes must be created by a builder"
+        )
+
+    @classmethod
+    def _create(
+        cls,
+        source_model: AlgebraicFunctionField,
+        source_derivation: Derivation,
+        factors: tuple[Poly, ...],
+        detail: str,
+        constant_compositum: AlgebraicConstantFieldCompositum,
+        target_extension: AlgebraicExtension,
+        target_derivation: Derivation,
+        target_model: AlgebraicFunctionField,
+        target_constant_field_analysis: AlgebraicConstantFieldAnalysis,
+    ) -> CertifiedAlgebraicConstantBaseChange:
+        result = object.__new__(cls)
+        object.__setattr__(result, "source_model", source_model)
+        object.__setattr__(result, "source_derivation", source_derivation)
+        object.__setattr__(result, "factors", factors)
+        object.__setattr__(result, "detail", detail)
+        object.__setattr__(result, "constant_compositum", constant_compositum)
+        object.__setattr__(result, "target_extension", target_extension)
+        object.__setattr__(result, "target_derivation", target_derivation)
+        object.__setattr__(result, "target_model", target_model)
+        object.__setattr__(
+            result,
+            "target_constant_field_analysis",
+            target_constant_field_analysis,
+        )
+        result.__post_init__()
+        return result
 
     def __post_init__(self) -> None:
         _validate_base_change_source(
@@ -525,7 +564,7 @@ def build_algebraic_constant_compositum_base_change(
             f"the source algebraic relation cannot be rebuilt over the compositum: {exc}",
         )
 
-    candidate = CertifiedAlgebraicConstantBaseChange(
+    candidate = CertifiedAlgebraicConstantBaseChange._create(
         model,
         derivation,
         normalized_tuple,

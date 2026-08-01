@@ -71,6 +71,13 @@ def test_general_torsion_search_finds_two_torsion_on_an_elliptic_curve() -> None
     with pytest.raises(TypeError):
         replace(result, status="inconclusive")
 
+    with pytest.raises(TypeError, match="torsion search"):
+        replace(
+            result,
+            witness=model.extension.field.one,
+            reductions=(*result.reductions, result.reductions[0]),
+        )
+
 
 def test_exhausted_positive_search_is_explicitly_inconclusive() -> None:
     model, _extension = algebraic_model(y**2 - x**3 + x - 1)

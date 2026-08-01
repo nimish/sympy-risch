@@ -184,7 +184,7 @@ def test_candidate_constant_linear_dependence_and_dataclass_tampering_are_reject
         divisor,
         parameter=field.generator,
     )
-    with pytest.raises(ValueError, match="consecutive parameter powers"):
+    with pytest.raises(TypeError, match="compute_riemann_roch_space"):
         replace(space, basis=(field.one, field.from_sympy(2)))
 
 
@@ -235,13 +235,13 @@ def test_public_constructor_rejects_a_forged_complete_certificate() -> None:
     field = extension.field
     divisor = model.principal_divisor(field.generator).negative_part
 
-    with pytest.raises(ValueError, match="wrong dimension"):
+    with pytest.raises(TypeError, match="compute_riemann_roch_space"):
         CertifiedRiemannRochSpace(
-            model,
-            divisor,
-            (field.one,),
-            RiemannRochCertificate.NONSPECIAL,
-            "forged incomplete nonspecial certificate",
+            model=model,
+            divisor=divisor,
+            basis=(),
+            certificate=RiemannRochCertificate.HESS_IDEAL_INTERSECTION,
+            detail="forged empty Hess certificate",
         )
 
 

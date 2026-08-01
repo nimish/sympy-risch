@@ -175,9 +175,14 @@ def _validate_riemann_roch_context(
         raise ValueError("a Riemann--Roch space needs a nonempty detail")
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class CertifiedRiemannRochSpace:
-    """A complete theorem-certified basis of ``L(D)``."""
+    """A complete theorem-certified basis of ``L(D)``.
+
+    Instances are produced by :func:`compute_riemann_roch_space`.  In
+    particular, a caller cannot label an arbitrary basis as the output of
+    Hess's complete ideal-intersection algorithm.
+    """
 
     model: AlgebraicFunctionField
     divisor: AlgebraicDivisor
@@ -185,6 +190,32 @@ class CertifiedRiemannRochSpace:
     certificate: RiemannRochCertificate
     detail: str
     parameter: ExtensionElement | None = None
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError(
+            "certified Riemann--Roch spaces must be created by "
+            "compute_riemann_roch_space"
+        )
+
+    @classmethod
+    def _create(
+        cls,
+        model: AlgebraicFunctionField,
+        divisor: AlgebraicDivisor,
+        basis: tuple[ExtensionElement, ...],
+        certificate: RiemannRochCertificate,
+        detail: str,
+        parameter: ExtensionElement | None = None,
+    ) -> CertifiedRiemannRochSpace:
+        result = object.__new__(cls)
+        object.__setattr__(result, "model", model)
+        object.__setattr__(result, "divisor", divisor)
+        object.__setattr__(result, "basis", basis)
+        object.__setattr__(result, "certificate", certificate)
+        object.__setattr__(result, "detail", detail)
+        object.__setattr__(result, "parameter", parameter)
+        result.__post_init__()
+        return result
 
     def __post_init__(self) -> None:
         _validate_riemann_roch_context(self.model, self.divisor, self.detail)
@@ -365,7 +396,7 @@ def compute_riemann_roch_space(
                 "a negative-degree divisor has L(D) = 0; supplied candidate data "
                 "does not describe that space",
             )
-        return CertifiedRiemannRochSpace(
+        return CertifiedRiemannRochSpace._create(
             model,
             divisor,
             (),
@@ -377,7 +408,7 @@ def compute_riemann_roch_space(
         if parameter is not None:
             raise ValueError("a rational parameter is unnecessary for the zero divisor")
         basis = (model.extension.field.one,) if candidates is None else candidates
-        return CertifiedRiemannRochSpace(
+        return CertifiedRiemannRochSpace._create(
             model,
             divisor,
             basis,
@@ -403,7 +434,7 @@ def compute_riemann_roch_space(
                 if candidates is None
                 else candidates
             )
-            return CertifiedRiemannRochSpace(
+            return CertifiedRiemannRochSpace._create(
                 model,
                 divisor,
                 basis,
@@ -418,7 +449,7 @@ def compute_riemann_roch_space(
         )
 
     if candidates is not None and divisor.degree == 0 and len(candidates) == 1:
-        return CertifiedRiemannRochSpace(
+        return CertifiedRiemannRochSpace._create(
             model,
             divisor,
             candidates,
@@ -436,7 +467,7 @@ def compute_riemann_roch_space(
                 f"the genus needed for the nonspecial theorem is unavailable: {exc}",
             )
         if divisor.degree > 2 * genus - 2:
-            return CertifiedRiemannRochSpace(
+            return CertifiedRiemannRochSpace._create(
                 model,
                 divisor,
                 candidates,
@@ -454,7 +485,7 @@ def compute_riemann_roch_space(
             divisor,
             f"Hess ideal-intersection computation is unavailable: {exc}",
         )
-    return CertifiedRiemannRochSpace(
+    return CertifiedRiemannRochSpace._create(
         model,
         divisor,
         basis,

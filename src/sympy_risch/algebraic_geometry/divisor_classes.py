@@ -231,9 +231,14 @@ class _AlgebraicTorsionSearch:
         return self.reductions[-1].representative
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, init=False)
 class AlgebraicTorsionRelation(_AlgebraicTorsionSearch):
-    """A reconstructed positive divisor-class relation."""
+    """A reconstructed positive divisor-class relation.
+
+    The torsion search constructs relations from its certified class-reduction
+    trace.  Keeping construction there avoids both caller-forged witnesses and
+    a second, expensive global principal-divisor computation.
+    """
 
     model: AlgebraicFunctionField
     divisor: AlgebraicDivisor
@@ -243,6 +248,35 @@ class AlgebraicTorsionRelation(_AlgebraicTorsionSearch):
     witness: ExtensionElement
     reductions: tuple[ReducedAlgebraicDivisorClass, ...]
     detail: str
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError(
+            "algebraic torsion relations must be created by the torsion search"
+        )
+
+    @classmethod
+    def _create(
+        cls,
+        model: AlgebraicFunctionField,
+        divisor: AlgebraicDivisor,
+        anchor: AlgebraicDivisor,
+        max_order: int,
+        order: int,
+        witness: ExtensionElement,
+        reductions: tuple[ReducedAlgebraicDivisorClass, ...],
+        detail: str,
+    ) -> AlgebraicTorsionRelation:
+        result = object.__new__(cls)
+        object.__setattr__(result, "model", model)
+        object.__setattr__(result, "divisor", divisor)
+        object.__setattr__(result, "anchor", anchor)
+        object.__setattr__(result, "max_order", max_order)
+        object.__setattr__(result, "order", order)
+        object.__setattr__(result, "witness", witness)
+        object.__setattr__(result, "reductions", reductions)
+        object.__setattr__(result, "detail", detail)
+        result.__post_init__()
+        return result
 
     def __post_init__(self) -> None:
         self._validate_common()
@@ -439,7 +473,7 @@ def _search_algebraic_divisor_torsion_bsgs(
     )
     trace: list[ReducedAlgebraicDivisorClass] = [base_reduction]
     if base.representative.is_zero:
-        return AlgebraicTorsionRelation(
+        return AlgebraicTorsionRelation._create(
             model,
             divisor,
             anchor,
@@ -459,7 +493,7 @@ def _search_algebraic_divisor_torsion_bsgs(
         baby, reduction = _add_class_multiples(model, baby, base, anchor)
         trace.append(reduction)
         if baby.representative.is_zero:
-            return AlgebraicTorsionRelation(
+            return AlgebraicTorsionRelation._create(
                 model,
                 divisor,
                 anchor,
@@ -527,7 +561,7 @@ def _search_algebraic_divisor_torsion_bsgs(
             exact_order = quotient
             exact_state = quotient_state
 
-    return AlgebraicTorsionRelation(
+    return AlgebraicTorsionRelation._create(
         model,
         divisor,
         anchor,
@@ -591,7 +625,7 @@ def search_algebraic_divisor_torsion(
             witness * reduction.correction,
         )
         if representative.is_zero:
-            return AlgebraicTorsionRelation(
+            return AlgebraicTorsionRelation._create(
                 model,
                 divisor,
                 reduction_anchor,
