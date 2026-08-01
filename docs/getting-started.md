@@ -1234,12 +1234,12 @@ for the complete current scope and a nonzero-coefficient example.
 ### Continue through profile-selected algebraic constant extensions
 
 Omit `factor` and the integrator factors the square-free all-place residue
-profile. It orders supported rationally defined factors deterministically,
-builds their exact common number field, and then rebuilds and recollects the
-curve once. If that target still needs more residue constants, it is profiled
-again. The result makes every field change explicit: an elementary target
-answer is an answer in the final `C'(x, y)`, not automatically one in the
-original `QQ(x, y)`.
+profile. It orders supported rationally defined factors, along with factors
+over the displayed algebraic number field, deterministically; builds their
+exact common number field; and then rebuilds and recollects the curve once. If
+that target still needs more residue constants, it is profiled again. The
+result makes every field change explicit: an elementary target answer is an
+answer in the final `C'(x, y)`, not automatically one in the original field.
 
 ```python
 from sympy_risch import (
@@ -1264,16 +1264,15 @@ assert continued.reconstructs
 Pass an explicit `Poly` as `factor` when a particular constant field is
 desired; that requests one factor. Automatic selection can join several
 independent residue fields into one compositum over `QQ` or an existing SymPy
-algebraic number field before rebuilding the function field. It currently
-adjoins only factors defined over `QQ` whose one-root composita contain every
-conjugate, and retains deliberately narrow finite-place splitting support.
-Factors with genuinely algebraic coefficients and general splitting fields
-remain future algebraic work.
+algebraic number field before rebuilding the function field. A factor may have
+coefficients in those displayed algebraic constants. Its one-root extension
+must contain every conjugate needed to split the factor; general splitting-
+field construction remains future work. The place layer also retains
+deliberately narrow finite-place splitting support.
 For curves over `QQ` and supported split prime ideals of integral algebraic
 constant fields, positive divisor-class torsion is selected algorithmically
 by good-prime reductions and verified over characteristic zero. General
-non-prime residue fields, factors genuinely defined over algebraic constants,
-and unsupported bad models remain future work.
+non-prime residue fields and unsupported bad models remain future work.
 
 ## Certify a first global algebraic space
 

@@ -132,9 +132,11 @@ Scalable class arithmetic
 now replaces linear Weil-bound torsion scans with certified
 baby-step/giant-step order search when a degree-one anchor gives canonical
 representatives, and separates validated public ideal construction from
-closure-preserving internal operations. Complete algebraic integration,
-algebraic RDEs, and their relative mixed-tower forms remain after those
-foundations.
+closure-preserving internal operations. The logarithmic path now also
+constructs supported relative constant extensions for residue factors over
+displayed algebraic number fields while retaining exact source embeddings.
+Complete positive-genus residue combinations, algebraic RDEs, and their
+relative mixed-tower forms remain after those foundations.
 Plan 014's remaining execution cells depend on those services rather than on
 more syntax-directed special cases.
 Plan 016 gives the transcendental track the same decomposition: effective

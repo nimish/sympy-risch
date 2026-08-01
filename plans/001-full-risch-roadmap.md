@@ -163,20 +163,20 @@ The current implementation already has a strong exact-arithmetic kernel:
   direct curves. `src/sympy_risch/algebraic_geometry/` provides certified
   maximal orders, ramified and infinite places, residue fields, divisors,
   Hess ideal arithmetic, reusable Theorem 7 parametric Riemann--Roch families
-  for admitted direct models, and principality. Algorithm 21 divisor reduction
-  and Algorithm 24 large-space/differential infrastructure remain open.
+  for admitted direct models, Algorithm 21 divisor reduction, Algorithm 24
+  large-space and differential infrastructure, and principality.
   Constant base change now lifts exact number-field embeddings coefficientwise
-  through `C(x)[y]/(f)` and iterates through compatible rationally defined
-  residue factors, rebuilding and rechecking every target. Independent
-  quadratic residue fields can therefore be combined in a certified
-  compositum. General reduced divisor-class arithmetic reconstructs positive
+  through `C(x)[y]/(f)` and iterates through compatible residue factors over
+  `QQ` or the displayed algebraic number field, rebuilding and rechecking
+  every target. Independent quadratic residue fields and relative factors such
+  as `Z**2 - sqrt(2)` can therefore be combined in a certified compositum.
+  General reduced divisor-class arithmetic reconstructs positive
   torsion relations, while two supported good-prime reductions over `QQ`
   select the only characteristic-zero candidate or prove nontorsion before
   exact replay. A proved nontorsion rational-coordinate residue divisor now
   yields a sealed Liouville non-elementarity obstruction rather than an
-  unsupported result. Factors genuinely defined over the current algebraic
-  constants, number-field prime reduction, general splitting fields, and
-  arbitrary algebraic-curve RDEs remain open.
+  unsupported result. General splitting fields, the remaining positive-genus
+  residue-combination cases, and arbitrary algebraic-curve RDEs remain open.
 
 The implementation checkpoints since this roadmap was created are:
 

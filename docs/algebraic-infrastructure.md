@@ -179,13 +179,14 @@ correctly inapplicable.
 It is deliberately **not** itself a common algebraic constant field or a
 logarithmic residue basis. The native coordinate systems of two closed places
 do not choose compatible conjugates in a common algebraic closure. The
-constant-compositum layer now joins every supported rationally defined profile
-factor into one exact number field, retains the source embedding, and rebuilds
-the curve only after that common field exists. Recollecting the differential
-in the target then chooses compatible target places and residues. General
-splitting fields and factors genuinely defined over algebraic constants remain
-later work. This distinction prevents a locally correct but globally
-inconsistent logarithmic reconstruction.
+constant-compositum layer now joins every supported profile factor into one
+exact number field, including factors over displayed algebraic constants. It
+retains the source embedding and rebuilds the curve only after that common
+field exists. Recollecting the differential in the target then chooses
+compatible target places and residues. A factor must split in its one-root
+field; constructing a general splitting field remains later work. This
+distinction prevents a locally correct but globally inconsistent logarithmic
+reconstruction.
 
 ## Displayed-constant logarithmic reconstruction
 
@@ -435,20 +436,24 @@ relative logarithmic/RDE stage rather than to Hermite reduction.
 `integrate_algebraic_with_constant_base_change` continues the displayed-
 constant boundary with either one explicit irreducible factor `q(alpha)` or a
 profile plan. The automatic path factors the square-free all-place residue
-profile, orders its supported rationally defined non-linear factors by degree
-and exact coefficients, and first constructs their common constant field.
-Only then does it rebuild and recollect the curve. If one candidate is outside
-the supported splitting-root cell, it falls back to individual candidates so
-that an unsupported factor cannot mask an independent supported extension.
+profile, orders its supported exact non-linear factors by degree and exact
+coefficients, and first constructs their common constant field. The factors
+may lie over `QQ` or the displayed algebraic number field. Only then does it
+rebuild and recollect the curve. If one candidate is outside the supported
+splitting-root cell, it falls back to individual candidates so that an
+unsupported factor cannot mask an independent supported extension.
 
 The underlying number-field map is reusable beyond integration. It accepts
 constants `C = QQ` or an existing SymPy algebraic number field and constructs
-the exact compositum of several rational irreducible splitting root fields.
-Each primitive-element step retains an explicit image of the preceding
-constants, and the composed map is lifted coefficientwise through
-`C(x)[y]/(f)`. Thus `QQ(sqrt(2), sqrt(3))` is built before the function field
-is rebuilt. The target relation and full constant field are checked once, and
-commutation with the derivation is verified on the field generators.
+the exact compositum of several splitting root fields. For a factor over an
+algebraic source, a resultant constructs an absolute primitive element for
+`theta = alpha + c*beta`; a linear gcd recovers the exact image of the source
+generator. Each step retains that embedding, and the composed map is lifted
+coefficientwise through `C(x)[y]/(f)`. Thus both
+`QQ(sqrt(2), sqrt(3))` and a field containing a root of
+`Z**2 - sqrt(2)` are built before the function field is rebuilt. The target
+relation and full constant field are checked once, and commutation with the
+derivation is verified on the field generators.
 
 After each successful base change, the planner profiles the new target result
 rather than assuming that source residue data survived unchanged. Every step

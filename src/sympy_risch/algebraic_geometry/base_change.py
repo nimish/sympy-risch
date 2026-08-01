@@ -12,10 +12,11 @@ embedding is checked against both derivations. A finite source place is then
 split by factoring its rational-base prime and identifying descendants from
 the transported prime ideal.
 
-The constant-field layer does construct exact composita of successive
-rationally defined number fields.  It does not yet adjoin a polynomial with
-genuinely non-rational coefficients, split infinity, or accept a target whose
-algebraic relation or constant field falls outside the certified scope.
+The constant-field layer constructs exact composita of successive number
+fields, including irreducible factors over displayed algebraic constants. It
+does not yet construct a general splitting field, split infinity, or accept a
+target whose algebraic relation or constant field falls outside the certified
+scope.
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ from ..algebraic.constant_analysis import (
 from ..tower import AlgebraicExtension, Derivation, DifferentialTower, MonomialExtension
 from .constant_extensions import (
     AlgebraicConstantFieldCompositum,
+    _normalized_requested_factor,
     extend_algebraic_constant_compositum,
 )
 from .finite_places import FiniteAlgebraicPlace
@@ -403,12 +405,12 @@ def build_algebraic_constant_compositum_base_change(
     r"""Build one certified base change through a common constant field.
 
     The source constants may be ``QQ`` or a SymPy algebraic number field.
-    Every selected factor is currently required to be irreducible over
-    ``QQ``. Their splitting root fields are joined before the curve is rebuilt,
-    so several independent residue fields require only one function-field base
-    change. The source relation must remain a supported irreducible relation
-    over the compositum, and the target constant field must again be
-    preserved. Every other case returns
+    Every selected factor is defined over the displayed source constants and
+    must split in its one-root field. Their splitting root fields are joined
+    before the curve is rebuilt, so several independent residue fields require
+    only one function-field base change. The source relation must remain a
+    supported irreducible relation over the compositum, and the target constant
+    field must again be preserved. Every other case returns
     :class:`AlgebraicConstantBaseChangeUnsupported`.
     """
     if not isinstance(model, AlgebraicFunctionField):
@@ -455,32 +457,14 @@ def build_algebraic_constant_compositum_base_change(
                 "constant polynomials need generators distinct from x and y",
             )
         try:
-            normalized = Poly(
-                factor.as_expr(),
-                factor_variable,
-                domain=QQ,
-            ).monic()
+            normalized = _normalized_requested_factor(constants, factor)
         except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
             return _unsupported_base_change(
                 model,
                 derivation,
                 factors,
-                "a selected constant polynomial cannot be normalized over QQ: "
-                + str(exc),
-            )
-        if normalized.degree() < 2:
-            return _unsupported_base_change(
-                model,
-                derivation,
-                factors,
-                "each selected constant polynomial must have degree at least two",
-            )
-        if normalized.is_irreducible is not True:
-            return _unsupported_base_change(
-                model,
-                derivation,
-                factors,
-                "each selected constant polynomial must be irreducible over QQ",
+                "a selected constant polynomial cannot be normalized over the "
+                "displayed constants: " + str(exc),
             )
         normalized_factors.append(normalized)
     normalized_tuple = tuple(dict.fromkeys(normalized_factors))

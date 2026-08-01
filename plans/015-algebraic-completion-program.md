@@ -13,7 +13,7 @@
 - **Depends on**: Plans 004-006 and 010-013; A11 also consumes Plan 014
 - **Category**: algebraic function fields / algebraic and mixed integration
 - **Planned**: 2026-07-27
-- **Status**: TODO
+- **Status**: IN PROGRESS
 
 ## Why this is a program rather than one Hess task
 
@@ -392,8 +392,10 @@ genus-one order-two regression over `QQ(sqrt(2))` reconstructs
 rational-coordinate divisor certified nontorsion now produces a sealed
 Liouville `NON_ELEMENTARY` obstruction; bounded exhaustion remains
 unsupported. Curve arithmetic over non-prime
-`GF(p^f)`, general splitting fields, residue factors defined over algebraic
-constants, and the complete positive-genus combination solver remain open.
+`GF(p^f)`, general splitting fields, and the complete positive-genus
+combination solver remain open. Residue factors over displayed algebraic
+number-field constants are now admitted when their one-root fields split them;
+the exact source embedding is retained through a resultant primitive element.
 
 Generalize the current displayed-constant path:
 

@@ -11,8 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sympy.core.expr import Expr
+from sympy.core.sorting import default_sort_key
 from sympy.core.symbol import Dummy
-from sympy.polys.domains import QQ
 from sympy.polys.polyerrors import BasePolynomialError
 from sympy.polys.polytools import Poly
 
@@ -163,13 +163,12 @@ class AlgebraicConstantBaseChangeIntegrationResult:
 def _automatic_constant_factor_candidates(
     source_result: AlgebraicIntegrationResult,
 ) -> tuple[tuple[Poly, ...], str]:
-    """Return rationally defined constant-field candidates from a profile.
+    """Return exact constant-field candidates from a residue profile.
 
     A root of an irreducible profile factor is only a *candidate* for a
     compatible constant extension.  The certified base-change builder still
     checks that its root field contains every conjugate needed by the selected
-    factor.  Over algebraic constants, only factors whose coefficients descend
-    exactly to ``QQ`` enter this constructive compositum cell.
+    factor. Factors retain the exact displayed constant domain of the profile.
     """
     profile = build_algebraic_residue_profile(
         source_result.collection,
@@ -190,47 +189,38 @@ def _automatic_constant_factor_candidates(
     try:
         _content, factors = polynomial.factor_list()
     except (BasePolynomialError, NotImplementedError, TypeError, ValueError) as exc:
-        return (), "the residue profile could not be factored over QQ: " + str(exc)
+        return (
+            (),
+            "the residue profile could not be factored over the displayed "
+            "constants: " + str(exc),
+        )
 
-    rational_factors: list[Poly] = []
+    exact_factors: list[Poly] = []
     for candidate, _multiplicity in factors:
         if candidate.degree() < 2:
             continue
-        try:
-            rational = Poly.from_dict(
-                {
-                    monomial: QQ.convert(coefficient)
-                    for monomial, coefficient in candidate.rep.to_dict().items()
-                },
-                candidate.gens[0],
-                domain=QQ,
-            ).monic()
-        except (BasePolynomialError, NotImplementedError, TypeError, ValueError):
-            continue
-        if rational.is_irreducible is True:
-            rational_factors.append(rational)
+        normalized = candidate.monic()
+        if normalized.is_irreducible is True:
+            exact_factors.append(normalized)
 
     candidates = tuple(
         sorted(
-            rational_factors,
+            dict.fromkeys(exact_factors),
             key=lambda factor: (
                 factor.degree(),
-                tuple(
-                    (int(QQ.numer(coefficient)), int(QQ.denom(coefficient)))
-                    for coefficient in factor.all_coeffs()
-                ),
+                default_sort_key(factor.as_expr()),
             ),
         )
     )
     if not candidates:
         return (
             (),
-            "the residue profile has no new rationally defined irreducible "
+            "the residue profile has no new irreducible "
             "factor supported by the constant-compositum layer",
         )
     return (
         candidates,
-        "selected rationally defined constant-field candidates from the "
+        "selected exact constant-field candidates from the "
         "square-free all-place residue profile",
     )
 
@@ -297,17 +287,17 @@ def integrate_algebraic_with_constant_base_change(
     slice. If and only if that ends at
     :attr:`AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE`, an explicit
     ``factor`` requests one selected extension. When ``factor`` is omitted,
-    every unresolved target is profiled anew and its deterministic rationally
-    defined factors are joined into one common constant field before the curve
-    is rebuilt. If the common join is unsupported, individual factors are
-    tried so one unavailable candidate cannot suppress valid progress. Each
+    every unresolved target is profiled anew and its deterministic exact
+    factors are joined into one common constant field before the curve is
+    rebuilt. If the common join is unsupported, individual factors are tried
+    so one unavailable candidate cannot suppress valid progress. Each
     certified base change strictly enlarges the constants.
 
     Every step embeds the preceding differential and collects it again at all
     target places before logarithmic reconstruction. Merely transporting a
     source residue list would omit target infinity and split descendants.
-    Factors with genuinely algebraic coefficients and nonsplitting root
-    fields remain explicit unsupported boundaries.
+    Factors over displayed algebraic constants are admitted; nonsplitting
+    one-root fields remain an explicit unsupported boundary.
 
     ``torsion_order_bound`` is forwarded unchanged at the source and every
     rebuilt target field. A found relation is exact; exhaustion is not a

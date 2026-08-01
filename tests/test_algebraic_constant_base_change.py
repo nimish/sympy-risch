@@ -198,7 +198,8 @@ def test_common_compositum_skips_a_factor_already_in_the_source() -> None:
     )
 
     assert len(compositum.steps) == 1
-    assert compositum.steps[0].factor == second
+    assert compositum.steps[0].factor.domain == constants
+    assert compositum.steps[0].factor.as_expr() == second.as_expr()
     assert compositum.target.ext.minpoly.degree() == 4
     source_generator = constants.from_sympy(sqrt(2))
     embedded = compositum.embed(source_generator)
@@ -299,8 +300,8 @@ def test_unsupported_factor_does_not_return_a_partial_common_field() -> None:
     assert not hasattr(change, "target_extension")
 
 
-def test_algebraic_coefficient_factor_is_an_explicit_boundary() -> None:
-    """Foreign constant coefficients must not escape as coercion exceptions."""
+def test_algebraic_coefficient_factor_builds_an_exact_relative_extension() -> None:
+    """A relative factor retains the source embedding in one absolute field."""
     constants, tower, _extension, model = _algebraic_source_model()
     factor = Poly(z**2 - sqrt(2), z, domain=constants)
 
@@ -310,8 +311,65 @@ def test_algebraic_coefficient_factor_is_an_explicit_boundary() -> None:
         (factor,),
     )
 
-    assert isinstance(change, AlgebraicConstantBaseChangeUnsupported)
-    assert "cannot be normalized over QQ" in change.detail
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
+    assert change.factors == (factor,)
+    assert change.target_constants.ext.minpoly.degree() == 4
+    source_generator = constants.from_sympy(sqrt(2))
+    embedded_generator = change.constant_compositum.embed(source_generator)
+    assert embedded_generator**2 == change.target_constants.convert(2)
+    mapped_factor = change.constant_compositum.embed_polynomial(factor)
+    _unit, factors = mapped_factor.factor_list()
+    assert len(factors) == 2
+    assert all(
+        component.degree() == multiplicity == 1 for component, multiplicity in factors
+    )
+
+
+def test_algebraic_coefficient_general_splitting_field_remains_explicit() -> None:
+    """A nonnormal relative root field is not mistaken for a splitting field."""
+    constants = QQ.algebraic_field(sqrt(2))
+    factor = Poly(z**3 - sqrt(2), z, domain=constants)
+
+    with pytest.raises(ValueError, match="general splitting fields"):
+        extend_algebraic_constant_compositum(constants, (factor,))
+
+
+def test_relative_factor_extends_a_quartic_source_field() -> None:
+    """The construction handles a non-binomial factor over a larger source."""
+    constants = QQ.algebraic_field(sqrt(2), sqrt(3))
+    factor = Poly(
+        z**2 + (sqrt(2) + sqrt(3)) * z + 1,
+        z,
+        domain=constants,
+    )
+
+    compositum = extend_algebraic_constant_compositum(constants, (factor,))
+
+    assert constants.ext.minpoly.degree() == 4
+    assert compositum.target.ext.minpoly.degree() == 8
+    assert len(compositum.steps) == 1
+    for radicand in (2, 3):
+        source_root = constants.from_sympy(sqrt(radicand))
+        assert compositum.embed(source_root) ** 2 == compositum.target.convert(radicand)
+    _unit, factors = compositum.embed_polynomial(factor).factor_list()
+    assert len(factors) == 2
+    assert all(
+        component.degree() == multiplicity == 1 for component, multiplicity in factors
+    )
+
+
+def test_relative_factor_rejects_a_foreign_coefficient_embedding() -> None:
+    """Native elements from an unrelated number field are not silently coerced."""
+    constants = QQ.algebraic_field(sqrt(2))
+    foreign = QQ.algebraic_field(sqrt(3))
+    factor = Poly.from_dict(
+        {(2,): foreign.one, (0,): -foreign.unit},
+        z,
+        domain=foreign,
+    )
+
+    with pytest.raises(ValueError, match="do not belong to the source field"):
+        extend_algebraic_constant_compositum(constants, (factor,))
 
 
 def test_infinite_places_are_an_explicit_boundary_of_the_finite_layer() -> None:
