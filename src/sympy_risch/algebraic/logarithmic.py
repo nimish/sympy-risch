@@ -60,7 +60,7 @@ from .all_places import (
     AlgebraicAllPlacesUnsupported,
     AlgebraicHermiteExact,
     AlgebraicLocalDifferentialResidue,
-    collect_algebraic_all_place_residues,
+    _collect_algebraic_all_place_residues,
 )
 from .basis import IntegralBasis
 from .constant_analysis import AlgebraicConstantFieldStatus
@@ -977,31 +977,22 @@ def reconstruct_constant_residue_logarithms(
     )
 
 
-def integrate_algebraic(
+def _integrate_algebraic_with_model(
     integrand: object,
     derivation: Derivation,
     basis: IntegralBasis,
     *,
-    lazy: bool = False,
-    torsion_order_bound: int | None = None,
+    lazy: bool,
+    torsion_order_bound: int | None,
+    model: object | None,
 ) -> AlgebraicIntegrationResult:
-    r"""Run the current algebraic Hermite/constant-residue integration slice.
-
-    The function is constructive for exact differentials and for
-    displayed-constant residues whose divisors are decided principal by the
-    complete function-field service. A residue-free remainder is then tested
-    for an algebraic primitive using a complete certified Riemann--Roch space.
-    It returns structured boundaries for algebraic residue base change and
-    unsupported exactness spaces.  By default, positive divisor-class torsion
-    is decided from two good finite reductions and verified in characteristic
-    zero.  ``torsion_order_bound`` remains available as an explicit bounded
-    positive search.
-    """
-    collection = collect_algebraic_all_place_residues(
+    """Run algebraic integration while reusing an optional validated model."""
+    collection = _collect_algebraic_all_place_residues(
         integrand,
         derivation,
         basis,
         lazy=lazy,
+        model=model,
     )
     result = reconstruct_constant_residue_logarithms(
         collection,
@@ -1056,3 +1047,31 @@ def integrate_algebraic(
                 exactness,
                 result.detail + "; " + exactness.detail,
             )
+
+
+def integrate_algebraic(
+    integrand: object,
+    derivation: Derivation,
+    basis: IntegralBasis,
+    *,
+    lazy: bool = False,
+    torsion_order_bound: int | None = None,
+) -> AlgebraicIntegrationResult:
+    r"""Integrate one element of a direct algebraic function field.
+
+    Exact differentials and principal residue divisors produce constructive
+    answers. A residue-free remainder is decided with the complete certified
+    Riemann--Roch space when available. Positive divisor-class torsion is
+    decided from good finite reductions and verified in characteristic zero;
+    ``torsion_order_bound`` selects the older bounded positive search. Missing
+    constant base changes or exactness spaces remain structured unsupported
+    outcomes, never negative proofs.
+    """
+    return _integrate_algebraic_with_model(
+        integrand,
+        derivation,
+        basis,
+        lazy=lazy,
+        torsion_order_bound=torsion_order_bound,
+        model=None,
+    )

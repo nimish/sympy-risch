@@ -396,7 +396,8 @@ unsupported. Curve arithmetic over non-prime
 General splitting fields over `QQ` or displayed algebraic number fields are
 constructed by successive exact root adjunctions; every step retains the
 source embedding and its new root through a resultant primitive element, and
-the final certificate rechecks complete splitting.
+publicly constructed certificates recheck complete splitting. The trusted
+builder reuses the factorization chain it has already validated.
 
 Generalize the current displayed-constant path:
 
@@ -429,8 +430,12 @@ proved obstruction.
 all logarithmic residues are removed, the existing certified primitive-pole
 Riemann--Roch solve now returns an exact primitive or a distinct
 `AlgebraicExactnessLiouvilleObstruction`; unavailable complete spaces remain
-`RESIDUE_FREE_REMAINDER`. Automatic expression dispatch and the broader A7
-residue/constant-field cells remain open.
+`RESIDUE_FREE_REMAINDER`. The expression dispatcher now constructs and reuses
+the certified model and maximal-order basis for a compiled direct
+`QQ(x) -> algebraic` rational-power level, preserving constructive,
+non-elementary, and incomplete native certificates. General algebraic
+relations, constant-base-change presentation, and the broader A7 cells remain
+open.
 
 After logarithmic residues are removed:
 
@@ -440,9 +445,10 @@ After logarithmic residues are removed:
 - return a certified non-elementarity obstruction when it does not.
 
 This replaces the current direct in-field exactness slice with a total
-decision over the admitted pure algebraic cell. Wire the result into the
-ordinary expression and tower dispatcher; users must not construct an
-`AlgebraicFunctionField` or integral basis by hand.
+decision over the admitted pure algebraic cell. The rational-power frontend
+now wires that cell into the ordinary expression dispatcher without requiring
+users to construct an `AlgebraicFunctionField` or integral basis. General
+algebraic presentation normalization remains before the complete exit gate.
 
 **Exit gate:** every admitted pure algebraic expression is decided
 automatically, including high-degree nonradical relations and positive-genus

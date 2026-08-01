@@ -247,31 +247,15 @@ AlgebraicAllPlaceResidueResult: TypeAlias = (
 )
 
 
-def collect_algebraic_all_place_residues(
+def _collect_algebraic_all_place_residues(
     integrand: object,
     derivation: Derivation,
     basis: IntegralBasis,
     *,
-    lazy: bool = False,
+    lazy: bool,
+    model: object | None,
 ) -> AlgebraicAllPlaceResidueResult:
-    r"""Hermite-reduce and collect every pole place of an algebraic differential.
-
-    This is the integration-facing bridge to the canonical global geometry
-    layer. It first obtains ``integrand = D(exact_part) + remainder``. A zero
-    remainder returns an :class:`AlgebraicHermiteExact` result
-    immediately. Otherwise, it requires a proved preserved constant field
-    before constructing an
-    :class:`~sympy_risch.algebraic_geometry.AlgebraicFunctionField`. For a
-    collected result, the full divisor of ``remainder*dx`` supplies every
-    finite and infinite pole; each residue is computed with that place's true
-    uniformizer. In particular, no plane-model derivative formula is applied
-    at a branch point.
-
-    An unsupported constant-field result still returns the verified Hermite
-    decomposition, but never a partial global place list. This collector does
-    not decide whether a zero-residue differential is exact or reconstruct
-    logarithms from nonzero residues.
-    """
+    """Collect residues while reusing an optional validated global model."""
     if not isinstance(derivation, Derivation):
         raise TypeError("all-place residue collection requires a Derivation")
     if not isinstance(basis, IntegralBasis):
@@ -280,6 +264,13 @@ def collect_algebraic_all_place_residues(
         raise TypeError("the lazy flag must be a bool")
 
     extension = basis.extension
+    if model is not None:
+        from ..algebraic_geometry.function_field import AlgebraicFunctionField
+
+        if not isinstance(model, AlgebraicFunctionField):
+            raise TypeError("all-place residue collection needs a function-field model")
+        if model.extension is not extension:
+            raise ValueError("the function-field model belongs to another extension")
     integrand_element = _extension_element(extension, integrand)
     if lazy:
         exact_part, remainder, active_basis = lazy_hermite_reduce_algebraic(
@@ -320,7 +311,8 @@ def collect_algebraic_all_place_residues(
 
     from ..algebraic_geometry.function_field import AlgebraicFunctionField
 
-    model = AlgebraicFunctionField(extension)
+    if model is None:
+        model = AlgebraicFunctionField(extension)
     differential = model.differential(remainder)
     differential_divisor = differential.divisor()
     residues = tuple(
@@ -346,4 +338,29 @@ def collect_algebraic_all_place_residues(
         "every finite and infinite pole was collected from the global "
         "differential divisor",
         _verified_differential=differential,
+    )
+
+
+def collect_algebraic_all_place_residues(
+    integrand: object,
+    derivation: Derivation,
+    basis: IntegralBasis,
+    *,
+    lazy: bool = False,
+) -> AlgebraicAllPlaceResidueResult:
+    r"""Hermite-reduce and collect every pole place of a differential.
+
+    A zero Hermite remainder returns :class:`AlgebraicHermiteExact` without
+    global geometry. Otherwise, preserved constants are proved before a
+    function-field model is constructed. The divisor of ``remainder*dx`` then
+    supplies every finite, branch, and infinite pole with its true local
+    uniformizer. An unsupported result retains the exact Hermite decomposition
+    but never a partial residue list.
+    """
+    return _collect_algebraic_all_place_residues(
+        integrand,
+        derivation,
+        basis,
+        lazy=lazy,
+        model=None,
     )

@@ -9,7 +9,15 @@ from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
 
 from ._expression_compilation import ExpressionUnsupportedReason
-from .elementary import IntegrationObstruction
+from .algebraic.liouville import (
+    AlgebraicExactnessLiouvilleObstruction,
+    AlgebraicLiouvilleObstruction,
+)
+from .algebraic.logarithmic import (
+    AlgebraicExactnessNonElementary,
+    AlgebraicResidueNonElementary,
+)
+from .elementary import ElementaryIntegralResult, IntegrationObstruction
 from .expression import (
     ExpressionIntegralResult,
     ExpressionIntegrationOutcome,
@@ -70,7 +78,7 @@ class ElementaryPrimitive(RischIntegrationResult):
     @property
     def reconstructs(self) -> bool:
         """Whether the contained native certificate reconstructs the integrand."""
-        native = self.certificate.elementary_result
+        native = self.certificate.native_result
         return native is not None and native.reconstructs
 
 
@@ -84,12 +92,26 @@ class NonElementary(RischIntegrationResult):
             raise ValueError("a non-elementary decision needs a Liouville obstruction")
 
     @property
-    def obstruction(self) -> IntegrationObstruction:
+    def obstruction(
+        self,
+    ) -> (
+        IntegrationObstruction
+        | AlgebraicLiouvilleObstruction
+        | AlgebraicExactnessLiouvilleObstruction
+    ):
         """The replayable native Liouville obstruction."""
-        native = self.certificate.elementary_result
-        if native is None or native.obstruction is None:  # pragma: no cover - invariant
-            raise RuntimeError("a non-elementary certificate lost its obstruction")
-        return native.obstruction
+        native = self.certificate.native_result
+        if isinstance(
+            native,
+            (AlgebraicResidueNonElementary, AlgebraicExactnessNonElementary),
+        ):
+            return native.liouville_obstruction
+        if (
+            isinstance(native, ElementaryIntegralResult)
+            and native.obstruction is not None
+        ):
+            return native.obstruction
+        raise RuntimeError("a non-elementary certificate lost its obstruction")
 
 
 @dataclass(frozen=True, slots=True, init=False)

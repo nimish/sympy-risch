@@ -161,8 +161,8 @@ def test_non_elementary_expression_keeps_the_native_obstruction() -> None:
 
     assert result.outcome is ExpressionIntegrationOutcome.NON_ELEMENTARY
     assert result.reason is None
-    assert result.elementary_result is not None
-    assert not result.elementary_result.is_elementary
+    assert result.native_result is not None
+    assert not result.native_result.is_elementary
     assert result.antiderivative is None
 
 
@@ -189,7 +189,7 @@ def test_compiler_returns_structured_boundary_outcomes(expression, reason) -> No
     assert compilation.element is None
     assert result.outcome is ExpressionIntegrationOutcome.UNSUPPORTED
     assert result.reason is reason
-    assert result.elementary_result is None
+    assert result.native_result is None
     assert result.antiderivative is None
 
 

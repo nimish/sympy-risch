@@ -3,10 +3,9 @@
 `sympy-risch` is an experimental, upstream-oriented implementation of the
 Risch algorithm built directly on SymPy's exact domains. It is not yet a
 drop-in replacement for `sympy.integrate`. The narrow one-variable grammar of
-rational arithmetic, integer powers, and nested `log`/`exp`/`tan` calls can
+rational arithmetic, rational powers, and nested `log`/`exp`/`tan` calls can
 use `integrate_risch`; `integrate_expression` exposes the lower-level compiler
-decision, while other callers construct the differential tower
-explicitly.
+decision, while other callers construct the differential tower explicitly.
 
 The implemented end-to-end dispatcher handles rational functions and explicit
 finite towers of primitive, hyperexponential, and hypertangent extensions
@@ -45,9 +44,11 @@ only local, branch-preserving presentations. Its separate candidate-DAG pass
 now recognizes rational-power algebraic levels and both mixed
 algebraic/transcendental orders; the native compiler executes terminal
 algebraic-over-P/E/T towers and reports still-missing opposite-order backends
-separately. Complete general-polynomial special-factor reduction, algebraic
-composita, and global branch-aware expression normalization remain future
-work.
+separately. A direct rational-power extension of `QQ(x)` is now dispatched
+through the certified algebraic function-field integrator, including its
+theorem-backed non-elementarity decisions. Complete general-polynomial
+special-factor reduction, expression-level algebraic composita, and global
+branch-aware expression normalization remain future work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

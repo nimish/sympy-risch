@@ -42,7 +42,7 @@ call is already dependent on the lower tower, such as `log(exp(x))` after
 `DEPENDENT_EXTENSION` rather than silently rewrite it.
 
 `NonElementary` carries a certified Liouville obstruction in the compiled
-P/E/T tower. `NotSupported` instead means that the expression grammar,
+P/E/T or direct algebraic tower. `NotSupported` instead means that the expression grammar,
 constant field, dependency decision, or dispatcher does not yet cover the
 request; it is never a non-elementarity claim. The lower-level
 `integrate_expression` API remains available when compiler-specific outcome
@@ -78,15 +78,31 @@ algebraic logarithmic-derivative decision is still an explicit backend
 boundary. This distinction lets callers inspect the right mathematical tower
 without mistaking an unfinished integrator for failed structure discovery.
 
-A simple algebraic expression already runs end to end:
+Direct algebraic expressions over `QQ(x)` now use the complete algebraic
+Hermite, all-place residue, divisor, and exactness backend. This includes
+algebraic logarithms and theorem-backed positive-genus obstructions:
 
 ```python
-from sympy import Rational, sqrt
+from sympy import Rational, log, sqrt
+
+from sympy_risch import ElementaryPrimitive, NonElementary, integrate_risch
 
 radical = integrate_risch(sqrt(x), x)
 assert isinstance(radical, ElementaryPrimitive)
 assert radical.primitive == 2 * x ** Rational(3, 2) / 3
+
+algebraic_log = integrate_risch(1 / (2 * (x + sqrt(x))), x)
+assert isinstance(algebraic_log, ElementaryPrimitive)
+assert algebraic_log.primitive == log(1 + sqrt(x))
+
+elliptic = integrate_risch(1 / sqrt(x**3 - x), x)
+assert isinstance(elliptic, NonElementary)
 ```
+
+This direct cell has exactly one algebraic level above `QQ(x)`. Algebraic
+constant base changes and algebraic/transcendental interleavings still return
+`NotSupported` until their certified source-to-target presentations can be
+carried through the public result.
 
 ## Construct the rational base
 

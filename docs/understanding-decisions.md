@@ -28,11 +28,11 @@ distinction.
 
 `integrate_expression` adds the same distinction before dispatching to the
 native tower API. Its `UNSUPPORTED` result means either that the narrow
-one-variable P/E/T grammar declined the source expression or that it could
-not certify the proposed tower. In particular, a dependent `log`, `exp`, or
-`tan` call is not rewritten through a branch-sensitive identity. Its
-`NON_ELEMENTARY` result is only produced after successful compilation and is
-backed by the contained `ElementaryIntegralResult` obstruction.
+one-variable grammar declined the source expression or that it could not
+certify or integrate the proposed tower. In particular, a dependent `log`,
+`exp`, or `tan` call is not rewritten through a branch-sensitive identity.
+Its `NON_ELEMENTARY` result is only produced after successful compilation and
+is backed by the contained P/E/T or algebraic native obstruction.
 
 The lower-level `integrate_algebraic` API now has the same distinction for one
 pure-algebraic cell. Its `AlgebraicIntegrationStatus.NON_ELEMENTARY` carries a
@@ -110,13 +110,13 @@ certificate.
 | RDE | A Risch differential equation, the structured equation used to decide the remaining coefficient problem. |
 | Certificate | Immutable data that records the reduction, assumptions, and witness or obstruction. |
 
-For algebraic functions, the current library has low-level supporting
-infrastructure, but it does not yet make a top-level algebraic integration
-decision. That is an unsupported top-level input, not a claim of
-non-elementarity.
-The current SymPy domain backend also cannot represent a monomial level above
-such a function-field algebraic level, or a second algebraic function-field
-level. Those compositions are rejected immediately for the same reason.
+For algebraic functions, the public dispatcher supports a compiled direct
+extension of `QQ(x)` by one rational-power generator. It constructs the
+function-field model and integral basis internally, then preserves exact,
+elementary, certified non-elementary, and incomplete algebraic outcomes.
+General `RootOf` relations, automatic algebraic constant base change, a
+monomial level above an algebraic function field, and a second algebraic
+function-field level remain explicit unsupported boundaries.
 
 ## A good debugging order
 

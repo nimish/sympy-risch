@@ -28,6 +28,7 @@ from .logarithmic import (
     AlgebraicIntegrationResult,
     AlgebraicIntegrationStatus,
     AlgebraicNeedsConstantBaseChange,
+    _integrate_algebraic_with_model,
     integrate_algebraic,
 )
 from .residue_profile import (
@@ -258,12 +259,13 @@ def _continue_source_result(
 
     target_derivation = change.target_derivation
     target_model = change.target_model
-    target_result = integrate_algebraic(
+    target_result = _integrate_algebraic_with_model(
         change.embed(source_result.collection.integrand),
         target_derivation,
         target_model.order.basis,
         lazy=lazy,
         torsion_order_bound=torsion_order_bound,
+        model=target_model,
     )
     return (
         AlgebraicConstantBaseChangeStep(change, target_result),
