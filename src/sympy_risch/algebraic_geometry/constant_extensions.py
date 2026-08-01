@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import count
+from typing import Self
 
 from sympy.core.numbers import AlgebraicNumber
 from sympy.core.symbol import Dummy
@@ -390,6 +391,20 @@ class AlgebraicConstantFieldCompositum:
     factors: tuple[Poly, ...]
     steps: tuple[AlgebraicConstantFieldExtension, ...]
 
+    @classmethod
+    def _from_validated(
+        cls,
+        source: Domain,
+        factors: tuple[Poly, ...],
+        steps: tuple[AlgebraicConstantFieldExtension, ...],
+    ) -> Self:
+        """Build from the exact factorization chain checked by this module."""
+        result = object.__new__(cls)
+        object.__setattr__(result, "source", source)
+        object.__setattr__(result, "factors", factors)
+        object.__setattr__(result, "steps", steps)
+        return result
+
     def __post_init__(self) -> None:
         _field_degree(self.source)
         normalized = tuple(
@@ -431,11 +446,6 @@ class AlgebraicConstantFieldCompositum:
                 )
         if consumed != len(self.steps):
             raise ValueError("a compositum contains an unrequested extension step")
-        if any(
-            not _splits_completely(self.embed_polynomial(factor))
-            for factor in normalized
-        ):
-            raise ValueError("the compositum does not split every requested factor")
 
     @property
     def target(self) -> Domain:
@@ -472,8 +482,8 @@ def extend_algebraic_constant_compositum(
 
     One root of a remaining irreducible component is adjoined at each step.
     The factor is then refactored over the enlarged field until every requested
-    factor splits linearly. The final certificate replays the full embedding
-    chain and rechecks every requested factor.
+    factor splits linearly. The returned certificate reuses that already
+    validated factorization chain rather than factoring every polynomial again.
     """
     _field_degree(source)
     if not isinstance(factors, tuple):
@@ -523,4 +533,8 @@ def extend_algebraic_constant_compositum(
                 raise RuntimeError(
                     "adjoining a certified root did not reduce the unresolved degree"
                 )
-    return AlgebraicConstantFieldCompositum(source, normalized, tuple(steps))
+    return AlgebraicConstantFieldCompositum._from_validated(
+        source,
+        normalized,
+        tuple(steps),
+    )

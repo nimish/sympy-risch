@@ -1,6 +1,7 @@
 """Conservative algebraic-constant transport for closed finite places."""
 
 from dataclasses import replace
+from unittest.mock import patch
 
 import pytest
 from sympy import Poly, Rational, sqrt, symbols
@@ -25,6 +26,7 @@ from sympy_risch.algebraic_geometry.base_change import (
     split_finite_algebraic_place,
 )
 from sympy_risch.algebraic_geometry.constant_extensions import (
+    AlgebraicConstantFieldCompositum,
     extend_algebraic_constant_compositum,
 )
 
@@ -288,6 +290,33 @@ def test_cubic_factor_builds_its_complete_splitting_field() -> None:
     _unit, factors = change.constant_compositum.embed_polynomial(factor).factor_list()
     assert len(factors) == 3
     assert all(component.degree() == 1 for component, _multiplicity in factors)
+
+
+def test_compositum_builder_reuses_its_validated_factorization_chain() -> None:
+    """The trusted builder must not replay the public certificate proof."""
+    factor = Poly(z**3 - 2, z, domain=QQ)
+
+    with patch(
+        "sympy_risch.algebraic_geometry.constant_extensions._splits_completely",
+        side_effect=AssertionError("builder replayed the splitting proof"),
+    ):
+        compositum = extend_algebraic_constant_compositum(QQ, (factor,))
+
+    assert compositum.target.ext.minpoly.degree() == 6
+
+    with patch(
+        "sympy_risch.algebraic_geometry.constant_extensions._splits_completely",
+        wraps=lambda polynomial: all(
+            component.degree() == multiplicity == 1
+            for component, multiplicity in polynomial.factor_list()[1]
+        ),
+    ) as validate_splitting:
+        AlgebraicConstantFieldCompositum(
+            compositum.source,
+            compositum.factors,
+            compositum.steps,
+        )
+    assert validate_splitting.call_count == len(compositum.steps) + 1
 
 
 def test_quadratic_and_nonnormal_cubic_share_one_complete_field() -> None:
