@@ -1,5 +1,8 @@
 """General reduced divisor-class arithmetic and positive torsion."""
 
+from dataclasses import replace
+
+import pytest
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 
@@ -62,6 +65,8 @@ def test_general_torsion_search_finds_two_torsion_on_an_elliptic_curve() -> None
     assert result.order == 2
     assert result.witness is not None
     assert model.principal_divisor(result.witness) == divisor.scale(2)
+    with pytest.raises(TypeError):
+        replace(result, status=AlgebraicTorsionStatus.INCONCLUSIVE)
 
 
 def test_exhausted_positive_search_is_explicitly_inconclusive() -> None:

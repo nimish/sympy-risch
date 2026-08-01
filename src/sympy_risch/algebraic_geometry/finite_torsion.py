@@ -432,6 +432,8 @@ class AlgebraicDivisorTorsion:
     detail: str
 
     def __post_init__(self) -> None:
+        if len(self.finite_orders) != 2:
+            raise ValueError("a torsion proof needs exactly two finite orders")
         candidate, compatible = _validate_torsion_decision_common(
             self.model,
             self.constant_field,
@@ -463,6 +465,8 @@ class AlgebraicDivisorNontorsion:
     detail: str
 
     def __post_init__(self) -> None:
+        if len(self.finite_orders) != 2:
+            raise ValueError("a nontorsion proof needs exactly two finite orders")
         candidate, compatible = _validate_torsion_decision_common(
             self.model,
             self.constant_field,

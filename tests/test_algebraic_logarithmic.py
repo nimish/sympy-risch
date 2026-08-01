@@ -27,8 +27,7 @@ from sympy_risch.algebraic_geometry.base_change import (
     build_algebraic_constant_base_change,
 )
 from sympy_risch.algebraic_geometry.riemann_roch import (
-    RiemannRochSpace,
-    RiemannRochSpaceStatus,
+    RiemannRochSpaceUnsupported,
 )
 
 x, y = symbols("x y")
@@ -466,12 +465,9 @@ def test_unsupported_residue_free_space_is_not_a_negative_claim(monkeypatch) -> 
     tower, extension, basis = algebraic_tower(y**2 - x**3 + x)
 
     def unsupported_space(model, divisor):
-        return RiemannRochSpace(
+        return RiemannRochSpaceUnsupported(
             model,
             divisor,
-            RiemannRochSpaceStatus.UNSUPPORTED,
-            (),
-            None,
             "forced unsupported boundary",
         )
 

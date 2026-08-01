@@ -97,6 +97,8 @@ def test_incompatible_finite_orders_prove_nontorsion() -> None:
     ]
     assert not hasattr(decision, "order")
     assert not hasattr(decision, "witness")
+    with pytest.raises(ValueError, match="exactly two finite orders"):
+        replace(decision, finite_orders=decision.finite_orders[:1])
 
 
 def test_algebraic_constants_use_split_prime_ideals_for_curve_reduction() -> None:

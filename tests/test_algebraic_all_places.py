@@ -53,6 +53,8 @@ def test_all_place_collector_uses_a_branch_uniformizer_and_infinity() -> None:
     )
     assert result.reconstructs_input
     assert result.differential_divisor is not None
+    with pytest.raises(TypeError):
+        replace(result, status=AlgebraicAllPlaceResidueStatus.UNSUPPORTED)
     assert len(result.residues) == 2
 
     finite = next(

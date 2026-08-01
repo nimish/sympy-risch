@@ -27,7 +27,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from math import isqrt
-from typing import cast
+from typing import ClassVar, TypeAlias, cast
 
 from sympy.ntheory import factorint
 from sympy.polys.agca.extensions import ExtensionElement
@@ -206,34 +206,24 @@ class AlgebraicTorsionStatus(Enum):
     UNSUPPORTED = "unsupported"
 
 
-@dataclass(frozen=True, slots=True)
-class AlgebraicTorsionSearch:
-    r"""A positive torsion relation or an explicit bounded-search boundary.
-
-    ``reductions`` is an algorithm trace. Sequential searches form a
-    class-addition chain; faster group algorithms may retain only the
-    reductions used to reconstruct their final relation.
-    """
+class _AlgebraicTorsionSearch:
+    """Shared behavior for the three bounded-search variants."""
 
     model: AlgebraicFunctionField
     divisor: AlgebraicDivisor
     anchor: AlgebraicDivisor
     max_order: int
-    status: AlgebraicTorsionStatus
-    order: int | None
-    witness: ExtensionElement | None
     reductions: tuple[ReducedAlgebraicDivisorClass, ...]
     detail: str
+    status: ClassVar[AlgebraicTorsionStatus]
 
-    def __post_init__(self) -> None:
+    def _validate_common(self) -> None:
         if self.divisor.model is not self.model or self.anchor.model is not self.model:
             raise ValueError("the torsion search data belongs to another model")
         if self.divisor.degree != 0:
             raise ValueError("torsion search requires a degree-zero divisor")
         if not isinstance(self.max_order, int) or self.max_order <= 0:
             raise ValueError("a torsion search bound must be a positive integer")
-        if not isinstance(self.status, AlgebraicTorsionStatus):
-            raise TypeError("the torsion status has the wrong type")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("a torsion search needs a detail")
 
@@ -241,61 +231,10 @@ class AlgebraicTorsionSearch:
             if reduction.model is not self.model or reduction.anchor != self.anchor:
                 raise ValueError("a torsion reduction belongs to another search")
 
-        if self.status is AlgebraicTorsionStatus.TORSION:
-            if (
-                self.order is None
-                or not 0 < self.order <= self.max_order
-                or self.witness is None
-            ):
-                raise ValueError("a torsion result lacks its reconstructed relation")
-            if len(self.reductions) == self.order:
-                previous = AlgebraicDivisor(self.model)
-                product = self.model.extension.field.one
-                for reduction in self.reductions:
-                    if reduction.divisor != previous + self.divisor:
-                        raise ValueError(
-                            "sequential torsion reductions do not form a chain"
-                        )
-                    previous = reduction.representative
-                    product = _normalize_constant_multiple(
-                        self.model,
-                        product * reduction.correction,
-                    )
-                if not previous.is_zero or self.witness != _normalize_constant_multiple(
-                    self.model, product
-                ):
-                    raise ValueError(
-                        "a sequential torsion result failed reconstruction"
-                    )
-            return
-
-        if self.order is not None or self.witness is not None:
-            raise ValueError(
-                "only a found torsion relation carries an order and witness"
-            )
-        if self.status is AlgebraicTorsionStatus.INCONCLUSIVE:
-            previous = AlgebraicDivisor(self.model)
-            for reduction in self.reductions:
-                if reduction.divisor != previous + self.divisor:
-                    raise ValueError(
-                        "inconclusive reductions do not form a class-addition chain"
-                    )
-                previous = reduction.representative
-            if (
-                len(self.reductions) != self.max_order
-                or not self.reductions
-                or self.reductions[-1].representative.is_zero
-            ):
-                raise ValueError("an inconclusive search did not exhaust its bound")
-            return
-        if self.status is AlgebraicTorsionStatus.UNSUPPORTED:
-            return
-        raise ValueError("the torsion search has an unknown status")
-
     @property
     def torsion(self) -> bool:
         """Whether the search found and reconstructed a positive relation."""
-        return self.status is AlgebraicTorsionStatus.TORSION
+        return isinstance(self, AlgebraicTorsionRelation)
 
     @property
     def last_representative(self) -> AlgebraicDivisor | None:
@@ -304,24 +243,118 @@ class AlgebraicTorsionSearch:
             return None
         return self.reductions[-1].representative
 
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicTorsionRelation(_AlgebraicTorsionSearch):
+    """A reconstructed positive divisor-class relation."""
+
+    model: AlgebraicFunctionField
+    divisor: AlgebraicDivisor
+    anchor: AlgebraicDivisor
+    max_order: int
+    order: int
+    witness: ExtensionElement
+    reductions: tuple[ReducedAlgebraicDivisorClass, ...]
+    detail: str
+    status: ClassVar[AlgebraicTorsionStatus] = AlgebraicTorsionStatus.TORSION
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+        if not 0 < self.order <= self.max_order:
+            raise ValueError("a torsion order must lie within the search bound")
+        witness = _extension_element(self.model.extension, self.witness)
+        object.__setattr__(self, "witness", witness)
+        if len(self.reductions) == self.order:
+            previous = AlgebraicDivisor(self.model)
+            product = self.model.extension.field.one
+            for reduction in self.reductions:
+                if reduction.divisor != previous + self.divisor:
+                    raise ValueError(
+                        "sequential torsion reductions do not form a chain"
+                    )
+                previous = reduction.representative
+                product = _normalize_constant_multiple(
+                    self.model, product * reduction.correction
+                )
+            if not previous.is_zero or witness != _normalize_constant_multiple(
+                self.model, product
+            ):
+                raise ValueError("a sequential torsion result failed reconstruction")
+
     def witness_for_multiple(self, multiple: int) -> ExtensionElement:
         r"""Return a witness for ``div(f) = multiple*divisor``.
 
         This operation is available exactly when the found torsion order
         divides ``multiple``.
         """
-        if (
-            self.status is not AlgebraicTorsionStatus.TORSION
-            or self.order is None
-            or self.witness is None
-        ):
-            raise ValueError("no torsion relation was found")
         if not isinstance(multiple, int) or multiple <= 0:
             raise ValueError("the requested multiple must be positive")
         quotient, remainder = divmod(multiple, self.order)
         if remainder:
             raise ValueError("the torsion order does not divide this multiple")
         return _normalize_constant_multiple(self.model, self.witness**quotient)
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicTorsionBoundExhausted(_AlgebraicTorsionSearch):
+    """Proof that no relation occurs through a caller-supplied bound."""
+
+    model: AlgebraicFunctionField
+    divisor: AlgebraicDivisor
+    anchor: AlgebraicDivisor
+    max_order: int
+    reductions: tuple[ReducedAlgebraicDivisorClass, ...]
+    detail: str
+    status: ClassVar[AlgebraicTorsionStatus] = AlgebraicTorsionStatus.INCONCLUSIVE
+    order: ClassVar[None] = None
+    witness: ClassVar[None] = None
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+        previous = AlgebraicDivisor(self.model)
+        for reduction in self.reductions:
+            if reduction.divisor != previous + self.divisor:
+                raise ValueError(
+                    "inconclusive reductions do not form a class-addition chain"
+                )
+            previous = reduction.representative
+        if (
+            len(self.reductions) != self.max_order
+            or not self.reductions
+            or self.reductions[-1].representative.is_zero
+        ):
+            raise ValueError("an inconclusive search did not exhaust its bound")
+
+    def witness_for_multiple(self, multiple: int) -> ExtensionElement:
+        raise ValueError("no torsion relation was found")
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicTorsionSearchUnsupported(_AlgebraicTorsionSearch):
+    """An arithmetic boundary encountered before completing the search."""
+
+    model: AlgebraicFunctionField
+    divisor: AlgebraicDivisor
+    anchor: AlgebraicDivisor
+    max_order: int
+    reductions: tuple[ReducedAlgebraicDivisorClass, ...]
+    detail: str
+    status: ClassVar[AlgebraicTorsionStatus] = AlgebraicTorsionStatus.UNSUPPORTED
+    order: ClassVar[None] = None
+    witness: ClassVar[None] = None
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+
+    def witness_for_multiple(self, multiple: int) -> ExtensionElement:
+        raise ValueError("no torsion relation was found")
+
+
+AlgebraicTorsionSearch: TypeAlias = (
+    AlgebraicTorsionRelation
+    | AlgebraicTorsionBoundExhausted
+    | AlgebraicTorsionSearchUnsupported
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -432,12 +465,11 @@ def _search_algebraic_divisor_torsion_bsgs(
     )
     trace: list[ReducedAlgebraicDivisorClass] = [base_reduction]
     if base.representative.is_zero:
-        return AlgebraicTorsionSearch(
+        return AlgebraicTorsionRelation(
             model,
             divisor,
             anchor,
             max_order,
-            AlgebraicTorsionStatus.TORSION,
             1,
             base.witness,
             tuple(trace),
@@ -453,12 +485,11 @@ def _search_algebraic_divisor_torsion_bsgs(
         baby, reduction = _add_class_multiples(model, baby, base, anchor)
         trace.append(reduction)
         if baby.representative.is_zero:
-            return AlgebraicTorsionSearch(
+            return AlgebraicTorsionRelation(
                 model,
                 divisor,
                 anchor,
                 max_order,
-                AlgebraicTorsionStatus.TORSION,
                 baby.multiple,
                 baby.witness,
                 tuple(trace),
@@ -487,14 +518,11 @@ def _search_algebraic_divisor_torsion_bsgs(
             break
 
     if candidate is None:
-        return AlgebraicTorsionSearch(
+        return AlgebraicTorsionSearchUnsupported(
             model,
             divisor,
             anchor,
             max_order,
-            AlgebraicTorsionStatus.UNSUPPORTED,
-            None,
-            None,
             tuple(trace),
             "canonical baby-step/giant-step found no relation within the bound",
         )
@@ -525,12 +553,11 @@ def _search_algebraic_divisor_torsion_bsgs(
             exact_order = quotient
             exact_state = quotient_state
 
-    return AlgebraicTorsionSearch(
+    return AlgebraicTorsionRelation(
         model,
         divisor,
         anchor,
         max_order,
-        AlgebraicTorsionStatus.TORSION,
         exact_order,
         exact_state.witness,
         tuple(trace),
@@ -575,14 +602,11 @@ def search_algebraic_divisor_torsion(
                 anchor=reduction_anchor,
             )
         except NotImplementedError as exc:
-            return AlgebraicTorsionSearch(
+            return AlgebraicTorsionSearchUnsupported(
                 model,
                 divisor,
                 reduction_anchor,
                 max_order,
-                AlgebraicTorsionStatus.UNSUPPORTED,
-                None,
-                None,
                 tuple(reductions),
                 str(exc),
             )
@@ -593,33 +617,32 @@ def search_algebraic_divisor_torsion(
             witness * reduction.correction,
         )
         if representative.is_zero:
-            return AlgebraicTorsionSearch(
+            return AlgebraicTorsionRelation(
                 model,
                 divisor,
                 reduction_anchor,
                 max_order,
-                AlgebraicTorsionStatus.TORSION,
                 order,
                 witness,
                 tuple(reductions),
                 f"the first zero reduced representative occurs at order {order}",
             )
 
-    return AlgebraicTorsionSearch(
+    return AlgebraicTorsionBoundExhausted(
         model,
         divisor,
         reduction_anchor,
         max_order,
-        AlgebraicTorsionStatus.INCONCLUSIVE,
-        None,
-        None,
         tuple(reductions),
         f"no zero reduced representative occurs through order {max_order}",
     )
 
 
 __all__ = [
+    "AlgebraicTorsionBoundExhausted",
+    "AlgebraicTorsionRelation",
     "AlgebraicTorsionSearch",
+    "AlgebraicTorsionSearchUnsupported",
     "AlgebraicTorsionStatus",
     "ReducedAlgebraicDivisorClass",
     "reduce_algebraic_divisor_class",

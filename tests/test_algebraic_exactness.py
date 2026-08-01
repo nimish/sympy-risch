@@ -1,9 +1,13 @@
 """Certified in-field exactness decisions for algebraic differentials."""
 
+from dataclasses import replace
+
+import pytest
 from sympy import Poly, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicConstantFieldStatus,
     AlgebraicExtension,
     DifferentialTower,
     MonomialExtension,
@@ -85,6 +89,44 @@ def test_holomorphic_elliptic_differential_has_no_algebraic_primitive() -> None:
     assert result.primitive_pole_divisor is not None
     assert result.primitive_pole_divisor.is_zero
     assert result.space is not None and result.space.basis == (extension.field.one,)
+
+    unsupported_analysis = replace(
+        analysis,
+        status=AlgebraicConstantFieldStatus.UNSUPPORTED,
+        embedding=None,
+        detail="forced unsupported constant-field boundary",
+    )
+    with pytest.raises(ValueError, match="needs preserved constants"):
+        replace(result, constant_field_analysis=unsupported_analysis)
+
+
+def test_solver_reuses_its_complete_no_primitive_decision(monkeypatch) -> None:
+    """Trusted solver construction avoids replaying the expensive linear solve."""
+    import sympy_risch.algebraic.exactness as exactness_module
+
+    extension, derivation, model, analysis = algebraic_model(y**2 - x**3 + x)
+    original = exactness_module._solve_constant_derivative_equation
+    calls = 0
+
+    def counted_solve(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        exactness_module,
+        "_solve_constant_derivative_equation",
+        counted_solve,
+    )
+    result = solve_algebraic_exactness(
+        extension.field.one / extension.field.generator,
+        derivation,
+        model,
+        analysis,
+    )
+
+    assert result.complete_negative
+    assert calls == 1
 
 
 def test_nonzero_residue_is_an_immediate_no_primitive_certificate() -> None:

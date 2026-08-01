@@ -40,6 +40,8 @@ def test_principality_finds_a_verified_genus_zero_witness() -> None:
     assert model.principal_divisor(result.witness) == divisor
     assert result.divisor_class_search is not None
     assert result.divisor_class_search.order == 1
+    with pytest.raises(TypeError):
+        replace(result, status=AlgebraicPrincipalityStatus.NONPRINCIPAL)
 
 
 def test_principality_finds_a_witness_without_a_degree_bound() -> None:

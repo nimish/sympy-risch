@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import InitVar, dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, TypeAlias
 
 from sympy.polys.agca.extensions import ExtensionElement
 
@@ -85,8 +85,7 @@ class AlgebraicLocalDifferentialResidue:
         return self.place.constant_coordinates(self.value)
 
 
-@dataclass(frozen=True, slots=True)
-class AlgebraicAllPlaceResidueResult:
+class _AlgebraicAllPlaceResidueResult:
     r"""The certified all-place local data of one algebraic Hermite remainder.
 
     :attr:`AlgebraicAllPlaceResidueStatus.EXACT` proves that the Hermite
@@ -103,39 +102,26 @@ class AlgebraicAllPlaceResidueResult:
     basis: IntegralBasis
     exact_part: ExtensionElement
     remainder: ExtensionElement
-    constant_field_analysis: AlgebraicConstantFieldAnalysis | None
-    status: AlgebraicAllPlaceResidueStatus
-    residues: tuple[AlgebraicLocalDifferentialResidue, ...]
-    model: AlgebraicFunctionField | None
-    differential_divisor: AlgebraicDivisor | None
     detail: str
-    # The collector hands off its differential to reuse exact internal caches.
-    # Validation still recomputes the mathematical comparisons through that
-    # object; this input never bypasses a public invariant.
-    _verified_differential: InitVar[AlgebraicDifferential | None] = None
+    status: ClassVar[AlgebraicAllPlaceResidueStatus]
 
-    def __post_init__(
-        self,
-        verified_differential: AlgebraicDifferential | None,
-    ) -> None:
+    def _validate_common(self) -> ExtensionElement:
         if not isinstance(self.derivation, Derivation):
             raise TypeError("an all-place result needs a Derivation")
         if not isinstance(self.basis, IntegralBasis):
             raise TypeError("an all-place result needs an integral basis")
-        if self.constant_field_analysis is not None and not isinstance(
-            self.constant_field_analysis,
+        analysis = getattr(self, "constant_field_analysis", None)
+        if analysis is not None and not isinstance(
+            analysis,
             AlgebraicConstantFieldAnalysis,
         ):
             raise TypeError("an all-place result needs constant-field analysis")
-        if not isinstance(self.status, AlgebraicAllPlaceResidueStatus):
-            raise TypeError("the all-place residue status has the wrong type")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("an all-place result needs a detail")
 
         extension = self.basis.extension
         if self.derivation.field != extension.field:
             raise ValueError("the derivation and integral basis use different fields")
-        analysis = self.constant_field_analysis
         if analysis is not None:
             if analysis.extension is not extension:
                 raise ValueError("the constant analysis belongs to another extension")
@@ -156,52 +142,113 @@ class AlgebraicAllPlaceResidueResult:
                 "the all-place result needs a square-free Hermite remainder"
             )
 
-        if self.status is AlgebraicAllPlaceResidueStatus.EXACT:
-            if analysis is not None:
-                raise ValueError(
-                    "an exact result does not need constant-field analysis"
-                )
-            if remainder != extension.field.zero:
-                raise ValueError("an exact result needs a zero Hermite remainder")
-            if (
-                self.residues
-                or self.model is not None
-                or self.differential_divisor is not None
-            ):
-                raise ValueError("an exact result cannot carry global place data")
-            return
+        return remainder
 
-        if analysis is None:
-            raise ValueError("a non-exact result needs constant-field analysis")
+    @property
+    def reconstructs_input(self) -> bool:
+        """Whether the retained Hermite decomposition reconstructs the input."""
+        return self.derivation(self.exact_part) + self.remainder == self.integrand
 
-        if self.status is AlgebraicAllPlaceResidueStatus.UNSUPPORTED:
-            if analysis.preserved:
-                raise ValueError("a preserved-constant result must collect every place")
-            if (
-                self.residues
-                or self.model is not None
-                or self.differential_divisor is not None
-            ):
-                raise ValueError(
-                    "an unsupported result cannot carry partial place data"
-                )
-            return
+    @property
+    def collected(self) -> bool:
+        """Whether all pole support is known, including an exact zero remainder."""
+        return not isinstance(self, AlgebraicAllPlacesUnsupported)
 
+    @property
+    def exact(self) -> bool:
+        """Whether Hermite reduction already proved the integrand exact."""
+        return isinstance(self, AlgebraicHermiteExact)
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicHermiteExact(_AlgebraicAllPlaceResidueResult):
+    """A Hermite decomposition with a certified zero remainder."""
+
+    derivation: Derivation
+    integrand: ExtensionElement
+    basis: IntegralBasis
+    exact_part: ExtensionElement
+    remainder: ExtensionElement
+    detail: str
+    status: ClassVar[AlgebraicAllPlaceResidueStatus] = (
+        AlgebraicAllPlaceResidueStatus.EXACT
+    )
+    constant_field_analysis: ClassVar[None] = None
+    residues: ClassVar[tuple[()]] = ()
+    model: ClassVar[None] = None
+    differential_divisor: ClassVar[None] = None
+
+    def __post_init__(self) -> None:
+        remainder = self._validate_common()
+        if remainder != self.basis.extension.field.zero:
+            raise ValueError("an exact result needs a zero Hermite remainder")
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicAllPlacesUnsupported(_AlgebraicAllPlaceResidueResult):
+    """A Hermite decomposition whose global place collection is unsupported."""
+
+    derivation: Derivation
+    integrand: ExtensionElement
+    basis: IntegralBasis
+    exact_part: ExtensionElement
+    remainder: ExtensionElement
+    constant_field_analysis: AlgebraicConstantFieldAnalysis
+    detail: str
+    status: ClassVar[AlgebraicAllPlaceResidueStatus] = (
+        AlgebraicAllPlaceResidueStatus.UNSUPPORTED
+    )
+    residues: ClassVar[tuple[()]] = ()
+    model: ClassVar[None] = None
+    differential_divisor: ClassVar[None] = None
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+        if self.constant_field_analysis.preserved:
+            raise ValueError("a preserved-constant result must collect every place")
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicAllPlacesCollected(_AlgebraicAllPlaceResidueResult):
+    """Complete local residue data at every finite and infinite pole."""
+
+    derivation: Derivation
+    integrand: ExtensionElement
+    basis: IntegralBasis
+    exact_part: ExtensionElement
+    remainder: ExtensionElement
+    constant_field_analysis: AlgebraicConstantFieldAnalysis
+    residues: tuple[AlgebraicLocalDifferentialResidue, ...]
+    model: AlgebraicFunctionField
+    differential_divisor: AlgebraicDivisor
+    detail: str
+    _verified_differential: InitVar[AlgebraicDifferential | None] = None
+    status: ClassVar[AlgebraicAllPlaceResidueStatus] = (
+        AlgebraicAllPlaceResidueStatus.COLLECTED
+    )
+
+    def __post_init__(
+        self, verified_differential: AlgebraicDifferential | None
+    ) -> None:
+        from ..algebraic_geometry.function_field import (
+            AlgebraicDifferential,
+            AlgebraicDivisor,
+            AlgebraicFunctionField,
+        )
+
+        remainder = self._validate_common()
+        analysis = self.constant_field_analysis
         if not analysis.preserved:
             raise ValueError("all-place collection requires proved preserved constants")
-        if self.model is None:
-            raise ValueError("a collected result needs an algebraic function field")
-        if self.model.extension is not extension:
+        if not isinstance(self.model, AlgebraicFunctionField):
+            raise TypeError("a collected result needs an algebraic function field")
+        if self.model.extension is not self.basis.extension:
             raise ValueError("the global model belongs to another extension")
-
-        if remainder == extension.field.zero:
+        if remainder == self.basis.extension.field.zero:
             raise ValueError("a zero Hermite remainder needs exact status")
-
-        if self.differential_divisor is None:
-            raise ValueError("a nonzero collected remainder needs its divisor")
+        if not isinstance(self.differential_divisor, AlgebraicDivisor):
+            raise TypeError("a nonzero collected remainder needs its divisor")
         if verified_differential is not None:
-            from ..algebraic_geometry.function_field import AlgebraicDifferential
-
             if not isinstance(verified_differential, AlgebraicDifferential):
                 raise TypeError("a verified collection needs its differential")
             if verified_differential.model is not self.model:
@@ -230,23 +277,10 @@ class AlgebraicAllPlaceResidueResult:
             if record.value != differential.residue(place):
                 raise ValueError("a recorded local residue is inconsistent")
 
-    @property
-    def reconstructs_input(self) -> bool:
-        """Whether the retained Hermite decomposition reconstructs the input."""
-        return self.derivation(self.exact_part) + self.remainder == self.integrand
 
-    @property
-    def collected(self) -> bool:
-        """Whether all pole support is known, including an exact zero remainder."""
-        return self.status in {
-            AlgebraicAllPlaceResidueStatus.EXACT,
-            AlgebraicAllPlaceResidueStatus.COLLECTED,
-        }
-
-    @property
-    def exact(self) -> bool:
-        """Whether Hermite reduction already proved the integrand exact."""
-        return self.status is AlgebraicAllPlaceResidueStatus.EXACT
+AlgebraicAllPlaceResidueResult: TypeAlias = (
+    AlgebraicHermiteExact | AlgebraicAllPlacesCollected | AlgebraicAllPlacesUnsupported
+)
 
 
 def collect_algebraic_all_place_residues(
@@ -298,34 +332,25 @@ def collect_algebraic_all_place_residues(
         active_basis = basis
 
     if remainder == extension.field.zero:
-        return AlgebraicAllPlaceResidueResult(
+        return AlgebraicHermiteExact(
             derivation,
             integrand_element,
             active_basis,
             exact_part,
             remainder,
-            None,
-            AlgebraicAllPlaceResidueStatus.EXACT,
-            (),
-            None,
-            None,
             "Hermite reduction proved exactness; no constant-field or global "
             "place computation was needed",
         )
 
     analysis = analyze_algebraic_constant_field(extension, derivation)
     if not analysis.preserved:
-        return AlgebraicAllPlaceResidueResult(
+        return AlgebraicAllPlacesUnsupported(
             derivation,
             integrand_element,
             active_basis,
             exact_part,
             remainder,
             analysis,
-            AlgebraicAllPlaceResidueStatus.UNSUPPORTED,
-            (),
-            None,
-            None,
             analysis.detail,
         )
 
@@ -344,14 +369,13 @@ def collect_algebraic_all_place_residues(
         for place, order in differential_divisor.terms
         if order < 0
     )
-    return AlgebraicAllPlaceResidueResult(
+    return AlgebraicAllPlacesCollected(
         derivation,
         integrand_element,
         active_basis,
         exact_part,
         remainder,
         analysis,
-        AlgebraicAllPlaceResidueStatus.COLLECTED,
         residues,
         model,
         differential_divisor,

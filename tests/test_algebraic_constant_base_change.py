@@ -1,5 +1,7 @@
 """Conservative algebraic-constant transport for closed finite places."""
 
+from dataclasses import replace
+
 import pytest
 from sympy import Poly, Rational, sqrt, symbols
 from sympy.polys.domains import QQ
@@ -71,6 +73,8 @@ def test_base_change_rebuilds_a_preserved_target_and_commutes_with_d() -> None:
     assert change.target_derivation is not None
     assert change.target_model is not None
     assert change.target_constant_field_analysis is not None
+    with pytest.raises(TypeError):
+        replace(change, status=AlgebraicConstantBaseChangeStatus.UNSUPPORTED)
 
     source_values = (
         extension.field.from_sympy(x),

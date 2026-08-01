@@ -1,5 +1,12 @@
 r"""Exact algebraic-curve infrastructure over a rational function field."""
 
+from .base_change import (
+    AlgebraicConstantBaseChange,
+    AlgebraicConstantBaseChangeStatus,
+    AlgebraicConstantBaseChangeUnsupported,
+    CertifiedAlgebraicConstantBaseChange,
+    build_algebraic_constant_compositum_base_change,
+)
 from .closure import IntegralClosureResult, integral_closure, polynomial_order
 from .constant_extensions import (
     AlgebraicConstantFieldCompositum,
@@ -27,7 +34,10 @@ from .differential_spaces import (
     holomorphic_differential_space,
 )
 from .divisor_classes import (
+    AlgebraicTorsionBoundExhausted,
+    AlgebraicTorsionRelation,
     AlgebraicTorsionSearch,
+    AlgebraicTorsionSearchUnsupported,
     AlgebraicTorsionStatus,
     ReducedAlgebraicDivisorClass,
     reduce_algebraic_divisor_class,
@@ -84,12 +94,26 @@ from .prescribed_residues import (
     solve_hess_prescribed_residues,
 )
 from .principal import (
+    AlgebraicNonprincipal,
+    AlgebraicPrincipal,
     AlgebraicPrincipalityDecision,
     AlgebraicPrincipalityStatus,
+    AlgebraicPrincipalityUnsupported,
     decide_algebraic_principality,
+)
+from .riemann_roch import (
+    CertifiedRiemannRochSpace,
+    RiemannRochCertificate,
+    RiemannRochSpace,
+    RiemannRochSpaceStatus,
+    RiemannRochSpaceUnsupported,
+    compute_riemann_roch_space,
 )
 
 __all__ = [
+    "AlgebraicConstantBaseChange",
+    "AlgebraicConstantBaseChangeStatus",
+    "AlgebraicConstantBaseChangeUnsupported",
     "AlgebraicConstantFieldCompositum",
     "AlgebraicConstantFieldExtension",
     "AlgebraicDifferential",
@@ -102,13 +126,21 @@ __all__ = [
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",
     "AlgebraicFunctionFieldReduction",
+    "AlgebraicNonprincipal",
     "AlgebraicOrder",
+    "AlgebraicPrincipal",
     "AlgebraicPrincipalityDecision",
     "AlgebraicPrincipalityStatus",
+    "AlgebraicPrincipalityUnsupported",
+    "AlgebraicTorsionBoundExhausted",
+    "AlgebraicTorsionRelation",
     "AlgebraicTorsionSearch",
+    "AlgebraicTorsionSearchUnsupported",
     "AlgebraicTorsionStatus",
     "BadAlgebraicReduction",
     "BadConstantFieldReduction",
+    "CertifiedAlgebraicConstantBaseChange",
+    "CertifiedRiemannRochSpace",
     "ConstantFieldPrimeReduction",
     "FiniteAlgebraicPlace",
     "FiniteDivisorClassOrder",
@@ -132,7 +164,13 @@ __all__ = [
     "IntegralClosureResult",
     "LocalLaurentExpansion",
     "ReducedAlgebraicDivisorClass",
+    "RiemannRochCertificate",
+    "RiemannRochSpace",
+    "RiemannRochSpaceStatus",
+    "RiemannRochSpaceUnsupported",
+    "build_algebraic_constant_compositum_base_change",
     "certify_function_field_constants",
+    "compute_riemann_roch_space",
     "constant_field_prime_reductions",
     "decide_algebraic_divisor_torsion",
     "decide_algebraic_principality",

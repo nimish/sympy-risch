@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import ClassVar, TypeAlias
 
 from sympy.core.singleton import S
 from sympy.polys.agca.extensions import ExtensionElement
@@ -89,8 +90,7 @@ def _embed_parent_element(
     return target_type(numerator, denominator)
 
 
-@dataclass(frozen=True, slots=True)
-class AlgebraicConstantBaseChange:
+class _AlgebraicConstantBaseChange:
     r"""A derivative-commuting ``C``-to-``C(alpha)`` function-field map.
 
     On a certified result, :meth:`embed` is the explicit map from the source
@@ -103,15 +103,10 @@ class AlgebraicConstantBaseChange:
     source_model: AlgebraicFunctionField
     source_derivation: Derivation
     factors: tuple[Poly, ...]
-    status: AlgebraicConstantBaseChangeStatus
     detail: str
-    constant_compositum: AlgebraicConstantFieldCompositum | None = None
-    target_extension: AlgebraicExtension | None = None
-    target_derivation: Derivation | None = None
-    target_model: AlgebraicFunctionField | None = None
-    target_constant_field_analysis: AlgebraicConstantFieldAnalysis | None = None
+    status: ClassVar[AlgebraicConstantBaseChangeStatus]
 
-    def __post_init__(self) -> None:
+    def _validate_common(self) -> None:
         if not isinstance(self.source_model, AlgebraicFunctionField):
             raise TypeError("a base change needs a source function field")
         if not isinstance(self.source_derivation, Derivation):
@@ -120,8 +115,6 @@ class AlgebraicConstantBaseChange:
             raise ValueError("a base change needs at least one polynomial factor")
         if any(not isinstance(factor, Poly) for factor in self.factors):
             raise TypeError("base-change factors must be SymPy polynomials")
-        if not isinstance(self.status, AlgebraicConstantBaseChangeStatus):
-            raise TypeError("a base change has an invalid status")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("a base change needs a nonempty detail")
         if self.source_derivation.level < 0 or (
@@ -130,20 +123,74 @@ class AlgebraicConstantBaseChange:
         ):
             raise ValueError("the source derivation is not bound to the source field")
 
-        target_data = (
-            self.constant_compositum,
-            self.target_extension,
-            self.target_derivation,
-            self.target_model,
-            self.target_constant_field_analysis,
-        )
-        if self.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED:
-            if any(value is not None for value in target_data):
-                raise ValueError("an unsupported base change cannot carry target data")
-            return
+    @property
+    def certified(self) -> bool:
+        """Whether an explicit target embedding is available."""
+        return isinstance(self, CertifiedAlgebraicConstantBaseChange)
 
-        if self.status is not AlgebraicConstantBaseChangeStatus.CERTIFIED:
-            raise ValueError("a base change has an unknown status")
+    @property
+    def source_extension(self) -> AlgebraicExtension:
+        """The source algebraic extension."""
+        return self.source_model.extension
+
+    @property
+    def target_constants(self) -> AlgebraicField | None:
+        """The target constant field, when this change was certified."""
+        constant_compositum = getattr(self, "constant_compositum", None)
+        if constant_compositum is None:
+            return None
+        target = constant_compositum.target
+        if not isinstance(target, AlgebraicField):
+            raise ValueError("a certified base change has no algebraic target")
+        return target
+
+    def embed(self, element: object) -> ExtensionElement:
+        r"""Embed a source-field element into the certified target field."""
+        if not isinstance(self, CertifiedAlgebraicConstantBaseChange):
+            raise NotImplementedError(self.detail)
+        source = _extension_element(self.source_extension, element)
+        source_parent = self.source_extension.parent_field
+        target_parent = self.target_extension.parent_field
+        if not isinstance(source_parent, FractionField) or not isinstance(
+            target_parent, FractionField
+        ):
+            raise NotImplementedError(
+                "constant base change requires rational function parent fields"
+            )
+        coefficients = [
+            _embed_parent_element(
+                coefficient,
+                source_parent,
+                target_parent,
+                self.constant_compositum,
+            )
+            for coefficient in source.rep.to_list()
+        ]
+        representative = DMP(coefficients, target_parent, 0)
+        return self.target_extension.field.dtype(
+            representative, self.target_extension.field
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class CertifiedAlgebraicConstantBaseChange(_AlgebraicConstantBaseChange):
+    """A derivative-commuting embedding into certified enlarged constants."""
+
+    source_model: AlgebraicFunctionField
+    source_derivation: Derivation
+    factors: tuple[Poly, ...]
+    detail: str
+    constant_compositum: AlgebraicConstantFieldCompositum
+    target_extension: AlgebraicExtension
+    target_derivation: Derivation
+    target_model: AlgebraicFunctionField
+    target_constant_field_analysis: AlgebraicConstantFieldAnalysis
+    status: ClassVar[AlgebraicConstantBaseChangeStatus] = (
+        AlgebraicConstantBaseChangeStatus.CERTIFIED
+    )
+
+    def __post_init__(self) -> None:
+        self._validate_common()
         if not isinstance(
             self.constant_compositum,
             AlgebraicConstantFieldCompositum,
@@ -187,60 +234,31 @@ class AlgebraicConstantBaseChange:
         if self.constant_compositum.target != target_constants:
             raise ValueError("the constant-field map has another target")
 
-    @property
-    def certified(self) -> bool:
-        """Whether an explicit target embedding is available."""
-        return self.status is AlgebraicConstantBaseChangeStatus.CERTIFIED
 
-    @property
-    def source_extension(self) -> AlgebraicExtension:
-        """The source algebraic extension."""
-        return self.source_model.extension
+@dataclass(frozen=True, slots=True)
+class AlgebraicConstantBaseChangeUnsupported(_AlgebraicConstantBaseChange):
+    """A precise boundary where no target embedding was certified."""
 
-    @property
-    def target_constants(self) -> AlgebraicField | None:
-        """The target constant field, when this change was certified."""
-        if self.constant_compositum is None:
-            return None
-        target = self.constant_compositum.target
-        if not isinstance(target, AlgebraicField):
-            raise ValueError("a certified base change has no algebraic target")
-        return target
+    source_model: AlgebraicFunctionField
+    source_derivation: Derivation
+    factors: tuple[Poly, ...]
+    detail: str
+    status: ClassVar[AlgebraicConstantBaseChangeStatus] = (
+        AlgebraicConstantBaseChangeStatus.UNSUPPORTED
+    )
+    constant_compositum: ClassVar[None] = None
+    target_extension: ClassVar[None] = None
+    target_derivation: ClassVar[None] = None
+    target_model: ClassVar[None] = None
+    target_constant_field_analysis: ClassVar[None] = None
 
-    def embed(self, element: object) -> ExtensionElement:
-        r"""Embed a source-field element into the certified target field.
+    def __post_init__(self) -> None:
+        self._validate_common()
 
-        Constants, rational-function coefficients, and algebraic-generator
-        coefficients are mapped separately.  This avoids using a symbolic
-        expression round trip as an implicit number-field embedding.
-        """
-        if not self.certified:
-            raise NotImplementedError(self.detail)
-        target_extension = self.target_extension
-        constant_compositum = self.constant_compositum
-        if target_extension is None or constant_compositum is None:
-            raise ValueError("a certified base change has incomplete target data")
-        source = _extension_element(self.source_extension, element)
-        source_parent = self.source_extension.parent_field
-        target_parent = target_extension.parent_field
-        if not isinstance(source_parent, FractionField) or not isinstance(
-            target_parent,
-            FractionField,
-        ):
-            raise NotImplementedError(
-                "constant base change requires rational function parent fields"
-            )
-        coefficients = [
-            _embed_parent_element(
-                coefficient,
-                source_parent,
-                target_parent,
-                constant_compositum,
-            )
-            for coefficient in source.rep.to_list()
-        ]
-        representative = DMP(coefficients, target_parent, 0)
-        return target_extension.field.dtype(representative, target_extension.field)
+
+AlgebraicConstantBaseChange: TypeAlias = (
+    CertifiedAlgebraicConstantBaseChange | AlgebraicConstantBaseChangeUnsupported
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -333,11 +351,10 @@ def _unsupported_base_change(
     detail: str,
 ) -> AlgebraicConstantBaseChange:
     """Construct the non-decision result for a narrow base-change boundary."""
-    return AlgebraicConstantBaseChange(
+    return AlgebraicConstantBaseChangeUnsupported(
         model,
         derivation,
         factors,
-        AlgebraicConstantBaseChangeStatus.UNSUPPORTED,
         detail,
     )
 
@@ -531,11 +548,10 @@ def build_algebraic_constant_compositum_base_change(
             f"the source algebraic relation cannot be rebuilt over the compositum: {exc}",
         )
 
-    candidate = AlgebraicConstantBaseChange(
+    candidate = CertifiedAlgebraicConstantBaseChange(
         model,
         derivation,
         normalized_tuple,
-        AlgebraicConstantBaseChangeStatus.CERTIFIED,
         "the selected constant polynomial splits completely and the rebuilt "
         "algebraic function field preserves its constants",
         constant_compositum,

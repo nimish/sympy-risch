@@ -3,6 +3,9 @@ r"""Exact infrastructure for finite algebraic function fields."""
 from .all_places import (
     AlgebraicAllPlaceResidueResult,
     AlgebraicAllPlaceResidueStatus,
+    AlgebraicAllPlacesCollected,
+    AlgebraicAllPlacesUnsupported,
+    AlgebraicHermiteExact,
     AlgebraicLocalDifferentialResidue,
     collect_algebraic_all_place_residues,
 )
@@ -23,6 +26,9 @@ from .exactness import (
     AlgebraicExactnessCertificate,
     AlgebraicExactnessResult,
     AlgebraicExactnessStatus,
+    AlgebraicExactnessUnsupported,
+    AlgebraicExactPrimitive,
+    AlgebraicNoPrimitive,
     solve_algebraic_exactness,
 )
 from .hermite import hermite_reduce_algebraic, lazy_hermite_reduce_algebraic
@@ -73,14 +79,19 @@ from .trager import (
 __all__ = [
     "AlgebraicAllPlaceResidueResult",
     "AlgebraicAllPlaceResidueStatus",
+    "AlgebraicAllPlacesCollected",
+    "AlgebraicAllPlacesUnsupported",
     "AlgebraicConstantEmbedding",
     "AlgebraicConstantFieldAnalysis",
     "AlgebraicConstantFieldStatus",
+    "AlgebraicExactPrimitive",
     "AlgebraicExactnessCertificate",
     "AlgebraicExactnessLiouvilleObstruction",
     "AlgebraicExactnessResult",
     "AlgebraicExactnessStatus",
+    "AlgebraicExactnessUnsupported",
     "AlgebraicFraction",
+    "AlgebraicHermiteExact",
     "AlgebraicIntegratingFactorCertificate",
     "AlgebraicIntegratingFactorRDEResult",
     "AlgebraicIntegratingFactorRDEStatus",
@@ -88,6 +99,7 @@ __all__ = [
     "AlgebraicIntegratingFactorStatus",
     "AlgebraicLiouvilleObstruction",
     "AlgebraicLocalDifferentialResidue",
+    "AlgebraicNoPrimitive",
     "AlgebraicPlaceResidue",
     "AlgebraicResidueCoordinateCertificate",
     "AlgebraicResidueProfile",

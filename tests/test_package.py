@@ -68,22 +68,28 @@ def test_monomial_public_annotations_are_runtime_resolvable() -> None:
 
 def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
     assert set(algebraic.__all__) == {
+        "AlgebraicAllPlacesCollected",
+        "AlgebraicAllPlacesUnsupported",
         "AlgebraicAllPlaceResidueResult",
         "AlgebraicAllPlaceResidueStatus",
         "AlgebraicConstantEmbedding",
         "AlgebraicConstantFieldAnalysis",
         "AlgebraicConstantFieldStatus",
+        "AlgebraicExactPrimitive",
         "AlgebraicExactnessCertificate",
         "AlgebraicExactnessLiouvilleObstruction",
         "AlgebraicExactnessResult",
         "AlgebraicExactnessStatus",
+        "AlgebraicExactnessUnsupported",
         "AlgebraicFraction",
+        "AlgebraicHermiteExact",
         "AlgebraicIntegratingFactorCertificate",
         "AlgebraicIntegratingFactorRDEResult",
         "AlgebraicIntegratingFactorRDEStatus",
         "AlgebraicIntegratingFactorResult",
         "AlgebraicIntegratingFactorStatus",
         "AlgebraicLocalDifferentialResidue",
+        "AlgebraicNoPrimitive",
         "AlgebraicLiouvilleObstruction",
         "AlgebraicPlaceResidue",
         "AlgebraicResidueCoordinateCertificate",
@@ -124,6 +130,9 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
 
 def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None:
     assert set(algebraic_geometry.__all__) == {
+        "AlgebraicConstantBaseChange",
+        "AlgebraicConstantBaseChangeStatus",
+        "AlgebraicConstantBaseChangeUnsupported",
         "AlgebraicDifferential",
         "AlgebraicDivisor",
         "AlgebraicDivisorNontorsion",
@@ -136,13 +145,21 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "AlgebraicFunctionField",
         "AlgebraicFunctionFieldReduction",
         "AlgebraicFiniteReductionBatch",
+        "AlgebraicNonprincipal",
         "AlgebraicOrder",
+        "AlgebraicPrincipal",
         "AlgebraicPrincipalityDecision",
         "AlgebraicPrincipalityStatus",
+        "AlgebraicPrincipalityUnsupported",
+        "AlgebraicTorsionBoundExhausted",
+        "AlgebraicTorsionRelation",
         "AlgebraicTorsionSearch",
+        "AlgebraicTorsionSearchUnsupported",
         "AlgebraicTorsionStatus",
         "BadAlgebraicReduction",
         "BadConstantFieldReduction",
+        "CertifiedAlgebraicConstantBaseChange",
+        "CertifiedRiemannRochSpace",
         "ConstantFieldPrimeReduction",
         "FiniteAlgebraicPlace",
         "FiniteDivisorClassOrder",
@@ -166,6 +183,11 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "IntegralClosureResult",
         "LocalLaurentExpansion",
         "ReducedAlgebraicDivisorClass",
+        "RiemannRochCertificate",
+        "RiemannRochSpace",
+        "RiemannRochSpaceStatus",
+        "RiemannRochSpaceUnsupported",
+        "build_algebraic_constant_compositum_base_change",
         "decide_algebraic_divisor_torsion",
         "integral_closure",
         "finite_divisor_class_order",
@@ -187,6 +209,7 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
         "decide_algebraic_principality",
         "certify_function_field_constants",
         "constant_field_prime_reductions",
+        "compute_riemann_roch_space",
         "extend_algebraic_constant_compositum",
         "extend_algebraic_constants",
     }
@@ -206,7 +229,8 @@ def test_algebraic_geometry_public_annotations_are_runtime_resolvable() -> None:
 
 def test_algebraic_integration_public_annotations_are_runtime_resolvable() -> None:
     get_type_hints(sympy_risch.AlgebraicConstantBaseChangeIntegrationResult)
-    get_type_hints(sympy_risch.AlgebraicExactnessResult)
+    for result_type in get_args(sympy_risch.AlgebraicExactnessResult):
+        get_type_hints(result_type)
     get_type_hints(sympy_risch.AlgebraicIntegratingFactorResult)
     get_type_hints(sympy_risch.AlgebraicIntegratingFactorRDEResult)
     for result_type in get_args(sympy_risch.AlgebraicIntegrationResult):

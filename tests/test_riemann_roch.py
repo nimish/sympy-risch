@@ -14,9 +14,10 @@ from sympy_risch import (
     MonomialExtension,
 )
 from sympy_risch.algebraic_geometry.riemann_roch import (
+    CertifiedRiemannRochSpace,
     RiemannRochCertificate,
-    RiemannRochSpace,
     RiemannRochSpaceStatus,
+    RiemannRochSpaceUnsupported,
     compute_riemann_roch_space,
 )
 
@@ -235,10 +236,9 @@ def test_public_constructor_rejects_a_forged_complete_certificate() -> None:
     divisor = model.principal_divisor(field.generator).negative_part
 
     with pytest.raises(ValueError, match="wrong dimension"):
-        RiemannRochSpace(
+        CertifiedRiemannRochSpace(
             model,
             divisor,
-            RiemannRochSpaceStatus.CERTIFIED,
             (field.one,),
             RiemannRochCertificate.NONSPECIAL,
             "forged incomplete nonspecial certificate",
@@ -250,15 +250,20 @@ def test_result_rejects_partial_unsupported_data_and_wrong_divisor_ownership() -
     field = extension.field
     other_model = AlgebraicFunctionField(extension)
 
-    with pytest.raises(ValueError, match="partial data"):
-        RiemannRochSpace(
+    with pytest.raises(TypeError):
+        RiemannRochSpaceUnsupported(
             model,
             AlgebraicDivisor(model),
-            RiemannRochSpaceStatus.UNSUPPORTED,
-            (field.one,),
-            None,
             "forged unsupported partial result",
+            basis=(field.one,),
         )
+    unsupported = RiemannRochSpaceUnsupported(
+        model,
+        AlgebraicDivisor(model),
+        "unsupported boundary",
+    )
+    with pytest.raises(TypeError):
+        replace(unsupported, status=RiemannRochSpaceStatus.CERTIFIED)
     with pytest.raises(ValueError, match="belongs to another function field"):
         compute_riemann_roch_space(
             model,

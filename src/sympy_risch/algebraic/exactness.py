@@ -13,9 +13,9 @@ inside a bounded partial space is never used to prove non-exactness.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass
 from enum import Enum
-from typing import cast
+from typing import ClassVar, TypeAlias, cast
 
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.polyerrors import HeuristicGCDFailed
@@ -54,6 +54,13 @@ class AlgebraicExactnessCertificate(Enum):
     ZERO_DIFFERENTIAL = "zero_differential"
     NONZERO_RESIDUE = "nonzero_residue"
     COMPLETE_PRIMITIVE_SPACE = "complete_primitive_space"
+
+
+class _TrustedNoPrimitiveSolve:
+    """Module-private marker for a no-solution result just computed below."""
+
+
+_TRUSTED_NO_PRIMITIVE_SOLVE = _TrustedNoPrimitiveSolve()
 
 
 def _primitive_pole_divisor(
@@ -132,8 +139,7 @@ def _solve_constant_derivative_equation(
     return primitive
 
 
-@dataclass(frozen=True, slots=True)
-class AlgebraicExactnessResult:
+class _AlgebraicExactnessResult:
     r"""A constructive or complete in-field exactness decision.
 
     At this low-level boundary, ``NO_PRIMITIVE`` says only that no primitive
@@ -147,14 +153,10 @@ class AlgebraicExactnessResult:
     derivation: Derivation
     coefficient: ExtensionElement
     constant_field_analysis: AlgebraicConstantFieldAnalysis
-    primitive_pole_divisor: AlgebraicDivisor | None
-    status: AlgebraicExactnessStatus
-    certificate: AlgebraicExactnessCertificate | None
-    primitive: ExtensionElement | None
-    space: RiemannRochSpace | None
     detail: str
+    status: ClassVar[AlgebraicExactnessStatus]
 
-    def __post_init__(self) -> None:
+    def _validate_common(self) -> ExtensionElement:
         if not isinstance(self.model, AlgebraicFunctionField):
             raise TypeError("an exactness result needs an algebraic function field")
         if not isinstance(self.derivation, Derivation):
@@ -177,40 +179,75 @@ class AlgebraicExactnessResult:
             self.derivation,
         ):
             raise ValueError("the constant analysis belongs to another derivation")
-        pole_divisor = self.primitive_pole_divisor
-        if pole_divisor is not None and not isinstance(pole_divisor, AlgebraicDivisor):
-            raise TypeError("an exactness pole divisor has the wrong type")
-        if pole_divisor is not None and pole_divisor.model is not self.model:
-            raise ValueError("the primitive pole divisor belongs to another model")
-        if not isinstance(self.status, AlgebraicExactnessStatus):
-            raise TypeError("the exactness status has the wrong type")
-        if self.certificate is not None and not isinstance(
-            self.certificate,
-            AlgebraicExactnessCertificate,
-        ):
-            raise TypeError("the exactness certificate has the wrong type")
-        if self.space is not None and not isinstance(self.space, RiemannRochSpace):
-            raise TypeError("an exactness space needs a Riemann--Roch result")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("an exactness result needs a nonempty detail")
 
         coefficient = _extension_element(self.model.extension, self.coefficient)
-        primitive = (
-            None
-            if self.primitive is None
-            else _extension_element(self.model.extension, self.primitive)
-        )
         object.__setattr__(self, "coefficient", coefficient)
-        object.__setattr__(self, "primitive", primitive)
+        return coefficient
 
+    def _validate_pole_divisor(
+        self, coefficient: ExtensionElement, pole_divisor: AlgebraicDivisor
+    ) -> AlgebraicDifferential:
+        if not isinstance(pole_divisor, AlgebraicDivisor):
+            raise TypeError("an exactness pole divisor has the wrong type")
+        if pole_divisor.model is not self.model:
+            raise ValueError("the primitive pole divisor belongs to another model")
+        differential = self.model.differential(coefficient)
+        if pole_divisor != _primitive_pole_divisor(differential):
+            raise ValueError("the primitive pole divisor is inconsistent")
+        return differential
+
+    @property
+    def is_exact(self) -> bool:
+        """Whether this result carries a verified primitive."""
+        return isinstance(self, AlgebraicExactPrimitive)
+
+    @property
+    def complete_negative(self) -> bool:
+        """Whether a residue or complete space proves non-exactness."""
+        return isinstance(self, AlgebraicNoPrimitive)
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether the recorded primitive differentiates to the coefficient."""
+        primitive = getattr(self, "primitive", None)
+        return primitive is not None and (
+            self.derivation(primitive) - self.coefficient
+            == self.model.extension.field.zero
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicExactPrimitive(_AlgebraicExactnessResult):
+    """A verified primitive in the current algebraic function field."""
+
+    model: AlgebraicFunctionField
+    derivation: Derivation
+    coefficient: ExtensionElement
+    constant_field_analysis: AlgebraicConstantFieldAnalysis
+    primitive_pole_divisor: AlgebraicDivisor
+    certificate: AlgebraicExactnessCertificate
+    primitive: ExtensionElement
+    space: RiemannRochSpace | None
+    detail: str
+    status: ClassVar[AlgebraicExactnessStatus] = AlgebraicExactnessStatus.EXACT
+
+    def __post_init__(self) -> None:
+        coefficient = self._validate_common()
+        primitive = _extension_element(self.model.extension, self.primitive)
+        object.__setattr__(self, "primitive", primitive)
+        pole_divisor = self.primitive_pole_divisor
         zero = self.model.extension.field.zero
+        if not isinstance(pole_divisor, AlgebraicDivisor):
+            raise TypeError("an exactness pole divisor has the wrong type")
+        if pole_divisor.model is not self.model:
+            raise ValueError("the primitive pole divisor belongs to another model")
+
         if coefficient == zero:
             if (
-                self.status is not AlgebraicExactnessStatus.EXACT
-                or self.certificate
-                is not AlgebraicExactnessCertificate.ZERO_DIFFERENTIAL
+                self.certificate is not AlgebraicExactnessCertificate.ZERO_DIFFERENTIAL
                 or primitive != zero
-                or pole_divisor is None
                 or not pole_divisor.is_zero
                 or self.space is not None
             ):
@@ -218,92 +255,119 @@ class AlgebraicExactnessResult:
                     "the zero differential has inconsistent exactness data"
                 )
             return
-
-        if self.status is AlgebraicExactnessStatus.UNSUPPORTED:
-            if (
-                self.certificate is not None
-                or primitive is not None
-                or self.space is not None
-            ):
-                raise ValueError("an unsupported exactness result has partial data")
-            return
-        if pole_divisor is None:
-            raise ValueError("a supported exactness result needs a pole divisor")
-
-        differential = self.model.differential(coefficient)
-        expected_bound = _primitive_pole_divisor(differential)
-        if pole_divisor != expected_bound:
-            raise ValueError("the primitive pole divisor is inconsistent")
+        differential = self._validate_pole_divisor(coefficient, pole_divisor)
         has_nonzero_residue = _has_nonzero_residue(differential)
-
         space = self.space
-        if space is not None and (
-            space.model is not self.model
+        if space is None or (
+            not isinstance(space, RiemannRochSpace)
+            or space.model is not self.model
             or space.divisor != pole_divisor
             or space.status is not RiemannRochSpaceStatus.CERTIFIED
         ):
             raise ValueError("the primitive space is inconsistent")
+        if (
+            self.certificate
+            is not AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
+            or has_nonzero_residue
+            or not space.contains(primitive)
+            or self.derivation(primitive) - coefficient != zero
+        ):
+            raise ValueError("an exactness witness is inconsistent")
 
-        if self.status is AlgebraicExactnessStatus.EXACT:
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicNoPrimitive(_AlgebraicExactnessResult):
+    """A complete certificate that no in-field primitive exists."""
+
+    model: AlgebraicFunctionField
+    derivation: Derivation
+    coefficient: ExtensionElement
+    constant_field_analysis: AlgebraicConstantFieldAnalysis
+    primitive_pole_divisor: AlgebraicDivisor
+    certificate: AlgebraicExactnessCertificate
+    space: RiemannRochSpace | None
+    detail: str
+    _trusted_no_solution: InitVar[object | None] = None
+    status: ClassVar[AlgebraicExactnessStatus] = AlgebraicExactnessStatus.NO_PRIMITIVE
+    primitive: ClassVar[None] = None
+
+    def __post_init__(self, trusted_no_solution: object | None) -> None:
+        coefficient = self._validate_common()
+        if coefficient == self.model.extension.field.zero:
+            raise ValueError("the zero differential always has a primitive")
+        differential = self._validate_pole_divisor(
+            coefficient, self.primitive_pole_divisor
+        )
+        has_nonzero_residue = _has_nonzero_residue(differential)
+        space = self.space
+        if space is not None and (
+            not isinstance(space, RiemannRochSpace)
+            or space.model is not self.model
+            or space.divisor != self.primitive_pole_divisor
+            or space.status is not RiemannRochSpaceStatus.CERTIFIED
+        ):
+            raise ValueError("the primitive space is inconsistent")
+        if self.certificate is AlgebraicExactnessCertificate.NONZERO_RESIDUE:
+            if has_nonzero_residue and space is None:
+                return
+            raise ValueError("a residue obstruction has no nonzero residue")
+        if self.certificate is AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE:
             if (
-                self.certificate
-                is not AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
-                or primitive is None
+                self.constant_field_analysis.status
+                is not AlgebraicConstantFieldStatus.PRESERVED
+            ):
+                raise ValueError(
+                    "a complete primitive-space negative needs preserved constants"
+                )
+            if (
+                trusted_no_solution is not None
+                and trusted_no_solution is not _TRUSTED_NO_PRIMITIVE_SOLVE
+            ):
+                raise ValueError("the trusted exactness construction marker is invalid")
+            if (
+                has_nonzero_residue
                 or space is None
-                or has_nonzero_residue
-                or not space.contains(primitive)
-                or self.derivation(primitive) - coefficient != zero
-            ):
-                raise ValueError("an exactness witness is inconsistent")
-            return
-
-        if self.status is AlgebraicExactnessStatus.NO_PRIMITIVE:
-            if primitive is not None:
-                raise ValueError("a no-primitive result cannot carry a primitive")
-            if self.certificate is AlgebraicExactnessCertificate.NONZERO_RESIDUE:
-                if has_nonzero_residue and space is None:
-                    return
-                raise ValueError("a residue obstruction has no nonzero residue")
-            if (
-                self.certificate
-                is AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
-            ):
-                if (
-                    has_nonzero_residue
-                    or space is None
-                    or _solve_constant_derivative_equation(
-                        self.model,
-                        self.derivation,
-                        space,
-                        coefficient,
+                or (
+                    trusted_no_solution is None
+                    and _solve_constant_derivative_equation(
+                        self.model, self.derivation, space, coefficient
                     )
                     is not None
-                ):
-                    raise ValueError("the complete primitive space has a solution")
-                return
-            raise ValueError("a no-primitive result needs a complete certificate")
+                )
+            ):
+                raise ValueError("the complete primitive space has a solution")
+            return
+        raise ValueError("a no-primitive result needs a complete certificate")
 
-        raise ValueError("the exactness result has an unknown status")
 
-    @property
-    def is_exact(self) -> bool:
-        """Whether this result carries a verified primitive."""
-        return self.status is AlgebraicExactnessStatus.EXACT
+@dataclass(frozen=True, slots=True)
+class AlgebraicExactnessUnsupported(_AlgebraicExactnessResult):
+    """An exact boundary where no complete exactness decision was possible."""
 
-    @property
-    def complete_negative(self) -> bool:
-        """Whether a residue or a complete primitive space proves non-exactness."""
-        return self.status is AlgebraicExactnessStatus.NO_PRIMITIVE
+    model: AlgebraicFunctionField
+    derivation: Derivation
+    coefficient: ExtensionElement
+    constant_field_analysis: AlgebraicConstantFieldAnalysis
+    primitive_pole_divisor: AlgebraicDivisor | None
+    detail: str
+    status: ClassVar[AlgebraicExactnessStatus] = AlgebraicExactnessStatus.UNSUPPORTED
+    certificate: ClassVar[None] = None
+    primitive: ClassVar[None] = None
+    space: ClassVar[None] = None
 
-    @property
-    def reconstructs(self) -> bool:
-        """Whether the recorded primitive differentiates to the coefficient."""
-        if self.primitive is None:
-            return False
-        return (
-            self.derivation(self.primitive) - self.coefficient
-            == self.model.extension.field.zero
-        )
+    def __post_init__(self) -> None:
+        self._validate_common()
+        pole_divisor = self.primitive_pole_divisor
+        if pole_divisor is not None:
+            if not isinstance(pole_divisor, AlgebraicDivisor):
+                raise TypeError("an exactness pole divisor has the wrong type")
+            if pole_divisor.model is not self.model:
+                raise ValueError("the primitive pole divisor belongs to another model")
+
+
+AlgebraicExactnessResult: TypeAlias = (
+    AlgebraicExactPrimitive | AlgebraicNoPrimitive | AlgebraicExactnessUnsupported
+)
 
 
 def _unsupported_exactness(
@@ -315,16 +379,12 @@ def _unsupported_exactness(
     detail: str,
 ) -> AlgebraicExactnessResult:
     """Construct an intentionally information-free unsupported result."""
-    return AlgebraicExactnessResult(
+    return AlgebraicExactnessUnsupported(
         model,
         derivation,
         coefficient,
         analysis,
         pole_divisor,
-        AlgebraicExactnessStatus.UNSUPPORTED,
-        None,
-        None,
-        None,
         detail,
     )
 
@@ -361,13 +421,12 @@ def solve_algebraic_exactness(
     zero = model.extension.field.zero
     zero_divisor = AlgebraicDivisor(model)
     if value == zero:
-        return AlgebraicExactnessResult(
+        return AlgebraicExactPrimitive(
             model,
             derivation,
             value,
             constant_field_analysis,
             zero_divisor,
-            AlgebraicExactnessStatus.EXACT,
             AlgebraicExactnessCertificate.ZERO_DIFFERENTIAL,
             zero,
             None,
@@ -390,15 +449,13 @@ def solve_algebraic_exactness(
         )
 
     if has_nonzero_residue:
-        return AlgebraicExactnessResult(
+        return AlgebraicNoPrimitive(
             model,
             derivation,
             value,
             constant_field_analysis,
             pole_divisor,
-            AlgebraicExactnessStatus.NO_PRIMITIVE,
             AlgebraicExactnessCertificate.NONZERO_RESIDUE,
-            None,
             None,
             "a nonzero residue proves that the differential has no algebraic primitive",
         )
@@ -442,27 +499,25 @@ def solve_algebraic_exactness(
             "the exact constant derivative solve is unavailable: " + str(exc),
         )
     if primitive is not None:
-        return AlgebraicExactnessResult(
+        return AlgebraicExactPrimitive(
             model,
             derivation,
             value,
             constant_field_analysis,
             pole_divisor,
-            AlgebraicExactnessStatus.EXACT,
             AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE,
             primitive,
             space,
             "a complete primitive space contains a verified algebraic primitive",
         )
-    return AlgebraicExactnessResult(
+    return AlgebraicNoPrimitive(
         model,
         derivation,
         value,
         constant_field_analysis,
         pole_divisor,
-        AlgebraicExactnessStatus.NO_PRIMITIVE,
         AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE,
-        None,
         space,
         "the complete primitive space contains no algebraic primitive",
+        _trusted_no_solution=_TRUSTED_NO_PRIMITIVE_SOLVE,
     )

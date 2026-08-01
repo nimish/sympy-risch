@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import cast
+from typing import ClassVar, TypeAlias, cast
 
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.domains.fractionfield import FractionField
@@ -166,8 +166,7 @@ def _rational_parameter_pole_divisor(
     return pole_divisor
 
 
-@dataclass(frozen=True, slots=True)
-class RiemannRochSpace:
+class _RiemannRochSpace:
     r"""An immutable complete basis of one certified ``L(D)``.
 
     ``basis`` is over the function field's displayed constant field.
@@ -178,23 +177,51 @@ class RiemannRochSpace:
 
     model: AlgebraicFunctionField
     divisor: AlgebraicDivisor
-    status: RiemannRochSpaceStatus
-    basis: tuple[ExtensionElement, ...]
-    certificate: RiemannRochCertificate | None
     detail: str
-    parameter: ExtensionElement | None = None
+    status: ClassVar[RiemannRochSpaceStatus]
 
-    def __post_init__(self) -> None:
+    def _validate_common(self) -> None:
         if not isinstance(self.model, AlgebraicFunctionField):
             raise TypeError("a Riemann--Roch space needs an algebraic function field")
         if not isinstance(self.divisor, AlgebraicDivisor):
             raise TypeError("a Riemann--Roch space needs an algebraic divisor")
         if self.divisor.model is not self.model:
             raise ValueError("the divisor belongs to another function field")
-        if not isinstance(self.status, RiemannRochSpaceStatus):
-            raise TypeError("the Riemann--Roch status has the wrong type")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("a Riemann--Roch space needs a nonempty detail")
+
+    @property
+    def complete(self) -> bool:
+        """Whether this object is a full, rather than partial, space."""
+        return isinstance(self, CertifiedRiemannRochSpace)
+
+    @property
+    def unsupported(self) -> bool:
+        """Whether no complete space was certified in the present scope."""
+        return isinstance(self, RiemannRochSpaceUnsupported)
+
+    def contains(self, element: object) -> bool:
+        """Verify the defining valuation inequalities for one field element."""
+        value = _extension_element(self.model.extension, element)
+        if value == self.model.extension.field.zero:
+            return True
+        return (self.model.principal_divisor(value) + self.divisor).is_effective
+
+
+@dataclass(frozen=True, slots=True)
+class CertifiedRiemannRochSpace(_RiemannRochSpace):
+    """A complete theorem-certified basis of ``L(D)``."""
+
+    model: AlgebraicFunctionField
+    divisor: AlgebraicDivisor
+    basis: tuple[ExtensionElement, ...]
+    certificate: RiemannRochCertificate
+    detail: str
+    parameter: ExtensionElement | None = None
+    status: ClassVar[RiemannRochSpaceStatus] = RiemannRochSpaceStatus.CERTIFIED
+
+    def __post_init__(self) -> None:
+        self._validate_common()
 
         basis = tuple(
             _extension_element(self.model.extension, element) for element in self.basis
@@ -206,15 +233,6 @@ class RiemannRochSpace:
             parameter = _extension_element(self.model.extension, self.parameter)
             object.__setattr__(self, "parameter", parameter)
 
-        if self.status is RiemannRochSpaceStatus.UNSUPPORTED:
-            if basis or self.certificate is not None or parameter is not None:
-                raise ValueError(
-                    "an unsupported Riemann--Roch result cannot carry partial data",
-                )
-            return
-
-        if self.status is not RiemannRochSpaceStatus.CERTIFIED:
-            raise ValueError("a Riemann--Roch result has an unknown status")
         if not isinstance(self.certificate, RiemannRochCertificate):
             raise ValueError(
                 "a complete Riemann--Roch space needs a theorem certificate"
@@ -223,28 +241,9 @@ class RiemannRochSpace:
         self._verify_certificate(basis, parameter)
 
     @property
-    def dimension(self) -> int | None:
-        """The proved constant-field dimension, or ``None`` if unsupported."""
-        if self.status is RiemannRochSpaceStatus.UNSUPPORTED:
-            return None
+    def dimension(self) -> int:
+        """The proved constant-field dimension."""
         return len(self.basis)
-
-    @property
-    def complete(self) -> bool:
-        """Whether this object is a full, rather than partial, space."""
-        return self.status is RiemannRochSpaceStatus.CERTIFIED
-
-    @property
-    def unsupported(self) -> bool:
-        """Whether no complete space was certified in the present scope."""
-        return self.status is RiemannRochSpaceStatus.UNSUPPORTED
-
-    def contains(self, element: object) -> bool:
-        """Verify the defining valuation inequalities for one field element."""
-        value = _extension_element(self.model.extension, element)
-        if value == self.model.extension.field.zero:
-            return True
-        return (self.model.principal_divisor(value) + self.divisor).is_effective
 
     def _verify_certificate(
         self,
@@ -322,20 +321,33 @@ class RiemannRochSpace:
             raise ValueError("a proposed basis is constant-linearly dependent")
 
 
+@dataclass(frozen=True, slots=True)
+class RiemannRochSpaceUnsupported(_RiemannRochSpace):
+    """An exact boundary where no complete space was constructed."""
+
+    model: AlgebraicFunctionField
+    divisor: AlgebraicDivisor
+    detail: str
+    status: ClassVar[RiemannRochSpaceStatus] = RiemannRochSpaceStatus.UNSUPPORTED
+    basis: ClassVar[tuple[()]] = ()
+    certificate: ClassVar[None] = None
+    parameter: ClassVar[None] = None
+    dimension: ClassVar[None] = None
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+
+
+RiemannRochSpace: TypeAlias = CertifiedRiemannRochSpace | RiemannRochSpaceUnsupported
+
+
 def _unsupported_space(
     model: AlgebraicFunctionField,
     divisor: AlgebraicDivisor,
     detail: str,
 ) -> RiemannRochSpace:
     """Build the deliberately empty boundary result."""
-    return RiemannRochSpace(
-        model,
-        divisor,
-        RiemannRochSpaceStatus.UNSUPPORTED,
-        (),
-        None,
-        detail,
-    )
+    return RiemannRochSpaceUnsupported(model, divisor, detail)
 
 
 def compute_riemann_roch_space(
@@ -385,10 +397,9 @@ def compute_riemann_roch_space(
                 "a negative-degree divisor has L(D) = 0; supplied candidate data "
                 "does not describe that space",
             )
-        return RiemannRochSpace(
+        return CertifiedRiemannRochSpace(
             model,
             divisor,
-            RiemannRochSpaceStatus.CERTIFIED,
             (),
             RiemannRochCertificate.NEGATIVE_DEGREE,
             "deg(D) < 0, so no nonzero function can have div(f) + D effective",
@@ -398,10 +409,9 @@ def compute_riemann_roch_space(
         if parameter is not None:
             raise ValueError("a rational parameter is unnecessary for the zero divisor")
         basis = (model.extension.field.one,) if candidates is None else candidates
-        return RiemannRochSpace(
+        return CertifiedRiemannRochSpace(
             model,
             divisor,
-            RiemannRochSpaceStatus.CERTIFIED,
             basis,
             RiemannRochCertificate.ZERO_DIVISOR,
             "global regular functions on the complete curve are exactly constants",
@@ -425,10 +435,9 @@ def compute_riemann_roch_space(
                 if candidates is None
                 else candidates
             )
-            return RiemannRochSpace(
+            return CertifiedRiemannRochSpace(
                 model,
                 divisor,
-                RiemannRochSpaceStatus.CERTIFIED,
                 basis,
                 RiemannRochCertificate.RATIONAL_PARAMETER,
                 "a degree-one pole parameter identifies the function field with C(t)",
@@ -441,10 +450,9 @@ def compute_riemann_roch_space(
         )
 
     if candidates is not None and divisor.degree == 0 and len(candidates) == 1:
-        return RiemannRochSpace(
+        return CertifiedRiemannRochSpace(
             model,
             divisor,
-            RiemannRochSpaceStatus.CERTIFIED,
             candidates,
             RiemannRochCertificate.DEGREE_ZERO_WITNESS,
             "the supplied degree-zero principal witness spans L(D)",
@@ -460,10 +468,9 @@ def compute_riemann_roch_space(
                 f"the genus needed for the nonspecial theorem is unavailable: {exc}",
             )
         if divisor.degree > 2 * genus - 2:
-            return RiemannRochSpace(
+            return CertifiedRiemannRochSpace(
                 model,
                 divisor,
-                RiemannRochSpaceStatus.CERTIFIED,
                 candidates,
                 RiemannRochCertificate.NONSPECIAL,
                 "Riemann--Roch gives l(D) = deg(D) + 1 - genus in this range",
@@ -479,10 +486,9 @@ def compute_riemann_roch_space(
             divisor,
             f"Hess ideal-intersection computation is unavailable: {exc}",
         )
-    return RiemannRochSpace(
+    return CertifiedRiemannRochSpace(
         model,
         divisor,
-        RiemannRochSpaceStatus.CERTIFIED,
         basis,
         RiemannRochCertificate.HESS_IDEAL_INTERSECTION,
         "Hess ideal-intersection reduction computed a complete Riemann--Roch basis",
