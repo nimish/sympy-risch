@@ -24,7 +24,9 @@ from ..tower import AlgebraicExtension
 from ._field import _base_polynomial_ring
 from .all_places import (
     AlgebraicAllPlaceResidueResult,
-    AlgebraicAllPlaceResidueStatus,
+    AlgebraicAllPlacesCollected,
+    AlgebraicAllPlacesUnsupported,
+    AlgebraicHermiteExact,
     AlgebraicLocalDifferentialResidue,
 )
 
@@ -175,20 +177,23 @@ class AlgebraicResidueProfile:
             self.collection.basis.extension,
             self.residue_symbol,
         )
-        source_status = self.collection.status
-        if source_status is AlgebraicAllPlaceResidueStatus.EXACT:
-            if self.status is not AlgebraicResidueProfileStatus.EXACT:
-                raise ValueError("an exact collection needs an exact residue profile")
-        elif source_status is AlgebraicAllPlaceResidueStatus.UNSUPPORTED:
-            if self.status is not AlgebraicResidueProfileStatus.UNSUPPORTED:
-                raise ValueError("an unsupported collection cannot have a profile")
-        elif self.status not in {
-            AlgebraicResidueProfileStatus.PROFILED,
-            AlgebraicResidueProfileStatus.UNSUPPORTED,
-        }:
-            raise ValueError(
-                "a collected result needs a profiled or unsupported result"
-            )
+        match self.collection:
+            case AlgebraicHermiteExact():
+                if self.status is not AlgebraicResidueProfileStatus.EXACT:
+                    raise ValueError(
+                        "an exact collection needs an exact residue profile"
+                    )
+            case AlgebraicAllPlacesUnsupported():
+                if self.status is not AlgebraicResidueProfileStatus.UNSUPPORTED:
+                    raise ValueError("an unsupported collection cannot have a profile")
+            case AlgebraicAllPlacesCollected():
+                if self.status not in {
+                    AlgebraicResidueProfileStatus.PROFILED,
+                    AlgebraicResidueProfileStatus.UNSUPPORTED,
+                }:
+                    raise ValueError(
+                        "a collected result needs a profiled or unsupported result"
+                    )
 
         if self.status is AlgebraicResidueProfileStatus.UNSUPPORTED:
             if self.factors or self.residue_polynomial is not None:
@@ -213,6 +218,8 @@ class AlgebraicResidueProfile:
                 raise ValueError("an exact residue profile must be the unit polynomial")
             return
 
+        if not isinstance(self.collection, AlgebraicAllPlacesCollected):
+            raise ValueError("a profiled residue result needs collected all-place data")
         if len(self.factors) != len(self.collection.residues):
             raise ValueError("the residue-profile factors do not cover every pole")
         for factor, local_residue in zip(
@@ -286,24 +293,28 @@ def build_algebraic_residue_profile(
         collection.basis.extension,
         residue_symbol,
     )
-    if collection.status is AlgebraicAllPlaceResidueStatus.EXACT:
-        return AlgebraicResidueProfile(
-            collection,
-            residue_symbol,
-            AlgebraicResidueProfileStatus.EXACT,
-            (),
-            Poly(1, residue_symbol, domain=constants),
-            "Hermite reduction proved exactness, so the all-place residue profile is 1",
-        )
-    if collection.status is AlgebraicAllPlaceResidueStatus.UNSUPPORTED:
-        return AlgebraicResidueProfile(
-            collection,
-            residue_symbol,
-            AlgebraicResidueProfileStatus.UNSUPPORTED,
-            (),
-            None,
-            "the all-place collection is unsupported: " + collection.detail,
-        )
+    match collection:
+        case AlgebraicHermiteExact():
+            return AlgebraicResidueProfile(
+                collection,
+                residue_symbol,
+                AlgebraicResidueProfileStatus.EXACT,
+                (),
+                Poly(1, residue_symbol, domain=constants),
+                "Hermite reduction proved exactness, so the all-place residue "
+                "profile is 1",
+            )
+        case AlgebraicAllPlacesUnsupported(detail=detail):
+            return AlgebraicResidueProfile(
+                collection,
+                residue_symbol,
+                AlgebraicResidueProfileStatus.UNSUPPORTED,
+                (),
+                None,
+                "the all-place collection is unsupported: " + detail,
+            )
+        case AlgebraicAllPlacesCollected():
+            pass
 
     try:
         factors = tuple(

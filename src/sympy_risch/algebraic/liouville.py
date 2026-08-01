@@ -9,7 +9,6 @@ own its proof-object validation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
 
 from .._typing import FieldElement
 from ..algebraic_geometry.finite_torsion import (
@@ -18,18 +17,15 @@ from ..algebraic_geometry.finite_torsion import (
 )
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ..algebraic_geometry.principal import (
-    AlgebraicPrincipalityDecision,
-    AlgebraicPrincipalityStatus,
+    AlgebraicNonprincipal,
 )
 from .all_places import (
-    AlgebraicAllPlaceResidueResult,
-    AlgebraicAllPlaceResidueStatus,
+    AlgebraicAllPlacesCollected,
 )
 from .constant_analysis import AlgebraicConstantFieldStatus
 from .exactness import (
     AlgebraicExactnessCertificate,
-    AlgebraicExactnessResult,
-    AlgebraicExactnessStatus,
+    AlgebraicNoPrimitive,
 )
 from .residue_coordinates import AlgebraicResidueCoordinateCertificate
 
@@ -47,20 +43,17 @@ class AlgebraicLiouvilleObstruction:
     """
 
     coordinate: AlgebraicResidueCoordinateCertificate
-    principality: AlgebraicPrincipalityDecision
+    principality: AlgebraicNonprincipal
     torsion: AlgebraicDivisorTorsionDecision
-    detail: ClassVar[str] = (
-        "a rational-coordinate residue divisor is certified nontorsion"
-    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.coordinate, AlgebraicResidueCoordinateCertificate):
             raise TypeError("a Liouville obstruction needs a residue coordinate")
         model = self.coordinate.collection.model
         if (
-            self.principality.model is not model
+            not isinstance(self.principality, AlgebraicNonprincipal)
+            or self.principality.model is not model
             or self.principality.divisor != self.residue_divisor
-            or self.principality.status is not AlgebraicPrincipalityStatus.NONPRINCIPAL
         ):
             raise ValueError("the residue divisor lacks its nonprincipality proof")
         if (
@@ -71,9 +64,14 @@ class AlgebraicLiouvilleObstruction:
             raise ValueError("the residue divisor lacks its nontorsion proof")
 
     @property
-    def collection(self) -> AlgebraicAllPlaceResidueResult:
+    def collection(self) -> AlgebraicAllPlacesCollected:
         """Complete all-place residues from which the coordinate was replayed."""
         return self.coordinate.collection
+
+    @property
+    def detail(self) -> str:
+        """The fixed theorem conclusion represented by this variant."""
+        return "a rational-coordinate residue divisor is certified nontorsion"
 
     @property
     def coefficient(self) -> FieldElement:
@@ -99,26 +97,20 @@ class AlgebraicExactnessLiouvilleObstruction:
     descent.
     """
 
-    collection: AlgebraicAllPlaceResidueResult
-    exactness: AlgebraicExactnessResult
-    detail: ClassVar[str] = (
-        "the complete residue-free primitive space contains no solution"
-    )
+    collection: AlgebraicAllPlacesCollected
+    exactness: AlgebraicNoPrimitive
 
     def __post_init__(self) -> None:
-        if not isinstance(self.collection, AlgebraicAllPlaceResidueResult):
+        if not isinstance(self.collection, AlgebraicAllPlacesCollected):
             raise TypeError("a Liouville obstruction needs all-place residue data")
         if (
-            self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
-            or self.collection.model is None
-            or self.collection.constant_field_analysis is None
-            or self.collection.constant_field_analysis.status
+            self.collection.constant_field_analysis.status
             is not AlgebraicConstantFieldStatus.PRESERVED
         ):
             raise ValueError(
                 "a Liouville obstruction needs complete residues and full constants"
             )
-        if not isinstance(self.exactness, AlgebraicExactnessResult):
+        if not isinstance(self.exactness, AlgebraicNoPrimitive):
             raise TypeError("an exactness obstruction needs an exactness decision")
         if (
             self.exactness.model is not self.collection.model
@@ -128,14 +120,17 @@ class AlgebraicExactnessLiouvilleObstruction:
         ):
             raise ValueError("the exactness obstruction belongs to another problem")
         if (
-            self.exactness.status is not AlgebraicExactnessStatus.NO_PRIMITIVE
-            or self.exactness.certificate
+            self.exactness.certificate
             is not AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
-            or not self.exactness.complete_negative
         ):
             raise ValueError(
                 "an exactness obstruction needs a complete residue-free decision"
             )
+
+    @property
+    def detail(self) -> str:
+        """The fixed theorem conclusion represented by this variant."""
+        return "the complete residue-free primitive space contains no solution"
 
 
 __all__ = [

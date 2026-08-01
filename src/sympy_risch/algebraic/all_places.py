@@ -3,8 +3,7 @@ r"""All-place residue collection after algebraic Hermite reduction."""
 from __future__ import annotations
 
 from dataclasses import InitVar, dataclass
-from enum import Enum
-from typing import TYPE_CHECKING, ClassVar, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from sympy.polys.agca.extensions import ExtensionElement
 
@@ -28,14 +27,6 @@ if TYPE_CHECKING:
         AlgebraicFunctionField,
         AlgebraicPlace,
     )
-
-
-class AlgebraicAllPlaceResidueStatus(Enum):
-    """Outcome of Hermite reduction and all-place residue collection."""
-
-    EXACT = "exact"
-    COLLECTED = "collected"
-    UNSUPPORTED = "unsupported"
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,10 +79,10 @@ class AlgebraicLocalDifferentialResidue:
 class _AlgebraicAllPlaceResidueResult:
     r"""The certified all-place local data of one algebraic Hermite remainder.
 
-    :attr:`AlgebraicAllPlaceResidueStatus.EXACT` proves that the Hermite
+    :class:`AlgebraicHermiteExact` proves that the Hermite
     remainder vanishes, so its complete pole support is empty without any
     constant-field or global-geometry work. For
-    :attr:`AlgebraicAllPlaceResidueStatus.COLLECTED`, ``residues`` is exactly
+    :class:`AlgebraicAllPlacesCollected`, ``residues`` is exactly
     the negative support of ``differential_divisor`` and includes branch and
     infinity places. An unsupported result still retains the exact Hermite
     decomposition, but has no global model or partial residue list.
@@ -103,7 +94,6 @@ class _AlgebraicAllPlaceResidueResult:
     exact_part: ExtensionElement
     remainder: ExtensionElement
     detail: str
-    status: ClassVar[AlgebraicAllPlaceResidueStatus]
 
     def _validate_common(self) -> ExtensionElement:
         if not isinstance(self.derivation, Derivation):
@@ -149,16 +139,6 @@ class _AlgebraicAllPlaceResidueResult:
         """Whether the retained Hermite decomposition reconstructs the input."""
         return self.derivation(self.exact_part) + self.remainder == self.integrand
 
-    @property
-    def collected(self) -> bool:
-        """Whether all pole support is known, including an exact zero remainder."""
-        return not isinstance(self, AlgebraicAllPlacesUnsupported)
-
-    @property
-    def exact(self) -> bool:
-        """Whether Hermite reduction already proved the integrand exact."""
-        return isinstance(self, AlgebraicHermiteExact)
-
 
 @dataclass(frozen=True, slots=True)
 class AlgebraicHermiteExact(_AlgebraicAllPlaceResidueResult):
@@ -170,13 +150,6 @@ class AlgebraicHermiteExact(_AlgebraicAllPlaceResidueResult):
     exact_part: ExtensionElement
     remainder: ExtensionElement
     detail: str
-    status: ClassVar[AlgebraicAllPlaceResidueStatus] = (
-        AlgebraicAllPlaceResidueStatus.EXACT
-    )
-    constant_field_analysis: ClassVar[None] = None
-    residues: ClassVar[tuple[()]] = ()
-    model: ClassVar[None] = None
-    differential_divisor: ClassVar[None] = None
 
     def __post_init__(self) -> None:
         remainder = self._validate_common()
@@ -195,12 +168,6 @@ class AlgebraicAllPlacesUnsupported(_AlgebraicAllPlaceResidueResult):
     remainder: ExtensionElement
     constant_field_analysis: AlgebraicConstantFieldAnalysis
     detail: str
-    status: ClassVar[AlgebraicAllPlaceResidueStatus] = (
-        AlgebraicAllPlaceResidueStatus.UNSUPPORTED
-    )
-    residues: ClassVar[tuple[()]] = ()
-    model: ClassVar[None] = None
-    differential_divisor: ClassVar[None] = None
 
     def __post_init__(self) -> None:
         self._validate_common()
@@ -223,9 +190,6 @@ class AlgebraicAllPlacesCollected(_AlgebraicAllPlaceResidueResult):
     differential_divisor: AlgebraicDivisor
     detail: str
     _verified_differential: InitVar[AlgebraicDifferential | None] = None
-    status: ClassVar[AlgebraicAllPlaceResidueStatus] = (
-        AlgebraicAllPlaceResidueStatus.COLLECTED
-    )
 
     def __post_init__(
         self, verified_differential: AlgebraicDifferential | None
@@ -294,7 +258,7 @@ def collect_algebraic_all_place_residues(
 
     This is the integration-facing bridge to the canonical global geometry
     layer. It first obtains ``integrand = D(exact_part) + remainder``. A zero
-    remainder returns an :attr:`AlgebraicAllPlaceResidueStatus.EXACT` result
+    remainder returns an :class:`AlgebraicHermiteExact` result
     immediately. Otherwise, it requires a proved preserved constant field
     before constructing an
     :class:`~sympy_risch.algebraic_geometry.AlgebraicFunctionField`. For a

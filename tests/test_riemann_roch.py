@@ -16,8 +16,7 @@ from sympy_risch import (
 from sympy_risch.algebraic_geometry.riemann_roch import (
     CertifiedRiemannRochSpace,
     RiemannRochCertificate,
-    RiemannRochSpaceStatus,
-    RiemannRochSpaceUnsupported,
+    RiemannRochUnsupported,
     compute_riemann_roch_space,
 )
 
@@ -45,7 +44,8 @@ def test_degree_one_parameter_constructs_a_complete_rational_space() -> None:
         parameter=parameter,
     )
 
-    assert space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert isinstance(space, CertifiedRiemannRochSpace)
+    assert not hasattr(space, "status")
     assert space.certificate is RiemannRochCertificate.RATIONAL_PARAMETER
     assert space.dimension == 4
     assert space.basis == tuple(parameter**power for power in range(4))
@@ -65,7 +65,7 @@ def test_constant_linear_independence_uses_an_exact_algebraic_constant_field() -
         parameter=parameter,
     )
 
-    assert space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert isinstance(space, CertifiedRiemannRochSpace)
     assert space.basis == (extension.field.one, parameter)
 
     with pytest.raises(ValueError, match="constant-linearly dependent"):
@@ -90,7 +90,7 @@ def test_nonspecial_certificate_uses_all_place_membership_on_genus_one_curve() -
 
     assert model.genus == 1
     assert divisor.degree == 2
-    assert space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert isinstance(space, CertifiedRiemannRochSpace)
     assert space.certificate is RiemannRochCertificate.NONSPECIAL
     assert space.dimension == 2
     assert all(space.contains(element) for element in space.basis)
@@ -107,7 +107,7 @@ def test_degree_zero_principal_witness_is_exactly_one_dimensional() -> None:
         candidate_basis=(parameter,),
     )
 
-    assert space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert isinstance(space, CertifiedRiemannRochSpace)
     assert space.certificate is RiemannRochCertificate.DEGREE_ZERO_WITNESS
     assert space.dimension == 1
     assert (model.principal_divisor(space.basis[0]) + divisor).is_zero
@@ -128,10 +128,10 @@ def test_negative_degree_and_zero_divisor_have_canonical_complete_spaces() -> No
         negative_divisor,
     )
 
-    assert zero_space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert isinstance(zero_space, CertifiedRiemannRochSpace)
     assert zero_space.certificate is RiemannRochCertificate.ZERO_DIVISOR
     assert zero_space.basis == (field.one,)
-    assert negative_space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert isinstance(negative_space, CertifiedRiemannRochSpace)
     assert negative_space.certificate is RiemannRochCertificate.NEGATIVE_DEGREE
     assert negative_space.basis == ()
     assert negative_space.dimension == 0
@@ -146,7 +146,7 @@ def test_positive_genus_special_range_uses_hess_ideal_intersection() -> None:
 
     assert model.genus == 2
     assert divisor.degree == 2
-    assert space.status is RiemannRochSpaceStatus.CERTIFIED
+    assert isinstance(space, CertifiedRiemannRochSpace)
     assert space.certificate is RiemannRochCertificate.HESS_IDEAL_INTERSECTION
     assert space.dimension == 2
     assert all(space.contains(element) for element in space.basis)
@@ -200,8 +200,8 @@ def test_parameter_of_higher_pole_degree_is_explicitly_unsupported() -> None:
         parameter=x_element,
     )
 
-    assert space.status is RiemannRochSpaceStatus.UNSUPPORTED
-    assert space.basis == ()
+    assert isinstance(space, RiemannRochUnsupported)
+    assert not hasattr(space, "basis")
     assert "degree one" in space.detail
 
 
@@ -251,19 +251,19 @@ def test_result_rejects_partial_unsupported_data_and_wrong_divisor_ownership() -
     other_model = AlgebraicFunctionField(extension)
 
     with pytest.raises(TypeError):
-        RiemannRochSpaceUnsupported(
+        RiemannRochUnsupported(
             model,
             AlgebraicDivisor(model),
             "forged unsupported partial result",
             basis=(field.one,),
         )
-    unsupported = RiemannRochSpaceUnsupported(
+    unsupported = RiemannRochUnsupported(
         model,
         AlgebraicDivisor(model),
         "unsupported boundary",
     )
     with pytest.raises(TypeError):
-        replace(unsupported, status=RiemannRochSpaceStatus.CERTIFIED)
+        replace(unsupported, status="certified")
     with pytest.raises(ValueError, match="belongs to another function field"):
         compute_riemann_roch_space(
             model,

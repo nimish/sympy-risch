@@ -24,7 +24,9 @@ from ._field import _extension_element, _quotient_extension_elements
 from .constant_analysis import AlgebraicConstantFieldAnalysis
 from .exactness import (
     AlgebraicExactnessResult,
-    AlgebraicExactnessStatus,
+    AlgebraicExactnessUnsupported,
+    AlgebraicExactPrimitive,
+    AlgebraicNoPrimitive,
     solve_algebraic_exactness,
 )
 from .log_derivative import (
@@ -184,52 +186,53 @@ def solve_algebraic_integrating_factor_rde(
     if factor.factor is None:
         raise ValueError("a found integrating factor lacks its witness")
 
-    exactness = solve_algebraic_exactness(
+    match solve_algebraic_exactness(
         factor.factor * b,
         derivation,
         model,
         constant_field_analysis,
-    )
-    if exactness.is_exact:
-        if exactness.primitive is None:
-            raise ValueError("an exact transformed RDE lacks its primitive")
-        solution = _quotient_extension_elements(
-            model.extension,
-            exactness.primitive,
-            factor.factor,
-        )
-        return AlgebraicIntegratingFactorRDEResult(
-            model,
-            derivation,
-            a,
-            b,
-            AlgebraicIntegratingFactorRDEStatus.SOLVED,
-            solution,
-            factor,
-            exactness,
-            "a verified integrating factor reduces the RDE to an exact differential",
-        )
-    if exactness.status is AlgebraicExactnessStatus.NO_PRIMITIVE:
-        return AlgebraicIntegratingFactorRDEResult(
-            model,
-            derivation,
-            a,
-            b,
-            AlgebraicIntegratingFactorRDEStatus.NO_SOLUTION,
-            None,
-            factor,
-            exactness,
-            "the transformed differential has no primitive in the current algebraic field",
-        )
-    return AlgebraicIntegratingFactorRDEResult(
-        model,
-        derivation,
-        a,
-        b,
-        AlgebraicIntegratingFactorRDEStatus.UNSUPPORTED,
-        None,
-        factor,
-        exactness,
-        "the transformed exactness problem is not completely available: "
-        + exactness.detail,
-    )
+    ):
+        case AlgebraicExactPrimitive(primitive=primitive) as exactness:
+            solution = _quotient_extension_elements(
+                model.extension,
+                primitive,
+                factor.factor,
+            )
+            return AlgebraicIntegratingFactorRDEResult(
+                model,
+                derivation,
+                a,
+                b,
+                AlgebraicIntegratingFactorRDEStatus.SOLVED,
+                solution,
+                factor,
+                exactness,
+                "a verified integrating factor reduces the RDE to an exact "
+                "differential",
+            )
+        case AlgebraicNoPrimitive() as exactness:
+            return AlgebraicIntegratingFactorRDEResult(
+                model,
+                derivation,
+                a,
+                b,
+                AlgebraicIntegratingFactorRDEStatus.NO_SOLUTION,
+                None,
+                factor,
+                exactness,
+                "the transformed differential has no primitive in the current "
+                "algebraic field",
+            )
+        case AlgebraicExactnessUnsupported(detail=detail) as exactness:
+            return AlgebraicIntegratingFactorRDEResult(
+                model,
+                derivation,
+                a,
+                b,
+                AlgebraicIntegratingFactorRDEStatus.UNSUPPORTED,
+                None,
+                factor,
+                exactness,
+                "the transformed exactness problem is not completely available: "
+                + detail,
+            )

@@ -15,6 +15,7 @@ from sympy_risch import (
     compute_riemann_roch_space,
     reduce_hess_divisor,
 )
+from sympy_risch.algebraic_geometry.riemann_roch import CertifiedRiemannRochSpace
 
 x, y = symbols("x y")
 
@@ -69,7 +70,7 @@ def test_maximal_reduction_stops_at_the_last_nonzero_space() -> None:
         model,
         reduction.reduced_divisor - anchor,
     )
-    assert next_space.complete
+    assert isinstance(next_space, CertifiedRiemannRochSpace)
     assert not next_space.basis
     assert reduction.reconstructs
 
@@ -90,7 +91,7 @@ def test_default_anchor_maximal_reduction_uses_parametric_family() -> None:
         model,
         reduction.reduced_divisor - reduction.anchor,
     )
-    assert next_space.complete
+    assert isinstance(next_space, CertifiedRiemannRochSpace)
     assert not next_space.basis
     assert reduction.reconstructs
 

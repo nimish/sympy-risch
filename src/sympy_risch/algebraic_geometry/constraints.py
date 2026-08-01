@@ -57,8 +57,8 @@ from .function_field import (
 )
 from .infinity import InfiniteAlgebraicPlace
 from .riemann_roch import (
+    CertifiedRiemannRochSpace,
     RiemannRochSpace,
-    RiemannRochSpaceStatus,
     compute_riemann_roch_space,
     constant_coordinate_matrix,
 )
@@ -616,7 +616,7 @@ class AlgebraicNonspecialLatticeSearch:
         if (
             self.space.model is not self.model
             or self.space.divisor is not self.divisor
-            or self.space.status is not RiemannRochSpaceStatus.CERTIFIED
+            or not isinstance(self.space, CertifiedRiemannRochSpace)
             or self.space.basis != kernel.basis
         ):
             raise ValueError(
@@ -637,7 +637,7 @@ class AlgebraicNonspecialLatticeSearch:
         """The complete global-space dimension only when certified."""
         if self.status is not AlgebraicNonspecialSearchStatus.CERTIFIED:
             return None
-        if self.space is None:
+        if not isinstance(self.space, CertifiedRiemannRochSpace):
             raise ValueError(
                 "a certified nonspecial search lacks its Riemann--Roch space"
             )
@@ -646,7 +646,7 @@ class AlgebraicNonspecialLatticeSearch:
     @property
     def basis(self) -> tuple[ExtensionElement, ...]:
         """The validated complete basis, or no partial basis on non-success."""
-        if self.space is None:
+        if not isinstance(self.space, CertifiedRiemannRochSpace):
             return ()
         return self.space.basis
 
@@ -762,7 +762,7 @@ def search_nonspecial_lattice_slice(
             divisor,
             candidate_basis=kernel.basis,
         )
-        if space.status is not RiemannRochSpaceStatus.CERTIFIED:
+        if not isinstance(space, CertifiedRiemannRochSpace):
             raise ValueError(
                 "the existing Riemann--Roch certificate rejected a full lattice kernel"
             )

@@ -9,6 +9,10 @@ from sympy_risch import (
     MonomialExtension,
     analyze_algebraic_constant_field,
 )
+from sympy_risch.algebraic.exactness import (
+    AlgebraicExactPrimitive,
+    AlgebraicNoPrimitive,
+)
 from sympy_risch.algebraic.log_derivative import (
     AlgebraicIntegratingFactorCertificate,
     AlgebraicIntegratingFactorStatus,
@@ -56,7 +60,7 @@ def test_integrating_factor_rde_reduces_to_exactness() -> None:
     assert result.solution == extension.field.generator
     assert result.integrating_factor is not None
     assert result.integrating_factor.factor == extension.field.generator
-    assert result.exactness is not None and result.exactness.is_exact
+    assert isinstance(result.exactness, AlgebraicExactPrimitive)
 
 
 def test_integrating_factor_rde_can_prove_no_solution_after_exactness() -> None:
@@ -73,7 +77,7 @@ def test_integrating_factor_rde_can_prove_no_solution_after_exactness() -> None:
 
     assert result.status is AlgebraicIntegratingFactorRDEStatus.NO_SOLUTION
     assert result.complete_negative
-    assert result.exactness is not None and result.exactness.complete_negative
+    assert isinstance(result.exactness, AlgebraicNoPrimitive)
 
 
 def test_nonintegral_logarithmic_residue_does_not_claim_an_rde_negative() -> None:

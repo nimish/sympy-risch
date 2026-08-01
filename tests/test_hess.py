@@ -20,6 +20,7 @@ from sympy_risch.algebraic_geometry.constraints import (
     solve_algebraic_valuation_constraints,
 )
 from sympy_risch.algebraic_geometry.riemann_roch import (
+    CertifiedRiemannRochSpace,
     RiemannRochCertificate,
     constant_coordinate_matrix,
 )
@@ -96,7 +97,7 @@ def test_parametric_hess_basis_reuses_one_reduction_across_infinity_shifts() -> 
         expanded = parametric.expand(shift)
         fresh = compute_riemann_roch_space(model, shifted_divisor)
 
-        assert fresh.complete
+        assert isinstance(fresh, CertifiedRiemannRochSpace)
         assert len(expanded) == parametric.dimension(shift) == fresh.dimension
         assert all(fresh.contains(element) for element in expanded)
         assert (

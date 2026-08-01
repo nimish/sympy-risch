@@ -9,7 +9,8 @@ from sympy.polys.domains import QQ
 from sympy_risch import (
     AlgebraicExtension,
     AlgebraicFunctionField,
-    AlgebraicPrincipalityStatus,
+    AlgebraicNonprincipal,
+    AlgebraicPrincipal,
     DifferentialTower,
     MonomialExtension,
     decide_algebraic_principality,
@@ -34,14 +35,13 @@ def test_principality_finds_a_verified_genus_zero_witness() -> None:
 
     result = decide_algebraic_principality(model, divisor)
 
-    assert result.status is AlgebraicPrincipalityStatus.PRINCIPAL
-    assert result.principal
-    assert result.witness is not None
+    assert isinstance(result, AlgebraicPrincipal)
+    assert not hasattr(result, "status")
     assert model.principal_divisor(result.witness) == divisor
     assert result.divisor_class_search is not None
     assert result.divisor_class_search.order == 1
     with pytest.raises(TypeError):
-        replace(result, status=AlgebraicPrincipalityStatus.NONPRINCIPAL)
+        replace(result, status="nonprincipal")
 
 
 def test_principality_finds_a_witness_without_a_degree_bound() -> None:
@@ -50,8 +50,7 @@ def test_principality_finds_a_witness_without_a_degree_bound() -> None:
 
     result = decide_algebraic_principality(model, divisor)
 
-    assert result.status is AlgebraicPrincipalityStatus.PRINCIPAL
-    assert result.witness is not None
+    assert isinstance(result, AlgebraicPrincipal)
     assert model.principal_divisor(result.witness) == divisor
 
 
@@ -63,9 +62,8 @@ def test_degree_zero_reduced_class_proves_nonprincipality() -> None:
 
     result = decide_algebraic_principality(model, divisor)
 
-    assert result.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
-    assert result.complete_negative
-    assert result.witness is None
+    assert isinstance(result, AlgebraicNonprincipal)
+    assert not hasattr(result, "witness")
     assert result.riemann_roch_space is None
     assert result.divisor_class_search is not None
     assert result.divisor_class_search.last_representative is not None
@@ -78,9 +76,8 @@ def test_nonzero_degree_is_a_complete_nonprincipality_certificate() -> None:
 
     result = decide_algebraic_principality(model, positive_part)
 
-    assert result.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
-    assert result.complete_negative
-    assert result.witness is None
+    assert isinstance(result, AlgebraicNonprincipal)
+    assert not hasattr(result, "witness")
     assert result.riemann_roch_space is None
 
     with pytest.raises(ValueError, match="complete class proof"):

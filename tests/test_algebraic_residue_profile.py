@@ -5,6 +5,7 @@ from sympy import Poly, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
+    AlgebraicAllPlacesCollected,
     AlgebraicExtension,
     AlgebraicResidueProfileStatus,
     DifferentialTower,
@@ -133,7 +134,7 @@ def test_unit_profile_does_not_claim_second_kind_exactness() -> None:
 
     profile = build_algebraic_residue_profile(collection, z)
 
-    assert not collection.exact
+    assert isinstance(collection, AlgebraicAllPlacesCollected)
     assert profile.status is AlgebraicResidueProfileStatus.PROFILED
     assert profile.factors == ()
     assert profile.residue_polynomial == Poly(1, z, domain=QQ)

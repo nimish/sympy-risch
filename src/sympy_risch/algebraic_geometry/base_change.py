@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import ClassVar, TypeAlias
+from typing import TypeAlias
 
 from sympy.core.singleton import S
 from sympy.polys.agca.extensions import ExtensionElement
@@ -47,13 +47,6 @@ from .constant_extensions import (
 from .finite_places import FiniteAlgebraicPlace
 from .function_field import AlgebraicFunctionField, AlgebraicPlace
 from .infinity import InfiniteAlgebraicPlace
-
-
-class AlgebraicConstantBaseChangeStatus(Enum):
-    """Whether the narrow algebraic-constant base change was certified."""
-
-    CERTIFIED = "certified"
-    UNSUPPORTED = "unsupported"
 
 
 class AlgebraicPlaceSplitStatus(Enum):
@@ -90,90 +83,32 @@ def _embed_parent_element(
     return target_type(numerator, denominator)
 
 
-class _AlgebraicConstantBaseChange:
-    r"""A derivative-commuting ``C``-to-``C(alpha)`` function-field map.
-
-    On a certified result, :meth:`embed` is the explicit map from the source
-    algebraic function field into the target.  The builder checks it on the
-    rational and algebraic generators, which determines commutation with the
-    derivation on the whole source field.  Unsupported results carry only the
-    source data and an exact reason; they are not partial embeddings.
-    """
-
-    source_model: AlgebraicFunctionField
-    source_derivation: Derivation
-    factors: tuple[Poly, ...]
-    detail: str
-    status: ClassVar[AlgebraicConstantBaseChangeStatus]
-
-    def _validate_common(self) -> None:
-        if not isinstance(self.source_model, AlgebraicFunctionField):
-            raise TypeError("a base change needs a source function field")
-        if not isinstance(self.source_derivation, Derivation):
-            raise TypeError("a base change needs a source derivation")
-        if not isinstance(self.factors, tuple) or not self.factors:
-            raise ValueError("a base change needs at least one polynomial factor")
-        if any(not isinstance(factor, Poly) for factor in self.factors):
-            raise TypeError("base-change factors must be SymPy polynomials")
-        if not isinstance(self.detail, str) or not self.detail:
-            raise ValueError("a base change needs a nonempty detail")
-        if self.source_derivation.level < 0 or (
-            self.source_derivation.tower.levels[self.source_derivation.level]
-            is not self.source_model.extension
-        ):
-            raise ValueError("the source derivation is not bound to the source field")
-
-    @property
-    def certified(self) -> bool:
-        """Whether an explicit target embedding is available."""
-        return isinstance(self, CertifiedAlgebraicConstantBaseChange)
-
-    @property
-    def source_extension(self) -> AlgebraicExtension:
-        """The source algebraic extension."""
-        return self.source_model.extension
-
-    @property
-    def target_constants(self) -> AlgebraicField | None:
-        """The target constant field, when this change was certified."""
-        constant_compositum = getattr(self, "constant_compositum", None)
-        if constant_compositum is None:
-            return None
-        target = constant_compositum.target
-        if not isinstance(target, AlgebraicField):
-            raise ValueError("a certified base change has no algebraic target")
-        return target
-
-    def embed(self, element: object) -> ExtensionElement:
-        r"""Embed a source-field element into the certified target field."""
-        if not isinstance(self, CertifiedAlgebraicConstantBaseChange):
-            raise NotImplementedError(self.detail)
-        source = _extension_element(self.source_extension, element)
-        source_parent = self.source_extension.parent_field
-        target_parent = self.target_extension.parent_field
-        if not isinstance(source_parent, FractionField) or not isinstance(
-            target_parent, FractionField
-        ):
-            raise NotImplementedError(
-                "constant base change requires rational function parent fields"
-            )
-        coefficients = [
-            _embed_parent_element(
-                coefficient,
-                source_parent,
-                target_parent,
-                self.constant_compositum,
-            )
-            for coefficient in source.rep.to_list()
-        ]
-        representative = DMP(coefficients, target_parent, 0)
-        return self.target_extension.field.dtype(
-            representative, self.target_extension.field
-        )
+def _validate_base_change_source(
+    source_model: AlgebraicFunctionField,
+    source_derivation: Derivation,
+    factors: tuple[Poly, ...],
+    detail: str,
+) -> None:
+    """Validate the source request retained by either builder outcome."""
+    if not isinstance(source_model, AlgebraicFunctionField):
+        raise TypeError("a base change needs a source function field")
+    if not isinstance(source_derivation, Derivation):
+        raise TypeError("a base change needs a source derivation")
+    if not isinstance(factors, tuple) or not factors:
+        raise ValueError("a base change needs at least one polynomial factor")
+    if any(not isinstance(factor, Poly) for factor in factors):
+        raise TypeError("base-change factors must be SymPy polynomials")
+    if not isinstance(detail, str) or not detail:
+        raise ValueError("a base change needs a nonempty detail")
+    if source_derivation.level < 0 or (
+        source_derivation.tower.levels[source_derivation.level]
+        is not source_model.extension
+    ):
+        raise ValueError("the source derivation is not bound to the source field")
 
 
 @dataclass(frozen=True, slots=True)
-class CertifiedAlgebraicConstantBaseChange(_AlgebraicConstantBaseChange):
+class CertifiedAlgebraicConstantBaseChange:
     """A derivative-commuting embedding into certified enlarged constants."""
 
     source_model: AlgebraicFunctionField
@@ -185,12 +120,14 @@ class CertifiedAlgebraicConstantBaseChange(_AlgebraicConstantBaseChange):
     target_derivation: Derivation
     target_model: AlgebraicFunctionField
     target_constant_field_analysis: AlgebraicConstantFieldAnalysis
-    status: ClassVar[AlgebraicConstantBaseChangeStatus] = (
-        AlgebraicConstantBaseChangeStatus.CERTIFIED
-    )
 
     def __post_init__(self) -> None:
-        self._validate_common()
+        _validate_base_change_source(
+            self.source_model,
+            self.source_derivation,
+            self.factors,
+            self.detail,
+        )
         if not isinstance(
             self.constant_compositum,
             AlgebraicConstantFieldCompositum,
@@ -234,26 +171,61 @@ class CertifiedAlgebraicConstantBaseChange(_AlgebraicConstantBaseChange):
         if self.constant_compositum.target != target_constants:
             raise ValueError("the constant-field map has another target")
 
+    @property
+    def source_extension(self) -> AlgebraicExtension:
+        """The source algebraic extension."""
+        return self.source_model.extension
+
+    @property
+    def target_constants(self) -> AlgebraicField:
+        """The certified target constant field."""
+        target = self.constant_compositum.target
+        if not isinstance(target, AlgebraicField):
+            raise ValueError("a certified base change has no algebraic target")
+        return target
+
+    def embed(self, element: object) -> ExtensionElement:
+        r"""Embed a source-field element into the certified target field."""
+        source = _extension_element(self.source_extension, element)
+        source_parent = self.source_extension.parent_field
+        target_parent = self.target_extension.parent_field
+        if not isinstance(source_parent, FractionField) or not isinstance(
+            target_parent, FractionField
+        ):
+            raise NotImplementedError(
+                "constant base change requires rational function parent fields"
+            )
+        coefficients = [
+            _embed_parent_element(
+                coefficient,
+                source_parent,
+                target_parent,
+                self.constant_compositum,
+            )
+            for coefficient in source.rep.to_list()
+        ]
+        representative = DMP(coefficients, target_parent, 0)
+        return self.target_extension.field.dtype(
+            representative, self.target_extension.field
+        )
+
 
 @dataclass(frozen=True, slots=True)
-class AlgebraicConstantBaseChangeUnsupported(_AlgebraicConstantBaseChange):
+class AlgebraicConstantBaseChangeUnsupported:
     """A precise boundary where no target embedding was certified."""
 
     source_model: AlgebraicFunctionField
     source_derivation: Derivation
     factors: tuple[Poly, ...]
     detail: str
-    status: ClassVar[AlgebraicConstantBaseChangeStatus] = (
-        AlgebraicConstantBaseChangeStatus.UNSUPPORTED
-    )
-    constant_compositum: ClassVar[None] = None
-    target_extension: ClassVar[None] = None
-    target_derivation: ClassVar[None] = None
-    target_model: ClassVar[None] = None
-    target_constant_field_analysis: ClassVar[None] = None
 
     def __post_init__(self) -> None:
-        self._validate_common()
+        _validate_base_change_source(
+            self.source_model,
+            self.source_derivation,
+            self.factors,
+            self.detail,
+        )
 
 
 AlgebraicConstantBaseChange: TypeAlias = (
@@ -279,7 +251,13 @@ class AlgebraicFinitePlaceSplit:
     ramification_indices: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
-        if not isinstance(self.base_change, AlgebraicConstantBaseChange):
+        if not isinstance(
+            self.base_change,
+            (
+                CertifiedAlgebraicConstantBaseChange,
+                AlgebraicConstantBaseChangeUnsupported,
+            ),
+        ):
             raise TypeError("a place split needs a base change")
         if not isinstance(
             self.source_place,
@@ -290,7 +268,7 @@ class AlgebraicFinitePlaceSplit:
             raise TypeError("a place split has an invalid status")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("a place split needs a nonempty detail")
-        if self.source_place.extension is not self.base_change.source_extension:
+        if self.source_place.extension is not self.base_change.source_model.extension:
             raise ValueError("the source place belongs to another function field")
 
         if self.status is AlgebraicPlaceSplitStatus.UNSUPPORTED:
@@ -300,7 +278,7 @@ class AlgebraicFinitePlaceSplit:
 
         if self.status is not AlgebraicPlaceSplitStatus.SPLIT:
             raise ValueError("a place split has an unknown status")
-        if not self.base_change.certified:
+        if not isinstance(self.base_change, CertifiedAlgebraicConstantBaseChange):
             raise ValueError("a split place needs a certified base change")
         if not isinstance(self.source_place, FiniteAlgebraicPlace):
             raise ValueError("only finite places can currently be split")
@@ -309,8 +287,6 @@ class AlgebraicFinitePlaceSplit:
         if len(self.target_places) != len(self.ramification_indices):
             raise ValueError("place descendants and ramification indices disagree")
         target_model = self.base_change.target_model
-        if target_model is None:
-            raise ValueError("a certified base change has no target model")
         if any(place.order is not target_model.order for place in self.target_places):
             raise ValueError("a target place belongs to another function field")
         if any(index != 1 for index in self.ramification_indices):
@@ -338,6 +314,8 @@ class AlgebraicFinitePlaceSplit:
             raise NotImplementedError(self.detail)
         if not isinstance(self.source_place, FiniteAlgebraicPlace):
             raise NotImplementedError("infinite-place transport is not implemented")
+        if not isinstance(self.base_change, CertifiedAlgebraicConstantBaseChange):
+            raise ValueError("a split place lacks a certified base change")
         source_residue = self.source_place.residue_field.convert(value)
         lifted = self.source_place.lift_residue(source_residue)
         embedded = self.base_change.embed(lifted)
@@ -359,13 +337,12 @@ def _unsupported_base_change(
     )
 
 
-def _generator_derivatives_commute(change: AlgebraicConstantBaseChange) -> bool:
+def _generator_derivatives_commute(
+    change: CertifiedAlgebraicConstantBaseChange,
+) -> bool:
     """Check derivation commutation on the rational and algebraic generators."""
     target_extension = change.target_extension
     target_derivation = change.target_derivation
-    if target_extension is None or target_derivation is None:
-        return False
-
     _parent, _constants, variable = _base_polynomial_ring(change.source_extension)
     source_generators = (
         change.source_extension.field.from_sympy(variable),
@@ -392,8 +369,8 @@ def build_algebraic_constant_compositum_base_change(
     so several independent residue fields require only one function-field base
     change. The source relation must remain a supported irreducible relation
     over the compositum, and the target constant field must again be
-    preserved. Every other case is returned as
-    :attr:`~AlgebraicConstantBaseChangeStatus.UNSUPPORTED`.
+    preserved. Every other case returns
+    :class:`AlgebraicConstantBaseChangeUnsupported`.
     """
     if not isinstance(model, AlgebraicFunctionField):
         raise TypeError("constant base change needs an algebraic function field")
@@ -625,16 +602,22 @@ def split_algebraic_place(
     place is one, and the descendant degrees sum to the source degree.  The
     reciprocal/infinite chart is deliberately not part of this first layer.
     """
-    if not isinstance(base_change, AlgebraicConstantBaseChange):
+    if not isinstance(
+        base_change,
+        (
+            CertifiedAlgebraicConstantBaseChange,
+            AlgebraicConstantBaseChangeUnsupported,
+        ),
+    ):
         raise TypeError("place splitting needs an algebraic constant base change")
     if not isinstance(
         source_place,
         (FiniteAlgebraicPlace, InfiniteAlgebraicPlace),
     ):
         raise TypeError("place splitting needs an algebraic source place")
-    if source_place.extension is not base_change.source_extension:
+    if source_place.extension is not base_change.source_model.extension:
         raise ValueError("the source place belongs to another function field")
-    if not base_change.certified:
+    if isinstance(base_change, AlgebraicConstantBaseChangeUnsupported):
         return _unsupported_place_split(base_change, source_place, base_change.detail)
     if isinstance(source_place, InfiniteAlgebraicPlace):
         return _unsupported_place_split(
@@ -648,8 +631,6 @@ def split_algebraic_place(
     target_constants = base_change.target_constants
     target_model = base_change.target_model
     target_extension = base_change.target_extension
-    if target_constants is None or target_model is None or target_extension is None:
-        raise ValueError("a certified base change has incomplete target data")
     _parent, _constants, target_variable = _base_polynomial_ring(target_extension)
     try:
         target_base_prime = Poly(

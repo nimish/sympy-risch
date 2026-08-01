@@ -9,12 +9,15 @@ from sympy.polys.domains import QQ
 from sympy_risch import (
     AlgebraicExactnessCertificate,
     AlgebraicExactnessLiouvilleObstruction,
-    AlgebraicExactnessStatus,
+    AlgebraicExactnessUnsupported,
+    AlgebraicExactPrimitive,
     AlgebraicExtension,
     AlgebraicFunctionField,
     AlgebraicFunctionFieldReduction,
     AlgebraicIntegrationStatus,
     AlgebraicLiouvilleObstruction,
+    AlgebraicNonprincipal,
+    AlgebraicNoPrimitive,
     DifferentialTower,
     FiniteAlgebraicPlace,
     IntegralBasis,
@@ -24,10 +27,11 @@ from sympy_risch import (
     solve_algebraic_exactness,
 )
 from sympy_risch.algebraic_geometry.base_change import (
+    CertifiedAlgebraicConstantBaseChange,
     build_algebraic_constant_base_change,
 )
 from sympy_risch.algebraic_geometry.riemann_roch import (
-    RiemannRochSpaceUnsupported,
+    RiemannRochUnsupported,
 )
 
 x, y = symbols("x y")
@@ -194,9 +198,7 @@ def test_target_algebraic_constant_logarithm_uses_exact_field_quotient() -> None
         source_tower.derivation(),
         Poly(constant**2 - Rational(1, 18), constant, domain=QQ),
     )
-    assert change.certified
-    assert change.target_extension is not None
-    assert change.target_derivation is not None
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
 
     target = change.target_extension
     result = integrate_algebraic(
@@ -210,7 +212,7 @@ def test_target_algebraic_constant_logarithm_uses_exact_field_quotient() -> None
     assert len(result.logarithmic_terms) == 1
     assert result.logarithmic_derivative != target.field.zero
     assert result.remainder == target.field.zero
-    assert result.exactness is not None and result.exactness.is_exact
+    assert isinstance(result.exactness, AlgebraicExactPrimitive)
     assert result.exact_correction - target.field.from_sympy(2 * y) == target.field.zero
 
 
@@ -232,8 +234,6 @@ def test_selected_constant_base_change_can_finish_an_algebraic_log_integral() ->
     )
     assert result.source_reconstructs
     assert result.base_change is not None
-    assert result.base_change.certified
-    assert result.base_change.target_extension is not None
     assert result.target_result is not None
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
     assert result.is_elementary
@@ -256,7 +256,6 @@ def test_profile_base_change_selects_a_compatible_constant_factor() -> None:
     )
 
     assert result.base_change is not None
-    assert result.base_change.certified
     (candidate,) = result.base_change.factors
     assert candidate == Poly(
         candidate.gens[0] ** 2 - Rational(1, 2),
@@ -280,12 +279,9 @@ def test_profile_base_change_combines_two_independent_residue_fields() -> None:
     )
 
     assert result.base_change is not None
-    assert result.base_change.certified
     assert len(result.steps) == 1
     assert len(result.base_change.factors) == 2
-    assert result.base_change.constant_compositum is not None
     assert len(result.base_change.constant_compositum.steps) == 2
-    assert result.base_change.target_constants is not None
     assert result.base_change.target_constants.ext.minpoly.degree() == 4
     assert result.target_result is not None
     assert result.status is AlgebraicIntegrationStatus.ELEMENTARY
@@ -329,7 +325,7 @@ def test_logarithmic_reconstruction_adds_an_exact_residue_free_correction() -> N
     assert result.logarithmic_argument is not None
     assert result.logarithmic_derivative != extension.field.zero
     assert result.remainder == extension.field.zero
-    assert result.exactness is not None and result.exactness.is_exact
+    assert isinstance(result.exactness, AlgebraicExactPrimitive)
     assert result.exact_correction == 2 * extension.field.generator
     assert result.antiderivative is not None
 
@@ -368,8 +364,7 @@ def test_holomorphic_elliptic_differential_is_certified_non_elementary(
     assert result.logarithmic_argument is None
     assert result.logarithmic_derivative == extension.field.zero
     assert result.remainder == extension.field.one / extension.field.generator
-    assert result.exactness is not None
-    assert result.exactness.complete_negative
+    assert isinstance(result.exactness, AlgebraicNoPrimitive)
     assert (
         result.exactness.certificate
         is AlgebraicExactnessCertificate.COMPLETE_PRIMITIVE_SPACE
@@ -407,8 +402,7 @@ def test_second_kind_obstruction_works_over_algebraic_constants() -> None:
         result.liouville_obstruction,
         AlgebraicExactnessLiouvilleObstruction,
     )
-    assert result.exactness is not None
-    assert result.exactness.status is AlgebraicExactnessStatus.NO_PRIMITIVE
+    assert isinstance(result.exactness, AlgebraicNoPrimitive)
 
 
 def test_nonzero_residue_exactness_cannot_be_promoted_to_liouville() -> None:
@@ -465,7 +459,7 @@ def test_unsupported_residue_free_space_is_not_a_negative_claim(monkeypatch) -> 
     tower, extension, basis = algebraic_tower(y**2 - x**3 + x)
 
     def unsupported_space(model, divisor):
-        return RiemannRochSpaceUnsupported(
+        return RiemannRochUnsupported(
             model,
             divisor,
             "forced unsupported boundary",
@@ -485,8 +479,7 @@ def test_unsupported_residue_free_space_is_not_a_negative_claim(monkeypatch) -> 
     assert result.status is AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
     assert not result.complete_negative
     assert not hasattr(result, "liouville_obstruction")
-    assert result.exactness is not None
-    assert result.exactness.status is AlgebraicExactnessStatus.UNSUPPORTED
+    assert isinstance(result.exactness, AlgebraicExactnessUnsupported)
     assert result.reconstructs
 
 
@@ -522,8 +515,7 @@ def test_nonprincipal_residue_divisor_is_an_integration_obstruction() -> None:
     assert result.complete_negative
     assert not result.is_elementary
     assert result.reconstructs
-    assert result.principality_decision is not None
-    assert result.principality_decision.complete_negative
+    assert isinstance(result.principality_decision, AlgebraicNonprincipal)
     obstruction = result.liouville_obstruction
     assert isinstance(obstruction, AlgebraicLiouvilleObstruction)
     assert obstruction.residue_divisor == result.principality_decision.divisor

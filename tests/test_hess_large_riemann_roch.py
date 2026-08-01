@@ -18,6 +18,7 @@ from sympy_risch import (
 )
 from sympy_risch.algebraic_geometry.hess import HessParametricBasis
 from sympy_risch.algebraic_geometry.riemann_roch import (
+    CertifiedRiemannRochSpace,
     constant_coordinate_matrix,
 )
 
@@ -50,7 +51,7 @@ def test_short_space_expands_to_the_direct_hess_oracle() -> None:
 
     assert short.reconstructs
     assert short.verify_expansion()
-    assert direct.complete
+    assert isinstance(direct, CertifiedRiemannRochSpace)
     assert len(expanded) == short.dimension == direct.dimension
     assert all(direct.contains(element) for element in expanded)
     assert (

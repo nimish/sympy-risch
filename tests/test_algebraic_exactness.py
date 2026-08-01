@@ -15,10 +15,12 @@ from sympy_risch import (
 )
 from sympy_risch.algebraic.exactness import (
     AlgebraicExactnessCertificate,
-    AlgebraicExactnessStatus,
+    AlgebraicExactPrimitive,
+    AlgebraicNoPrimitive,
     solve_algebraic_exactness,
 )
 from sympy_risch.algebraic_geometry.function_field import AlgebraicFunctionField
+from sympy_risch.algebraic_geometry.riemann_roch import CertifiedRiemannRochSpace
 
 x, y = symbols("x y")
 
@@ -48,11 +50,11 @@ def test_exactness_finds_a_genus_zero_primitive_from_a_complete_space() -> None:
         analysis,
     )
 
-    assert result.status is AlgebraicExactnessStatus.EXACT
-    assert result.is_exact
+    assert isinstance(result, AlgebraicExactPrimitive)
+    assert not hasattr(result, "status")
     assert result.reconstructs
     assert result.primitive == 2 * extension.field.generator
-    assert result.space is not None and result.space.complete
+    assert isinstance(result.space, CertifiedRiemannRochSpace)
 
 
 def test_exactness_solves_over_an_algebraic_constant_field() -> None:
@@ -68,7 +70,7 @@ def test_exactness_solves_over_an_algebraic_constant_field() -> None:
         analysis,
     )
 
-    assert result.status is AlgebraicExactnessStatus.EXACT
+    assert isinstance(result, AlgebraicExactPrimitive)
     assert result.reconstructs
     assert result.primitive == extension.field.from_sympy(2 * sqrt(2) * y)
 
@@ -83,9 +85,8 @@ def test_holomorphic_elliptic_differential_has_no_algebraic_primitive() -> None:
         analysis,
     )
 
-    assert result.status is AlgebraicExactnessStatus.NO_PRIMITIVE
-    assert result.complete_negative
-    assert result.primitive is None
+    assert isinstance(result, AlgebraicNoPrimitive)
+    assert not hasattr(result, "primitive")
     assert result.primitive_pole_divisor is not None
     assert result.primitive_pole_divisor.is_zero
     assert result.space is not None and result.space.basis == (extension.field.one,)
@@ -125,7 +126,7 @@ def test_solver_reuses_its_complete_no_primitive_decision(monkeypatch) -> None:
         analysis,
     )
 
-    assert result.complete_negative
+    assert isinstance(result, AlgebraicNoPrimitive)
     assert calls == 1
 
 
@@ -139,9 +140,8 @@ def test_nonzero_residue_is_an_immediate_no_primitive_certificate() -> None:
         analysis,
     )
 
-    assert result.status is AlgebraicExactnessStatus.NO_PRIMITIVE
+    assert isinstance(result, AlgebraicNoPrimitive)
     assert result.certificate is AlgebraicExactnessCertificate.NONZERO_RESIDUE
-    assert result.complete_negative
     assert result.space is None
 
 
@@ -155,10 +155,9 @@ def test_second_kind_elliptic_differential_uses_a_complete_hess_space() -> None:
         analysis,
     )
 
-    assert result.status is AlgebraicExactnessStatus.NO_PRIMITIVE
-    assert result.complete_negative
-    assert result.primitive is None
-    assert result.space is not None and result.space.complete
+    assert isinstance(result, AlgebraicNoPrimitive)
+    assert not hasattr(result, "primitive")
+    assert isinstance(result.space, CertifiedRiemannRochSpace)
 
 
 def test_complete_primitive_space_does_not_need_a_degree_bound() -> None:
@@ -171,7 +170,7 @@ def test_complete_primitive_space_does_not_need_a_degree_bound() -> None:
         analysis,
     )
 
-    assert exact.status is AlgebraicExactnessStatus.EXACT
+    assert isinstance(exact, AlgebraicExactPrimitive)
     assert exact.primitive == extension.field.from_sympy(x)
 
 
@@ -187,6 +186,6 @@ def test_second_kind_primitive_is_found_from_a_complete_hess_space() -> None:
         analysis,
     )
 
-    assert result.status is AlgebraicExactnessStatus.EXACT
+    assert isinstance(result, AlgebraicExactPrimitive)
     assert result.primitive == primitive
     assert result.reconstructs

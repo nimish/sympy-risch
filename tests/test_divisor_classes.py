@@ -11,8 +11,10 @@ from sympy_risch import (
     AlgebraicExtension,
     AlgebraicFunctionField,
     AlgebraicIntegrationStatus,
-    AlgebraicPrincipalityStatus,
-    AlgebraicTorsionStatus,
+    AlgebraicNonprincipal,
+    AlgebraicPrincipal,
+    AlgebraicTorsionBoundExhausted,
+    AlgebraicTorsionRelation,
     DifferentialTower,
     IntegralBasis,
     MonomialExtension,
@@ -61,12 +63,13 @@ def test_general_torsion_search_finds_two_torsion_on_an_elliptic_curve() -> None
         anchor=anchor,
     )
 
-    assert result.status is AlgebraicTorsionStatus.TORSION
+    assert isinstance(result, AlgebraicTorsionRelation)
+    assert not hasattr(result, "status")
     assert result.order == 2
     assert result.witness is not None
     assert model.principal_divisor(result.witness) == divisor.scale(2)
     with pytest.raises(TypeError):
-        replace(result, status=AlgebraicTorsionStatus.INCONCLUSIVE)
+        replace(result, status="inconclusive")
 
 
 def test_exhausted_positive_search_is_explicitly_inconclusive() -> None:
@@ -81,9 +84,9 @@ def test_exhausted_positive_search_is_explicitly_inconclusive() -> None:
         max_order=2,
     )
 
-    assert result.status is AlgebraicTorsionStatus.INCONCLUSIVE
-    assert result.order is None
-    assert result.witness is None
+    assert isinstance(result, AlgebraicTorsionBoundExhausted)
+    assert not hasattr(result, "order")
+    assert not hasattr(result, "witness")
     assert result.last_representative is not None
     assert not result.last_representative.is_zero
 
@@ -97,14 +100,12 @@ def test_principality_uses_the_primitive_class_order() -> None:
     principal = decide_algebraic_principality(model, primitive.scale(2))
     nonprincipal = decide_algebraic_principality(model, primitive.scale(3))
 
-    assert principal.status is AlgebraicPrincipalityStatus.PRINCIPAL
-    assert principal.witness is not None
+    assert isinstance(principal, AlgebraicPrincipal)
     assert principal.divisor_class_search is not None
     assert principal.divisor_class_search.order == 2
     assert model.principal_divisor(principal.witness) == primitive.scale(2)
 
-    assert nonprincipal.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
-    assert nonprincipal.complete_negative
+    assert isinstance(nonprincipal, AlgebraicNonprincipal)
     assert nonprincipal.divisor_class_search is not None
     assert nonprincipal.divisor_class_search.order == 2
 

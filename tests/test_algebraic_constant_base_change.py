@@ -7,7 +7,7 @@ from sympy import Poly, Rational, sqrt, symbols
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
-    AlgebraicAllPlaceResidueStatus,
+    AlgebraicAllPlacesCollected,
     AlgebraicExtension,
     AlgebraicFunctionField,
     DifferentialTower,
@@ -17,8 +17,9 @@ from sympy_risch import (
     collect_algebraic_all_place_residues,
 )
 from sympy_risch.algebraic_geometry.base_change import (
-    AlgebraicConstantBaseChangeStatus,
+    AlgebraicConstantBaseChangeUnsupported,
     AlgebraicPlaceSplitStatus,
+    CertifiedAlgebraicConstantBaseChange,
     build_algebraic_constant_base_change,
     build_algebraic_constant_compositum_base_change,
     split_algebraic_place,
@@ -67,14 +68,10 @@ def test_base_change_rebuilds_a_preserved_target_and_commutes_with_d() -> None:
         _quadratic_factor(),
     )
 
-    assert change.status is AlgebraicConstantBaseChangeStatus.CERTIFIED
-    assert change.certified
-    assert change.target_extension is not None
-    assert change.target_derivation is not None
-    assert change.target_model is not None
-    assert change.target_constant_field_analysis is not None
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
+    assert not hasattr(change, "status")
     with pytest.raises(TypeError):
-        replace(change, status=AlgebraicConstantBaseChangeStatus.UNSUPPORTED)
+        replace(change, status="unsupported")
 
     source_values = (
         extension.field.from_sympy(x),
@@ -99,12 +96,9 @@ def test_base_change_embeds_an_existing_algebraic_constant_field() -> None:
         Poly(z**2 - 3, z, domain=QQ),
     )
 
-    assert change.certified
-    assert change.constant_compositum is not None
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
     assert change.target_constants is change.constant_compositum.target
     assert change.target_constants.ext.minpoly.degree() == 4
-    assert change.target_extension is not None
-    assert change.target_derivation is not None
 
     source_constant = constants.from_sympy(sqrt(2))
     mapped_constant = change.constant_compositum.embed(source_constant)
@@ -123,9 +117,7 @@ def test_two_successive_base_changes_form_an_exact_compositum_chain() -> None:
         tower.derivation(),
         Poly(z**2 - 2, z, domain=QQ),
     )
-    assert first.certified
-    assert first.target_model is not None
-    assert first.target_derivation is not None
+    assert isinstance(first, CertifiedAlgebraicConstantBaseChange)
 
     second = build_algebraic_constant_base_change(
         first.target_model,
@@ -133,10 +125,8 @@ def test_two_successive_base_changes_form_an_exact_compositum_chain() -> None:
         Poly(z**2 - 3, z, domain=QQ),
     )
 
-    assert second.certified
-    assert second.target_constants is not None
+    assert isinstance(second, CertifiedAlgebraicConstantBaseChange)
     assert second.target_constants.ext.minpoly.degree() == 4
-    assert second.target_derivation is not None
     value = extension.field.from_sympy((y + 1) / (x - 5))
     embedded = second.embed(first.embed(value))
     embedded_derivative = second.embed(first.embed(tower.derivation()(value)))
@@ -215,11 +205,9 @@ def test_curve_is_rebuilt_once_over_a_common_constant_compositum() -> None:
         factors,
     )
 
-    assert change.certified
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
     assert change.factors == factors
-    assert change.target_constants is not None
     assert change.target_constants.ext.minpoly.degree() == 4
-    assert change.target_derivation is not None
     value = extension.field.from_sympy((y + 1) / (x - 5))
     assert change.target_derivation(change.embed(value)) == change.embed(
         tower.derivation()(value)
@@ -233,8 +221,7 @@ def test_finite_closed_places_split_and_transport_local_residues() -> None:
         tower.derivation(),
         _quadratic_factor(),
     )
-    assert change.certified
-    assert change.target_constants is not None
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
 
     alpha = change.target_constants.ext.root
     field = extension.field
@@ -275,9 +262,8 @@ def test_cubic_factor_that_does_not_split_in_its_root_field_is_unsupported() -> 
         Poly(z**3 - 2, z, domain=QQ),
     )
 
-    assert change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED
-    assert not change.certified
-    assert change.target_extension is None
+    assert isinstance(change, AlgebraicConstantBaseChangeUnsupported)
+    assert not hasattr(change, "target_extension")
     assert "general splitting fields are unsupported" in change.detail
 
 
@@ -294,10 +280,9 @@ def test_unsupported_factor_does_not_return_a_partial_common_field() -> None:
         ),
     )
 
-    assert change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED
-    assert not change.certified
-    assert change.constant_compositum is None
-    assert change.target_extension is None
+    assert isinstance(change, AlgebraicConstantBaseChangeUnsupported)
+    assert not hasattr(change, "constant_compositum")
+    assert not hasattr(change, "target_extension")
 
 
 def test_algebraic_coefficient_factor_is_an_explicit_boundary() -> None:
@@ -311,8 +296,7 @@ def test_algebraic_coefficient_factor_is_an_explicit_boundary() -> None:
         (factor,),
     )
 
-    assert change.status is AlgebraicConstantBaseChangeStatus.UNSUPPORTED
-    assert not change.certified
+    assert isinstance(change, AlgebraicConstantBaseChangeUnsupported)
     assert "cannot be normalized over QQ" in change.detail
 
 
@@ -339,8 +323,7 @@ def test_unramified_target_places_use_the_base_prime_for_local_residues() -> Non
         tower.derivation(),
         _quadratic_factor(),
     )
-    assert change.target_extension is not None
-    assert change.target_derivation is not None
+    assert isinstance(change, CertifiedAlgebraicConstantBaseChange)
 
     integrand = change.embed(
         extension.field.from_sympy(y / ((x - 2) * (x - 8))),
@@ -351,7 +334,7 @@ def test_unramified_target_places_use_the_base_prime_for_local_residues() -> Non
         IntegralBasis.power_basis(change.target_extension),
     )
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(result, AlgebraicAllPlacesCollected)
     assert result.reconstructs_input
     finite = tuple(
         record

@@ -2,7 +2,6 @@ r"""Exact infrastructure for finite algebraic function fields."""
 
 from .all_places import (
     AlgebraicAllPlaceResidueResult,
-    AlgebraicAllPlaceResidueStatus,
     AlgebraicAllPlacesCollected,
     AlgebraicAllPlacesUnsupported,
     AlgebraicHermiteExact,
@@ -25,7 +24,6 @@ from .constant_analysis import (
 from .exactness import (
     AlgebraicExactnessCertificate,
     AlgebraicExactnessResult,
-    AlgebraicExactnessStatus,
     AlgebraicExactnessUnsupported,
     AlgebraicExactPrimitive,
     AlgebraicNoPrimitive,
@@ -78,7 +76,6 @@ from .trager import (
 
 __all__ = [
     "AlgebraicAllPlaceResidueResult",
-    "AlgebraicAllPlaceResidueStatus",
     "AlgebraicAllPlacesCollected",
     "AlgebraicAllPlacesUnsupported",
     "AlgebraicConstantEmbedding",
@@ -88,7 +85,6 @@ __all__ = [
     "AlgebraicExactnessCertificate",
     "AlgebraicExactnessLiouvilleObstruction",
     "AlgebraicExactnessResult",
-    "AlgebraicExactnessStatus",
     "AlgebraicExactnessUnsupported",
     "AlgebraicFraction",
     "AlgebraicHermiteExact",

@@ -1242,7 +1242,10 @@ answer is an answer in the final `C'(x, y)`, not automatically one in the
 original `QQ(x, y)`.
 
 ```python
-from sympy_risch import integrate_algebraic_with_constant_base_change
+from sympy_risch import (
+    CertifiedAlgebraicConstantBaseChange,
+    integrate_algebraic_with_constant_base_change,
+)
 
 continued = integrate_algebraic_with_constant_base_change(
     y / (x * (x - 2)),
@@ -1252,7 +1255,7 @@ continued = integrate_algebraic_with_constant_base_change(
 
 assert continued.source_result.status.value == "needs_constant_base_change"
 assert len(continued.steps) == 1
-assert continued.base_change is not None and continued.base_change.certified
+assert isinstance(continued.base_change, CertifiedAlgebraicConstantBaseChange)
 assert continued.target_result is not None
 assert continued.is_elementary
 assert continued.reconstructs
@@ -1280,7 +1283,10 @@ completeness theorem. For the same rational curve `y**2 = x`, the generator
 corresponding Riemann--Roch space:
 
 ```python
-from sympy_risch.algebraic_geometry.riemann_roch import compute_riemann_roch_space
+from sympy_risch.algebraic_geometry.riemann_roch import (
+    CertifiedRiemannRochSpace,
+    compute_riemann_roch_space,
+)
 
 parameter = sqrt_x_extension.field.generator
 pole_divisor = curve.principal_divisor(parameter).negative_part
@@ -1290,7 +1296,7 @@ space = compute_riemann_roch_space(
     parameter=parameter,
 )
 
-assert space.complete
+assert isinstance(space, CertifiedRiemannRochSpace)
 assert space.dimension == 4
 assert space.basis == tuple(parameter**power for power in range(4))
 ```

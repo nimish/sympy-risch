@@ -25,9 +25,8 @@ bound; see :mod:`sympy_risch.algebraic_geometry.principal`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from math import isqrt
-from typing import ClassVar, TypeAlias, cast
+from typing import TypeAlias, cast
 
 from sympy.ntheory import factorint
 from sympy.polys.agca.extensions import ExtensionElement
@@ -43,8 +42,9 @@ from .function_field import (
     AlgebraicFunctionField,
 )
 from .riemann_roch import (
+    CertifiedRiemannRochSpace,
     RiemannRochSpace,
-    RiemannRochSpaceStatus,
+    RiemannRochUnsupported,
     compute_riemann_roch_space,
 )
 
@@ -135,7 +135,7 @@ class ReducedAlgebraicDivisorClass:
         if (
             self.riemann_roch_space.model is not self.model
             or self.riemann_roch_space.divisor != expected_space_divisor
-            or self.riemann_roch_space.status is not RiemannRochSpaceStatus.CERTIFIED
+            or not isinstance(self.riemann_roch_space, CertifiedRiemannRochSpace)
             or self.correction not in self.riemann_roch_space.basis
         ):
             raise ValueError("the reduction lacks its complete Riemann--Roch witness")
@@ -171,15 +171,16 @@ def reduce_algebraic_divisor_class(
     for multiple in range(largest_multiple + 1):
         space_divisor = reduction_anchor.scale(multiple) - divisor
         space = compute_riemann_roch_space(model, space_divisor)
-        if space.status is RiemannRochSpaceStatus.UNSUPPORTED:
-            raise NotImplementedError(
-                "divisor-class reduction needs complete Riemann--Roch spaces: "
-                + space.detail,
-            )
-        if not space.basis:
-            continue
-
-        correction = space.basis[0]
+        match space:
+            case RiemannRochUnsupported(detail=detail):
+                raise NotImplementedError(
+                    "divisor-class reduction needs complete Riemann--Roch spaces: "
+                    + detail,
+                )
+            case CertifiedRiemannRochSpace(basis=()):
+                continue
+            case CertifiedRiemannRochSpace(basis=(correction, *_)):
+                pass
         correction_divisor = model.principal_divisor(correction)
         representative = divisor - correction_divisor
         return ReducedAlgebraicDivisorClass(
@@ -198,14 +199,6 @@ def reduce_algebraic_divisor_class(
     )
 
 
-class AlgebraicTorsionStatus(Enum):
-    """Outcome of a bounded positive divisor-class torsion search."""
-
-    TORSION = "torsion"
-    INCONCLUSIVE = "inconclusive"
-    UNSUPPORTED = "unsupported"
-
-
 class _AlgebraicTorsionSearch:
     """Shared behavior for the three bounded-search variants."""
 
@@ -215,7 +208,6 @@ class _AlgebraicTorsionSearch:
     max_order: int
     reductions: tuple[ReducedAlgebraicDivisorClass, ...]
     detail: str
-    status: ClassVar[AlgebraicTorsionStatus]
 
     def _validate_common(self) -> None:
         if self.divisor.model is not self.model or self.anchor.model is not self.model:
@@ -230,11 +222,6 @@ class _AlgebraicTorsionSearch:
         for reduction in self.reductions:
             if reduction.model is not self.model or reduction.anchor != self.anchor:
                 raise ValueError("a torsion reduction belongs to another search")
-
-    @property
-    def torsion(self) -> bool:
-        """Whether the search found and reconstructed a positive relation."""
-        return isinstance(self, AlgebraicTorsionRelation)
 
     @property
     def last_representative(self) -> AlgebraicDivisor | None:
@@ -256,7 +243,6 @@ class AlgebraicTorsionRelation(_AlgebraicTorsionSearch):
     witness: ExtensionElement
     reductions: tuple[ReducedAlgebraicDivisorClass, ...]
     detail: str
-    status: ClassVar[AlgebraicTorsionStatus] = AlgebraicTorsionStatus.TORSION
 
     def __post_init__(self) -> None:
         self._validate_common()
@@ -305,9 +291,6 @@ class AlgebraicTorsionBoundExhausted(_AlgebraicTorsionSearch):
     max_order: int
     reductions: tuple[ReducedAlgebraicDivisorClass, ...]
     detail: str
-    status: ClassVar[AlgebraicTorsionStatus] = AlgebraicTorsionStatus.INCONCLUSIVE
-    order: ClassVar[None] = None
-    witness: ClassVar[None] = None
 
     def __post_init__(self) -> None:
         self._validate_common()
@@ -325,9 +308,6 @@ class AlgebraicTorsionBoundExhausted(_AlgebraicTorsionSearch):
         ):
             raise ValueError("an inconclusive search did not exhaust its bound")
 
-    def witness_for_multiple(self, multiple: int) -> ExtensionElement:
-        raise ValueError("no torsion relation was found")
-
 
 @dataclass(frozen=True, slots=True)
 class AlgebraicTorsionSearchUnsupported(_AlgebraicTorsionSearch):
@@ -339,15 +319,9 @@ class AlgebraicTorsionSearchUnsupported(_AlgebraicTorsionSearch):
     max_order: int
     reductions: tuple[ReducedAlgebraicDivisorClass, ...]
     detail: str
-    status: ClassVar[AlgebraicTorsionStatus] = AlgebraicTorsionStatus.UNSUPPORTED
-    order: ClassVar[None] = None
-    witness: ClassVar[None] = None
 
     def __post_init__(self) -> None:
         self._validate_common()
-
-    def witness_for_multiple(self, multiple: int) -> ExtensionElement:
-        raise ValueError("no torsion relation was found")
 
 
 AlgebraicTorsionSearch: TypeAlias = (
@@ -643,7 +617,6 @@ __all__ = [
     "AlgebraicTorsionRelation",
     "AlgebraicTorsionSearch",
     "AlgebraicTorsionSearchUnsupported",
-    "AlgebraicTorsionStatus",
     "ReducedAlgebraicDivisorClass",
     "reduce_algebraic_divisor_class",
     "search_algebraic_divisor_torsion",

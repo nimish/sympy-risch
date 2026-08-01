@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import InitVar, dataclass
 from enum import Enum
-from typing import ClassVar, TypeAlias, cast
+from typing import TypeAlias, cast
 
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.polyerrors import HeuristicGCDFailed
@@ -32,20 +32,12 @@ from ..algebraic_geometry.function_field import (
     AlgebraicFunctionField,
 )
 from ..algebraic_geometry.riemann_roch import (
-    RiemannRochSpace,
-    RiemannRochSpaceStatus,
+    CertifiedRiemannRochSpace,
+    RiemannRochUnsupported,
     compute_riemann_roch_space,
     constant_coordinate_matrix,
 )
 from ..tower import Derivation
-
-
-class AlgebraicExactnessStatus(Enum):
-    """Outcome of an in-field exactness decision."""
-
-    EXACT = "exact"
-    NO_PRIMITIVE = "no_primitive"
-    UNSUPPORTED = "unsupported"
 
 
 class AlgebraicExactnessCertificate(Enum):
@@ -113,7 +105,7 @@ def _constant_linear_combination(
 def _solve_constant_derivative_equation(
     model: AlgebraicFunctionField,
     derivation: Derivation,
-    space: RiemannRochSpace,
+    space: CertifiedRiemannRochSpace,
     coefficient: ExtensionElement,
 ) -> ExtensionElement | None:
     r"""Solve ``D(g) = coefficient`` in a complete constant basis of ``space``."""
@@ -154,7 +146,6 @@ class _AlgebraicExactnessResult:
     coefficient: ExtensionElement
     constant_field_analysis: AlgebraicConstantFieldAnalysis
     detail: str
-    status: ClassVar[AlgebraicExactnessStatus]
 
     def _validate_common(self) -> ExtensionElement:
         if not isinstance(self.model, AlgebraicFunctionField):
@@ -198,25 +189,6 @@ class _AlgebraicExactnessResult:
             raise ValueError("the primitive pole divisor is inconsistent")
         return differential
 
-    @property
-    def is_exact(self) -> bool:
-        """Whether this result carries a verified primitive."""
-        return isinstance(self, AlgebraicExactPrimitive)
-
-    @property
-    def complete_negative(self) -> bool:
-        """Whether a residue or complete space proves non-exactness."""
-        return isinstance(self, AlgebraicNoPrimitive)
-
-    @property
-    def reconstructs(self) -> bool:
-        """Whether the recorded primitive differentiates to the coefficient."""
-        primitive = getattr(self, "primitive", None)
-        return primitive is not None and (
-            self.derivation(primitive) - self.coefficient
-            == self.model.extension.field.zero
-        )
-
 
 @dataclass(frozen=True, slots=True)
 class AlgebraicExactPrimitive(_AlgebraicExactnessResult):
@@ -229,9 +201,8 @@ class AlgebraicExactPrimitive(_AlgebraicExactnessResult):
     primitive_pole_divisor: AlgebraicDivisor
     certificate: AlgebraicExactnessCertificate
     primitive: ExtensionElement
-    space: RiemannRochSpace | None
+    space: CertifiedRiemannRochSpace | None
     detail: str
-    status: ClassVar[AlgebraicExactnessStatus] = AlgebraicExactnessStatus.EXACT
 
     def __post_init__(self) -> None:
         coefficient = self._validate_common()
@@ -259,10 +230,9 @@ class AlgebraicExactPrimitive(_AlgebraicExactnessResult):
         has_nonzero_residue = _has_nonzero_residue(differential)
         space = self.space
         if space is None or (
-            not isinstance(space, RiemannRochSpace)
+            not isinstance(space, CertifiedRiemannRochSpace)
             or space.model is not self.model
             or space.divisor != pole_divisor
-            or space.status is not RiemannRochSpaceStatus.CERTIFIED
         ):
             raise ValueError("the primitive space is inconsistent")
         if (
@@ -273,6 +243,14 @@ class AlgebraicExactPrimitive(_AlgebraicExactnessResult):
             or self.derivation(primitive) - coefficient != zero
         ):
             raise ValueError("an exactness witness is inconsistent")
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether the recorded primitive differentiates to the coefficient."""
+        return (
+            self.derivation(self.primitive) - self.coefficient
+            == self.model.extension.field.zero
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,11 +263,9 @@ class AlgebraicNoPrimitive(_AlgebraicExactnessResult):
     constant_field_analysis: AlgebraicConstantFieldAnalysis
     primitive_pole_divisor: AlgebraicDivisor
     certificate: AlgebraicExactnessCertificate
-    space: RiemannRochSpace | None
+    space: CertifiedRiemannRochSpace | None
     detail: str
     _trusted_no_solution: InitVar[object | None] = None
-    status: ClassVar[AlgebraicExactnessStatus] = AlgebraicExactnessStatus.NO_PRIMITIVE
-    primitive: ClassVar[None] = None
 
     def __post_init__(self, trusted_no_solution: object | None) -> None:
         coefficient = self._validate_common()
@@ -301,10 +277,9 @@ class AlgebraicNoPrimitive(_AlgebraicExactnessResult):
         has_nonzero_residue = _has_nonzero_residue(differential)
         space = self.space
         if space is not None and (
-            not isinstance(space, RiemannRochSpace)
+            not isinstance(space, CertifiedRiemannRochSpace)
             or space.model is not self.model
             or space.divisor != self.primitive_pole_divisor
-            or space.status is not RiemannRochSpaceStatus.CERTIFIED
         ):
             raise ValueError("the primitive space is inconsistent")
         if self.certificate is AlgebraicExactnessCertificate.NONZERO_RESIDUE:
@@ -350,10 +325,6 @@ class AlgebraicExactnessUnsupported(_AlgebraicExactnessResult):
     constant_field_analysis: AlgebraicConstantFieldAnalysis
     primitive_pole_divisor: AlgebraicDivisor | None
     detail: str
-    status: ClassVar[AlgebraicExactnessStatus] = AlgebraicExactnessStatus.UNSUPPORTED
-    certificate: ClassVar[None] = None
-    primitive: ClassVar[None] = None
-    space: ClassVar[None] = None
 
     def __post_init__(self) -> None:
         self._validate_common()
@@ -471,16 +442,18 @@ def solve_algebraic_exactness(
             f"the current presentation is {constant_field_analysis.status.value}",
         )
 
-    space = compute_riemann_roch_space(model, pole_divisor)
-    if space.status is not RiemannRochSpaceStatus.CERTIFIED:
-        return _unsupported_exactness(
-            model,
-            derivation,
-            value,
-            constant_field_analysis,
-            pole_divisor,
-            "the complete primitive space is unavailable: " + space.detail,
-        )
+    match compute_riemann_roch_space(model, pole_divisor):
+        case RiemannRochUnsupported(detail=detail):
+            return _unsupported_exactness(
+                model,
+                derivation,
+                value,
+                constant_field_analysis,
+                pole_divisor,
+                "the complete primitive space is unavailable: " + detail,
+            )
+        case CertifiedRiemannRochSpace() as space:
+            pass
 
     try:
         primitive = _solve_constant_derivative_equation(

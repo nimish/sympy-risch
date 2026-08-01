@@ -24,8 +24,10 @@ from ..algebraic_geometry.function_field import (
     AlgebraicPlace,
 )
 from ..algebraic_geometry.principal import (
+    AlgebraicNonprincipal,
+    AlgebraicPrincipal,
     AlgebraicPrincipalityDecision,
-    AlgebraicPrincipalityStatus,
+    AlgebraicPrincipalityUnsupported,
     decide_algebraic_principality,
 )
 from ..tower import Derivation
@@ -343,35 +345,36 @@ def find_algebraic_integrating_factor(
             f"{constant_field_analysis.status.value}",
         )
 
-    principality = decide_algebraic_principality(model, residue_divisor)
-    if principality.status is AlgebraicPrincipalityStatus.UNSUPPORTED:
-        return _result(
-            model,
-            derivation,
-            value,
-            constant_field_analysis,
-            AlgebraicIntegratingFactorStatus.UNSUPPORTED,
-            None,
-            None,
-            residue_divisor,
-            principality,
-            principality.detail,
-        )
-    if principality.status is AlgebraicPrincipalityStatus.NONPRINCIPAL:
-        return _result(
-            model,
-            derivation,
-            value,
-            constant_field_analysis,
-            AlgebraicIntegratingFactorStatus.NO_FACTOR,
-            AlgebraicIntegratingFactorCertificate.NONPRINCIPAL_RESIDUE_DIVISOR,
-            None,
-            residue_divisor,
-            principality,
-            "the integral residue divisor cannot be the divisor of an integrating factor",
-        )
-    if principality.witness is None:
-        raise ValueError("a principal integrating-factor decision lacks its witness")
+    match decide_algebraic_principality(model, residue_divisor):
+        case AlgebraicPrincipalityUnsupported(detail=detail) as principality:
+            return _result(
+                model,
+                derivation,
+                value,
+                constant_field_analysis,
+                AlgebraicIntegratingFactorStatus.UNSUPPORTED,
+                None,
+                None,
+                residue_divisor,
+                principality,
+                detail,
+            )
+        case AlgebraicNonprincipal() as principality:
+            return _result(
+                model,
+                derivation,
+                value,
+                constant_field_analysis,
+                AlgebraicIntegratingFactorStatus.NO_FACTOR,
+                AlgebraicIntegratingFactorCertificate.NONPRINCIPAL_RESIDUE_DIVISOR,
+                None,
+                residue_divisor,
+                principality,
+                "the integral residue divisor cannot be the divisor of an "
+                "integrating factor",
+            )
+        case AlgebraicPrincipal() as principality:
+            pass
 
     try:
         logarithmic_derivative = _quotient_extension_elements(

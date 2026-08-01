@@ -9,10 +9,12 @@ from sympy.polys.domains import QQ
 
 import sympy_risch.algebraic.all_places as algebraic_all_places_module
 from sympy_risch import (
-    AlgebraicAllPlaceResidueStatus,
+    AlgebraicAllPlacesCollected,
+    AlgebraicAllPlacesUnsupported,
     AlgebraicConstantFieldStatus,
     AlgebraicExtension,
     AlgebraicFunctionField,
+    AlgebraicHermiteExact,
     AlgebraicLocalDifferentialResidue,
     DifferentialTower,
     FiniteAlgebraicPlace,
@@ -47,14 +49,15 @@ def test_all_place_collector_uses_a_branch_uniformizer_and_infinity() -> None:
         basis,
     )
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(result, AlgebraicAllPlacesCollected)
+    assert not hasattr(result, "status")
     assert (
         result.constant_field_analysis.status is AlgebraicConstantFieldStatus.PRESERVED
     )
     assert result.reconstructs_input
     assert result.differential_divisor is not None
     with pytest.raises(TypeError):
-        replace(result, status=AlgebraicAllPlaceResidueStatus.UNSUPPORTED)
+        replace(result, status="unsupported")
     assert len(result.residues) == 2
 
     finite = next(
@@ -150,7 +153,7 @@ def test_all_place_collector_reuses_verified_global_differential_data(
 
     result = collect_algebraic_all_place_residues(1 / x, tower.derivation(), basis)
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(result, AlgebraicAllPlacesCollected)
     assert calls == Counter(
         principal_divisor=1,
         # The infinity computation uses its reciprocal finite-place chart.
@@ -180,13 +183,13 @@ def test_all_place_collector_reports_exactness_without_global_analysis(
         basis,
     )
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.EXACT
-    assert result.exact
-    assert result.collected
-    assert result.constant_field_analysis is None
-    assert result.model is None
-    assert result.differential_divisor is None
-    assert result.residues == ()
+    assert isinstance(result, AlgebraicHermiteExact)
+    assert not hasattr(result, "exact")
+    assert not hasattr(result, "collected")
+    assert not hasattr(result, "constant_field_analysis")
+    assert not hasattr(result, "model")
+    assert not hasattr(result, "differential_divisor")
+    assert not hasattr(result, "residues")
     assert result.reconstructs_input
 
 
@@ -218,7 +221,7 @@ def test_all_place_collector_cross_checks_unramified_finite_trager_residues() ->
         if isinstance(record.place, InfiniteAlgebraicPlace)
     )
 
-    assert collected.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(collected, AlgebraicAllPlacesCollected)
     assert finite_values == trager_values == Counter({"-1": 1, "1": 1})
     assert infinity.pole_order == 2
     assert infinity.value == infinity.place.residue_field.zero
@@ -247,7 +250,7 @@ def test_all_place_collector_handles_split_fibres_over_algebraic_constants() -> 
         if isinstance(record.place, InfiniteAlgebraicPlace)
     )
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(result, AlgebraicAllPlacesCollected)
     assert result.reconstructs_input
     assert finite_values == Counter({sqrt(2) - 1: 1, sqrt(2) + 1: 1})
     assert infinity.pole_order == 2
@@ -281,7 +284,7 @@ def test_all_place_collector_normalizes_a_singular_displayed_model() -> None:
         for record in result.residues
         if isinstance(record.place, FiniteAlgebraicPlace)
     )
-    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(result, AlgebraicAllPlacesCollected)
     assert len(finite) == 2
     assert all(not record.place.is_ramified for record in finite)
     assert all(record.value == record.place.residue_field.one for record in finite)
@@ -298,7 +301,7 @@ def test_all_place_collector_keeps_a_lazily_refined_integral_basis() -> None:
         lazy=True,
     )
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(result, AlgebraicAllPlacesCollected)
     assert result.reconstructs_input
     assert result.basis != power_basis
     assert result.basis.fraction(field.from_sympy(y / x)).denominator.degree() == 0
@@ -314,7 +317,7 @@ def test_all_place_collector_retains_a_zero_residue_genus_one_differential() -> 
         basis,
     )
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.COLLECTED
+    assert isinstance(result, AlgebraicAllPlacesCollected)
     assert result.model is not None
     assert result.model.genus == 1
     assert result.exact_part == field.zero
@@ -333,11 +336,11 @@ def test_all_place_collector_rejects_an_enlarged_constant_field() -> None:
         basis,
     )
 
-    assert result.status is AlgebraicAllPlaceResidueStatus.UNSUPPORTED
+    assert isinstance(result, AlgebraicAllPlacesUnsupported)
     assert result.constant_field_analysis.status is (
         AlgebraicConstantFieldStatus.REBASING_REQUIRED
     )
-    assert result.model is None
-    assert result.differential_divisor is None
-    assert result.residues == ()
+    assert not hasattr(result, "model")
+    assert not hasattr(result, "differential_divisor")
+    assert not hasattr(result, "residues")
     assert result.reconstructs_input

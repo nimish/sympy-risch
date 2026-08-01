@@ -33,7 +33,8 @@ from .function_field import (
 )
 from .hess import hess_parametric_basis
 from .riemann_roch import (
-    RiemannRochSpaceStatus,
+    CertifiedRiemannRochSpace,
+    RiemannRochUnsupported,
     compute_riemann_roch_space,
 )
 
@@ -223,12 +224,14 @@ def _complete_space_basis(
 ) -> tuple[ExtensionElement, ...]:
     """Return a complete basis, preserving unsupported as unsupported."""
     space = compute_riemann_roch_space(model, divisor)
-    if space.status is RiemannRochSpaceStatus.UNSUPPORTED:
-        raise NotImplementedError(
-            "Hess divisor reduction needs a complete Riemann--Roch space: "
-            + space.detail,
-        )
-    return space.basis
+    match space:
+        case CertifiedRiemannRochSpace(basis=basis):
+            return basis
+        case RiemannRochUnsupported(detail=detail):
+            raise NotImplementedError(
+                "Hess divisor reduction needs a complete Riemann--Roch space: "
+                + detail,
+            )
 
 
 def _general_maximal_multiple(

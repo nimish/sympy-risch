@@ -14,8 +14,7 @@ from .._typing import FieldElement
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ._field import _base_polynomial_ring
 from .all_places import (
-    AlgebraicAllPlaceResidueResult,
-    AlgebraicAllPlaceResidueStatus,
+    AlgebraicAllPlacesCollected,
     AlgebraicLocalDifferentialResidue,
 )
 from .constant_analysis import AlgebraicConstantFieldStatus
@@ -106,20 +105,17 @@ class AlgebraicResidueCoordinateCertificate:
     rather than a provenance assertion about which caller created the object.
     """
 
-    collection: AlgebraicAllPlaceResidueResult
+    collection: AlgebraicAllPlacesCollected
     coordinate_index: int
     coefficient: FieldElement
     divisor: AlgebraicDivisor
 
     def __post_init__(self) -> None:
         collection = self.collection
-        if not isinstance(collection, AlgebraicAllPlaceResidueResult):
+        if not isinstance(collection, AlgebraicAllPlacesCollected):
             raise TypeError("a residue coordinate needs all-place residue data")
         if (
-            collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
-            or collection.model is None
-            or collection.constant_field_analysis is None
-            or collection.constant_field_analysis.status
+            collection.constant_field_analysis.status
             is not AlgebraicConstantFieldStatus.PRESERVED
         ):
             raise ValueError(

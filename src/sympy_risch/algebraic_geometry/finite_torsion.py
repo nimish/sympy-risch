@@ -28,8 +28,10 @@ from .constant_fields import (
 )
 from .constant_reduction import constant_field_prime_reductions
 from .divisor_classes import (
+    AlgebraicTorsionBoundExhausted,
+    AlgebraicTorsionRelation,
     AlgebraicTorsionSearch,
-    AlgebraicTorsionStatus,
+    AlgebraicTorsionSearchUnsupported,
     _search_algebraic_divisor_torsion_bsgs,
     _validate_anchor,
 )
@@ -78,7 +80,7 @@ class FiniteDivisorClassOrder:
     source_divisor: AlgebraicDivisor
     target_divisor: AlgebraicDivisor
     weil_bound: int
-    search: AlgebraicTorsionSearch
+    search: AlgebraicTorsionRelation
 
     def __post_init__(self) -> None:
         if self.source_constant_field.model is not self.reduction.source:
@@ -94,8 +96,7 @@ class FiniteDivisorClassOrder:
         if self.search.divisor != self.target_divisor:
             raise ValueError("the finite search used another divisor")
         if (
-            self.search.status is not AlgebraicTorsionStatus.TORSION
-            or self.search.order is None
+            not isinstance(self.search, AlgebraicTorsionRelation)
             or self.weil_bound <= 0
             or self.search.max_order != self.weil_bound
             or self.search.anchor.degree != 1
@@ -111,8 +112,6 @@ class FiniteDivisorClassOrder:
     @property
     def order(self) -> int:
         """The exact reduced divisor-class order."""
-        if self.search.order is None:
-            raise ValueError("the finite order certificate is incomplete")
         return self.search.order
 
 
@@ -194,7 +193,7 @@ def _finite_divisor_class_order_from_reduction(
         max_order=context.weil_bound,
         anchor=context.anchor,
     )
-    if search.status is not AlgebraicTorsionStatus.TORSION:
+    if not isinstance(search, AlgebraicTorsionRelation):
         raise NotImplementedError(
             "the finite class order was not found within the Weil bound: "
             + search.detail
@@ -426,7 +425,7 @@ class AlgebraicDivisorTorsion:
     constant_field: FunctionFieldConstantCertificate
     divisor: AlgebraicDivisor
     finite_orders: tuple[FiniteDivisorClassOrder, FiniteDivisorClassOrder]
-    characteristic_zero_search: AlgebraicTorsionSearch
+    characteristic_zero_search: AlgebraicTorsionRelation
     order: int
     witness: ExtensionElement
     detail: str
@@ -446,7 +445,7 @@ class AlgebraicDivisorTorsion:
         if (
             not compatible
             or self.order != candidate
-            or search.status is not AlgebraicTorsionStatus.TORSION
+            or not isinstance(search, AlgebraicTorsionRelation)
             or search.order != self.order
             or search.witness != self.witness
         ):
@@ -461,7 +460,7 @@ class AlgebraicDivisorNontorsion:
     constant_field: FunctionFieldConstantCertificate
     divisor: AlgebraicDivisor
     finite_orders: tuple[FiniteDivisorClassOrder, FiniteDivisorClassOrder]
-    characteristic_zero_search: AlgebraicTorsionSearch | None
+    characteristic_zero_search: AlgebraicTorsionBoundExhausted | None
     detail: str
 
     def __post_init__(self) -> None:
@@ -483,7 +482,7 @@ class AlgebraicDivisorNontorsion:
                 )
         elif (
             not compatible
-            or search.status is not AlgebraicTorsionStatus.INCONCLUSIVE
+            or not isinstance(search, AlgebraicTorsionBoundExhausted)
             or search.max_order != candidate
         ):
             raise ValueError("the nontorsion replay does not exhaust its candidate")
@@ -617,44 +616,46 @@ def decide_algebraic_divisor_torsion(
         max_order=max(1, candidate),
         anchor=anchor,
     )
-    if search.status is AlgebraicTorsionStatus.TORSION:
-        if search.order != candidate or search.witness is None:
+    match search:
+        case AlgebraicTorsionRelation(order=order, witness=witness):
+            if order != candidate:
+                return AlgebraicDivisorTorsionUnsupported(
+                    model,
+                    batch.constant_field,
+                    divisor,
+                    tuple(finite_orders),
+                    search,
+                    "finite reduction and characteristic-zero orders disagree",
+                )
+            return AlgebraicDivisorTorsion(
+                model,
+                batch.constant_field,
+                divisor,
+                (left, right),
+                search,
+                candidate,
+                witness,
+                "two good reductions proposed and characteristic-zero replay "
+                f"verified order {candidate}",
+            )
+        case AlgebraicTorsionBoundExhausted():
+            return AlgebraicDivisorNontorsion(
+                model,
+                batch.constant_field,
+                divisor,
+                (left, right),
+                search,
+                "the unique finite-prime candidate failed characteristic-zero replay",
+            )
+        case AlgebraicTorsionSearchUnsupported(detail=detail):
             return AlgebraicDivisorTorsionUnsupported(
                 model,
                 batch.constant_field,
                 divisor,
                 tuple(finite_orders),
                 search,
-                "finite reduction and characteristic-zero orders disagree",
+                "characteristic-zero verification is unsupported: " + detail,
             )
-        return AlgebraicDivisorTorsion(
-            model,
-            batch.constant_field,
-            divisor,
-            (left, right),
-            search,
-            candidate,
-            search.witness,
-            "two good reductions proposed and characteristic-zero replay "
-            f"verified order {candidate}",
-        )
-    if search.status is AlgebraicTorsionStatus.INCONCLUSIVE:
-        return AlgebraicDivisorNontorsion(
-            model,
-            batch.constant_field,
-            divisor,
-            (left, right),
-            search,
-            "the unique finite-prime candidate failed characteristic-zero replay",
-        )
-    return AlgebraicDivisorTorsionUnsupported(
-        model,
-        batch.constant_field,
-        divisor,
-        tuple(finite_orders),
-        search,
-        "characteristic-zero verification is unsupported: " + search.detail,
-    )
 
 
 __all__ = [

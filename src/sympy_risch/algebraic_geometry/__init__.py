@@ -2,7 +2,6 @@ r"""Exact algebraic-curve infrastructure over a rational function field."""
 
 from .base_change import (
     AlgebraicConstantBaseChange,
-    AlgebraicConstantBaseChangeStatus,
     AlgebraicConstantBaseChangeUnsupported,
     CertifiedAlgebraicConstantBaseChange,
     build_algebraic_constant_compositum_base_change,
@@ -38,7 +37,6 @@ from .divisor_classes import (
     AlgebraicTorsionRelation,
     AlgebraicTorsionSearch,
     AlgebraicTorsionSearchUnsupported,
-    AlgebraicTorsionStatus,
     ReducedAlgebraicDivisorClass,
     reduce_algebraic_divisor_class,
     search_algebraic_divisor_torsion,
@@ -97,7 +95,6 @@ from .principal import (
     AlgebraicNonprincipal,
     AlgebraicPrincipal,
     AlgebraicPrincipalityDecision,
-    AlgebraicPrincipalityStatus,
     AlgebraicPrincipalityUnsupported,
     decide_algebraic_principality,
 )
@@ -105,14 +102,12 @@ from .riemann_roch import (
     CertifiedRiemannRochSpace,
     RiemannRochCertificate,
     RiemannRochSpace,
-    RiemannRochSpaceStatus,
-    RiemannRochSpaceUnsupported,
+    RiemannRochUnsupported,
     compute_riemann_roch_space,
 )
 
 __all__ = [
     "AlgebraicConstantBaseChange",
-    "AlgebraicConstantBaseChangeStatus",
     "AlgebraicConstantBaseChangeUnsupported",
     "AlgebraicConstantFieldCompositum",
     "AlgebraicConstantFieldExtension",
@@ -130,13 +125,11 @@ __all__ = [
     "AlgebraicOrder",
     "AlgebraicPrincipal",
     "AlgebraicPrincipalityDecision",
-    "AlgebraicPrincipalityStatus",
     "AlgebraicPrincipalityUnsupported",
     "AlgebraicTorsionBoundExhausted",
     "AlgebraicTorsionRelation",
     "AlgebraicTorsionSearch",
     "AlgebraicTorsionSearchUnsupported",
-    "AlgebraicTorsionStatus",
     "BadAlgebraicReduction",
     "BadConstantFieldReduction",
     "CertifiedAlgebraicConstantBaseChange",
@@ -166,8 +159,7 @@ __all__ = [
     "ReducedAlgebraicDivisorClass",
     "RiemannRochCertificate",
     "RiemannRochSpace",
-    "RiemannRochSpaceStatus",
-    "RiemannRochSpaceUnsupported",
+    "RiemannRochUnsupported",
     "build_algebraic_constant_compositum_base_change",
     "certify_function_field_constants",
     "compute_riemann_roch_space",

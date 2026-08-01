@@ -13,7 +13,6 @@ from .admission import (
 )
 from .algebraic import (
     AlgebraicAllPlaceResidueResult,
-    AlgebraicAllPlaceResidueStatus,
     AlgebraicAllPlacesCollected,
     AlgebraicAllPlacesUnsupported,
     AlgebraicConstantEmbedding,
@@ -22,7 +21,6 @@ from .algebraic import (
     AlgebraicExactnessCertificate,
     AlgebraicExactnessLiouvilleObstruction,
     AlgebraicExactnessResult,
-    AlgebraicExactnessStatus,
     AlgebraicExactnessUnsupported,
     AlgebraicExactPrimitive,
     AlgebraicFraction,
@@ -88,7 +86,6 @@ from .algebraic.logarithmic import (
 )
 from .algebraic_geometry import (
     AlgebraicConstantBaseChange,
-    AlgebraicConstantBaseChangeStatus,
     AlgebraicConstantBaseChangeUnsupported,
     AlgebraicDifferential,
     AlgebraicDivisor,
@@ -104,13 +101,11 @@ from .algebraic_geometry import (
     AlgebraicOrder,
     AlgebraicPrincipal,
     AlgebraicPrincipalityDecision,
-    AlgebraicPrincipalityStatus,
     AlgebraicPrincipalityUnsupported,
     AlgebraicTorsionBoundExhausted,
     AlgebraicTorsionRelation,
     AlgebraicTorsionSearch,
     AlgebraicTorsionSearchUnsupported,
-    AlgebraicTorsionStatus,
     BadAlgebraicReduction,
     BadConstantFieldReduction,
     CertifiedAlgebraicConstantBaseChange,
@@ -137,7 +132,7 @@ from .algebraic_geometry import (
     IntegralClosureResult,
     LocalLaurentExpansion,
     ReducedAlgebraicDivisorClass,
-    RiemannRochSpaceUnsupported,
+    RiemannRochUnsupported,
     certify_function_field_constants,
     constant_field_prime_reductions,
     decide_algebraic_divisor_torsion,
@@ -171,7 +166,6 @@ from .algebraic_geometry.constraints import (
 from .algebraic_geometry.riemann_roch import (
     RiemannRochCertificate,
     RiemannRochSpace,
-    RiemannRochSpaceStatus,
     compute_riemann_roch_space,
 )
 from .constant_adapters import adapt_risch_constant_field_analysis
@@ -369,12 +363,10 @@ from .tower import (
 
 __all__ = [
     "AlgebraicAllPlaceResidueResult",
-    "AlgebraicAllPlaceResidueStatus",
     "AlgebraicAllPlacesCollected",
     "AlgebraicAllPlacesUnsupported",
     "AlgebraicConstantBaseChange",
     "AlgebraicConstantBaseChangeIntegrationResult",
-    "AlgebraicConstantBaseChangeStatus",
     "AlgebraicConstantBaseChangeUnsupported",
     "AlgebraicConstantEmbedding",
     "AlgebraicConstantFieldAnalysis",
@@ -393,7 +385,6 @@ __all__ = [
     "AlgebraicExactnessLiouvilleObstruction",
     "AlgebraicExactnessNonElementary",
     "AlgebraicExactnessResult",
-    "AlgebraicExactnessStatus",
     "AlgebraicExactnessUnsupported",
     "AlgebraicExtension",
     "AlgebraicFiniteReductionBatch",
@@ -422,7 +413,6 @@ __all__ = [
     "AlgebraicPlaceResidue",
     "AlgebraicPrincipal",
     "AlgebraicPrincipalityDecision",
-    "AlgebraicPrincipalityStatus",
     "AlgebraicPrincipalityUnsupported",
     "AlgebraicResidueCoordinateCertificate",
     "AlgebraicResidueFreeRemainder",
@@ -434,7 +424,6 @@ __all__ = [
     "AlgebraicTorsionRelation",
     "AlgebraicTorsionSearch",
     "AlgebraicTorsionSearchUnsupported",
-    "AlgebraicTorsionStatus",
     "AlgebraicValuationKernel",
     "AlgebraicValuationKernelStatus",
     "BadAlgebraicReduction",
@@ -570,8 +559,7 @@ __all__ = [
     "RiccatiMobiusNormalForm",
     "RiemannRochCertificate",
     "RiemannRochSpace",
-    "RiemannRochSpaceStatus",
-    "RiemannRochSpaceUnsupported",
+    "RiemannRochUnsupported",
     "RischDifferentialEquationResult",
     "RischOperation",
     "SimpleRadicalData",

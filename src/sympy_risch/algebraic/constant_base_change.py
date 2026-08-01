@@ -17,7 +17,8 @@ from sympy.polys.polyerrors import BasePolynomialError
 from sympy.polys.polytools import Poly
 
 from ..algebraic_geometry.base_change import (
-    AlgebraicConstantBaseChange,
+    AlgebraicConstantBaseChangeUnsupported,
+    CertifiedAlgebraicConstantBaseChange,
     build_algebraic_constant_base_change,
     build_algebraic_constant_compositum_base_change,
 )
@@ -39,20 +40,16 @@ from .residue_profile import (
 class AlgebraicConstantBaseChangeStep:
     """One certified target-field integration in a constant-extension chain."""
 
-    base_change: AlgebraicConstantBaseChange
+    base_change: CertifiedAlgebraicConstantBaseChange
     target_result: AlgebraicIntegrationResult
 
     def __post_init__(self) -> None:
-        if not isinstance(self.base_change, AlgebraicConstantBaseChange):
-            raise TypeError("a constant-extension step needs a base change")
+        if not isinstance(self.base_change, CertifiedAlgebraicConstantBaseChange):
+            raise TypeError("a constant-extension step needs a certified base change")
         if not isinstance(self.target_result, AlgebraicIntegrationResult):
             raise TypeError("a constant-extension step needs a target result")
-        if not self.base_change.certified:
-            raise ValueError("a constant-extension step needs a certified map")
         target_extension = self.base_change.target_extension
         target_derivation = self.base_change.target_derivation
-        if target_extension is None or target_derivation is None:
-            raise ValueError("a certified base change lacks its target field")
         if self.target_result.collection.basis.extension is not target_extension:
             raise ValueError("the target integration belongs to another field")
         if not self.target_result.collection.derivation.has_same_position(
@@ -94,15 +91,13 @@ class AlgebraicConstantBaseChangeIntegrationResult:
                 )
             source_model = previous.collection.model
             change = step.base_change
-            if source_model is None or change.source_model is not source_model:
+            if change.source_model is not source_model:
                 raise ValueError("a base change belongs to another source model")
             if not change.source_derivation.has_same_position(
                 previous.collection.derivation
             ):
                 raise ValueError("a base change belongs to another source derivation")
             target_extension = change.target_extension
-            if target_extension is None:
-                raise ValueError("a certified base change has no target extension")
             embedded = change.embed(previous.collection.integrand)
             if (
                 step.target_result.collection.integrand - embedded
@@ -121,7 +116,7 @@ class AlgebraicConstantBaseChangeIntegrationResult:
         return self.source_result
 
     @property
-    def base_change(self) -> AlgebraicConstantBaseChange | None:
+    def base_change(self) -> CertifiedAlgebraicConstantBaseChange | None:
         """The last certified base change, for convenient inspection."""
         if self.steps:
             return self.steps[-1].base_change
@@ -241,7 +236,7 @@ def _automatic_constant_factor_candidates(
 
 
 def _continue_source_result(
-    source_result: AlgebraicIntegrationResult,
+    source_result: AlgebraicNeedsConstantBaseChange,
     factors: tuple[Poly, ...],
     *,
     lazy: bool,
@@ -249,8 +244,6 @@ def _continue_source_result(
 ) -> tuple[AlgebraicConstantBaseChangeStep | None, str]:
     """Reintegrate one boundary over a chosen common constant field."""
     source_model = source_result.collection.model
-    if source_model is None:
-        raise ValueError("a base-change boundary lacks its source function field")
     change = (
         build_algebraic_constant_base_change(
             source_model,
@@ -264,17 +257,17 @@ def _continue_source_result(
             factors,
         )
     )
-    if not change.certified:
-        return (
-            None,
-            "the selected algebraic constant compositum is unsupported: "
-            + change.detail,
-        )
+    match change:
+        case AlgebraicConstantBaseChangeUnsupported(detail=detail):
+            return (
+                None,
+                "the selected algebraic constant compositum is unsupported: " + detail,
+            )
+        case CertifiedAlgebraicConstantBaseChange():
+            pass
 
     target_derivation = change.target_derivation
     target_model = change.target_model
-    if target_derivation is None or target_model is None:
-        raise ValueError("a certified base change lacks its target integration data")
     target_result = integrate_algebraic(
         change.embed(source_result.collection.integrand),
         target_derivation,
@@ -386,6 +379,8 @@ def integrate_algebraic_with_constant_base_change(
         if progressed:
             continue
 
+        if not isinstance(current, AlgebraicNeedsConstantBaseChange):
+            raise AssertionError("a non-boundary result cannot continue base change")
         for candidate in pending:
             step, attempt_detail = _continue_source_result(
                 current,

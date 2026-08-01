@@ -18,32 +18,26 @@ decision in an elementary-integrability argument.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from math import gcd
-from typing import ClassVar, TypeAlias
+from typing import TypeAlias
 
 from sympy.polys.agca.extensions import ExtensionElement
 
 from ..algebraic._field import _extension_element
 from .divisor_classes import (
+    AlgebraicTorsionBoundExhausted,
+    AlgebraicTorsionRelation,
     AlgebraicTorsionSearch,
-    AlgebraicTorsionStatus,
+    AlgebraicTorsionSearchUnsupported,
     search_algebraic_divisor_torsion,
 )
 from .function_field import AlgebraicDivisor, AlgebraicFunctionField
 from .riemann_roch import (
+    CertifiedRiemannRochSpace,
     RiemannRochSpace,
-    RiemannRochSpaceStatus,
+    RiemannRochUnsupported,
     compute_riemann_roch_space,
 )
-
-
-class AlgebraicPrincipalityStatus(Enum):
-    """Outcome of a complete principality decision when supported."""
-
-    PRINCIPAL = "principal"
-    NONPRINCIPAL = "nonprincipal"
-    UNSUPPORTED = "unsupported"
 
 
 def _divisor_content(divisor: AlgebraicDivisor) -> int:
@@ -89,8 +83,7 @@ def _torsion_search_proves_principal(
     if (
         not _torsion_search_matches_divisor(divisor, search)
         or search is None
-        or search.status is not AlgebraicTorsionStatus.TORSION
-        or search.order is None
+        or not isinstance(search, AlgebraicTorsionRelation)
     ):
         return False
     content = _divisor_content(divisor)
@@ -106,51 +99,33 @@ def _torsion_search_proves_nonprincipal(
     """Use the primitive class order or exhausted content bound."""
     if not _torsion_search_matches_divisor(divisor, search) or search is None:
         return False
-    if search.status is AlgebraicTorsionStatus.INCONCLUSIVE:
-        return True
-    if search.status is AlgebraicTorsionStatus.TORSION and search.order is not None:
-        return _divisor_content(divisor) % search.order != 0
-    return False
+    match search:
+        case AlgebraicTorsionBoundExhausted():
+            return True
+        case AlgebraicTorsionRelation(order=order):
+            return _divisor_content(divisor) % order != 0
+        case AlgebraicTorsionSearchUnsupported():
+            return False
 
 
-class _AlgebraicPrincipalityDecision:
-    r"""A verified answer to whether ``div(f) = divisor`` has a solution.
-
-    A degree-zero answer normally carries the reduced-class search proving
-    whether the primitive class order divides the divisor's coefficient
-    content. A nonzero-degree negative follows directly from degree
-    preservation of principal divisors. An unsupported answer retains the
-    exact arithmetic boundary that prevented a decision.
-    """
-
-    model: AlgebraicFunctionField
-    divisor: AlgebraicDivisor
-    detail: str
-    status: ClassVar[AlgebraicPrincipalityStatus]
-
-    def _validate_common(self) -> None:
-        if not isinstance(self.model, AlgebraicFunctionField):
-            raise TypeError("a principality decision needs a function field")
-        if not isinstance(self.divisor, AlgebraicDivisor):
-            raise TypeError("a principality decision needs an algebraic divisor")
-        if self.divisor.model is not self.model:
-            raise ValueError("the divisor belongs to another function field")
-        if not isinstance(self.detail, str) or not self.detail:
-            raise ValueError("a principality decision needs a detail")
-
-    @property
-    def principal(self) -> bool:
-        """Whether this decision carries a verified principal witness."""
-        return isinstance(self, AlgebraicPrincipal)
-
-    @property
-    def complete_negative(self) -> bool:
-        """Whether this is a proof that the divisor is nonprincipal."""
-        return isinstance(self, AlgebraicNonprincipal)
+def _validate_principality_common(
+    model: AlgebraicFunctionField,
+    divisor: AlgebraicDivisor,
+    detail: str,
+) -> None:
+    """Validate the context shared by every principality outcome."""
+    if not isinstance(model, AlgebraicFunctionField):
+        raise TypeError("a principality decision needs a function field")
+    if not isinstance(divisor, AlgebraicDivisor):
+        raise TypeError("a principality decision needs an algebraic divisor")
+    if divisor.model is not model:
+        raise ValueError("the divisor belongs to another function field")
+    if not isinstance(detail, str) or not detail:
+        raise ValueError("a principality decision needs a detail")
 
 
 @dataclass(frozen=True, slots=True)
-class AlgebraicPrincipal(_AlgebraicPrincipalityDecision):
+class AlgebraicPrincipal:
     """A verified nonzero witness whose principal divisor is the target."""
 
     model: AlgebraicFunctionField
@@ -159,12 +134,9 @@ class AlgebraicPrincipal(_AlgebraicPrincipalityDecision):
     riemann_roch_space: RiemannRochSpace | None
     divisor_class_search: AlgebraicTorsionSearch | None
     detail: str
-    status: ClassVar[AlgebraicPrincipalityStatus] = (
-        AlgebraicPrincipalityStatus.PRINCIPAL
-    )
 
     def __post_init__(self) -> None:
-        self._validate_common()
+        _validate_principality_common(self.model, self.divisor, self.detail)
 
         witness = _extension_element(self.model.extension, self.witness)
         object.__setattr__(self, "witness", witness)
@@ -188,7 +160,7 @@ class AlgebraicPrincipal(_AlgebraicPrincipalityDecision):
             raise ValueError("a principal divisor must have degree zero")
         if space is not None:
             if (
-                space.status is not RiemannRochSpaceStatus.CERTIFIED
+                not isinstance(space, CertifiedRiemannRochSpace)
                 or witness not in space.basis
                 or self.model.principal_divisor(witness) != self.divisor
             ):
@@ -202,7 +174,7 @@ class AlgebraicPrincipal(_AlgebraicPrincipalityDecision):
 
 
 @dataclass(frozen=True, slots=True)
-class AlgebraicNonprincipal(_AlgebraicPrincipalityDecision):
+class AlgebraicNonprincipal:
     """A complete proof that the target divisor is not principal."""
 
     model: AlgebraicFunctionField
@@ -210,13 +182,9 @@ class AlgebraicNonprincipal(_AlgebraicPrincipalityDecision):
     riemann_roch_space: RiemannRochSpace | None
     divisor_class_search: AlgebraicTorsionSearch | None
     detail: str
-    status: ClassVar[AlgebraicPrincipalityStatus] = (
-        AlgebraicPrincipalityStatus.NONPRINCIPAL
-    )
-    witness: ClassVar[None] = None
 
     def __post_init__(self) -> None:
-        self._validate_common()
+        _validate_principality_common(self.model, self.divisor, self.detail)
         space = self.riemann_roch_space
         if space is not None and (
             not isinstance(space, RiemannRochSpace)
@@ -234,11 +202,7 @@ class AlgebraicNonprincipal(_AlgebraicPrincipalityDecision):
             if space is not None:
                 raise ValueError("the degree obstruction needs no Riemann--Roch space")
             return
-        direct_proof = (
-            space is not None
-            and space.status is RiemannRochSpaceStatus.CERTIFIED
-            and not space.basis
-        )
+        direct_proof = isinstance(space, CertifiedRiemannRochSpace) and not space.basis
         if not direct_proof and not _torsion_search_proves_nonprincipal(
             self.divisor, search
         ):
@@ -248,7 +212,7 @@ class AlgebraicNonprincipal(_AlgebraicPrincipalityDecision):
 
 
 @dataclass(frozen=True, slots=True)
-class AlgebraicPrincipalityUnsupported(_AlgebraicPrincipalityDecision):
+class AlgebraicPrincipalityUnsupported:
     """An exact arithmetic boundary without a principality conclusion."""
 
     model: AlgebraicFunctionField
@@ -256,13 +220,9 @@ class AlgebraicPrincipalityUnsupported(_AlgebraicPrincipalityDecision):
     riemann_roch_space: RiemannRochSpace | None
     divisor_class_search: AlgebraicTorsionSearch | None
     detail: str
-    status: ClassVar[AlgebraicPrincipalityStatus] = (
-        AlgebraicPrincipalityStatus.UNSUPPORTED
-    )
-    witness: ClassVar[None] = None
 
     def __post_init__(self) -> None:
-        self._validate_common()
+        _validate_principality_common(self.model, self.divisor, self.detail)
         space = self.riemann_roch_space
         search = self.divisor_class_search
         if space is not None and (
@@ -276,9 +236,7 @@ class AlgebraicPrincipalityUnsupported(_AlgebraicPrincipalityDecision):
             or search.model is not self.model
         ):
             raise ValueError("the divisor-class search belongs to another model")
-        if (
-            space is None or space.status is not RiemannRochSpaceStatus.UNSUPPORTED
-        ) and search is None:
+        if not isinstance(space, RiemannRochUnsupported) and search is None:
             raise ValueError(
                 "an unsupported decision needs its exact arithmetic boundary"
             )
@@ -339,34 +297,34 @@ def decide_algebraic_principality(
         primitive,
         max_order=content,
     )
-    if search.status is AlgebraicTorsionStatus.TORSION:
-        if search.order is None:
-            raise ValueError("a torsion search omitted its order")
-        if content % search.order:
+    match search:
+        case AlgebraicTorsionRelation(order=order):
+            if content % order:
+                return AlgebraicNonprincipal(
+                    model,
+                    divisor,
+                    None,
+                    search,
+                    "the primitive divisor has torsion order not dividing its content",
+                )
+            return AlgebraicPrincipal(
+                model,
+                divisor,
+                search.witness_for_multiple(content),
+                None,
+                search,
+                "reduced divisor-class arithmetic reconstructed a principal relation",
+            )
+        case AlgebraicTorsionBoundExhausted():
             return AlgebraicNonprincipal(
                 model,
                 divisor,
                 None,
                 search,
-                "the primitive divisor has torsion order not dividing its content",
+                "the primitive class is nonzero at every order dividing the content",
             )
-        relation_witness = search.witness_for_multiple(content)
-        return AlgebraicPrincipal(
-            model,
-            divisor,
-            relation_witness,
-            None,
-            search,
-            "reduced divisor-class arithmetic reconstructed a principal relation",
-        )
-    if search.status is AlgebraicTorsionStatus.INCONCLUSIVE:
-        return AlgebraicNonprincipal(
-            model,
-            divisor,
-            None,
-            search,
-            "the primitive class is nonzero at every order dividing the content",
-        )
+        case AlgebraicTorsionSearchUnsupported():
+            pass
 
     # Keep the direct complete algorithm as a fallback when the reduced-class
     # route encounters an unsupported Riemann--Roch operation.
@@ -374,32 +332,33 @@ def decide_algebraic_principality(
         model,
         -divisor,
     )
-    if space.status is RiemannRochSpaceStatus.UNSUPPORTED:
-        return AlgebraicPrincipalityUnsupported(
-            model,
-            divisor,
-            space,
-            search,
-            "principality requires a complete L(-D): " + space.detail,
-        )
-    if not space.basis:
-        return AlgebraicNonprincipal(
-            model,
-            divisor,
-            space,
-            search,
-            "the complete space L(-D) is zero, so D is nonprincipal",
-        )
-
-    witness = space.basis[0]
-    return AlgebraicPrincipal(
-        model,
-        divisor,
-        witness,
-        space,
-        search,
-        "a nonzero element of complete L(-D) has principal divisor D",
-    )
+    match space:
+        case RiemannRochUnsupported(detail=detail):
+            return AlgebraicPrincipalityUnsupported(
+                model,
+                divisor,
+                space,
+                search,
+                "principality requires a complete L(-D): " + detail,
+            )
+        case CertifiedRiemannRochSpace(basis=()):
+            return AlgebraicNonprincipal(
+                model,
+                divisor,
+                space,
+                search,
+                "the complete space L(-D) is zero, so D is nonprincipal",
+            )
+        case CertifiedRiemannRochSpace(basis=(witness, *_)):
+            return AlgebraicPrincipal(
+                model,
+                divisor,
+                witness,
+                space,
+                search,
+                "a nonzero element of complete L(-D) has principal divisor D",
+            )
+    raise AssertionError("unreachable Riemann--Roch variant")
 
 
 def principality_from_torsion_search(
@@ -417,42 +376,37 @@ def principality_from_torsion_search(
         raise ValueError("the divisor multiple must be a positive integer")
     divisor = search.divisor.scale(multiple)
 
-    if search.status is AlgebraicTorsionStatus.TORSION:
-        if search.order is None:
-            raise ValueError("a torsion search omitted its order")
-        if multiple % search.order:
+    match search:
+        case AlgebraicTorsionRelation(order=order):
+            if multiple % order:
+                return AlgebraicNonprincipal(
+                    search.model,
+                    divisor,
+                    None,
+                    search,
+                    "the found torsion order does not divide the requested multiple",
+                )
+            return AlgebraicPrincipal(
+                search.model,
+                divisor,
+                search.witness_for_multiple(multiple),
+                None,
+                search,
+                "the torsion relation reconstructs the requested principal divisor",
+            )
+        case AlgebraicTorsionBoundExhausted(max_order=bound) if bound >= multiple:
             return AlgebraicNonprincipal(
                 search.model,
                 divisor,
                 None,
                 search,
-                "the found torsion order does not divide the requested multiple",
+                "the class remains nonzero through the requested multiple",
             )
-        return AlgebraicPrincipal(
-            search.model,
-            divisor,
-            search.witness_for_multiple(multiple),
-            None,
-            search,
-            "the torsion relation reconstructs the requested principal divisor",
-        )
-
-    if (
-        search.status is AlgebraicTorsionStatus.INCONCLUSIVE
-        and search.max_order >= multiple
-    ):
-        return AlgebraicNonprincipal(
-            search.model,
-            divisor,
-            None,
-            search,
-            "the class remains nonzero through the requested multiple",
-        )
-
-    return AlgebraicPrincipalityUnsupported(
-        search.model,
-        divisor,
-        None,
-        search,
-        "the supplied torsion search does not decide this multiple",
-    )
+        case AlgebraicTorsionBoundExhausted() | AlgebraicTorsionSearchUnsupported():
+            return AlgebraicPrincipalityUnsupported(
+                search.model,
+                divisor,
+                None,
+                search,
+                "the supplied torsion search does not decide this multiple",
+            )
