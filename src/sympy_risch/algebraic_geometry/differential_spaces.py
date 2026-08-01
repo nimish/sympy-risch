@@ -29,7 +29,7 @@ from .large_riemann_roch import (
 )
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class HessDifferentialSpace:
     r"""A compact complete representation of ``Omega(D)``.
 
@@ -42,26 +42,7 @@ class HessDifferentialSpace:
     canonical_divisor: AlgebraicDivisor
     coefficient_space: HessLargeRiemannRochSpace
 
-    def __init__(self) -> None:
-        raise TypeError(
-            "Hess differential spaces must be created by hess_differential_space"
-        )
-
-    @classmethod
-    def _create(
-        cls,
-        lower_bound: AlgebraicDivisor,
-        canonical_divisor: AlgebraicDivisor,
-        coefficient_space: HessLargeRiemannRochSpace,
-    ) -> HessDifferentialSpace:
-        result = object.__new__(cls)
-        object.__setattr__(result, "lower_bound", lower_bound)
-        object.__setattr__(result, "canonical_divisor", canonical_divisor)
-        object.__setattr__(result, "coefficient_space", coefficient_space)
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         model = self.lower_bound.model
         if (
             self.canonical_divisor.model is not model
@@ -152,7 +133,7 @@ def hess_differential_space(
         model,
         canonical_divisor - lower_bound,
     )
-    return HessDifferentialSpace._create(
+    return HessDifferentialSpace(
         lower_bound,
         canonical_divisor,
         coefficient_space,

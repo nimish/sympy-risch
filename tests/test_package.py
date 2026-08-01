@@ -1,5 +1,5 @@
 from importlib.metadata import version
-from typing import get_type_hints
+from typing import get_args, get_type_hints
 
 import sympy_risch
 import sympy_risch.algebraic as algebraic
@@ -85,6 +85,7 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "AlgebraicLocalDifferentialResidue",
         "AlgebraicLiouvilleObstruction",
         "AlgebraicPlaceResidue",
+        "AlgebraicResidueCoordinateCertificate",
         "AlgebraicResidueProfile",
         "AlgebraicResidueProfileFactor",
         "AlgebraicResidueProfileStatus",
@@ -124,8 +125,10 @@ def test_algebraic_geometry_facade_has_an_intentional_advanced_surface() -> None
     assert set(algebraic_geometry.__all__) == {
         "AlgebraicDifferential",
         "AlgebraicDivisor",
+        "AlgebraicDivisorNontorsion",
+        "AlgebraicDivisorTorsion",
         "AlgebraicDivisorTorsionDecision",
-        "AlgebraicDivisorTorsionStatus",
+        "AlgebraicDivisorTorsionUnsupported",
         "AlgebraicConstantFieldCompositum",
         "AlgebraicConstantFieldExtension",
         "AlgebraicFractionalIdeal",
@@ -205,7 +208,8 @@ def test_algebraic_integration_public_annotations_are_runtime_resolvable() -> No
     get_type_hints(sympy_risch.AlgebraicExactnessResult)
     get_type_hints(sympy_risch.AlgebraicIntegratingFactorResult)
     get_type_hints(sympy_risch.AlgebraicIntegratingFactorRDEResult)
-    get_type_hints(sympy_risch.AlgebraicIntegrationResult)
+    for result_type in get_args(sympy_risch.AlgebraicIntegrationResult):
+        get_type_hints(result_type)
     get_type_hints(sympy_risch.AlgebraicLogarithmicTerm)
     get_type_hints(sympy_risch.ElementaryIntegralResult)
 

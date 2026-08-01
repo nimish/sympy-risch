@@ -31,11 +31,8 @@ def certified_model(modulus):
     return model, certify_function_field_constants(model)
 
 
-def test_second_kind_results_are_factory_owned() -> None:
-    with pytest.raises(
-        TypeError,
-        match="created by hess_second_kind_differential_space",
-    ):
+def test_second_kind_results_require_complete_evidence() -> None:
+    with pytest.raises(TypeError):
         HessSecondKindDifferentialSpace()
 
 

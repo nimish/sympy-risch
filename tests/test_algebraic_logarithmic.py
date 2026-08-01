@@ -381,9 +381,9 @@ def test_nonprincipal_residue_divisor_is_an_integration_obstruction() -> None:
     assert result.principality_decision is not None
     assert result.principality_decision.complete_negative
     obstruction = result.liouville_obstruction
-    assert obstruction is not None
+    assert isinstance(obstruction, AlgebraicLiouvilleObstruction)
     assert obstruction.residue_divisor == result.principality_decision.divisor
-    assert obstruction.torsion.complete_negative
+    assert obstruction.torsion.divisor == obstruction.residue_divisor
     assert [
         (order.prime, order.order) for order in obstruction.torsion.finite_orders
     ] == [
@@ -412,10 +412,10 @@ def test_nonprincipal_residue_divisor_is_an_integration_obstruction() -> None:
     assert 3**2 == 2**3 - 2 + 3
     assert (-16 * (4 * (-1) ** 3 + 27 * 3**2)) % 3**2 != 0
 
-    with pytest.raises(TypeError, match="created by the integrator"):
-        AlgebraicLiouvilleObstruction()
     with pytest.raises(TypeError):
-        replace(obstruction, coefficient=QQ.convert(2))
+        AlgebraicLiouvilleObstruction()
+    with pytest.raises(ValueError, match="coefficient does not match"):
+        replace(obstruction.coordinate, coefficient=QQ.convert(2))
 
 
 def test_bounded_torsion_exhaustion_remains_unsupported() -> None:
@@ -430,7 +430,7 @@ def test_bounded_torsion_exhaustion_remains_unsupported() -> None:
 
     assert result.status is AlgebraicIntegrationStatus.UNSUPPORTED
     assert not result.complete_negative
-    assert result.liouville_obstruction is None
+    assert not hasattr(result, "liouville_obstruction")
     assert result.reconstructs
     assert result.remainder == extension.field.from_sympy(
         (y + 3) / (6 * (x - 2)),

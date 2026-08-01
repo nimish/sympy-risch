@@ -53,6 +53,7 @@ from .relative_hermite import (
     hermite_reduce_relative_simple_radical,
 )
 from .relative_integration import RelativeSimpleRadicalIntegrationCertificate
+from .residue_coordinates import AlgebraicResidueCoordinateCertificate
 from .residue_profile import (
     AlgebraicResidueProfile,
     AlgebraicResidueProfileFactor,
@@ -84,6 +85,7 @@ __all__ = [
     "AlgebraicLiouvilleObstruction",
     "AlgebraicLocalDifferentialResidue",
     "AlgebraicPlaceResidue",
+    "AlgebraicResidueCoordinateCertificate",
     "AlgebraicResidueProfile",
     "AlgebraicResidueProfileFactor",
     "AlgebraicResidueProfileStatus",

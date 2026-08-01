@@ -48,5 +48,5 @@ def test_ramified_prime_and_vanishing_denominator_are_rejected() -> None:
     with pytest.raises(BadConstantFieldReduction, match="denominator"):
         reduction.reduce(pole)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="wrong characteristic"):
         replace(reduction, rational_prime=5)

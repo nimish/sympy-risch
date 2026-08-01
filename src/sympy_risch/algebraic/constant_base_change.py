@@ -26,6 +26,7 @@ from .basis import IntegralBasis
 from .logarithmic import (
     AlgebraicIntegrationResult,
     AlgebraicIntegrationStatus,
+    AlgebraicNeedsConstantBaseChange,
     integrate_algebraic,
 )
 from .residue_profile import (
@@ -87,10 +88,7 @@ class AlgebraicConstantBaseChangeIntegrationResult:
 
         previous = self.source_result
         for step in self.steps:
-            if (
-                previous.status
-                is not AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
-            ):
+            if not isinstance(previous, AlgebraicNeedsConstantBaseChange):
                 raise ValueError(
                     "only a constant-base-change boundary may be continued"
                 )
@@ -329,10 +327,7 @@ def integrate_algebraic_with_constant_base_change(
         lazy=lazy,
         torsion_order_bound=torsion_order_bound,
     )
-    if (
-        source_result.status
-        is not AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
-    ):
+    if not isinstance(source_result, AlgebraicNeedsConstantBaseChange):
         return AlgebraicConstantBaseChangeIntegrationResult(
             source_result,
             (),
@@ -356,7 +351,7 @@ def integrate_algebraic_with_constant_base_change(
     current = source_result
     attempted: set[tuple[int, tuple[object, ...]]] = set()
     final_detail = "automatic algebraic constant descent made no progress"
-    while current.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE:
+    while isinstance(current, AlgebraicNeedsConstantBaseChange):
         candidates, final_detail = _automatic_constant_factor_candidates(current)
         progressed = False
         pending: list[Poly] = []
@@ -409,10 +404,7 @@ def integrate_algebraic_with_constant_base_change(
         if not progressed:
             break
 
-    if (
-        steps
-        and current.status is AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
-    ):
+    if steps and isinstance(current, AlgebraicNeedsConstantBaseChange):
         final_detail = (
             "the certified compositum chain exhausted the supported residue factors: "
             + final_detail

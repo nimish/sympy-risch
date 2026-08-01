@@ -28,8 +28,8 @@ def algebraic_model(modulus) -> AlgebraicFunctionField:
     return AlgebraicFunctionField(extension)
 
 
-def test_reduction_results_are_factory_owned() -> None:
-    with pytest.raises(TypeError, match="created by reduce_hess_divisor"):
+def test_reduction_results_require_complete_evidence() -> None:
+    with pytest.raises(TypeError):
         HessDivisorReduction()
 
 

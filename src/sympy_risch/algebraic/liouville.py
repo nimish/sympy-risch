@@ -9,26 +9,23 @@ own its proof-object validation.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from .._typing import FieldElement
 from ..algebraic_geometry.finite_torsion import (
+    AlgebraicDivisorNontorsion,
     AlgebraicDivisorTorsionDecision,
-    AlgebraicDivisorTorsionStatus,
 )
 from ..algebraic_geometry.function_field import AlgebraicDivisor
 from ..algebraic_geometry.principal import (
     AlgebraicPrincipalityDecision,
     AlgebraicPrincipalityStatus,
 )
-from ._field import _base_polynomial_ring
-from .all_places import (
-    AlgebraicAllPlaceResidueResult,
-    AlgebraicAllPlaceResidueStatus,
-)
-from .constant_analysis import AlgebraicConstantFieldStatus
+from .all_places import AlgebraicAllPlaceResidueResult
+from .residue_coordinates import AlgebraicResidueCoordinateCertificate
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class AlgebraicLiouvilleObstruction:
     r"""A nontorsion residue divisor contradicting Liouville's theorem.
 
@@ -40,55 +37,17 @@ class AlgebraicLiouvilleObstruction:
     extension.
     """
 
-    collection: AlgebraicAllPlaceResidueResult
-    coefficient: FieldElement
-    residue_divisor: AlgebraicDivisor
+    coordinate: AlgebraicResidueCoordinateCertificate
     principality: AlgebraicPrincipalityDecision
     torsion: AlgebraicDivisorTorsionDecision
-    detail: str
+    detail: ClassVar[str] = (
+        "a rational-coordinate residue divisor is certified nontorsion"
+    )
 
-    def __init__(self) -> None:
-        raise TypeError("Liouville obstructions must be created by the integrator")
-
-    @classmethod
-    def _create(
-        cls,
-        collection: AlgebraicAllPlaceResidueResult,
-        coefficient: FieldElement,
-        residue_divisor: AlgebraicDivisor,
-        principality: AlgebraicPrincipalityDecision,
-        torsion: AlgebraicDivisorTorsionDecision,
-    ) -> AlgebraicLiouvilleObstruction:
-        result = object.__new__(cls)
-        object.__setattr__(result, "collection", collection)
-        object.__setattr__(result, "coefficient", coefficient)
-        object.__setattr__(result, "residue_divisor", residue_divisor)
-        object.__setattr__(result, "principality", principality)
-        object.__setattr__(result, "torsion", torsion)
-        object.__setattr__(
-            result,
-            "detail",
-            "a rational-coordinate residue divisor is certified nontorsion",
-        )
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
-        if not isinstance(self.collection, AlgebraicAllPlaceResidueResult):
-            raise TypeError("a Liouville obstruction needs all-place residue data")
-        if (
-            self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
-            or self.collection.model is None
-            or self.collection.constant_field_analysis is None
-            or self.collection.constant_field_analysis.status
-            is not AlgebraicConstantFieldStatus.PRESERVED
-        ):
-            raise ValueError(
-                "a Liouville obstruction needs complete residues and full constants"
-            )
-        model = self.collection.model
-        if self.residue_divisor.model is not model:
-            raise ValueError("the residue obstruction belongs to another model")
+    def __post_init__(self) -> None:
+        if not isinstance(self.coordinate, AlgebraicResidueCoordinateCertificate):
+            raise TypeError("a Liouville obstruction needs a residue coordinate")
+        model = self.coordinate.collection.model
         if (
             self.principality.model is not model
             or self.principality.divisor != self.residue_divisor
@@ -96,19 +55,26 @@ class AlgebraicLiouvilleObstruction:
         ):
             raise ValueError("the residue divisor lacks its nonprincipality proof")
         if (
-            self.torsion.model is not model
+            not isinstance(self.torsion, AlgebraicDivisorNontorsion)
+            or self.torsion.model is not model
             or self.torsion.divisor != self.residue_divisor
-            or self.torsion.status is not AlgebraicDivisorTorsionStatus.NON_TORSION
-            or not self.torsion.complete_negative
         ):
             raise ValueError("the residue divisor lacks its nontorsion proof")
-        _parent, constants, _variable = _base_polynomial_ring(model.extension)
-        coefficient = constants.convert(self.coefficient)
-        if coefficient == constants.zero:
-            raise ValueError("a residue obstruction needs a nonzero coefficient")
-        object.__setattr__(self, "coefficient", coefficient)
-        if not isinstance(self.detail, str) or not self.detail:
-            raise ValueError("a Liouville obstruction needs a detail")
+
+    @property
+    def collection(self) -> AlgebraicAllPlaceResidueResult:
+        """Complete all-place residues from which the coordinate was replayed."""
+        return self.coordinate.collection
+
+    @property
+    def coefficient(self) -> FieldElement:
+        """Displayed-constant coefficient of the rational coordinate."""
+        return self.coordinate.coefficient
+
+    @property
+    def residue_divisor(self) -> AlgebraicDivisor:
+        """Integral divisor reconstructed from the rational coordinate."""
+        return self.coordinate.divisor
 
 
 __all__ = ["AlgebraicLiouvilleObstruction"]

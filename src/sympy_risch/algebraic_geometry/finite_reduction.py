@@ -180,7 +180,7 @@ def _reduce_ideal(
     )
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class AlgebraicFunctionFieldReduction:
     """A verified good reduction of one characteristic-zero field model."""
 
@@ -188,21 +188,72 @@ class AlgebraicFunctionFieldReduction:
     constant_reduction: ConstantFieldPrimeReduction
     target: AlgebraicFunctionField
 
-    def __init__(self) -> None:
-        raise TypeError("function-field reductions must be created by the factory")
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, AlgebraicFunctionField):
+            raise TypeError("a function-field reduction needs a source model")
+        if not isinstance(self.constant_reduction, ConstantFieldPrimeReduction):
+            raise TypeError("a function-field reduction needs a constant residue map")
+        if not isinstance(self.target, AlgebraicFunctionField):
+            raise TypeError("a function-field reduction needs a target model")
+        _source_parent, constants, _variable = _base_polynomial_ring(
+            self.source.extension
+        )
+        if self.constant_reduction.source is not constants:
+            raise ValueError("the finite prime belongs to another constant field")
+        if self.constant_reduction.residue_degree != 1:
+            raise NotImplementedError(
+                "curve reduction over non-prime finite residue fields awaits a "
+                "GF(p^f)(x) factorization backend"
+            )
 
-    @classmethod
-    def _create(
-        cls,
-        source: AlgebraicFunctionField,
-        constant_reduction: ConstantFieldPrimeReduction,
-        target: AlgebraicFunctionField,
-    ) -> AlgebraicFunctionFieldReduction:
-        result = object.__new__(cls)
-        object.__setattr__(result, "source", source)
-        object.__setattr__(result, "constant_reduction", constant_reduction)
-        object.__setattr__(result, "target", target)
-        return result
+        target_parent = cast(FractionField, self.target.extension.parent_field)
+        reduced_polynomial = _reduce_extension_polynomial(
+            self.source.extension,
+            target_parent,
+            self.constant_reduction,
+        )
+        if not _same_univariate_polynomial_coefficients(
+            reduced_polynomial,
+            self.target.extension.minimal_polynomial,
+        ):
+            raise BadAlgebraicReduction(
+                "the target equation is not the reduction of the source equation"
+            )
+        reduced_finite_order = _reduced_order(
+            self.source.order,
+            self.target.extension,
+            self.constant_reduction,
+        )
+        if not reduced_finite_order.equivalent(self.target.order):
+            raise BadAlgebraicReduction(
+                "the finite maximal-order basis did not survive reduction"
+            )
+
+        source_chart = self.source.reciprocal_chart
+        target_chart = self.target.reciprocal_chart
+        reduced_reciprocal_polynomial = _reduce_extension_polynomial(
+            source_chart.extension,
+            cast(FractionField, target_chart.extension.parent_field),
+            self.constant_reduction,
+        )
+        if not _same_univariate_polynomial_coefficients(
+            reduced_reciprocal_polynomial,
+            target_chart.extension.minimal_polynomial,
+        ):
+            raise BadAlgebraicReduction(
+                "the reciprocal presentation did not commute with reduction"
+            )
+        reduced_infinite_order = _reduced_order(
+            source_chart.closure.order,
+            target_chart.extension,
+            self.constant_reduction,
+        )
+        if not reduced_infinite_order.equivalent(target_chart.closure.order):
+            raise BadAlgebraicReduction(
+                "the reciprocal maximal-order basis did not survive reduction"
+            )
+        if self.target.genus != self.source.genus:
+            raise BadAlgebraicReduction("the genus changed under reduction")
 
     @property
     def prime(self) -> int:
@@ -345,43 +396,7 @@ def reduce_algebraic_function_field(
             f"{constant_reduction.rational_prime}: {exc}"
         ) from exc
 
-    reduced_finite_order = _reduced_order(
-        model.order,
-        target.extension,
-        constant_reduction,
-    )
-    if not reduced_finite_order.equivalent(target.order):
-        raise BadAlgebraicReduction(
-            "the finite maximal-order basis did not survive reduction"
-        )
-
-    source_chart = model.reciprocal_chart
-    target_chart = target.reciprocal_chart
-    reduced_reciprocal_polynomial = _reduce_extension_polynomial(
-        source_chart.extension,
-        cast(FractionField, target_chart.extension.parent_field),
-        constant_reduction,
-    )
-    if not _same_univariate_polynomial_coefficients(
-        reduced_reciprocal_polynomial,
-        target_chart.extension.minimal_polynomial,
-    ):
-        raise BadAlgebraicReduction(
-            "the reciprocal presentation did not commute with reduction"
-        )
-    reduced_infinite_order = _reduced_order(
-        source_chart.closure.order,
-        target_chart.extension,
-        constant_reduction,
-    )
-    if not reduced_infinite_order.equivalent(target_chart.closure.order):
-        raise BadAlgebraicReduction(
-            "the reciprocal maximal-order basis did not survive reduction"
-        )
-    if target.genus != model.genus:
-        raise BadAlgebraicReduction("the genus changed under reduction")
-
-    return AlgebraicFunctionFieldReduction._create(
+    return AlgebraicFunctionFieldReduction(
         model,
         constant_reduction,
         target,

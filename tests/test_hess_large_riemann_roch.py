@@ -33,8 +33,8 @@ def algebraic_model(modulus) -> AlgebraicFunctionField:
     return AlgebraicFunctionField(extension)
 
 
-def test_large_space_results_are_factory_owned() -> None:
-    with pytest.raises(TypeError, match="created by hess_large_riemann_roch_space"):
+def test_large_space_results_require_complete_evidence() -> None:
+    with pytest.raises(TypeError):
         HessLargeRiemannRochSpace()
 
 

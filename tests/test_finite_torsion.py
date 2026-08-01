@@ -8,8 +8,8 @@ from sympy.polys.domains import QQ
 
 from sympy_risch import (
     AlgebraicDivisor,
-    AlgebraicDivisorTorsionDecision,
-    AlgebraicDivisorTorsionStatus,
+    AlgebraicDivisorNontorsion,
+    AlgebraicDivisorTorsion,
     AlgebraicExtension,
     AlgebraicFunctionField,
     DifferentialTower,
@@ -57,6 +57,26 @@ def test_good_reduction_preserves_the_genus_and_finds_order_29() -> None:
     assert "baby-step/giant-step" in finite_order.search.detail
 
 
+def test_good_reduction_replays_each_maximal_order_once(monkeypatch) -> None:
+    """Public validation must not duplicate the two expensive order transports."""
+    import sympy_risch.algebraic_geometry.finite_reduction as finite_reduction
+
+    model = algebraic_model(y**2 - x**3 + x - 1)
+    original_reduced_order = finite_reduction._reduced_order
+    calls = 0
+
+    def counted_reduced_order(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original_reduced_order(*args, **kwargs)
+
+    monkeypatch.setattr(finite_reduction, "_reduced_order", counted_reduced_order)
+
+    reduce_algebraic_function_field(model, 5)
+
+    assert calls == 2
+
+
 def test_incompatible_finite_orders_prove_nontorsion() -> None:
     model = algebraic_model(y**2 - x**3 + x - 1)
     point = model.finite_places(Poly(x, x, domain=QQ))[0]
@@ -70,13 +90,13 @@ def test_incompatible_finite_orders_prove_nontorsion() -> None:
         primes=(5, 7),
     )
 
-    assert decision.status is AlgebraicDivisorTorsionStatus.NON_TORSION
+    assert isinstance(decision, AlgebraicDivisorNontorsion)
     assert [(result.prime, result.order) for result in decision.finite_orders] == [
         (5, 8),
         (7, 4),
     ]
-    assert decision.order is None
-    assert decision.witness is None
+    assert not hasattr(decision, "order")
+    assert not hasattr(decision, "witness")
 
 
 def test_algebraic_constants_use_split_prime_ideals_for_curve_reduction() -> None:
@@ -143,7 +163,8 @@ def test_prepared_reductions_are_reused_for_multiple_divisors() -> None:
         reduction_batch=batch,
     )
 
-    assert first.status is second.status is AlgebraicDivisorTorsionStatus.TORSION
+    assert isinstance(first, AlgebraicDivisorTorsion)
+    assert isinstance(second, AlgebraicDivisorTorsion)
     assert first.order == second.order == 2
     assert first.finite_orders == second.finite_orders == batch.orders_for(divisor)
     assert all(
@@ -173,6 +194,8 @@ def test_preparation_skips_a_curve_good_prime_that_is_bad_for_the_divisor() -> N
     assert [reduction.prime for reduction in batch.reductions] == [5, 7]
     assert [order.prime for order in batch.orders_for(divisor)] == [5, 7]
     assert batch.failures and batch.failures[0].startswith("3:")
+    with pytest.raises(TypeError):
+        batch._divisor_indices[next(iter(batch._divisor_indices))] = 99
 
 
 def test_prepared_reductions_are_sparse_per_divisor(monkeypatch) -> None:
@@ -238,16 +261,20 @@ def test_torsion_decision_cannot_be_replaced_with_a_forged_negative() -> None:
         primes=(7, 17),
     )
 
-    assert decision.status is AlgebraicDivisorTorsionStatus.TORSION
-    with pytest.raises(TypeError, match="created by the solver"):
-        AlgebraicDivisorTorsionDecision()
-    with pytest.raises(TypeError):
-        replace(
-            decision,
-            status=AlgebraicDivisorTorsionStatus.NON_TORSION,
-            order=None,
-            witness=None,
-            characteristic_zero_search=None,
+    assert isinstance(decision, AlgebraicDivisorTorsion)
+    with pytest.raises(ValueError, match="lacks its verified relation"):
+        replace(decision, order=decision.order + 1)
+    with pytest.raises(
+        ValueError,
+        match="compatible finite orders alone do not prove nontorsion",
+    ):
+        AlgebraicDivisorNontorsion(
+            decision.model,
+            decision.constant_field,
+            decision.divisor,
+            decision.finite_orders,
+            None,
+            "forged negative",
         )
 
 

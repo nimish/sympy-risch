@@ -15,8 +15,9 @@ arithmetic.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from math import isqrt, lcm
+from types import MappingProxyType
+from typing import Mapping
 
 from sympy.polys.agca.extensions import ExtensionElement
 
@@ -67,7 +68,7 @@ def _source_divisor_key(divisor: AlgebraicDivisor) -> tuple[tuple[int, int], ...
     )
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class FiniteDivisorClassOrder:
     """The exact order of a reduced class in one finite Jacobian."""
 
@@ -79,32 +80,7 @@ class FiniteDivisorClassOrder:
     weil_bound: int
     search: AlgebraicTorsionSearch
 
-    def __init__(self) -> None:
-        raise TypeError("finite-order certificates must be created by the solver")
-
-    @classmethod
-    def _create(
-        cls,
-        reduction: AlgebraicFunctionFieldReduction,
-        source_constant_field: FunctionFieldConstantCertificate,
-        target_constant_field: FunctionFieldConstantCertificate,
-        source_divisor: AlgebraicDivisor,
-        target_divisor: AlgebraicDivisor,
-        weil_bound: int,
-        search: AlgebraicTorsionSearch,
-    ) -> FiniteDivisorClassOrder:
-        result = object.__new__(cls)
-        object.__setattr__(result, "reduction", reduction)
-        object.__setattr__(result, "source_constant_field", source_constant_field)
-        object.__setattr__(result, "target_constant_field", target_constant_field)
-        object.__setattr__(result, "source_divisor", source_divisor)
-        object.__setattr__(result, "target_divisor", target_divisor)
-        object.__setattr__(result, "weil_bound", weil_bound)
-        object.__setattr__(result, "search", search)
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         if self.source_constant_field.model is not self.reduction.source:
             raise ValueError("the source constant proof belongs to another model")
         if self.target_constant_field.model is not self.reduction.target:
@@ -223,7 +199,7 @@ def _finite_divisor_class_order_from_reduction(
             "the finite class order was not found within the Weil bound: "
             + search.detail
         )
-    return FiniteDivisorClassOrder._create(
+    return FiniteDivisorClassOrder(
         reduction,
         source_constant_field,
         context.target_constant_field,
@@ -234,15 +210,7 @@ def _finite_divisor_class_order_from_reduction(
     )
 
 
-class AlgebraicDivisorTorsionStatus(Enum):
-    """Outcome of a finite-prime characteristic-zero torsion decision."""
-
-    TORSION = "torsion"
-    NON_TORSION = "non_torsion"
-    UNSUPPORTED = "unsupported"
-
-
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class AlgebraicFiniteReductionBatch:
     """Factory-owned good reductions reusable across many source divisors."""
 
@@ -252,55 +220,36 @@ class AlgebraicFiniteReductionBatch:
     reductions: tuple[AlgebraicFunctionFieldReduction, ...]
     finite_orders: tuple[tuple[FiniteDivisorClassOrder | None, ...], ...]
     failures: tuple[str, ...]
-    _divisor_indices: dict[tuple[tuple[int, int], ...], int] = field(
+    _divisor_indices: Mapping[tuple[tuple[int, int], ...], int] = field(
+        init=False,
         repr=False,
         compare=False,
     )
 
-    def __init__(self) -> None:
-        raise TypeError("finite-reduction batches must be created by the factory")
-
-    @classmethod
-    def _create(
-        cls,
-        model: AlgebraicFunctionField,
-        constant_field: FunctionFieldConstantCertificate,
-        source_divisors: tuple[AlgebraicDivisor, ...],
-        reductions: tuple[AlgebraicFunctionFieldReduction, ...],
-        finite_orders: tuple[tuple[FiniteDivisorClassOrder | None, ...], ...],
-        failures: tuple[str, ...],
-    ) -> AlgebraicFiniteReductionBatch:
-        result = object.__new__(cls)
-        object.__setattr__(result, "model", model)
-        object.__setattr__(result, "constant_field", constant_field)
-        object.__setattr__(result, "source_divisors", source_divisors)
-        object.__setattr__(result, "reductions", reductions)
-        object.__setattr__(result, "finite_orders", finite_orders)
-        object.__setattr__(result, "failures", failures)
+    def __post_init__(self) -> None:
         divisor_indices = {
             _source_divisor_key(divisor): index
-            for index, divisor in enumerate(source_divisors)
+            for index, divisor in enumerate(self.source_divisors)
         }
-        object.__setattr__(result, "_divisor_indices", divisor_indices)
-        _validate_constant_field(model, constant_field)
-        if any(divisor.model is not model for divisor in source_divisors):
+        object.__setattr__(self, "_divisor_indices", MappingProxyType(divisor_indices))
+        _validate_constant_field(self.model, self.constant_field)
+        if any(divisor.model is not self.model for divisor in self.source_divisors):
             raise ValueError("a finite-reduction batch contains a foreign divisor")
-        if len(divisor_indices) != len(source_divisors):
+        if len(divisor_indices) != len(self.source_divisors):
             raise ValueError("a finite-reduction batch repeats a divisor")
-        if any(reduction.source is not model for reduction in reductions):
+        if any(reduction.source is not self.model for reduction in self.reductions):
             raise ValueError("a finite-reduction batch contains a foreign model")
-        if len(finite_orders) != len(reductions) or any(
-            len(row) != len(source_divisors) for row in finite_orders
+        if len(self.finite_orders) != len(self.reductions) or any(
+            len(row) != len(self.source_divisors) for row in self.finite_orders
         ):
             raise ValueError("a finite-reduction batch has inconsistent divisor rows")
         if any(
             order is not None
             and (order.reduction is not reduction or order.source_divisor != divisor)
-            for reduction, row in zip(reductions, finite_orders, strict=True)
-            for divisor, order in zip(source_divisors, row, strict=True)
+            for reduction, row in zip(self.reductions, self.finite_orders, strict=True)
+            for divisor, order in zip(self.source_divisors, row, strict=True)
         ):
             raise ValueError("a finite order belongs to another prepared pair")
-        return result
 
     def orders_for(
         self, divisor: AlgebraicDivisor
@@ -416,7 +365,7 @@ def prepare_algebraic_torsion_reductions(
         ):
             break
 
-    return AlgebraicFiniteReductionBatch._create(
+    return AlgebraicFiniteReductionBatch(
         model,
         constant_field,
         source_divisors,
@@ -426,135 +375,143 @@ def prepare_algebraic_torsion_reductions(
     )
 
 
-@dataclass(frozen=True, slots=True, init=False)
-class AlgebraicDivisorTorsionDecision:
-    """A verified torsion relation, nontorsion proof, or exact boundary."""
+def _validate_torsion_decision_common(
+    model: AlgebraicFunctionField,
+    constant_field: FunctionFieldConstantCertificate,
+    divisor: AlgebraicDivisor,
+    finite_orders: tuple[FiniteDivisorClassOrder, ...],
+    search: AlgebraicTorsionSearch | None,
+    detail: str,
+) -> tuple[int | None, bool]:
+    """Validate shared evidence and return the two-prime candidate relation."""
+    _validate_constant_field(model, constant_field)
+    if divisor.model is not model or divisor.degree != 0:
+        raise ValueError("a torsion decision needs a model-owned degree-zero divisor")
+    if not isinstance(finite_orders, tuple) or len(finite_orders) > 2:
+        raise ValueError("a torsion decision uses at most two finite reductions")
+    if any(
+        not isinstance(order, FiniteDivisorClassOrder)
+        or order.reduction.source is not model
+        or order.source_constant_field is not constant_field
+        or order.source_divisor != divisor
+        for order in finite_orders
+    ):
+        raise ValueError("a finite order belongs to another torsion problem")
+    if search is not None and (
+        not isinstance(search, AlgebraicTorsionSearch)
+        or search.model is not model
+        or search.divisor != divisor
+    ):
+        raise ValueError("the characteristic-zero search used another divisor")
+    if not isinstance(detail, str) or not detail:
+        raise ValueError("a torsion decision needs a detail")
+    if len(finite_orders) != 2:
+        return None, False
+    left, right = finite_orders
+    if left.prime == right.prime:
+        raise ValueError("a two-prime decision repeated a characteristic")
+    candidate = lcm(left.order, right.order)
+    compatible = _is_power_of(
+        candidate // left.order,
+        left.prime,
+    ) and _is_power_of(candidate // right.order, right.prime)
+    return candidate, compatible
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicDivisorTorsion:
+    """A characteristic-zero torsion relation verified after two reductions."""
 
     model: AlgebraicFunctionField
     constant_field: FunctionFieldConstantCertificate
     divisor: AlgebraicDivisor
-    status: AlgebraicDivisorTorsionStatus
-    order: int | None
-    witness: ExtensionElement | None
+    finite_orders: tuple[FiniteDivisorClassOrder, FiniteDivisorClassOrder]
+    characteristic_zero_search: AlgebraicTorsionSearch
+    order: int
+    witness: ExtensionElement
+    detail: str
+
+    def __post_init__(self) -> None:
+        candidate, compatible = _validate_torsion_decision_common(
+            self.model,
+            self.constant_field,
+            self.divisor,
+            self.finite_orders,
+            self.characteristic_zero_search,
+            self.detail,
+        )
+        search = self.characteristic_zero_search
+        if (
+            not compatible
+            or self.order != candidate
+            or search.status is not AlgebraicTorsionStatus.TORSION
+            or search.order != self.order
+            or search.witness != self.witness
+        ):
+            raise ValueError("a torsion decision lacks its verified relation")
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicDivisorNontorsion:
+    """A complete two-prime proof that a divisor class is nontorsion."""
+
+    model: AlgebraicFunctionField
+    constant_field: FunctionFieldConstantCertificate
+    divisor: AlgebraicDivisor
+    finite_orders: tuple[FiniteDivisorClassOrder, FiniteDivisorClassOrder]
+    characteristic_zero_search: AlgebraicTorsionSearch | None
+    detail: str
+
+    def __post_init__(self) -> None:
+        candidate, compatible = _validate_torsion_decision_common(
+            self.model,
+            self.constant_field,
+            self.divisor,
+            self.finite_orders,
+            self.characteristic_zero_search,
+            self.detail,
+        )
+        search = self.characteristic_zero_search
+        if search is None:
+            if compatible:
+                raise ValueError(
+                    "compatible finite orders alone do not prove nontorsion"
+                )
+        elif (
+            not compatible
+            or search.status is not AlgebraicTorsionStatus.INCONCLUSIVE
+            or search.max_order != candidate
+        ):
+            raise ValueError("the nontorsion replay does not exhaust its candidate")
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicDivisorTorsionUnsupported:
+    """An exact boundary where the available data does not decide torsion."""
+
+    model: AlgebraicFunctionField
+    constant_field: FunctionFieldConstantCertificate
+    divisor: AlgebraicDivisor
     finite_orders: tuple[FiniteDivisorClassOrder, ...]
     characteristic_zero_search: AlgebraicTorsionSearch | None
     detail: str
 
-    def __init__(self) -> None:
-        raise TypeError("torsion decisions must be created by the solver")
-
-    @classmethod
-    def _create(
-        cls,
-        model: AlgebraicFunctionField,
-        constant_field: FunctionFieldConstantCertificate,
-        divisor: AlgebraicDivisor,
-        status: AlgebraicDivisorTorsionStatus,
-        order: int | None,
-        witness: ExtensionElement | None,
-        finite_orders: tuple[FiniteDivisorClassOrder, ...],
-        characteristic_zero_search: AlgebraicTorsionSearch | None,
-        detail: str,
-    ) -> AlgebraicDivisorTorsionDecision:
-        result = object.__new__(cls)
-        object.__setattr__(result, "model", model)
-        object.__setattr__(result, "constant_field", constant_field)
-        object.__setattr__(result, "divisor", divisor)
-        object.__setattr__(result, "status", status)
-        object.__setattr__(result, "order", order)
-        object.__setattr__(result, "witness", witness)
-        object.__setattr__(result, "finite_orders", finite_orders)
-        object.__setattr__(
-            result,
-            "characteristic_zero_search",
-            characteristic_zero_search,
+    def __post_init__(self) -> None:
+        _validate_torsion_decision_common(
+            self.model,
+            self.constant_field,
+            self.divisor,
+            self.finite_orders,
+            self.characteristic_zero_search,
+            self.detail,
         )
-        object.__setattr__(result, "detail", detail)
-        result._validate()
-        return result
 
-    def _validate(self) -> None:
-        _validate_constant_field(self.model, self.constant_field)
-        if self.divisor.model is not self.model or self.divisor.degree != 0:
-            raise ValueError(
-                "a torsion decision needs a model-owned degree-zero divisor"
-            )
-        if len(self.finite_orders) > 2:
-            raise ValueError("a torsion decision uses at most two finite reductions")
-        if any(
-            order.reduction.source is not self.model
-            or order.source_constant_field is not self.constant_field
-            or order.source_divisor != self.divisor
-            for order in self.finite_orders
-        ):
-            raise ValueError("a finite order belongs to another torsion problem")
-        search = self.characteristic_zero_search
-        if search is not None and (
-            search.model is not self.model or search.divisor != self.divisor
-        ):
-            raise ValueError("the characteristic-zero search used another divisor")
-        if not isinstance(self.detail, str) or not self.detail:
-            raise ValueError("a torsion decision needs a detail")
-        if not isinstance(self.status, AlgebraicDivisorTorsionStatus):
-            raise TypeError("a torsion decision has an unknown status")
 
-        if len(self.finite_orders) == 2:
-            left, right = self.finite_orders
-            if left.prime == right.prime:
-                raise ValueError("a two-prime decision repeated a characteristic")
-            candidate = lcm(left.order, right.order)
-            compatible = _is_power_of(
-                candidate // left.order,
-                left.prime,
-            ) and _is_power_of(candidate // right.order, right.prime)
-        else:
-            candidate = None
-            compatible = False
-
-        if self.status is AlgebraicDivisorTorsionStatus.TORSION:
-            if (
-                len(self.finite_orders) != 2
-                or not compatible
-                or self.order is None
-                or self.order != candidate
-                or self.witness is None
-                or search is None
-                or search.status is not AlgebraicTorsionStatus.TORSION
-                or search.order != self.order
-                or search.witness != self.witness
-            ):
-                raise ValueError("a torsion decision lacks its verified relation")
-            return
-        if self.order is not None or self.witness is not None:
-            raise ValueError("only a torsion decision carries an order and witness")
-        if self.status is AlgebraicDivisorTorsionStatus.NON_TORSION:
-            if len(self.finite_orders) != 2:
-                raise ValueError("a nontorsion decision needs two good reductions")
-            if search is None:
-                if compatible:
-                    raise ValueError(
-                        "compatible finite orders alone do not prove nontorsion"
-                    )
-            elif (
-                not compatible
-                or search.status is not AlgebraicTorsionStatus.INCONCLUSIVE
-                or search.max_order != candidate
-            ):
-                raise ValueError("the nontorsion replay does not exhaust its candidate")
-            return
-        if self.status is AlgebraicDivisorTorsionStatus.UNSUPPORTED:
-            return
-        raise ValueError("the divisor torsion status is unknown")
-
-    @property
-    def torsion(self) -> bool:
-        """Whether this decision reconstructed a finite-order relation."""
-        return self.status is AlgebraicDivisorTorsionStatus.TORSION
-
-    @property
-    def complete_negative(self) -> bool:
-        """Whether the finite-prime data proves the class nontorsion."""
-        return self.status is AlgebraicDivisorTorsionStatus.NON_TORSION
+AlgebraicDivisorTorsionDecision = (
+    AlgebraicDivisorTorsion
+    | AlgebraicDivisorNontorsion
+    | AlgebraicDivisorTorsionUnsupported
+)
 
 
 def _is_power_of(value: int, prime: int) -> bool:
@@ -613,13 +570,10 @@ def decide_algebraic_divisor_torsion(
         detail = "fewer than two supported good reductions were available"
         if failures:
             detail += ": " + "; ".join(failures)
-        return AlgebraicDivisorTorsionDecision._create(
+        return AlgebraicDivisorTorsionUnsupported(
             model,
             batch.constant_field,
             divisor,
-            AlgebraicDivisorTorsionStatus.UNSUPPORTED,
-            None,
-            None,
             tuple(finite_orders),
             None,
             detail,
@@ -632,14 +586,11 @@ def decide_algebraic_divisor_torsion(
         right.prime,
     )
     if not compatible:
-        return AlgebraicDivisorTorsionDecision._create(
+        return AlgebraicDivisorNontorsion(
             model,
             batch.constant_field,
             divisor,
-            AlgebraicDivisorTorsionStatus.NON_TORSION,
-            None,
-            None,
-            tuple(finite_orders),
+            (left, right),
             None,
             "the two reduced orders cannot be reductions of one "
             "characteristic-zero torsion order",
@@ -647,13 +598,10 @@ def decide_algebraic_divisor_torsion(
 
     anchor = _validate_anchor(model, None)
     if anchor.degree != 1:
-        return AlgebraicDivisorTorsionDecision._create(
+        return AlgebraicDivisorTorsionUnsupported(
             model,
             batch.constant_field,
             divisor,
-            AlgebraicDivisorTorsionStatus.UNSUPPORTED,
-            None,
-            None,
             tuple(finite_orders),
             None,
             "automatic characteristic-zero verification requires a degree-one "
@@ -667,48 +615,38 @@ def decide_algebraic_divisor_torsion(
     )
     if search.status is AlgebraicTorsionStatus.TORSION:
         if search.order != candidate or search.witness is None:
-            return AlgebraicDivisorTorsionDecision._create(
+            return AlgebraicDivisorTorsionUnsupported(
                 model,
                 batch.constant_field,
                 divisor,
-                AlgebraicDivisorTorsionStatus.UNSUPPORTED,
-                None,
-                None,
                 tuple(finite_orders),
                 search,
                 "finite reduction and characteristic-zero orders disagree",
             )
-        return AlgebraicDivisorTorsionDecision._create(
+        return AlgebraicDivisorTorsion(
             model,
             batch.constant_field,
             divisor,
-            AlgebraicDivisorTorsionStatus.TORSION,
+            (left, right),
+            search,
             candidate,
             search.witness,
-            tuple(finite_orders),
-            search,
             "two good reductions proposed and characteristic-zero replay "
             f"verified order {candidate}",
         )
     if search.status is AlgebraicTorsionStatus.INCONCLUSIVE:
-        return AlgebraicDivisorTorsionDecision._create(
+        return AlgebraicDivisorNontorsion(
             model,
             batch.constant_field,
             divisor,
-            AlgebraicDivisorTorsionStatus.NON_TORSION,
-            None,
-            None,
-            tuple(finite_orders),
+            (left, right),
             search,
             "the unique finite-prime candidate failed characteristic-zero replay",
         )
-    return AlgebraicDivisorTorsionDecision._create(
+    return AlgebraicDivisorTorsionUnsupported(
         model,
         batch.constant_field,
         divisor,
-        AlgebraicDivisorTorsionStatus.UNSUPPORTED,
-        None,
-        None,
         tuple(finite_orders),
         search,
         "characteristic-zero verification is unsupported: " + search.detail,
@@ -716,8 +654,10 @@ def decide_algebraic_divisor_torsion(
 
 
 __all__ = [
+    "AlgebraicDivisorNontorsion",
+    "AlgebraicDivisorTorsion",
     "AlgebraicDivisorTorsionDecision",
-    "AlgebraicDivisorTorsionStatus",
+    "AlgebraicDivisorTorsionUnsupported",
     "AlgebraicFiniteReductionBatch",
     "FiniteDivisorClassOrder",
     "decide_algebraic_divisor_torsion",

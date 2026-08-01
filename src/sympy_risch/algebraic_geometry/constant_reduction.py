@@ -48,7 +48,7 @@ def _integral_primitive_polynomial(source: AlgebraicField, symbol: Dummy) -> Pol
     return integral
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class ConstantFieldPrimeReduction:
     r"""A factory-owned exact map from ``QQ`` or ``QQ(alpha)`` to ``GF(p^f)``."""
 
@@ -58,28 +58,7 @@ class ConstantFieldPrimeReduction:
     residue_factor: Poly | None
     residue_degree: int
 
-    def __init__(self) -> None:
-        raise TypeError("constant-field reductions must be created by the factory")
-
-    @classmethod
-    def _create(
-        cls,
-        source: Domain,
-        rational_prime: int,
-        target: Domain,
-        residue_factor: Poly | None,
-        residue_degree: int,
-    ) -> ConstantFieldPrimeReduction:
-        result = object.__new__(cls)
-        object.__setattr__(result, "source", source)
-        object.__setattr__(result, "rational_prime", rational_prime)
-        object.__setattr__(result, "target", target)
-        object.__setattr__(result, "residue_factor", residue_factor)
-        object.__setattr__(result, "residue_degree", residue_degree)
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         prime = self.rational_prime
         if not isinstance(prime, int) or not isprime(prime):
             raise ValueError("a residue map needs a rational prime")
@@ -170,7 +149,7 @@ def constant_field_prime_reductions(
 
     if source == QQ:
         return (
-            ConstantFieldPrimeReduction._create(
+            ConstantFieldPrimeReduction(
                 source,
                 rational_prime,
                 GF(rational_prime),
@@ -193,7 +172,7 @@ def constant_field_prime_reductions(
         )
     _unit, factors = reduced.factor_list()
     return tuple(
-        ConstantFieldPrimeReduction._create(
+        ConstantFieldPrimeReduction(
             source,
             rational_prime,
             (

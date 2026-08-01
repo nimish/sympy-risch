@@ -57,7 +57,7 @@ class HessPowerProductElement:
         return cast(ExtensionElement, self.power_product.evaluate() * self.factor)
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class HessLargeRiemannRochSpace:
     r"""Algorithm 24's short representation of a complete ``L(D)``.
 
@@ -75,28 +75,7 @@ class HessLargeRiemannRochSpace:
     generators: tuple[HessPowerProductElement, ...]
     invariant_degrees: tuple[int, ...]
 
-    def __init__(self) -> None:
-        raise TypeError(
-            "large Hess spaces must be created by hess_large_riemann_roch_space"
-        )
-
-    @classmethod
-    def _create(
-        cls,
-        reduction: HessDivisorReduction,
-        reduced_basis: HessParametricBasis,
-        generators: tuple[HessPowerProductElement, ...],
-        invariant_degrees: tuple[int, ...],
-    ) -> HessLargeRiemannRochSpace:
-        result = object.__new__(cls)
-        object.__setattr__(result, "reduction", reduction)
-        object.__setattr__(result, "reduced_basis", reduced_basis)
-        object.__setattr__(result, "generators", generators)
-        object.__setattr__(result, "invariant_degrees", invariant_degrees)
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         if self.reduction.strategy is not HessReductionStrategy.DEGREE:
             raise ValueError("Algorithm 24 requires Hess degree reduction")
         if self.reduction.anchor != self.reduction.model.base_parameter_pole_divisor():
@@ -217,7 +196,7 @@ def hess_large_riemann_roch_space(
     invariant_degrees = tuple(
         degree + reduction.anchor_multiple for degree in reduced_basis.invariant_degrees
     )
-    return HessLargeRiemannRochSpace._create(
+    return HessLargeRiemannRochSpace(
         reduction,
         reduced_basis,
         generators,

@@ -133,7 +133,7 @@ def _matrix_annihilates_coordinates(
     return all(entry == matrix.domain.zero for row in image.to_list() for entry in row)
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class HessSecondKindDifferentialSpace:
     r"""The exact residue kernel inside one complete ``Omega(-E)``.
 
@@ -151,40 +151,7 @@ class HessSecondKindDifferentialSpace:
     basis_coordinates: tuple[tuple[object, ...], ...]
     basis: tuple[AlgebraicDifferential, ...]
 
-    def __init__(self) -> None:
-        raise TypeError(
-            "second-kind spaces must be created by hess_second_kind_differential_space"
-        )
-
-    @classmethod
-    def _create(
-        cls,
-        pole_bound: AlgebraicDivisor,
-        ambient_space: HessDifferentialSpace,
-        constant_field_certificate: FunctionFieldConstantCertificate,
-        residue_places: tuple[AlgebraicPlace, ...],
-        ambient_basis: tuple[AlgebraicDifferential, ...],
-        residue_matrix: DomainMatrix,
-        basis_coordinates: tuple[tuple[object, ...], ...],
-        basis: tuple[AlgebraicDifferential, ...],
-    ) -> HessSecondKindDifferentialSpace:
-        result = object.__new__(cls)
-        object.__setattr__(result, "pole_bound", pole_bound)
-        object.__setattr__(result, "ambient_space", ambient_space)
-        object.__setattr__(
-            result,
-            "constant_field_certificate",
-            constant_field_certificate,
-        )
-        object.__setattr__(result, "residue_places", residue_places)
-        object.__setattr__(result, "ambient_basis", ambient_basis)
-        object.__setattr__(result, "residue_matrix", residue_matrix)
-        object.__setattr__(result, "basis_coordinates", basis_coordinates)
-        object.__setattr__(result, "basis", basis)
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         if not self.pole_bound.is_effective:
             raise ValueError("a differential pole bound must be effective")
         if self.ambient_space.model is not self.pole_bound.model:
@@ -330,7 +297,7 @@ def hess_second_kind_differential_space(
         )
         for coordinates in basis_coordinates
     )
-    return HessSecondKindDifferentialSpace._create(
+    return HessSecondKindDifferentialSpace(
         pole_bound,
         ambient_space,
         constant_field_certificate,

@@ -101,7 +101,7 @@ class HessPowerProduct:
         return HessPowerProduct(self.model, self.factors + other.factors)
 
 
-@dataclass(frozen=True, slots=True, init=False)
+@dataclass(frozen=True, slots=True)
 class HessDivisorReduction:
     r"""An exact Algorithm 21 reduction of one arbitrary divisor.
 
@@ -122,32 +122,7 @@ class HessDivisorReduction:
     anchor_multiple: int
     witness: HessPowerProduct
 
-    def __init__(self) -> None:
-        raise TypeError("Hess reductions must be created by reduce_hess_divisor")
-
-    @classmethod
-    def _create(
-        cls,
-        model: AlgebraicFunctionField,
-        divisor: AlgebraicDivisor,
-        anchor: AlgebraicDivisor,
-        strategy: HessReductionStrategy,
-        reduced_divisor: AlgebraicDivisor,
-        anchor_multiple: int,
-        witness: HessPowerProduct,
-    ) -> HessDivisorReduction:
-        result = object.__new__(cls)
-        object.__setattr__(result, "model", model)
-        object.__setattr__(result, "divisor", divisor)
-        object.__setattr__(result, "anchor", anchor)
-        object.__setattr__(result, "strategy", strategy)
-        object.__setattr__(result, "reduced_divisor", reduced_divisor)
-        object.__setattr__(result, "anchor_multiple", anchor_multiple)
-        object.__setattr__(result, "witness", witness)
-        result._validate()
-        return result
-
-    def _validate(self) -> None:
+    def __post_init__(self) -> None:
         if self.divisor.model is not self.model:
             raise ValueError("the input divisor belongs to another function field")
         if self.anchor.model is not self.model:
@@ -386,7 +361,7 @@ def reduce_hess_divisor(
     parameter_anchor = reduction_anchor == model.base_parameter_pole_divisor()
     digits = _binary_digits(divisor)
     if not digits:
-        return HessDivisorReduction._create(
+        return HessDivisorReduction(
             model,
             divisor,
             reduction_anchor,
@@ -425,7 +400,7 @@ def reduce_hess_divisor(
             current.factor.scaled(2).multiply(digit.factor).multiply(combined.factor),
         )
 
-    return HessDivisorReduction._create(
+    return HessDivisorReduction(
         model,
         divisor,
         reduction_anchor,

@@ -46,8 +46,10 @@ from .finite_reduction import (
     reduce_algebraic_function_field,
 )
 from .finite_torsion import (
+    AlgebraicDivisorNontorsion,
+    AlgebraicDivisorTorsion,
     AlgebraicDivisorTorsionDecision,
-    AlgebraicDivisorTorsionStatus,
+    AlgebraicDivisorTorsionUnsupported,
     AlgebraicFiniteReductionBatch,
     FiniteDivisorClassOrder,
     decide_algebraic_divisor_torsion,
@@ -92,8 +94,10 @@ __all__ = [
     "AlgebraicConstantFieldExtension",
     "AlgebraicDifferential",
     "AlgebraicDivisor",
+    "AlgebraicDivisorNontorsion",
+    "AlgebraicDivisorTorsion",
     "AlgebraicDivisorTorsionDecision",
-    "AlgebraicDivisorTorsionStatus",
+    "AlgebraicDivisorTorsionUnsupported",
     "AlgebraicFiniteReductionBatch",
     "AlgebraicFractionalIdeal",
     "AlgebraicFunctionField",

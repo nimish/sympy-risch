@@ -8,22 +8,21 @@ the corresponding logarithmic terms.  Residues that live only in a closed
 residue extension still need compatible algebraic constant base change.
 
 This module keeps that result separate from the general elementary dispatcher.
-A residual differential with zero residues is explicitly retained for the
-later second-kind decision; only a certified nontorsion residue coordinate is
-called non-elementary here.
+A certified nontorsion residue coordinate is a Liouville obstruction.  After
+all residues have been removed, a complete primitive-space decision also
+certifies non-elementarity when the remaining differential is not exact.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from math import gcd, lcm
+from typing import ClassVar
 
 from sympy.core.expr import Expr
 from sympy.functions.elementary.exponential import log
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.domains import QQ
-from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
 from sympy.polys.polyerrors import CoercionFailed
 
@@ -34,7 +33,8 @@ from ..algebraic_geometry.divisor_classes import (
 )
 from ..algebraic_geometry.finite_places import FiniteAlgebraicPlace
 from ..algebraic_geometry.finite_torsion import (
-    AlgebraicDivisorTorsionStatus,
+    AlgebraicDivisorNontorsion,
+    AlgebraicDivisorTorsion,
     decide_algebraic_divisor_torsion,
     prepare_algebraic_torsion_reductions,
 )
@@ -66,10 +66,18 @@ from .exactness import (
     solve_algebraic_exactness,
 )
 from .liouville import AlgebraicLiouvilleObstruction
+from .residue_coordinates import (
+    AlgebraicResidueCoordinateCertificate,
+    constant_coordinate_basis,
+    displayed_constant_residue,
+    integer_multiple,
+    primitive_rational_scale,
+    rational_coordinates_of_constant,
+)
 
 
 class AlgebraicIntegrationStatus(Enum):
-    """Current outcome of the algebraic logarithmic integration slice."""
+    """Derived tag for the concrete algebraic integration result variants."""
 
     EXACT = "exact"
     ELEMENTARY = "elementary"
@@ -125,8 +133,7 @@ class AlgebraicLogarithmicTerm:
         object.__setattr__(self, "argument", argument)
 
 
-@dataclass(frozen=True, slots=True)
-class AlgebraicIntegrationResult:
+class _AlgebraicIntegrationResult:
     r"""One exact algebraic Hermite/logarithmic reduction result.
 
     Its native-field invariant is
@@ -137,7 +144,7 @@ class AlgebraicIntegrationResult:
     correction found after logarithmic residues have been removed.
 
     ``ELEMENTARY`` and ``EXACT`` are constructive successes.
-    ``NON_ELEMENTARY`` carries a sealed nontorsion residue obstruction. A
+    ``NON_ELEMENTARY`` carries a nontorsion residue obstruction. A
     ``RESIDUE_FREE_REMAINDER`` has had every displayed-constant logarithmic
     residue removed. Its optional ``exactness`` record says whether the
     remaining first-/second-kind differential was decided in the current
@@ -147,23 +154,17 @@ class AlgebraicIntegrationResult:
     """
 
     collection: AlgebraicAllPlaceResidueResult
-    status: AlgebraicIntegrationStatus
-    logarithmic_terms: tuple[AlgebraicLogarithmicTerm, ...]
-    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...]
-    remainder: ExtensionElement
     detail: str
-    exact_correction: ExtensionElement | None = None
-    exactness: AlgebraicExactnessResult | None = None
-    liouville_obstruction: AlgebraicLiouvilleObstruction | None = None
+    status: ClassVar[AlgebraicIntegrationStatus]
+    remainder: ExtensionElement
+    exact_correction: ExtensionElement
 
-    def __post_init__(self) -> None:
+    def _validate_common(self) -> None:
         if not isinstance(self.collection, AlgebraicAllPlaceResidueResult):
             raise TypeError("an algebraic integration result needs all-place data")
-        if not isinstance(self.status, AlgebraicIntegrationStatus):
-            raise TypeError("the algebraic integration status has the wrong type")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("an algebraic integration result needs a detail")
-        obstruction = self.liouville_obstruction
+        obstruction = getattr(self, "liouville_obstruction", None)
         if obstruction is not None and (
             not isinstance(obstruction, AlgebraicLiouvilleObstruction)
             or obstruction.collection is not self.collection
@@ -171,13 +172,15 @@ class AlgebraicIntegrationResult:
             raise ValueError("the Liouville obstruction belongs to another result")
 
         extension = self.collection.basis.extension
-        terms = tuple(self.logarithmic_terms)
-        if not all(isinstance(term, AlgebraicLogarithmicTerm) for term in terms):
+        terms = getattr(self, "logarithmic_terms", ())
+        if not isinstance(terms, tuple) or not all(
+            isinstance(term, AlgebraicLogarithmicTerm) for term in terms
+        ):
             raise TypeError("an algebraic integration result needs logarithmic terms")
         if any(term.divisor.model is not self.collection.model for term in terms):
             raise ValueError("a logarithmic term belongs to another function field")
-        decisions = tuple(self.principality_decisions)
-        if not all(
+        decisions = getattr(self, "principality_decisions", ())
+        if not isinstance(decisions, tuple) or not all(
             isinstance(decision, AlgebraicPrincipalityDecision)
             for decision in decisions
         ):
@@ -194,18 +197,11 @@ class AlgebraicIntegrationResult:
             raise ValueError(
                 "a logarithmic term lacks its recorded principality decision"
             )
-        object.__setattr__(self, "logarithmic_terms", terms)
-        object.__setattr__(self, "principality_decisions", decisions)
-
         remainder = _extension_element(extension, self.remainder)
-        correction = (
-            extension.field.zero
-            if self.exact_correction is None
-            else _extension_element(extension, self.exact_correction)
-        )
-        object.__setattr__(self, "remainder", remainder)
-        object.__setattr__(self, "exact_correction", correction)
-        exactness = self.exactness
+        if remainder != self.remainder:
+            raise ValueError("an algebraic remainder is not in canonical field form")
+        correction = _extension_element(extension, self.exact_correction)
+        exactness = getattr(self, "exactness", None)
         if exactness is not None:
             if not isinstance(exactness, AlgebraicExactnessResult):
                 raise TypeError("an algebraic integration result has invalid exactness")
@@ -273,17 +269,20 @@ class AlgebraicIntegrationResult:
             return
 
         if self.status is AlgebraicIntegrationStatus.NON_ELEMENTARY:
-            if (
-                self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED
-                or obstruction is None
-                or terms
-                or obstruction.principality not in decisions
-                or exactness is not None
-                or correction != extension.field.zero
-                or remainder != self.collection.remainder
-            ):
+            if self.collection.status is not AlgebraicAllPlaceResidueStatus.COLLECTED:
                 raise ValueError(
-                    "a non-elementary result needs its exact residue obstruction"
+                    "a non-elementary result needs complete all-place residue data"
+                )
+            valid = isinstance(obstruction, AlgebraicLiouvilleObstruction) and (
+                not terms
+                and obstruction.principality in decisions
+                and exactness is None
+                and correction == extension.field.zero
+                and remainder == self.collection.remainder
+            )
+            if not valid:
+                raise ValueError(
+                    "a non-elementary result needs its certified Liouville obstruction"
                 )
             return
 
@@ -346,7 +345,7 @@ class AlgebraicIntegrationResult:
         extension = self.collection.basis.extension
         _parent, constants, _variable = _base_polynomial_ring(extension)
         result = extension.field.zero
-        for term in self.logarithmic_terms:
+        for term in getattr(self, "logarithmic_terms", ()):
             coefficient = extension.field.from_sympy(
                 constants.to_sympy(constants.convert(term.coefficient)),
             )
@@ -365,30 +364,34 @@ class AlgebraicIntegrationResult:
     @property
     def logarithmic_coefficient(self) -> FieldElement | None:
         """Return the coefficient when the result has exactly one log term."""
-        if len(self.logarithmic_terms) != 1:
+        terms = getattr(self, "logarithmic_terms", ())
+        if len(terms) != 1:
             return None
-        return self.logarithmic_terms[0].coefficient
+        return terms[0].coefficient
 
     @property
     def residue_divisor(self) -> AlgebraicDivisor | None:
         """Return the divisor when the result has exactly one log term."""
-        if len(self.logarithmic_terms) != 1:
+        terms = getattr(self, "logarithmic_terms", ())
+        if len(terms) != 1:
             return None
-        return self.logarithmic_terms[0].divisor
+        return terms[0].divisor
 
     @property
     def principality_decision(self) -> AlgebraicPrincipalityDecision | None:
         """Return the decision when the result has exactly one residue divisor."""
-        if len(self.principality_decisions) != 1:
+        decisions = getattr(self, "principality_decisions", ())
+        if len(decisions) != 1:
             return None
-        return self.principality_decisions[0]
+        return decisions[0]
 
     @property
     def logarithmic_argument(self) -> ExtensionElement | None:
         """Return the argument when the result has exactly one log term."""
-        if len(self.logarithmic_terms) != 1:
+        terms = getattr(self, "logarithmic_terms", ())
+        if len(terms) != 1:
             return None
-        return self.logarithmic_terms[0].argument
+        return terms[0].argument
 
     @property
     def antiderivative(self) -> Expr | None:
@@ -408,90 +411,179 @@ class AlgebraicIntegrationResult:
         return exact_part + sum(
             constants.to_sympy(constants.convert(term.coefficient))
             * log(field.to_sympy(term.argument))
-            for term in self.logarithmic_terms
+            for term in getattr(self, "logarithmic_terms", ())
         )
 
 
-def _displayed_constant_residue(
-    local_residue: AlgebraicLocalDifferentialResidue,
-    constants: Domain,
-) -> FieldElement | None:
-    """Return a residue in the displayed constants, if it has one.
+@dataclass(frozen=True, slots=True)
+class AlgebraicExactIntegral(_AlgebraicIntegrationResult):
+    """A purely algebraic antiderivative with no logarithmic terms."""
 
-    A closed-place coordinate tuple begins with the base constant and then
-    uses positive powers of the local residue generators.  Thus precisely
-    ``(c, 0, ..., 0)`` represents a value already in the displayed constant
-    field; any other coordinate needs a compatible constant-base change.
-    """
-    coordinates = local_residue.constant_coordinates
-    try:
-        zero = constants.zero
-    except AttributeError:
-        return None
-    if not coordinates or any(coordinate != zero for coordinate in coordinates[1:]):
-        return None
-    try:
-        return constants.convert(coordinates[0])
-    except (CoercionFailed, TypeError, ValueError):
-        return None
+    collection: AlgebraicAllPlaceResidueResult
+    detail: str
+    exactness: AlgebraicExactnessResult | None = None
+    status: ClassVar[AlgebraicIntegrationStatus] = AlgebraicIntegrationStatus.EXACT
 
+    @property
+    def remainder(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
 
-def _primitive_rational_scale(residues: tuple[FieldElement, ...]) -> FieldElement:
-    """Return the positive rational content of nonzero rational residues."""
-    numerator_gcd = 0
-    denominator_lcm = 1
-    for residue in residues:
-        rational = QQ.convert(residue)
-        numerator_gcd = gcd(numerator_gcd, abs(int(QQ.numer(rational))))
-        denominator_lcm = lcm(denominator_lcm, int(QQ.denom(rational)))
-    if numerator_gcd == 0:
-        raise ValueError("rational residue content needs a nonzero residue")
-    return QQ.exquo(QQ.convert(numerator_gcd), QQ.convert(denominator_lcm))
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        if self.exactness is not None and self.exactness.primitive is not None:
+            return self.exactness.primitive
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
 
 
-def _integer_multiple(residue: FieldElement, scale: FieldElement) -> int:
-    """Return the exact integral quotient ``residue / scale``."""
-    quotient = QQ.exquo(QQ.convert(residue), QQ.convert(scale))
-    if QQ.denom(quotient) != 1:
-        raise ValueError("the rational residue scale did not clear denominators")
-    return int(QQ.numer(quotient))
+@dataclass(frozen=True, slots=True)
+class AlgebraicElementaryIntegral(_AlgebraicIntegrationResult):
+    """An algebraic exact part plus one or more verified logarithmic terms."""
+
+    collection: AlgebraicAllPlaceResidueResult
+    logarithmic_terms: tuple[AlgebraicLogarithmicTerm, ...] = field()
+    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...] = field()
+    detail: str
+    exactness: AlgebraicExactnessResult | None = None
+    status: ClassVar[AlgebraicIntegrationStatus] = AlgebraicIntegrationStatus.ELEMENTARY
+
+    @property
+    def remainder(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
+
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        if self.exactness is not None and self.exactness.primitive is not None:
+            return self.exactness.primitive
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
 
 
-def _constant_coordinate_basis(
-    constants: Domain,
-) -> tuple[FieldElement, ...] | None:
-    """Return the exact ``QQ`` power basis of supported displayed constants."""
-    if constants == QQ:
-        return (QQ.one,)
-    if not isinstance(constants, AlgebraicField) or constants.dom != QQ:
-        return None
-    degree = constants.ext.minpoly.degree()
-    return tuple(constants.unit**power for power in range(degree))
+@dataclass(frozen=True, slots=True)
+class AlgebraicResidueNonElementary(_AlgebraicIntegrationResult):
+    """Non-elementarity proved by a nontorsion residue coordinate."""
+
+    collection: AlgebraicAllPlaceResidueResult
+    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...] = field()
+    liouville_obstruction: AlgebraicLiouvilleObstruction = field()
+    detail: str
+    status: ClassVar[AlgebraicIntegrationStatus] = (
+        AlgebraicIntegrationStatus.NON_ELEMENTARY
+    )
+
+    @property
+    def remainder(self) -> ExtensionElement:
+        return self.collection.remainder
+
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
 
 
-def _rational_coordinates_of_constant(
-    constants: Domain,
-    value: FieldElement,
-) -> tuple[FieldElement, ...] | None:
-    """Express one displayed constant in its exact ``QQ`` power basis."""
-    if constants == QQ:
-        try:
-            return (QQ.convert(value),)
-        except (CoercionFailed, TypeError, ValueError):
-            return None
-    if not isinstance(constants, AlgebraicField) or constants.dom != QQ:
-        return None
-    try:
-        converted = constants.convert(value)
-        coefficients = tuple(QQ.convert(coefficient) for coefficient in converted.rep)
-    except (AttributeError, CoercionFailed, TypeError, ValueError):
-        return None
-    degree = constants.ext.minpoly.degree()
-    if len(coefficients) > degree:
-        raise ValueError("an algebraic constant has an overlong power representation")
-    # SymPy stores ANP coefficients from highest to lowest power.  Pad on the
-    # high side, then reverse to match (1, alpha, ..., alpha**(d - 1)).
-    return tuple(reversed((QQ.zero,) * (degree - len(coefficients)) + coefficients))
+@dataclass(frozen=True, slots=True)
+class AlgebraicResidueFreeRemainder(_AlgebraicIntegrationResult):
+    """A nonzero residue-free remainder whose exactness has not been run."""
+
+    collection: AlgebraicAllPlaceResidueResult
+    logarithmic_terms: tuple[AlgebraicLogarithmicTerm, ...] = field()
+    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...] = field()
+    remainder: ExtensionElement
+    detail: str
+    status: ClassVar[AlgebraicIntegrationStatus] = (
+        AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
+    )
+
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicExactnessBoundary(_AlgebraicIntegrationResult):
+    """A residue-free remainder with an explicit incomplete exactness result."""
+
+    collection: AlgebraicAllPlaceResidueResult
+    logarithmic_terms: tuple[AlgebraicLogarithmicTerm, ...] = field()
+    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...] = field()
+    remainder: ExtensionElement
+    exactness: AlgebraicExactnessResult = field()
+    detail: str
+    status: ClassVar[AlgebraicIntegrationStatus] = (
+        AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
+    )
+
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicNeedsConstantBaseChange(_AlgebraicIntegrationResult):
+    """A complete local-residue collection requiring larger constants."""
+
+    collection: AlgebraicAllPlaceResidueResult
+    detail: str
+    status: ClassVar[AlgebraicIntegrationStatus] = (
+        AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE
+    )
+
+    @property
+    def remainder(self) -> ExtensionElement:
+        return self.collection.remainder
+
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+
+
+@dataclass(frozen=True, slots=True)
+class AlgebraicIntegrationUnsupported(_AlgebraicIntegrationResult):
+    """An exact unsupported boundary with no negative mathematical claim."""
+
+    collection: AlgebraicAllPlaceResidueResult
+    detail: str
+    principality_decisions: tuple[AlgebraicPrincipalityDecision, ...] = ()
+    status: ClassVar[AlgebraicIntegrationStatus] = (
+        AlgebraicIntegrationStatus.UNSUPPORTED
+    )
+
+    @property
+    def remainder(self) -> ExtensionElement:
+        return self.collection.remainder
+
+    @property
+    def exact_correction(self) -> ExtensionElement:
+        return self.collection.basis.extension.field.zero
+
+    def __post_init__(self) -> None:
+        self._validate_common()
+
+
+AlgebraicIntegrationResult = (
+    AlgebraicExactIntegral
+    | AlgebraicElementaryIntegral
+    | AlgebraicResidueNonElementary
+    | AlgebraicResidueFreeRemainder
+    | AlgebraicExactnessBoundary
+    | AlgebraicNeedsConstantBaseChange
+    | AlgebraicIntegrationUnsupported
+)
 
 
 def _rational_parameter_plans(
@@ -601,21 +693,13 @@ def reconstruct_constant_residue_logarithms(
     extension = collection.basis.extension
     zero = extension.field.zero
     if collection.status is AlgebraicAllPlaceResidueStatus.EXACT:
-        return AlgebraicIntegrationResult(
+        return AlgebraicExactIntegral(
             collection,
-            AlgebraicIntegrationStatus.EXACT,
-            (),
-            (),
-            zero,
             "Hermite reduction already produced an exact antiderivative",
         )
     if collection.status is AlgebraicAllPlaceResidueStatus.UNSUPPORTED:
-        return AlgebraicIntegrationResult(
+        return AlgebraicIntegrationUnsupported(
             collection,
-            AlgebraicIntegrationStatus.UNSUPPORTED,
-            (),
-            (),
-            collection.remainder,
             "all-place residue collection is unsupported: " + collection.detail,
         )
     if collection.model is None or collection.constant_field_analysis is None:
@@ -624,25 +708,17 @@ def reconstruct_constant_residue_logarithms(
         collection.constant_field_analysis.status
         is not AlgebraicConstantFieldStatus.PRESERVED
     ):
-        return AlgebraicIntegrationResult(
+        return AlgebraicIntegrationUnsupported(
             collection,
-            AlgebraicIntegrationStatus.UNSUPPORTED,
-            (),
-            (),
-            collection.remainder,
             "displayed-constant logarithmic reconstruction requires a certified "
             "preserved constant field",
         )
 
     _parent, constants, _variable = _base_polynomial_ring(extension)
-    constant_basis = _constant_coordinate_basis(constants)
+    constant_basis = constant_coordinate_basis(constants)
     if constant_basis is None:
-        return AlgebraicIntegrationResult(
+        return AlgebraicIntegrationUnsupported(
             collection,
-            AlgebraicIntegrationStatus.UNSUPPORTED,
-            (),
-            (),
-            collection.remainder,
             "constant-residue reconstruction currently requires QQ or a finite "
             "algebraic extension of QQ",
         )
@@ -655,25 +731,17 @@ def reconstruct_constant_residue_logarithms(
         ]
     ] = []
     for record in collection.residues:
-        residue = _displayed_constant_residue(record, constants)
+        residue = displayed_constant_residue(record, constants)
         if residue is None:
-            return AlgebraicIntegrationResult(
+            return AlgebraicNeedsConstantBaseChange(
                 collection,
-                AlgebraicIntegrationStatus.NEEDS_CONSTANT_BASE_CHANGE,
-                (),
-                (),
-                collection.remainder,
                 "a local residue is not a displayed constant; "
                 "compatible constant base change is required",
             )
-        coordinates = _rational_coordinates_of_constant(constants, residue)
+        coordinates = rational_coordinates_of_constant(constants, residue)
         if coordinates is None:
-            return AlgebraicIntegrationResult(
+            return AlgebraicIntegrationUnsupported(
                 collection,
-                AlgebraicIntegrationStatus.UNSUPPORTED,
-                (),
-                (),
-                collection.remainder,
                 "the displayed constant could not be expanded over QQ",
             )
         if len(coordinates) != len(constant_basis):
@@ -682,9 +750,8 @@ def reconstruct_constant_residue_logarithms(
             constant_records.append((record, residue, coordinates))
 
     if not constant_records:
-        return AlgebraicIntegrationResult(
+        return AlgebraicResidueFreeRemainder(
             collection,
-            AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER,
             (),
             (),
             collection.remainder,
@@ -706,8 +773,13 @@ def reconstruct_constant_residue_logarithms(
         else None
     )
     plans: list[
-        tuple[FieldElement, AlgebraicDivisor, AlgebraicPrincipalityDecision]
-    ] = [] if parameter_plans is None else list(parameter_plans)
+        tuple[
+            FieldElement,
+            AlgebraicDivisor,
+            AlgebraicPrincipalityDecision,
+            AlgebraicResidueCoordinateCertificate | None,
+        ]
+    ] = [] if parameter_plans is None else [(*plan, None) for plan in parameter_plans]
     if parameter_plans is None:
         for coordinate_index, basis_element in enumerate(constant_basis):
             coordinate_records = tuple(
@@ -717,13 +789,13 @@ def reconstruct_constant_residue_logarithms(
             )
             if not coordinate_records:
                 continue
-            scale = _primitive_rational_scale(
+            scale = primitive_rational_scale(
                 tuple(residue for _record, residue in coordinate_records),
             )
             divisor = AlgebraicDivisor(
                 collection.model,
                 tuple(
-                    (record.place, _integer_multiple(residue, scale))
+                    (record.place, integer_multiple(residue, scale))
                     for record, residue in coordinate_records
                 ),
             )
@@ -734,11 +806,19 @@ def reconstruct_constant_residue_logarithms(
                 )
             decision = decide_algebraic_principality(collection.model, divisor)
             coefficient = constants.convert(basis_element * scale)
-            plans.append((coefficient, divisor, decision))
+            coordinate = AlgebraicResidueCoordinateCertificate(
+                collection,
+                coordinate_index,
+                coefficient,
+                divisor,
+            )
+            plans.append((coefficient, divisor, decision, coordinate))
 
         pending = tuple(
             (index, divisor)
-            for index, (_coefficient, divisor, decision) in enumerate(plans)
+            for index, (_coefficient, divisor, decision, _coordinate) in enumerate(
+                plans
+            )
             if decision.status is AlgebraicPrincipalityStatus.NONPRINCIPAL
         )
         torsion_reductions = (
@@ -755,7 +835,7 @@ def reconstruct_constant_residue_logarithms(
         )
         liouville_obstruction: AlgebraicLiouvilleObstruction | None = None
         for index, divisor in pending:
-            coefficient, _old_divisor, decision = plans[index]
+            coefficient, _old_divisor, decision, coordinate = plans[index]
             if torsion_order_bound is not None:
                 search = search_algebraic_divisor_torsion(
                     collection.model,
@@ -770,18 +850,20 @@ def reconstruct_constant_residue_logarithms(
                     divisor,
                     reduction_batch=torsion_reductions,
                 )
-                if torsion.status is AlgebraicDivisorTorsionStatus.NON_TORSION:
-                    liouville_obstruction = AlgebraicLiouvilleObstruction._create(
-                        collection,
-                        coefficient,
-                        divisor,
+                if isinstance(torsion, AlgebraicDivisorNontorsion):
+                    if coordinate is None:
+                        raise ValueError(
+                            "a nontorsion coordinate lacks replayable residue evidence"
+                        )
+                    liouville_obstruction = AlgebraicLiouvilleObstruction(
+                        coordinate,
                         decision,
                         torsion,
                     )
                     break
                 search = (
                     torsion.characteristic_zero_search
-                    if torsion.status is AlgebraicDivisorTorsionStatus.TORSION
+                    if isinstance(torsion, AlgebraicDivisorTorsion)
                     else None
                 )
             if search is not None and search.status is AlgebraicTorsionStatus.TORSION:
@@ -793,35 +875,33 @@ def reconstruct_constant_residue_logarithms(
                     coefficient,
                     constants.convert(search.order),
                 )
-            plans[index] = (coefficient, divisor, decision)
+            plans[index] = (coefficient, divisor, decision, coordinate)
         if liouville_obstruction is not None:
-            return AlgebraicIntegrationResult(
+            return AlgebraicResidueNonElementary(
                 collection,
-                AlgebraicIntegrationStatus.NON_ELEMENTARY,
-                (),
-                tuple(decision for _coefficient, _divisor, decision in plans),
-                collection.remainder,
+                tuple(
+                    decision for _coefficient, _divisor, decision, _coordinate in plans
+                ),
+                liouville_obstruction,
                 "Liouville's residue condition fails: " + liouville_obstruction.detail,
-                liouville_obstruction=liouville_obstruction,
             )
 
-    decisions = tuple(decision for _coefficient, _divisor, decision in plans)
+    decisions = tuple(
+        decision for _coefficient, _divisor, decision, _coordinate in plans
+    )
     if any(
         decision.status is not AlgebraicPrincipalityStatus.PRINCIPAL
         for decision in decisions
     ):
-        return AlgebraicIntegrationResult(
+        return AlgebraicIntegrationUnsupported(
             collection,
-            AlgebraicIntegrationStatus.UNSUPPORTED,
-            (),
-            decisions,
-            collection.remainder,
             "a displayed-constant residue divisor could not be reconstructed "
             "by the current complete principality service",
+            decisions,
         )
     terms = tuple(
         AlgebraicLogarithmicTerm(coefficient, divisor, decision, decision.witness)
-        for coefficient, divisor, decision in plans
+        for coefficient, divisor, decision, _coordinate in plans
         if decision.witness is not None
     )
     if len(terms) != len(plans):
@@ -841,25 +921,21 @@ def reconstruct_constant_residue_logarithms(
         extension.field.zero,
     )
     remainder = collection.remainder - logarithmic_derivative
-    status = (
-        AlgebraicIntegrationStatus.ELEMENTARY
-        if remainder == zero
-        else AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER
-    )
-    detail = (
-        "displayed-constant residues were reconstructed by verified principal divisors"
-        if status is AlgebraicIntegrationStatus.ELEMENTARY
-        else "displayed-constant residues were reconstructed; the remaining "
-        "residue-free "
-        "differential needs first- and second-kind exactness"
-    )
-    return AlgebraicIntegrationResult(
+    if remainder == zero:
+        return AlgebraicElementaryIntegral(
+            collection,
+            terms,
+            decisions,
+            "displayed-constant residues were reconstructed by verified "
+            "principal divisors",
+        )
+    return AlgebraicResidueFreeRemainder(
         collection,
-        status,
         terms,
         decisions,
         remainder,
-        detail,
+        "displayed-constant residues were reconstructed; the remaining "
+        "residue-free differential needs first- and second-kind exactness",
     )
 
 
@@ -893,7 +969,7 @@ def integrate_algebraic(
         collection,
         torsion_order_bound=torsion_order_bound,
     )
-    if result.status is not AlgebraicIntegrationStatus.RESIDUE_FREE_REMAINDER:
+    if not isinstance(result, AlgebraicResidueFreeRemainder):
         return result
 
     model = collection.model
@@ -909,28 +985,24 @@ def integrate_algebraic(
     if exactness.is_exact:
         if exactness.primitive is None:
             raise ValueError("an exactness witness lacks its primitive")
-        status = (
-            AlgebraicIntegrationStatus.ELEMENTARY
-            if result.logarithmic_terms
-            else AlgebraicIntegrationStatus.EXACT
-        )
-        return AlgebraicIntegrationResult(
+        if result.logarithmic_terms:
+            return AlgebraicElementaryIntegral(
+                collection,
+                result.logarithmic_terms,
+                result.principality_decisions,
+                "the residue-free remainder has a verified algebraic primitive",
+                exactness,
+            )
+        return AlgebraicExactIntegral(
             collection,
-            status,
-            result.logarithmic_terms,
-            result.principality_decisions,
-            collection.basis.extension.field.zero,
             "the residue-free remainder has a verified algebraic primitive",
-            exactness.primitive,
             exactness,
         )
-    return AlgebraicIntegrationResult(
+    return AlgebraicExactnessBoundary(
         collection,
-        result.status,
         result.logarithmic_terms,
         result.principality_decisions,
         result.remainder,
-        result.detail + "; " + exactness.detail,
-        None,
         exactness,
+        result.detail + "; " + exactness.detail,
     )
