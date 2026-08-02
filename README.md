@@ -46,9 +46,12 @@ algebraic/transcendental orders; the native compiler executes terminal
 algebraic-over-P/E/T towers and reports still-missing opposite-order backends
 separately. A direct rational-power extension of `QQ(x)` is now dispatched
 through the certified algebraic function-field integrator, including its
-theorem-backed non-elementarity decisions. Complete general-polynomial
-special-factor reduction, expression-level algebraic composita, and global
-branch-aware expression normalization remain future work.
+theorem-backed non-elementarity decisions. When the normalized radical has a
+single linear branch, an exact rational parametrization runs the rational
+integrator first and avoids constructing maximal orders and places entirely.
+Complete general-polynomial special-factor reduction, expression-level
+algebraic composita, and global branch-aware expression normalization remain
+future work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

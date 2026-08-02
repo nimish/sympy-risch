@@ -196,6 +196,7 @@ The current implementation is organized by mathematical responsibility:
 | `monomial/` | Monomial reduction facade, split by normal residues, Hermite reduction, primitive, hyperexponential, hypertangent, and special-pole theorem families |
 | `dependency/` | Parametric logarithmic decisions and generator-dependency certificates by tower family |
 | `rde/` | Scalar and coupled Risch differential equations, split by theorem family behind one facade |
+| `algebraic/rational_parametrization.py` | Checked genus-zero simple-radical isomorphisms to rational function fields and transported rational integration |
 | `algebraic/relative.py`, `algebraic/relative_hermite.py`, `algebraic/relative_integration.py` | Terminal pure-radical coordinate descent, normal-pole Hermite reduction, and positive mixed elementary composition |
 | `elementary.py` | Recursive elementary integration and obstruction propagation |
 
@@ -1139,6 +1140,14 @@ rational parent field and an integral basis. It can:
 - construct the explicit basis for a recognized simple radical; and
 - lazily refine an incomplete basis when one of Bronstein's three refinement
   certificates exposes a missing integral element.
+
+Before invoking that global machinery, a normalized simple radical
+`z**n = c*L(x)**m` with one linear factor and `gcd(m, n) = 1` is recognized as
+a rational function field. Bezout coefficients construct an explicit
+parameter `u = z**r*L(x)**s`, checked forward and inverse maps, and an exact
+transport of `f dx` into `C(u) du`. The ordinary rational integrator runs in
+that coordinate and the result is pulled back. Positive-genus and
+multi-branch radicals continue through maximal orders and all-place geometry.
 
 For the logarithmic part, the Trager resultant computes the aggregate finite
 residue polynomial. At an unramified base prime, the specialized plane model

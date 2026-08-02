@@ -33,6 +33,10 @@ from sympy.polys.rootoftools import RootSum
 
 from ._typing import FieldElement, is_field_zero
 from .admission import assess_elementary_admission, is_standard_rational_base
+from .algebraic.rational_parametrization import (
+    RationalRadicalIntegrationReduction,
+    reduce_rational_simple_radical_integral,
+)
 from .algebraic.relative_integration import (
     RelativeSimpleRadicalIntegrationCertificate,
     reduce_relative_simple_radical,
@@ -117,6 +121,7 @@ class LogarithmicTerm:
     level: int
     certificate: (
         RationalElementaryReduction
+        | RationalRadicalIntegrationReduction
         | tuple[BronsteinResidueReduction, ReducedFunctionReduction | None]
     )
 
@@ -171,6 +176,7 @@ class ElementaryIntegralResult:
         | HyperbolicMobiusElementaryCertificate
         | RiccatiMobiusElementaryCertificate
         | RelativeSimpleRadicalIntegrationCertificate
+        | RationalRadicalIntegrationReduction
         | None
     )
 
@@ -708,6 +714,42 @@ def integrate_relative_simple_radical(
     return result
 
 
+def _integrate_rational_simple_radical(
+    element: FieldElement,
+    derivation: Derivation,
+) -> ElementaryIntegralResult | None:
+    """Integrate a rational radical field through its checked parameter."""
+    reduction = reduce_rational_simple_radical_integral(element, derivation)
+    if reduction is None:
+        return None
+    terms = (
+        ()
+        if is_field_zero(reduction.logarithmic_derivative)
+        else (
+            LogarithmicTerm(
+                reduction.logarithmic_antiderivative,
+                reduction.logarithmic_derivative,
+                derivation.level,
+                reduction,
+            ),
+        )
+    )
+    result = ElementaryIntegralResult(
+        derivation,
+        reduction.integrand,
+        reduction.exact_part,
+        terms,
+        reduction.logarithmic_derivative,
+        derivation.field.zero,
+        None,
+        None,
+        reduction,
+    )
+    if not result.reconstructs:
+        raise ValueError("rational radical integration failed to reconstruct")
+    return result
+
+
 def _integrate_elementary_admitted(
     integrand: object,
     derivation: Derivation,
@@ -741,7 +783,16 @@ def _integrate_elementary_admitted(
 
     extension = derivation.tower.levels[derivation.level]
     if isinstance(extension, AlgebraicExtension):
-        return integrate_relative_simple_radical(element, derivation)
+        try:
+            return integrate_relative_simple_radical(element, derivation)
+        except NotImplementedError:
+            rational_radical_result = _integrate_rational_simple_radical(
+                element,
+                derivation,
+            )
+            if rational_radical_result is not None:
+                return rational_radical_result
+            raise
     if not isinstance(extension, MonomialExtension):
         raise TypeError("elementary integration requires a differential extension")
 
@@ -815,13 +866,13 @@ def integrate_elementary(
     level.  The exact hyperbolic law ``Dt = eta*(1 - t**2)`` is normalized
     immutably to a hyperexponential coordinate.
 
-    Terminal simple radicals have one constructive mixed route: exact
-    nonconstant power-basis modes descend to lower scalar RDEs, then the
-    lower coordinate is integrated recursively.  General algebraic levels,
-    generalized monomials without the needed structure theorem, and automatic
-    tower discovery remain deliberately unsupported.  An unsupported shape
-    raises :class:`NotImplementedError`; it is never presented as a proof of
-    non-elementarity.
+    Terminal simple radicals first use exact power-basis descent. A declined
+    direct radical ``z**n = c*L(x)**m`` with one linear factor is then
+    transported through its checked rational parameter. General algebraic
+    levels, generalized monomials without the needed structure theorem, and
+    automatic tower discovery remain deliberately unsupported. An unsupported
+    shape raises :class:`NotImplementedError`; it is never presented as a
+    proof of non-elementarity.
     """
     if not isinstance(derivation, Derivation):
         raise TypeError("elementary integration requires a Derivation")

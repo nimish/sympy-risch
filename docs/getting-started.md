@@ -95,14 +95,24 @@ algebraic_log = integrate_risch(1 / (2 * (x + sqrt(x))), x)
 assert isinstance(algebraic_log, ElementaryPrimitive)
 assert algebraic_log.primitive == log(1 + sqrt(x))
 
+high_degree_log = integrate_risch(
+    1 / (5 * (x + x ** Rational(4, 5))),
+    x,
+)
+assert isinstance(high_degree_log, ElementaryPrimitive)
+assert high_degree_log.primitive == log(1 + x ** Rational(1, 5))
+
 elliptic = integrate_risch(1 / sqrt(x**3 - x), x)
 assert isinstance(elliptic, NonElementary)
 ```
 
-This direct cell has exactly one algebraic level above `QQ(x)`. Algebraic
-constant base changes and algebraic/transcendental interleavings still return
-`NotSupported` until their certified source-to-target presentations can be
-carried through the public result.
+This direct cell has exactly one algebraic level above `QQ(x)`. A normalized
+radical `z**n = c*L(x)**m` with linear `L` and `gcd(m, n) = 1` is first mapped
+isomorphically to a rational parameter, so its cost grows with ordinary
+rational integration rather than generic curve normalization. Other
+algebraic constant base changes and algebraic/transcendental interleavings
+still return `NotSupported` until their certified source-to-target
+presentations can be carried through the public result.
 
 ## Construct the rational base
 
