@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import cast
 
+from sympy.core.symbol import Symbol
 from sympy.polys.agca.extensions import ExtensionElement
+from sympy.polys.domains.domain import Domain
 from sympy.polys.fields import FracElement
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.matrices.exceptions import DMNonInvertibleMatrixError
@@ -169,6 +171,9 @@ class SimpleRadicalData:
 
 def recognize_simple_radical(
     extension: AlgebraicExtension,
+    *,
+    constants: Domain | None = None,
+    variable: Symbol | None = None,
 ) -> SimpleRadicalData | None:
     r"""Recognize and normalize ``K(x)[y]/(y**n - a)``.
 
@@ -184,7 +189,11 @@ def recognize_simple_radical(
     if modulus.as_expr() != expected:
         return None
 
-    parent, constants, variable = _base_polynomial_ring(extension)
+    parent, constants, variable = _base_polynomial_ring(
+        extension,
+        constants=constants,
+        variable=variable,
+    )
     radicand = parent.convert(-modulus.nth(0))
     numerator = Poly(radicand.numer.as_expr(), variable, domain=constants)
     denominator = Poly(radicand.denom.as_expr(), variable, domain=constants)

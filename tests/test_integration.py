@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 from sympy import Rational, cancel, diff, exp, log, sin, sqrt, symbols
+from sympy.polys.domains import QQ
 
 from sympy_risch import (
     AlgebraicExactnessLiouvilleObstruction,
@@ -17,7 +18,7 @@ from sympy_risch.expression import (
     ExpressionUnsupportedReason,
 )
 
-x = symbols("x")
+x, a, b = symbols("x a b")
 
 
 def test_integrate_risch_returns_a_verified_elementary_primitive() -> None:
@@ -83,6 +84,17 @@ def test_integrate_risch_normalizes_reciprocal_radical_powers() -> None:
     assert cancel(diff(result.primitive, x) - integrand) == 0
 
 
+def test_integrate_risch_infers_parameters_for_a_binomial_radical() -> None:
+    integrand = x ** Rational(5, 3) / (a + b * x)
+
+    result = integrate_risch(integrand, x)
+
+    assert isinstance(result, ElementaryPrimitive)
+    assert result.certificate.compilation.tower is not None
+    assert result.certificate.compilation.tower.constants == QQ.frac_field(a, b)
+    assert cancel(diff(result.primitive, x) - integrand) == 0
+
+
 def test_integrate_risch_preserves_an_algebraic_liouville_obstruction() -> None:
     result = integrate_risch(1 / sqrt(x**3 - x), x)
 
@@ -121,6 +133,11 @@ def test_direct_algebraic_dispatch_builds_global_geometry_only_when_needed(
         assert isinstance(result, ElementaryPrimitive)
         assert result.primitive == log(x ** Rational(1, degree) + 1)
         assert cancel(diff(result.primitive, x) - integrand) == 0
+    assert construction_count == 0
+
+    parameterized = integrate_risch(x ** Rational(5, 3) / (a + b * x), x)
+
+    assert isinstance(parameterized, ElementaryPrimitive)
     assert construction_count == 0
 
     positive_genus = integrate_risch(1 / sqrt(x**3 - x), x)

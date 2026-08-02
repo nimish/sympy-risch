@@ -14,6 +14,7 @@ from sympy.core.symbol import Symbol
 from sympy.functions.elementary.exponential import exp, log
 from sympy.functions.elementary.trigonometric import tan
 from sympy.polys.domains import QQ
+from sympy.polys.domains.domain import Domain
 from sympy.polys.polytools import Poly
 
 from ._typing import FieldElement
@@ -32,6 +33,28 @@ from .tower.core import (
 
 if TYPE_CHECKING:
     from ._expression_compilation import ExpressionCompilation
+
+
+def expression_constant_domain(expression: Expr, variable: Symbol) -> Domain:
+    r"""Return the generic constant field ``QQ(c1, ..., cn)`` for a source."""
+    parameters = tuple(
+        sorted(
+            expression.free_symbols - {variable}, key=lambda symbol: symbol.sort_key()
+        )
+    )
+    for parameter in parameters:
+        if parameter.is_commutative is not True:
+            raise TypeError("constant parameters must be commutative symbols")
+        if parameter.is_zero is True or parameter.is_finite is False:
+            raise ValueError(
+                f"{parameter} cannot be an algebraically independent constant"
+            )
+        if parameter.is_algebraic is True:
+            raise ValueError(
+                f"{parameter} is declared algebraic, so QQ({parameter}) would "
+                "be the wrong constant field"
+            )
+    return QQ if not parameters else QQ.frac_field(*parameters)
 
 
 def _source_value_and_derivative_in_native(
@@ -93,7 +116,7 @@ def _source_value_and_derivative_in_native(
         )
     elif expression == compilation.variable:
         result = (cast(FieldElement, field.from_sympy(expression)), field.one)
-    elif expression.is_Rational is True:
+    elif isinstance(expression, Symbol) or expression.is_Rational is True:
         result = (cast(FieldElement, field.from_sympy(expression)), field.zero)
     elif isinstance(expression, Add):
         value = field.zero
@@ -200,11 +223,17 @@ def validate_compiled_extension_sources(
     """Replay every source extension through its checked construction."""
     tower, _element = compilation._require_compiled()
     if not tower.levels:
-        raise ValueError("a compiled expression needs the QQ(x) base level")
+        raise ValueError("a compiled expression needs the C(x) base level")
 
-    constants = DifferentialTower(QQ)
+    constant_domain = expression_constant_domain(
+        compilation.expression,
+        compilation.variable,
+    )
+    if tower.constants != constant_domain:
+        raise ValueError("the compiled tower has the wrong inferred constant field")
+    constants = DifferentialTower(constant_domain)
     base_analysis = certify_primitive_extension(
-        Poly(1, compilation.variable, domain=QQ),
+        Poly(1, compilation.variable, domain=constant_domain),
         constants.derivation(),
     )
     base_extension = tower.levels[0]
@@ -213,7 +242,7 @@ def validate_compiled_extension_sources(
         or base_extension.generator_derivative
         != base_analysis.extension.generator_derivative
     ):
-        raise ValueError("the compiled base is not the certified standard QQ(x) tower")
+        raise ValueError("the compiled base is not the certified standard C(x) tower")
 
     level_indices = {
         extension.generator: index for index, extension in enumerate(tower.levels)
@@ -370,6 +399,7 @@ def validate_compiled_extension_sources(
 
 
 __all__ = [
+    "expression_constant_domain",
     "source_value_and_derivative_in_native",
     "validate_compiled_extension_sources",
 ]

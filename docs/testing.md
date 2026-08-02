@@ -202,9 +202,9 @@ round trips, native and source-tree derivatives, nested primitive and tangent
 levels, positive and negative integration results, and constructor resistance
 to forged tower metadata or presentations. Its generated rational and
 one-level P/E/T cases prove that coercion, factory construction, and
-back-substitution survive varied exact input; adversarial
-cases ensure that non-rational constants, algebraic powers, extra symbols,
-singular calls, branch-sensitive functions, and dependent logarithmic,
+back-substitution survive varied exact input; adversarial cases ensure that
+non-rational constants, unsupported algebraic powers, misdeclared algebraic
+parameters, singular calls, branch-sensitive functions, and dependent logarithmic,
 exponential, or tangent calls remain structured `UNSUPPORTED` outcomes rather
 than accidental mathematical conclusions.
 `tests/test_exact.py` checks family dispatch with planted derivatives,

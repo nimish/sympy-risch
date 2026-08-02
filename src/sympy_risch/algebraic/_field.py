@@ -10,7 +10,9 @@ from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.fields import FracElement
 from sympy.polys.polyclasses import DMP
+from sympy.polys.polyerrors import CoercionFailed, PolynomialError
 from sympy.polys.polytools import Poly
+from sympy.simplify.radsimp import fraction
 
 from .._typing import SupportsAsExpr
 from ..tower import AlgebraicExtension
@@ -113,6 +115,9 @@ def _same_univariate_polynomial_coefficients(left: Poly, right: Poly) -> bool:
 
 def _base_polynomial_ring(
     extension: AlgebraicExtension,
+    *,
+    constants: Domain | None = None,
+    variable: Symbol | None = None,
 ) -> tuple[FractionField, Domain, Symbol]:
     parent = extension.parent_field
     if not isinstance(parent, FractionField):
@@ -120,19 +125,40 @@ def _base_polynomial_ring(
             "algebraic Hermite reduction currently requires a one-variable "
             "rational parent field",
         )
+    if (constants is None) != (variable is None):
+        raise ValueError("constants and variable must be supplied together")
+    if constants is not None and variable is not None:
+        if not constants.is_Field or not constants.is_Exact:
+            raise ValueError("the displayed constants must be an exact field")
+        if isinstance(constants, FractionField):
+            constant_symbols = constants.symbols
+            flattened = (
+                constant_symbols is not None
+                and parent.domain == constants.domain
+                and parent.symbols == (*constant_symbols, variable)
+            )
+        else:
+            flattened = False
+        nested = parent.domain == constants and parent.symbols == (variable,)
+        if not (flattened or nested):
+            raise ValueError(
+                "the displayed constants and variable do not describe the parent field"
+            )
+        return parent, constants, variable
+
     symbols = parent.symbols
-    constants = parent.domain
+    inferred_constants = parent.domain
     if symbols is None or len(symbols) != 1:
         raise NotImplementedError(
             "algebraic Hermite reduction currently requires a one-variable "
             "rational parent field",
         )
-    if constants is None or not constants.is_Field:
+    if inferred_constants is None or not inferred_constants.is_Field:
         raise ValueError("the rational function field must be over a field")
-    variable = symbols[0]
-    if not isinstance(variable, Symbol):
+    inferred_variable = symbols[0]
+    if not isinstance(inferred_variable, Symbol):
         raise TypeError("the rational parent generator must be a Symbol")
-    return parent, constants, variable
+    return parent, inferred_constants, inferred_variable
 
 
 def _parent_element_polynomial(
@@ -142,6 +168,15 @@ def _parent_element_polynomial(
     variable: Symbol,
 ) -> Poly:
     element = parent.convert(element)
+    if isinstance(constants, FractionField) and (
+        element.numer.ring.domain != constants or element.numer.ring.gens != (variable,)
+    ):
+        try:
+            return Poly(parent.to_sympy(element), variable, domain=constants)
+        except (CoercionFailed, PolynomialError) as exc:
+            raise ValueError(
+                "expected a polynomial element of the parent field"
+            ) from exc
     denominator_terms = element.denom.to_dict()
     if any(
         any(exponent != 0 for exponent in monomial) for monomial in denominator_terms
@@ -164,7 +199,12 @@ def _polynomial_parent_element(
 ) -> FracElement:
     """Embed a polynomial directly into its fraction field."""
     ring = parent.field.ring
-    numerator = ring.from_dict(polynomial.rep.to_dict())
+    try:
+        numerator = ring.from_dict(polynomial.rep.to_dict())
+    except CoercionFailed:
+        if not isinstance(polynomial.domain, FractionField):
+            raise
+        return cast(FracElement, parent.from_sympy(polynomial.as_expr()))
     dtype = parent.dtype
     if dtype is None:
         raise TypeError("the rational parent field has no element type")
@@ -178,11 +218,27 @@ def _common_denominator(
 ) -> Poly:
     denominator = Poly(1, variable, domain=constants)
     for element in elements:
-        element_denominator = Poly.from_dict(
-            element.denom.to_dict(),
+        if element.denom.ring.domain == constants and element.denom.ring.gens == (
             variable,
-            domain=constants,
-        )
+        ):
+            element_denominator = Poly.from_dict(
+                element.denom.to_dict(),
+                variable,
+                domain=constants,
+            )
+        elif isinstance(constants, FractionField):
+            _numerator, denominator_expression = fraction(element.as_expr())
+            element_denominator = Poly(
+                denominator_expression,
+                variable,
+                domain=constants,
+            )
+        else:
+            element_denominator = Poly.from_dict(
+                element.denom.to_dict(),
+                variable,
+                domain=constants,
+            )
         denominator = denominator.lcm(element_denominator)
     return denominator
 

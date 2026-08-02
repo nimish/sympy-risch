@@ -384,6 +384,26 @@ def test_recursive_fraction_derivative() -> None:
     assert result == field.from_sympy(expected)
 
 
+def test_rational_base_derivative_stays_in_the_native_fraction_field(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parameters = symbols("a0:8")
+    constants = QQ.frac_field(*parameters)
+    tower = DifferentialTower(constants).extend(
+        MonomialExtension(Poly(1, x, domain=constants))
+    )
+    expression = 1 / (x + sum(parameters))
+    field = tower.field()
+
+    def reject_expression_fallback(*_args: object) -> None:
+        raise AssertionError("rational-base differentiation left the native field")
+
+    monkeypatch.setattr("sympy_risch.tower.core.fraction", reject_expression_fallback)
+    result = tower.derivation()(field.from_sympy(expression))
+
+    assert result == field.from_sympy(diff(expression, x))
+
+
 def test_derivation_recurses_through_three_levels() -> None:
     kxt = logarithmic_tower()
     kxtu = kxt.extend(MonomialExtension(Poly(t * u, u, domain=kxt.field())))

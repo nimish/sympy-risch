@@ -1361,7 +1361,9 @@ backend-independent: it identifies both algebraic-over-transcendental and
 transcendental-over-algebraic orderings even when a later solver cell is not
 implemented.
 
-`_expression_compilation.py` constructs the certified `QQ(x)` base and consumes
+`_expression_compilation.py` infers the generic constant field
+`C = QQ(c1, ..., cn)` from free symbols other than the integration variable,
+constructs the certified `C(x)` base, and consumes
 those source families in dependency order. P/E/T calls use the same checked
 primitive, hyperexponential, or hypertangent factories as the explicit tower
 API. A rational power `u**(p/q)` proposes the algebraic relation
@@ -1457,6 +1459,14 @@ Expression compilation and operation admission have separate ownership.
 Compilation validates the source-to-tower translation and the individual
 extension certificates. The integration dispatcher then performs elementary
 admission once, when it actually executes the operation.
+
+Consecutive SymPy fraction fields are represented flat, so `QQ(a, b)(x)` is
+stored natively as `QQ(a, b, x)`. Algebraic consumers that support symbolic
+constants receive the certified `(QQ(a, b), x)` view explicitly instead of
+guessing it from the flattened domain. This path is currently used by rational
+integration and one-linear-factor radical parametrization; it is not an
+admission claim for global geometry or recursive P/E/T algorithms over
+arbitrary transcendental constant fields.
 
 The normalization layer now includes the verified hyperbolic law
 `Dt = eta*(1 - t**2) -> Du = 2*eta*u` and an explicit quadratic/Riccati

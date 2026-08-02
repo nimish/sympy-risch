@@ -19,6 +19,7 @@ from sympy.core.symbol import Symbol
 from sympy.polys.agca.extensions import ExtensionElement, FiniteExtension
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.fields import FracElement
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polyerrors import CoercionFailed, UnificationFailed
 from sympy.polys.polytools import Poly
@@ -824,6 +825,25 @@ class Derivation:
                 self.lower(),
                 self._algebraic_generator_derivative,
             )
+        if (
+            self.level == 0
+            and isinstance(extension, MonomialExtension)
+            and extension.generator_derivative
+            == Poly(
+                1,
+                extension.generator,
+                domain=extension.parent_field,
+            )
+        ):
+            if not isinstance(element, FracElement):
+                raise TypeError("a rational base element must be a native fraction")
+            generator = element.numer.ring.gens[
+                element.numer.ring.symbols.index(extension.generator)
+            ]
+            numerator = element.numer.diff(generator) * element.denom - (
+                element.numer * element.denom.diff(generator)
+            )
+            return cast(FieldElement, element.new(numerator, element.denom**2))
         return extension.differentiate(element, self.lower())
 
     def coefficients(self, polynomial: Poly) -> Poly:

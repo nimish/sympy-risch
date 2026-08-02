@@ -93,8 +93,9 @@ class _UnsupportedDiscovery(Exception):
 class _CandidateDiscoverer:
     """One-pass DAG builder with expression equality as common-subtree sharing."""
 
-    def __init__(self, variable: Symbol) -> None:
+    def __init__(self, variable: Symbol, constants: frozenset[Symbol]) -> None:
         self.variable = variable
+        self.constants = constants
         self.candidates: list[ExpressionTowerCandidate] = []
         self.by_source: dict[Expr, ExpressionTowerCandidate] = {}
 
@@ -103,7 +104,11 @@ class _CandidateDiscoverer:
         existing = self.by_source.get(expression)
         if existing is not None:
             return (existing.source,)
-        if expression == self.variable or expression.is_Rational is True:
+        if (
+            expression == self.variable
+            or expression in self.constants
+            or expression.is_Rational is True
+        ):
             return ()
         if expression.is_number:
             raise _UnsupportedDiscovery(
@@ -293,18 +298,8 @@ def discover_expression_tower(
         raise TypeError("tower discovery requires a SymPy Expr")
     if not isinstance(variable, Symbol):
         raise TypeError("the integration variable must be a SymPy Symbol")
-    foreign_symbols = expression.free_symbols - {variable}
-    if foreign_symbols:
-        names = ", ".join(str(symbol) for symbol in sorted(foreign_symbols, key=str))
-        return ExpressionTowerDiscovery(
-            expression,
-            variable,
-            ExpressionDiscoveryOutcome.UNSUPPORTED,
-            (),
-            f"the expression contains symbols other than {variable}: {names}",
-        )
-
-    discoverer = _CandidateDiscoverer(variable)
+    constants = cast(frozenset[Symbol], frozenset(expression.free_symbols - {variable}))
+    discoverer = _CandidateDiscoverer(variable, constants)
     try:
         discoverer.visit(expression)
     except _UnsupportedDiscovery as failure:

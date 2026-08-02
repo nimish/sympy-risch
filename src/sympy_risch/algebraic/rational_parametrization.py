@@ -29,7 +29,7 @@ from ..rational import (
     hermite_reduce_rational_over_domain,
     integrate_rational_over_domain,
 )
-from ..tower import AlgebraicExtension, Derivation
+from ..tower import AlgebraicExtension, Derivation, MonomialExtension
 from ._field import (
     _base_polynomial_ring,
     _embed_parent,
@@ -101,6 +101,8 @@ class RationalRadicalParametrization:
     """Checked isomorphism from a one-factor radical field to ``C(u)``."""
 
     radical: SimpleRadicalData
+    constants: Domain
+    variable: Symbol
     linear_factor: Poly
     factor_multiplicity: int
     bezout_radical: int
@@ -122,7 +124,11 @@ class RationalRadicalParametrization:
         return cast(FracElement, self.target_field.from_sympy(self.parameter))
 
     def _forward_parent(self, value: object) -> FracElement:
-        parent, constants, variable = _base_polynomial_ring(self.extension)
+        parent, constants, variable = _base_polynomial_ring(
+            self.extension,
+            constants=self.constants,
+            variable=self.variable,
+        )
         element = parent.convert(value)
         numerator = _as_constant_polynomial(element.numer, variable, constants)
         denominator = _as_constant_polynomial(element.denom, variable, constants)
@@ -155,7 +161,11 @@ class RationalRadicalParametrization:
         element = self.target_field.convert(value)
         if element == self.target_field.zero:
             return self.extension.field.zero
-        _parent, constants, _variable = _base_polynomial_ring(self.extension)
+        _parent, constants, _variable = _base_polynomial_ring(
+            self.extension,
+            constants=self.constants,
+            variable=self.variable,
+        )
         numerator = _as_constant_polynomial(
             element.numer,
             self.parameter,
@@ -182,6 +192,11 @@ class RationalRadicalParametrization:
 
     def __post_init__(self) -> None:
         extension = self.extension
+        _base_polynomial_ring(
+            extension,
+            constants=self.constants,
+            variable=self.variable,
+        )
         if self.linear_factor.domain != self.radical.normalized_radicand.domain:
             raise ValueError("the linear factor has another constant domain")
         if self.linear_factor.degree() != 1:
@@ -196,11 +211,12 @@ class RationalRadicalParametrization:
             raise ValueError("the radical exponents do not satisfy Bezout's identity")
         if not isinstance(self.parameter, Symbol):
             raise TypeError("a rational radical parametrization needs a parameter")
-        if self.target_field.symbols != (self.parameter,):
+        if self.target_field.domain != self.constants or self.target_field.symbols != (
+            self.parameter,
+        ):
             raise ValueError("the target field uses another rational parameter")
 
-        _parent, _constants, variable = _base_polynomial_ring(extension)
-        source_variable = _extension_element(extension, variable)
+        source_variable = _extension_element(extension, self.variable)
         if not _same_fraction(
             self.forward(source_variable),
             self.target_variable,
@@ -232,6 +248,9 @@ class RationalRadicalParametrization:
 
 def rational_simple_radical_parametrization(
     extension: AlgebraicExtension,
+    *,
+    constants: Domain | None = None,
+    variable: Symbol | None = None,
 ) -> RationalRadicalParametrization | None:
     r"""Parametrize ``z**n = c*L(x)**m`` when ``L`` is linear.
 
@@ -239,7 +258,11 @@ def rational_simple_radical_parametrization(
     algebraic-function-field algorithms.
     """
     try:
-        radical = recognize_simple_radical(extension)
+        radical = recognize_simple_radical(
+            extension,
+            constants=constants,
+            variable=variable,
+        )
     except NotImplementedError:
         return None
     if radical is None:
@@ -257,7 +280,11 @@ def rational_simple_radical_parametrization(
     r = int(bezout_radical)
     s = int(bezout_degree)
 
-    _parent, constants, _variable = _base_polynomial_ring(extension)
+    _parent, constants, variable = _base_polynomial_ring(
+        extension,
+        constants=constants,
+        variable=variable,
+    )
     parameter = Dummy("risch_radical_parameter")
     target_field = constants.frac_field(parameter)
     u = cast(FracElement, target_field.gens[0])
@@ -293,6 +320,8 @@ def rational_simple_radical_parametrization(
     )
     return RationalRadicalParametrization(
         radical,
+        constants,
+        variable,
         linear_factor,
         multiplicity,
         r,
@@ -323,6 +352,8 @@ class RationalRadicalIntegrationReduction:
         extension = self.parametrization.extension
         if self.derivation.field is not extension.field:
             raise ValueError("the parametrization reduction has another derivation")
+        if self.derivation.tower.constants != self.parametrization.constants:
+            raise ValueError("the parametrization reduction has other constants")
         if (
             _extension_element(extension, self.integrand) - self.integrand
             != extension.field.zero
@@ -366,7 +397,20 @@ def reduce_rational_simple_radical_integral(
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, AlgebraicExtension):
         return None
-    parametrization = rational_simple_radical_parametrization(extension)
+    if derivation.level != 1:
+        return None
+    base = derivation.tower.levels[0]
+    if not isinstance(base, MonomialExtension) or base.generator_derivative != Poly(
+        1,
+        base.generator,
+        domain=derivation.tower.constants,
+    ):
+        return None
+    parametrization = rational_simple_radical_parametrization(
+        extension,
+        constants=derivation.tower.constants,
+        variable=base.generator,
+    )
     if parametrization is None:
         return None
 
@@ -374,7 +418,11 @@ def reduce_rational_simple_radical_integral(
     dx_du = _differentiate_fraction(parametrization.target_variable)
     target_integrand = cast(FracElement, parametrization.forward(element) * dx_du)
     target_expression = parametrization.target_field.to_sympy(target_integrand)
-    _parent, constants, _variable = _base_polynomial_ring(extension)
+    _parent, constants, _variable = _base_polynomial_ring(
+        extension,
+        constants=parametrization.constants,
+        variable=parametrization.variable,
+    )
     exact_expression, logarithmic_derivative_expression = (
         hermite_reduce_rational_over_domain(
             target_expression,

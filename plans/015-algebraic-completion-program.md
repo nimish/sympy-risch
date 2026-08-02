@@ -435,8 +435,13 @@ the certified model and maximal-order basis for a compiled direct
 `QQ(x) -> algebraic` rational-power level, preserving constructive,
 non-elementary, and incomplete native certificates. General algebraic
 relations, constant-base-change presentation, and the broader A7 cells remain
-open. One-linear-factor simple radicals now bypass generic normalization via
-a checked Bezout rational parameter; degree 2, 3, 5, and 11 logarithmic
+open. Generic free parameters are now inferred as the transcendental constant
+field `QQ(a, b, ...)`; rational integration and one-linear-factor radical
+parametrization carry that field without invoking global geometry. Declared
+algebraic parameters and the remaining global algorithms still require an
+explicit effective constant-field presentation. One-linear-factor simple
+radicals now bypass generic normalization via a checked Bezout rational
+parameter; degree 2, 3, 5, and 11 logarithmic
 families use the rational integrator without constructing a function-field
 model, while positive-genus radicals still exercise the global path.
 

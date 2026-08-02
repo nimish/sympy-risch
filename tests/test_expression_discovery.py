@@ -106,13 +106,15 @@ def test_wide_expression_preserves_unique_root_order() -> None:
     assert tuple(candidate.source for candidate in discovery.candidates) == roots
 
 
-def test_reports_unsupported_source_grammar_without_partial_graph() -> None:
+def test_treats_other_symbols_as_constants_but_rejects_unsupported_functions() -> None:
     x, y = symbols("x y")
 
-    extra_symbol = discover_expression_tower(log(x) + y, x)
+    parameterized = discover_expression_tower(log(x) + y, x)
     unsupported_function = discover_expression_tower(log(x) + sin(x), x)
 
-    assert extra_symbol.outcome is ExpressionDiscoveryOutcome.UNSUPPORTED
-    assert extra_symbol.candidates == ()
+    assert parameterized.discovered
+    assert tuple(candidate.source for candidate in parameterized.candidates) == (
+        log(x),
+    )
     assert unsupported_function.outcome is ExpressionDiscoveryOutcome.UNSUPPORTED
     assert unsupported_function.candidates == ()

@@ -32,7 +32,10 @@ from sympy.polys.polytools import Poly
 from sympy.polys.rootoftools import RootSum
 
 from ._typing import FieldElement, is_field_zero
-from .admission import assess_elementary_admission, is_standard_rational_base
+from .admission import (
+    assess_elementary_admission,
+    is_rational_base,
+)
 from .algebraic.rational_parametrization import (
     RationalRadicalIntegrationReduction,
     reduce_rational_simple_radical_integral,
@@ -796,7 +799,7 @@ def _integrate_elementary_admitted(
     if not isinstance(extension, MonomialExtension):
         raise TypeError("elementary integration requires a differential extension")
 
-    if is_standard_rational_base(extension):
+    if is_rational_base(extension):
         return _rational_base(element, derivation, extension)
     if derivation.level == 0:
         raise NotImplementedError(
@@ -881,6 +884,12 @@ def integrate_elementary(
 
     extension = derivation.tower.levels[derivation.level]
     if isinstance(extension, AlgebraicExtension):
+        return _integrate_elementary_admitted(integrand, derivation)
+    if (
+        derivation.level == 0
+        and isinstance(extension, MonomialExtension)
+        and is_rational_base(extension)
+    ):
         return _integrate_elementary_admitted(integrand, derivation)
 
     admission = assess_elementary_admission(derivation)

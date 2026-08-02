@@ -121,9 +121,15 @@ class TowerAdmission:
 def is_standard_rational_base(extension: MonomialExtension) -> bool:
     """Whether ``extension`` is the standard base ``C(x)``, ``Dx = 1``."""
     constants = extension.parent_field
-    return finite_constant_field_profile(
-        constants
-    ) is not None and extension.generator_derivative == Poly(
+    return finite_constant_field_profile(constants) is not None and is_rational_base(
+        extension
+    )
+
+
+def is_rational_base(extension: MonomialExtension) -> bool:
+    """Whether ``extension`` is ``C(x)``, ``Dx = 1`` over an exact field."""
+    constants = extension.parent_field
+    return extension.generator_derivative == Poly(
         1, extension.generator, domain=constants
     )
 
@@ -367,4 +373,6 @@ __all__ = [
     "assess_elementary_admission",
     "assess_risch_operation",
     "assess_scalar_rde_admission",
+    "is_rational_base",
+    "is_standard_rational_base",
 ]

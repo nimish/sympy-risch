@@ -14,15 +14,41 @@ remain future work.
 ## Start from a SymPy expression
 
 `integrate_risch` is the public decision entry point. It accepts one
-integration symbol, rational constants, addition, multiplication, rational
-powers, and nested `log`, `exp`, and `tan` calls. A nonintegral rational power
-proposes an algebraic relation; a transcendental call becomes a P/E/T level
+integration symbol, rational constants and symbolic parameters, addition,
+multiplication, rational powers, and nested `log`, `exp`, and `tan` calls. A
+nonintegral rational power proposes an algebraic relation; a transcendental
+call becomes a P/E/T level
 only after the existing checked extension factory certifies it. The compiler
 can also reclassify a finite-power exponential dependency as algebraic.
 Dependent powers of one base, such as `sqrt(x)` and `1/sqrt(x)`, share one
 existing source generator. If several powers require a new common root, such
 as `sqrt(x)` together with `x**(1/3)`, compositum construction is still an
 explicit unsupported boundary.
+
+Other free symbols are interpreted generically as algebraically independent
+differential constants. For example, this computation takes place over
+`QQ(a, b)(x)` and does not assert a formula valid at singular specializations
+such as `a = 0` or `b = 0`:
+
+```python
+from sympy import Rational, cancel, diff, symbols
+
+from sympy_risch import ElementaryPrimitive, integrate_risch
+
+x, a, b = symbols("x a b")
+integrand = x ** Rational(5, 3) / (a + b * x)
+parameterized = integrate_risch(integrand, x)
+
+assert isinstance(parameterized, ElementaryPrimitive)
+assert cancel(diff(parameterized.primitive, x) - integrand) == 0
+```
+
+A symbol declared algebraic is not silently treated as transcendental; the
+frontend returns `NotSupported` until its actual algebraic constant field is
+provided. The generic symbolic-constant path currently covers rational
+integration and one-linear-factor rational radicals. Recursive P/E/T and
+global algebraic-geometry admission still require their documented effective
+constant-field certificates.
 
 ```python
 from sympy import log, symbols

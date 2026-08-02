@@ -51,6 +51,11 @@ through the certified algebraic function-field integrator, including its
 theorem-backed non-elementarity decisions. When the normalized radical has a
 single linear branch, an exact rational parametrization runs the rational
 integrator first and avoids constructing maximal orders and places entirely.
+Free symbols other than the integration variable are inferred as generic,
+algebraically independent constants in `QQ(a, b, ...)`. Rational integration
+and the one-linear-factor radical route use that field directly; declared
+algebraic symbols and constant fields needed by the remaining global or P/E/T
+backends stay explicit unsupported boundaries.
 Complete general-polynomial special-factor reduction, algebraic composita
 that require a new common root, and global branch-aware expression
 normalization remain future work.

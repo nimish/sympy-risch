@@ -171,7 +171,6 @@ def test_non_elementary_expression_keeps_the_native_obstruction() -> None:
     (
         (sin(x), ExpressionUnsupportedReason.UNSUPPORTED_FUNCTION),
         (Abs(x), ExpressionUnsupportedReason.BRANCH_SENSITIVE_FORM),
-        (x + a, ExpressionUnsupportedReason.EXTRA_SYMBOL),
         (
             log(0, evaluate=False),
             ExpressionUnsupportedReason.SINGULAR_FUNCTION_ARGUMENT,
@@ -191,6 +190,29 @@ def test_compiler_returns_structured_boundary_outcomes(expression, reason) -> No
     assert result.reason is reason
     assert result.native_result is None
     assert result.antiderivative is None
+
+
+def test_compiler_infers_algebraically_independent_constant_parameters() -> None:
+    expression = 1 / (x + a)
+
+    compilation = compile_expression(expression, x)
+    result = integrate_expression(expression, x)
+
+    assert compilation.compiled
+    assert compilation.tower is not None
+    assert compilation.tower.constants == QQ.frac_field(a)
+    assert result.outcome is ExpressionIntegrationOutcome.ELEMENTARY
+    assert result.antiderivative == log(a + x)
+    assert cancel(diff(result.antiderivative, x) - expression) == 0
+
+
+def test_compiler_does_not_misclassify_a_declared_algebraic_parameter() -> None:
+    algebraic_parameter = Symbol("alpha", algebraic=True)
+
+    compilation = compile_expression(x + algebraic_parameter, x)
+
+    assert compilation.outcome is ExpressionCompilationOutcome.UNSUPPORTED
+    assert compilation.reason is ExpressionUnsupportedReason.CONSTANT_FIELD
 
 
 @pytest.mark.parametrize(
@@ -444,6 +466,22 @@ def test_compilation_constructor_rejects_a_malformed_tower() -> None:
         )
 
 
+def test_compilation_constructor_rejects_the_wrong_parameter_field() -> None:
+    rational = compile_expression(x, x)
+    assert rational.tower is not None
+
+    with pytest.raises(ValueError, match="wrong inferred constant field"):
+        ExpressionCompilation(
+            x + a,
+            x,
+            ExpressionCompilationOutcome.COMPILED,
+            None,
+            "forged rational constant field",
+            rational.tower,
+            rational.tower.field().from_sympy(x),
+        )
+
+
 def test_compilation_constructor_rejects_an_integration_only_reason() -> None:
     with pytest.raises(ValueError, match="integration-backend reason"):
         ExpressionCompilation(
@@ -532,7 +570,7 @@ def test_integration_constructor_rejects_a_forged_boundary_reason() -> None:
         ExpressionIntegralResult(
             compilation,
             ExpressionIntegrationOutcome.UNSUPPORTED,
-            ExpressionUnsupportedReason.EXTRA_SYMBOL,
+            ExpressionUnsupportedReason.CONSTANT_FIELD,
             "forged boundary",
         )
 
@@ -545,7 +583,7 @@ def test_integration_constructor_retains_the_compilation_boundary_reason() -> No
         ExpressionIntegralResult(
             compilation,
             ExpressionIntegrationOutcome.UNSUPPORTED,
-            ExpressionUnsupportedReason.EXTRA_SYMBOL,
+            ExpressionUnsupportedReason.CONSTANT_FIELD,
             "mismatched boundary",
         )
 

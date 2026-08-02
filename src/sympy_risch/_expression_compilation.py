@@ -29,10 +29,13 @@ from sympy.core.power import Pow
 from sympy.core.symbol import Dummy, Symbol
 from sympy.functions.elementary.exponential import exp, log
 from sympy.functions.elementary.trigonometric import tan
-from sympy.polys.domains import QQ
+from sympy.polys.domains.domain import Domain
+from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.fields import FracElement
 from sympy.polys.polytools import Poly
 
 from ._expression_validation import (
+    expression_constant_domain,
     source_value_and_derivative_in_native,
     validate_compiled_extension_sources,
 )
@@ -64,7 +67,7 @@ class ExpressionCompilationOutcome(Enum):
 class ExpressionUnsupportedReason(Enum):
     """Stable reason that the conservative expression boundary declined input."""
 
-    EXTRA_SYMBOL = "extra_symbol"
+    CONSTANT_FIELD = "constant_field"
     NON_RATIONAL_CONSTANT = "non_rational_constant"
     NONINTEGER_POWER = "noninteger_power"
     UNSUPPORTED_FUNCTION = "unsupported_function"
@@ -245,9 +248,16 @@ def _embed_native_element(
     through its exact expression forces the target native field and prevents
     sibling function calls from being combined across domain instances.
     """
+    target = tower.field()
+    if (
+        isinstance(target, FractionField)
+        and isinstance(element, FracElement)
+        and element.field is target.field
+    ):
+        return element
     if not isinstance(element, SupportsAsExpr):
         raise TypeError("a native expression element must expose as_expr()")
-    return cast(FieldElement, tower.field().from_sympy(element.as_expr()))
+    return cast(FieldElement, target.from_sympy(element.as_expr()))
 
 
 def _local_expression_equal(left: Expr, right: Expr) -> bool:
@@ -295,11 +305,6 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
     )
     if normalized_element != source_value:
         raise ValueError("the native element does not represent the source expression")
-    if not _local_expression_equal(
-        compilation.reconstructed_expression(),
-        compilation.expression,
-    ):
-        raise ValueError("the native element fails source round-trip validation")
     if tower.derivation()(normalized_element) != source_derivative:
         raise ValueError(
             "the native derivative does not agree with the source-tree chain rule"
@@ -309,20 +314,21 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
 class _ExpressionCompiler:
     """Mutable construction state hidden behind immutable public certificates."""
 
-    def __init__(self, expression: Expr, variable: Symbol) -> None:
-        constants = DifferentialTower(QQ)
+    def __init__(self, expression: Expr, variable: Symbol, constants: Domain) -> None:
+        constant_tower = DifferentialTower(constants)
         base_analysis = certify_primitive_extension(
-            Poly(1, variable, domain=QQ),
-            constants.derivation(),
+            Poly(1, variable, domain=constants),
+            constant_tower.derivation(),
         )
         if base_analysis.status is not ConstantFieldStatus.PRESERVED:
             raise RuntimeError(
-                "the standard rational QQ(x) base unexpectedly failed "
+                "the standard rational C(x) base unexpectedly failed "
                 "primitive constant-field certification"
             )
 
         self.variable = variable
-        self.tower = constants.extend(base_analysis.extension)
+        self.constants = frozenset(expression.free_symbols - {variable})
+        self.tower = constant_tower.extend(base_analysis.extension)
         self.source_elements: dict[Expr, FieldElement] = {}
         self.generator_substitutions: dict[Symbol, Expr] = {}
         self.algebraic_representatives = _rational_power_representatives(expression)
@@ -332,7 +338,7 @@ class _ExpressionCompiler:
         """Compile one expression, embedding prior results at the current top."""
         if expression in self.source_elements:
             return self._embed_current(self.source_elements[expression])
-        if expression == self.variable:
+        if expression == self.variable or expression in self.constants:
             return self._from_sympy(expression)
         if expression.is_Rational is True:
             return self._from_sympy(expression)
@@ -341,7 +347,7 @@ class _ExpressionCompiler:
         if expression.is_number:
             self._unsupported(
                 ExpressionUnsupportedReason.NON_RATIONAL_CONSTANT,
-                f"{expression} is not a rational constant in QQ",
+                f"{expression} is outside the inferred rational-function constants",
             )
         if isinstance(expression, Add):
             value = self.tower.field().zero
@@ -404,7 +410,7 @@ class _ExpressionCompiler:
             self._unsupported(
                 ExpressionUnsupportedReason.CONSTANT_EXTENSION,
                 f"{expression} has zero derivative and would introduce a "
-                "constant outside QQ",
+                "constant outside the inferred constant field",
             )
 
         generator = self._fresh_generator(expression.func.__name__)
@@ -615,17 +621,17 @@ def compile_expression(
         raise ValueError("the integration variable cannot be known to be zero")
     if variable.is_finite is False:
         raise ValueError("the integration variable must not be known infinite")
-    foreign_symbols = expression.free_symbols - {variable}
-    if foreign_symbols:
-        names = ", ".join(str(symbol) for symbol in sorted(foreign_symbols, key=str))
+    try:
+        constants = expression_constant_domain(expression, variable)
+    except (TypeError, ValueError) as exc:
         return _unsupported_compilation(
             expression,
             variable,
-            ExpressionUnsupportedReason.EXTRA_SYMBOL,
-            f"the expression contains symbols other than {variable}: {names}",
+            ExpressionUnsupportedReason.CONSTANT_FIELD,
+            str(exc),
         )
 
-    compiler = _ExpressionCompiler(expression, variable)
+    compiler = _ExpressionCompiler(expression, variable, constants)
     try:
         element = compiler.compile(expression)
     except _UnsupportedExpression as failure:
