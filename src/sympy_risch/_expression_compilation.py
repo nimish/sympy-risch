@@ -33,8 +33,7 @@ from sympy.polys.domains import QQ
 from sympy.polys.polytools import Poly
 
 from ._expression_validation import (
-    source_derivative_in_native,
-    source_value_in_native,
+    source_value_and_derivative_in_native,
     validate_compiled_extension_sources,
 )
 from ._typing import FieldElement, SupportsAsExpr
@@ -43,6 +42,10 @@ from .dependency import (
     certify_hyperexponential_extension,
     certify_hypertangent_extension,
     certify_primitive_extension,
+)
+from .expression_discovery import (
+    _rational_power_relation,
+    _rational_power_representatives,
 )
 from .tower.core import (
     AlgebraicExtension,
@@ -274,15 +277,21 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
     """Validate public certificate invariants independently of the builder."""
     tower, element = compilation._require_compiled()
     substitutions = dict(compilation.generator_substitutions)
-    validate_compiled_extension_sources(compilation, substitutions)
+    algebraic_representatives = _rational_power_representatives(compilation.expression)
+    validate_compiled_extension_sources(
+        compilation,
+        substitutions,
+        algebraic_representatives,
+    )
     normalized_element = _embed_native_element(tower, element)
     source_generators = {
         source: generator for generator, source in substitutions.items()
     }
-    source_value = source_value_in_native(
+    source_value, source_derivative = source_value_and_derivative_in_native(
         compilation.expression,
         compilation,
         source_generators,
+        algebraic_representatives,
     )
     if normalized_element != source_value:
         raise ValueError("the native element does not represent the source expression")
@@ -291,11 +300,7 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
         compilation.expression,
     ):
         raise ValueError("the native element fails source round-trip validation")
-    if tower.derivation()(normalized_element) != source_derivative_in_native(
-        compilation.expression,
-        compilation,
-        source_generators,
-    ):
+    if tower.derivation()(normalized_element) != source_derivative:
         raise ValueError(
             "the native derivative does not agree with the source-tree chain rule"
         )
@@ -304,7 +309,7 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
 class _ExpressionCompiler:
     """Mutable construction state hidden behind immutable public certificates."""
 
-    def __init__(self, variable: Symbol) -> None:
+    def __init__(self, expression: Expr, variable: Symbol) -> None:
         constants = DifferentialTower(QQ)
         base_analysis = certify_primitive_extension(
             Poly(1, variable, domain=QQ),
@@ -320,6 +325,7 @@ class _ExpressionCompiler:
         self.tower = constants.extend(base_analysis.extension)
         self.source_elements: dict[Expr, FieldElement] = {}
         self.generator_substitutions: dict[Symbol, Expr] = {}
+        self.algebraic_representatives = _rational_power_representatives(expression)
         self.next_generator_index = 0
 
     def compile(self, expression: Expr) -> FieldElement:
@@ -506,6 +512,17 @@ class _ExpressionCompiler:
         exponent = expression.exp
         if not isinstance(exponent, Rational) or isinstance(exponent, Integer):
             raise TypeError("algebraic power compilation needs a rational exponent")
+        representative = self.algebraic_representatives.get(expression, expression)
+        if representative != expression:
+            relation = _rational_power_relation(expression, representative)
+            if relation is None:
+                raise RuntimeError("a planned rational-power relation is invalid")
+            power, base_power = relation
+            generator_value = self._embed_current(self.compile(representative))
+            base = self._embed_current(self.compile(expression.base))
+            element = self._embed_current(base**base_power * generator_value**power)
+            self.source_elements[expression] = element
+            return element
         base = self._embed_current(self.compile(expression.base))
         if base == self.tower.field().zero and exponent.p < 0:
             self._unsupported(
@@ -608,7 +625,7 @@ def compile_expression(
             f"the expression contains symbols other than {variable}: {names}",
         )
 
-    compiler = _ExpressionCompiler(variable)
+    compiler = _ExpressionCompiler(expression, variable)
     try:
         element = compiler.compile(expression)
     except _UnsupportedExpression as failure:

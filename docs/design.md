@@ -1369,7 +1369,10 @@ API. A rational power `u**(p/q)` proposes the algebraic relation
 normalizes that relation as monic, square-free, and irreducible. The
 hyperexponential dependency solver can also reclassify a finite-power
 exponential such as `exp(log(x)/2)` as an algebraic level instead of adding a
-false transcendental generator.
+false transcendental generator. Before compilation, powers of the same base
+are compared modulo integer exponents. When one source power generates all
+the others, the candidate DAG and compiler reuse that level; no absent common
+root is invented.
 
 The frontend deliberately preserves source syntax. Its substitutions are
 simultaneous mappings from fresh internal generators to source calls, and a
@@ -1383,8 +1386,8 @@ This is not yet complete automatic tower construction. The remaining frontend
 work is to:
 
 1. parse general algebraic `RootOf` and polynomial relations;
-2. normalize several algebraic candidates into a compositum or primitive
-   element;
+2. construct a compositum or primitive element when several algebraic
+   candidates have no existing common source generator;
 3. complete relation-driven reuse for rationally dependent logarithms,
    exponentials, and tangents;
 4. execute monomial-over-algebraic and arbitrarily interleaved towers in the

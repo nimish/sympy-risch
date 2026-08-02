@@ -22,6 +22,7 @@ from .dependency import (
     certify_hypertangent_extension,
     certify_primitive_extension,
 )
+from .expression_discovery import _rational_power_relation
 from .tower.core import (
     AlgebraicExtension,
     ConstantFieldStatus,
@@ -37,6 +38,7 @@ def _source_value_and_derivative_in_native(
     expression: Expr,
     compilation: ExpressionCompilation,
     source_generators: dict[Expr, Symbol],
+    algebraic_representatives: dict[Pow, Pow],
     cache: dict[Expr, tuple[FieldElement, FieldElement]],
 ) -> tuple[FieldElement, FieldElement]:
     """Evaluate one source subtree and its derivative in a single traversal."""
@@ -53,8 +55,7 @@ def _source_value_and_derivative_in_native(
         else None
     )
     if (
-        native_generator is not None
-        and isinstance(expression, Pow)
+        isinstance(expression, Pow)
         and isinstance(expression.exp, Rational)
         and not isinstance(expression.exp, Integer)
     ):
@@ -62,18 +63,32 @@ def _source_value_and_derivative_in_native(
             expression.base,
             compilation,
             source_generators,
+            algebraic_representatives,
             cache,
         )
         if base == field.zero:
             raise ValueError("an algebraic power source has a singular base")
+        value = native_generator
+        if value is None:
+            representative = algebraic_representatives.get(expression)
+            relation = (
+                _rational_power_relation(expression, representative)
+                if representative is not None
+                else None
+            )
+            representative_generator = source_generators.get(representative)
+            if relation is None or representative_generator is None:
+                raise ValueError("an algebraic power source has no native generator")
+            power, base_power = relation
+            value = cast(
+                FieldElement,
+                base**base_power * field.from_sympy(representative_generator) ** power,
+            )
         result = (
-            native_generator,
+            value,
             cast(
                 FieldElement,
-                field.convert(expression.exp)
-                * native_generator
-                * base_derivative
-                / base,
+                field.convert(expression.exp) * value * base_derivative / base,
             ),
         )
     elif expression == compilation.variable:
@@ -88,6 +103,7 @@ def _source_value_and_derivative_in_native(
                 term,
                 compilation,
                 source_generators,
+                algebraic_representatives,
                 cache,
             )
             value += term_value
@@ -101,6 +117,7 @@ def _source_value_and_derivative_in_native(
                 factor,
                 compilation,
                 source_generators,
+                algebraic_representatives,
                 cache,
             )
             derivative = derivative * factor_value + value * factor_derivative
@@ -111,6 +128,7 @@ def _source_value_and_derivative_in_native(
             expression.base,
             compilation,
             source_generators,
+            algebraic_representatives,
             cache,
         )
         exponent = int(expression.exp)
@@ -133,6 +151,7 @@ def _source_value_and_derivative_in_native(
             argument_expression,
             compilation,
             source_generators,
+            algebraic_representatives,
             cache,
         )
         if expression.func is log:
@@ -149,32 +168,20 @@ def _source_value_and_derivative_in_native(
     return result
 
 
-def source_value_in_native(
+def source_value_and_derivative_in_native(
     expression: Expr,
     compilation: ExpressionCompilation,
     source_generators: dict[Expr, Symbol],
-) -> FieldElement:
-    """Evaluate an accepted source tree in the compiled native top field."""
+    algebraic_representatives: dict[Pow, Pow],
+) -> tuple[FieldElement, FieldElement]:
+    """Evaluate an accepted source tree and derivative in one traversal."""
     return _source_value_and_derivative_in_native(
         expression,
         compilation,
         source_generators,
+        algebraic_representatives,
         {},
-    )[0]
-
-
-def source_derivative_in_native(
-    expression: Expr,
-    compilation: ExpressionCompilation,
-    source_generators: dict[Expr, Symbol],
-) -> FieldElement:
-    """Apply the source-tree chain rule without inventing new function calls."""
-    return _source_value_and_derivative_in_native(
-        expression,
-        compilation,
-        source_generators,
-        {},
-    )[1]
+    )
 
 
 def _locally_equal(left: Expr, right: Expr) -> bool:
@@ -188,6 +195,7 @@ def _locally_equal(left: Expr, right: Expr) -> bool:
 def validate_compiled_extension_sources(
     compilation: ExpressionCompilation,
     substitutions: dict[Symbol, Expr],
+    algebraic_representatives: dict[Pow, Pow],
 ) -> None:
     """Replay every source extension through its checked construction."""
     tower, _element = compilation._require_compiled()
@@ -340,6 +348,7 @@ def validate_compiled_extension_sources(
             source,
             compilation,
             source_generators,
+            algebraic_representatives,
             source_evaluation_cache,
         )
         if tower.derivation()(native_generator) != source_derivative:
@@ -361,7 +370,6 @@ def validate_compiled_extension_sources(
 
 
 __all__ = [
-    "source_derivative_in_native",
-    "source_value_in_native",
+    "source_value_and_derivative_in_native",
     "validate_compiled_extension_sources",
 ]

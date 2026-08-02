@@ -69,6 +69,32 @@ def test_common_subexpressions_share_one_candidate() -> None:
     assert [candidate.source for candidate in discovery.candidates].count(radical) == 1
 
 
+def test_dependent_rational_powers_share_an_existing_generator() -> None:
+    x = symbols("x")
+    cubic_root = x ** Rational(1, 3)
+    exponential = exp(x ** Rational(2, 3))
+    expression = Add(exponential, cubic_root, evaluate=False)
+
+    discovery = discover_expression_tower(expression, x)
+
+    assert [candidate.source for candidate in discovery.candidates] == [
+        cubic_root,
+        exponential,
+    ]
+    assert discovery.candidates[1].dependencies == (cubic_root,)
+
+
+def test_wide_dependent_power_family_still_proposes_one_generator() -> None:
+    x = symbols("x")
+    expression = Add(*(x ** Rational(power, 67) for power in range(1, 65)))
+
+    discovery = discover_expression_tower(expression, x)
+
+    assert tuple(candidate.source for candidate in discovery.candidates) == (
+        x ** Rational(1, 67),
+    )
+
+
 def test_wide_expression_preserves_unique_root_order() -> None:
     x = symbols("x")
     roots = tuple(log(x + shift) for shift in range(1, 401))

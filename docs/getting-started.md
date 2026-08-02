@@ -19,6 +19,10 @@ powers, and nested `log`, `exp`, and `tan` calls. A nonintegral rational power
 proposes an algebraic relation; a transcendental call becomes a P/E/T level
 only after the existing checked extension factory certifies it. The compiler
 can also reclassify a finite-power exponential dependency as algebraic.
+Dependent powers of one base, such as `sqrt(x)` and `1/sqrt(x)`, share one
+existing source generator. If several powers require a new common root, such
+as `sqrt(x)` together with `x**(1/3)`, compositum construction is still an
+explicit unsupported boundary.
 
 ```python
 from sympy import log, symbols

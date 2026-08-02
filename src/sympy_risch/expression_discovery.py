@@ -18,7 +18,10 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
+from math import lcm
+from typing import cast
 
+from sympy import preorder_traversal
 from sympy.core.add import Add
 from sympy.core.expr import Expr
 from sympy.core.mul import Mul
@@ -162,6 +165,119 @@ class _CandidateDiscoverer:
         return tuple(dict.fromkeys(roots))
 
 
+def _rational_power_relation(
+    source: Pow, generator_source: Pow
+) -> tuple[int, int] | None:
+    r"""Return ``(k, m)`` when ``source = base**m * generator_source**k``.
+
+    Exponents are compared modulo integers because integer powers of the base
+    already belong to the lower field.  No root absent from the source is
+    introduced.
+    """
+    if source.base != generator_source.base:
+        return None
+    source_exponent = source.exp
+    generator_exponent = generator_source.exp
+    if not isinstance(source_exponent, Rational) or not isinstance(
+        generator_exponent, Rational
+    ):
+        return None
+    if generator_exponent.q % source_exponent.q:
+        return None
+    target_numerator = source_exponent.p * (generator_exponent.q // source_exponent.q)
+    power = (
+        target_numerator
+        * pow(generator_exponent.p % generator_exponent.q, -1, generator_exponent.q)
+    ) % generator_exponent.q
+    base_power = source_exponent - power * generator_exponent
+    if base_power.q != 1:
+        return None
+    return power, int(base_power)
+
+
+def _rational_power_representatives(expression: Expr) -> dict[Pow, Pow]:
+    """Choose existing powers that generate dependent powers of the same base."""
+    groups: dict[Expr, list[Pow]] = {}
+    for node in preorder_traversal(expression):
+        if (
+            isinstance(node, Pow)
+            and isinstance(node.exp, Rational)
+            and not isinstance(node.exp, Integer)
+        ):
+            groups.setdefault(node.base, []).append(node)
+
+    representatives: dict[Pow, Pow] = {}
+    for powers in groups.values():
+        unique = tuple(dict.fromkeys(powers))
+        exponents = {power: cast(Rational, power.exp) for power in unique}
+        common_denominator = lcm(*(int(exponents[power].q) for power in unique))
+        eligible = [
+            power for power in unique if int(exponents[power].q) == common_denominator
+        ]
+        if not eligible:
+            representatives.update((power, power) for power in unique)
+            continue
+        representative = min(
+            eligible,
+            key=lambda power: (
+                abs(int(exponents[power].p)),
+                exponents[power].p < 0,
+            ),
+        )
+        representatives.update(
+            (power, representative)
+            if _rational_power_relation(power, representative) is not None
+            else (power, power)
+            for power in unique
+        )
+    return representatives
+
+
+def _normalize_dependent_rational_powers(
+    expression: Expr,
+    candidates: list[ExpressionTowerCandidate],
+) -> tuple[ExpressionTowerCandidate, ...]:
+    """Collapse dependent rational-power proposals and restore topological order."""
+    representatives = _rational_power_representatives(expression)
+    retained: dict[Expr, ExpressionTowerCandidate] = {}
+    for candidate in candidates:
+        if (
+            candidate.kind is ExpressionGeneratorKind.ALGEBRAIC
+            and representatives.get(cast(Pow, candidate.source), candidate.source)
+            != candidate.source
+        ):
+            continue
+        dependencies = tuple(
+            dict.fromkeys(
+                representatives.get(cast(Pow, dependency), dependency)
+                for dependency in candidate.dependencies
+            )
+        )
+        retained[candidate.source] = ExpressionTowerCandidate(
+            candidate.source,
+            candidate.kind,
+            dependencies,
+            candidate.algebraic_exponent,
+        )
+
+    ordered: list[ExpressionTowerCandidate] = []
+    emitted: set[Expr] = set()
+
+    def emit(candidate: ExpressionTowerCandidate) -> None:
+        if candidate.source in emitted:
+            return
+        for dependency in candidate.dependencies:
+            dependency_candidate = retained.get(dependency)
+            if dependency_candidate is not None:
+                emit(dependency_candidate)
+        emitted.add(candidate.source)
+        ordered.append(candidate)
+
+    for candidate in retained.values():
+        emit(candidate)
+    return tuple(ordered)
+
+
 def discover_expression_tower(
     expression: Expr,
     variable: Symbol,
@@ -203,7 +319,7 @@ def discover_expression_tower(
         expression,
         variable,
         ExpressionDiscoveryOutcome.DISCOVERED,
-        tuple(discoverer.candidates),
+        _normalize_dependent_rational_powers(expression, discoverer.candidates),
         "the expression generator dependency graph was discovered",
     )
 

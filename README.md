@@ -44,14 +44,16 @@ only local, branch-preserving presentations. Its separate candidate-DAG pass
 now recognizes rational-power algebraic levels and both mixed
 algebraic/transcendental orders; the native compiler executes terminal
 algebraic-over-P/E/T towers and reports still-missing opposite-order backends
-separately. A direct rational-power extension of `QQ(x)` is now dispatched
+separately. Rational powers of the same base reuse one source generator when
+the others differ by an integer power of it and an integer power of the base.
+A direct rational-power extension of `QQ(x)` is now dispatched
 through the certified algebraic function-field integrator, including its
 theorem-backed non-elementarity decisions. When the normalized radical has a
 single linear branch, an exact rational parametrization runs the rational
 integrator first and avoids constructing maximal orders and places entirely.
-Complete general-polynomial special-factor reduction, expression-level
-algebraic composita, and global branch-aware expression normalization remain
-future work.
+Complete general-polynomial special-factor reduction, algebraic composita
+that require a new common root, and global branch-aware expression
+normalization remain future work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

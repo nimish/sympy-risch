@@ -228,6 +228,40 @@ def test_repeated_identical_function_calls_share_one_generator() -> None:
 @pytest.mark.parametrize(
     "expression",
     (
+        sqrt(x) + 1 / sqrt(x),
+        x ** Rational(1, 3) + x ** Rational(2, 3) + x ** Rational(-4, 3),
+    ),
+)
+def test_dependent_rational_powers_share_one_algebraic_level(expression) -> None:
+    compilation = compile_expression(expression, x)
+
+    assert compilation.compiled
+    assert compilation.tower is not None
+    assert compilation.element is not None
+    assert len(compilation.tower.levels) == 2
+    assert len(compilation.generator_substitutions) == 1
+    assert cancel(compilation.reconstructed_expression() - expression) == 0
+    assert (
+        cancel(
+            compilation.back_substitute(
+                compilation.tower.derivation()(compilation.element)
+            )
+            - diff(expression, x)
+        )
+        == 0
+    )
+
+
+def test_powers_without_an_existing_common_generator_remain_unsupported() -> None:
+    compilation = compile_expression(sqrt(x) + x ** Rational(1, 3), x)
+
+    assert compilation.outcome is ExpressionCompilationOutcome.UNSUPPORTED
+    assert compilation.reason is ExpressionUnsupportedReason.UNCERTIFIED_EXTENSION
+
+
+@pytest.mark.parametrize(
+    "expression",
+    (
         sqrt(x),
         (x + 1) ** Rational(2, 3),
         sqrt(x + log(x)),

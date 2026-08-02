@@ -73,6 +73,16 @@ def test_integrate_risch_dispatches_direct_algebraic_expressions(
     assert cancel(diff(result.primitive, x) - integrand) == 0
 
 
+def test_integrate_risch_normalizes_reciprocal_radical_powers() -> None:
+    integrand = 1 / (2 * sqrt(x) * (sqrt(x) + 1))
+
+    result = integrate_risch(integrand, x)
+
+    assert isinstance(result, ElementaryPrimitive)
+    assert result.primitive == log(sqrt(x) + 1)
+    assert cancel(diff(result.primitive, x) - integrand) == 0
+
+
 def test_integrate_risch_preserves_an_algebraic_liouville_obstruction() -> None:
     result = integrate_risch(1 / sqrt(x**3 - x), x)
 
