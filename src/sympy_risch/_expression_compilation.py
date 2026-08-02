@@ -36,6 +36,8 @@ from sympy.polys.polytools import Poly
 
 from ._expression_validation import (
     expression_constant_domain,
+    expression_constant_symbols,
+    is_rational_source_expression,
     source_value_and_derivative_in_native,
     validate_compiled_extension_sources,
 )
@@ -294,6 +296,23 @@ def _validate_compiled_expression(compilation: ExpressionCompilation) -> None:
         algebraic_representatives,
     )
     normalized_element = _embed_native_element(tower, element)
+    rational_generators = (
+        compilation.variable,
+        *expression_constant_symbols(
+            compilation.expression,
+            compilation.variable,
+        ),
+    )
+    if is_rational_source_expression(compilation.expression, rational_generators):
+        source_value = cast(
+            FieldElement,
+            tower.field().from_sympy(compilation.expression),
+        )
+        if normalized_element != source_value:
+            raise ValueError(
+                "the native element does not represent the source expression"
+            )
+        return
     source_generators = {
         source: generator for generator, source in substitutions.items()
     }
@@ -327,7 +346,9 @@ class _ExpressionCompiler:
             )
 
         self.variable = variable
-        self.constants = frozenset(expression.free_symbols - {variable})
+        constant_symbols = expression_constant_symbols(expression, variable)
+        self.constants = frozenset(constant_symbols)
+        self.rational_generators = (variable, *constant_symbols)
         self.tower = constant_tower.extend(base_analysis.extension)
         self.source_elements: dict[Expr, FieldElement] = {}
         self.generator_substitutions: dict[Symbol, Expr] = {}
@@ -338,6 +359,8 @@ class _ExpressionCompiler:
         """Compile one expression, embedding prior results at the current top."""
         if expression in self.source_elements:
             return self._embed_current(self.source_elements[expression])
+        if is_rational_source_expression(expression, self.rational_generators):
+            return self._from_sympy(expression)
         if expression == self.variable or expression in self.constants:
             return self._from_sympy(expression)
         if expression.is_Rational is True:

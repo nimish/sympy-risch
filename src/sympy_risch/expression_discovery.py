@@ -298,7 +298,25 @@ def discover_expression_tower(
         raise TypeError("tower discovery requires a SymPy Expr")
     if not isinstance(variable, Symbol):
         raise TypeError("the integration variable must be a SymPy Symbol")
-    constants = cast(frozenset[Symbol], frozenset(expression.free_symbols - {variable}))
+    constant_candidates = expression.free_symbols - {variable}
+    unsupported_constant = next(
+        (
+            candidate
+            for candidate in constant_candidates
+            if not isinstance(candidate, Symbol)
+        ),
+        None,
+    )
+    if unsupported_constant is not None:
+        return ExpressionTowerDiscovery(
+            expression,
+            variable,
+            ExpressionDiscoveryOutcome.UNSUPPORTED,
+            (),
+            f"{unsupported_constant} is not a symbolic constant supported by "
+            "tower discovery",
+        )
+    constants = cast(frozenset[Symbol], frozenset(constant_candidates))
     discoverer = _CandidateDiscoverer(variable, constants)
     try:
         discoverer.visit(expression)

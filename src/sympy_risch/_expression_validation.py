@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 from sympy import cancel, diff, preorder_traversal
 from sympy.core.add import Add
 from sympy.core.expr import Expr
+from sympy.core.function import Function
 from sympy.core.mul import Mul
 from sympy.core.numbers import Integer, Rational
 from sympy.core.power import Pow
@@ -35,14 +36,21 @@ if TYPE_CHECKING:
     from ._expression_compilation import ExpressionCompilation
 
 
-def expression_constant_domain(expression: Expr, variable: Symbol) -> Domain:
-    r"""Return the generic constant field ``QQ(c1, ..., cn)`` for a source."""
+def expression_constant_symbols(
+    expression: Expr,
+    variable: Symbol,
+) -> tuple[Symbol, ...]:
+    """Return the validated generic constant parameters of a source."""
     parameters = tuple(
         sorted(
             expression.free_symbols - {variable}, key=lambda symbol: symbol.sort_key()
         )
     )
     for parameter in parameters:
+        if not isinstance(parameter, Symbol):
+            raise TypeError(
+                f"{parameter} is not a symbolic constant supported by the frontend"
+            )
         if parameter.is_commutative is not True:
             raise TypeError("constant parameters must be commutative symbols")
         if parameter.is_zero is True or parameter.is_finite is False:
@@ -54,7 +62,29 @@ def expression_constant_domain(expression: Expr, variable: Symbol) -> Domain:
                 f"{parameter} is declared algebraic, so QQ({parameter}) would "
                 "be the wrong constant field"
             )
+    return cast(tuple[Symbol, ...], parameters)
+
+
+def expression_constant_domain(expression: Expr, variable: Symbol) -> Domain:
+    r"""Return the generic constant field ``QQ(c1, ..., cn)`` for a source."""
+    parameters = expression_constant_symbols(expression, variable)
     return QQ if not parameters else QQ.frac_field(*parameters)
+
+
+def is_rational_source_expression(
+    expression: Expr,
+    generators: tuple[Symbol, ...],
+) -> bool:
+    """Whether a source is rational arithmetic over the displayed symbols."""
+    return (
+        not expression.atoms(Function)
+        and all(isinstance(power.exp, Integer) for power in expression.atoms(Pow))
+        and all(
+            isinstance(atom, Symbol) or atom.is_Rational is True
+            for atom in expression.atoms()
+        )
+        and expression.is_rational_function(*generators) is True
+    )
 
 
 def _source_value_and_derivative_in_native(
@@ -62,6 +92,7 @@ def _source_value_and_derivative_in_native(
     compilation: ExpressionCompilation,
     source_generators: dict[Expr, Symbol],
     algebraic_representatives: dict[Pow, Pow],
+    rational_generators: tuple[Symbol, ...],
     cache: dict[Expr, tuple[FieldElement, FieldElement]],
 ) -> tuple[FieldElement, FieldElement]:
     """Evaluate one source subtree and its derivative in a single traversal."""
@@ -71,6 +102,17 @@ def _source_value_and_derivative_in_native(
 
     tower, _element = compilation._require_compiled()
     field = tower.field()
+    if is_rational_source_expression(expression, rational_generators):
+        result = (
+            cast(FieldElement, field.from_sympy(expression)),
+            cast(
+                FieldElement,
+                field.from_sympy(diff(expression, compilation.variable)),
+            ),
+        )
+        cache[expression] = result
+        return result
+
     generator = source_generators.get(expression)
     native_generator = (
         cast(FieldElement, field.from_sympy(generator))
@@ -87,6 +129,7 @@ def _source_value_and_derivative_in_native(
             compilation,
             source_generators,
             algebraic_representatives,
+            rational_generators,
             cache,
         )
         if base == field.zero:
@@ -127,6 +170,7 @@ def _source_value_and_derivative_in_native(
                 compilation,
                 source_generators,
                 algebraic_representatives,
+                rational_generators,
                 cache,
             )
             value += term_value
@@ -141,6 +185,7 @@ def _source_value_and_derivative_in_native(
                 compilation,
                 source_generators,
                 algebraic_representatives,
+                rational_generators,
                 cache,
             )
             derivative = derivative * factor_value + value * factor_derivative
@@ -152,6 +197,7 @@ def _source_value_and_derivative_in_native(
             compilation,
             source_generators,
             algebraic_representatives,
+            rational_generators,
             cache,
         )
         exponent = int(expression.exp)
@@ -175,6 +221,7 @@ def _source_value_and_derivative_in_native(
             compilation,
             source_generators,
             algebraic_representatives,
+            rational_generators,
             cache,
         )
         if expression.func is log:
@@ -198,11 +245,19 @@ def source_value_and_derivative_in_native(
     algebraic_representatives: dict[Pow, Pow],
 ) -> tuple[FieldElement, FieldElement]:
     """Evaluate an accepted source tree and derivative in one traversal."""
+    rational_generators = (
+        compilation.variable,
+        *expression_constant_symbols(
+            compilation.expression,
+            compilation.variable,
+        ),
+    )
     return _source_value_and_derivative_in_native(
         expression,
         compilation,
         source_generators,
         algebraic_representatives,
+        rational_generators,
         {},
     )
 
@@ -261,6 +316,13 @@ def validate_compiled_extension_sources(
     expression_nodes = set(preorder_traversal(compilation.expression))
     lower_replacements: dict[Expr, Symbol] = {}
     source_evaluation_cache: dict[Expr, tuple[FieldElement, FieldElement]] = {}
+    rational_generators = (
+        compilation.variable,
+        *expression_constant_symbols(
+            compilation.expression,
+            compilation.variable,
+        ),
+    )
     ordered_substitutions = sorted(
         substitutions.items(),
         key=lambda item: level_indices[item[0]],
@@ -378,6 +440,7 @@ def validate_compiled_extension_sources(
             compilation,
             source_generators,
             algebraic_representatives,
+            rational_generators,
             source_evaluation_cache,
         )
         if tower.derivation()(native_generator) != source_derivative:
@@ -400,6 +463,7 @@ def validate_compiled_extension_sources(
 
 __all__ = [
     "expression_constant_domain",
+    "expression_constant_symbols",
     "source_value_and_derivative_in_native",
     "validate_compiled_extension_sources",
 ]

@@ -862,12 +862,13 @@ def integrate_elementary(
 ) -> ElementaryIntegralResult:
     r"""Integrate ``integrand`` recursively in an explicit differential tower.
 
-    Implemented tower levels are the standard rational base ``C(x)`` with
-    ``Dx = 1`` over an effective finite algebraic constant field ``C`` and the
-    documented recursive primitive, hyperexponential, and hypertangent shapes
-    above it, provided replay proves constant preservation at every non-base
-    level.  The exact hyperbolic law ``Dt = eta*(1 - t**2)`` is normalized
-    immutably to a hyperexponential coordinate.
+    The rational base ``C(x)`` with ``Dx = 1`` accepts any exact
+    characteristic-zero constant field ``C``. Recursive primitive,
+    hyperexponential, and hypertangent levels retain their narrower documented
+    effective-constant-field admission contract and require replay-proved
+    constant preservation. The exact hyperbolic law
+    ``Dt = eta*(1 - t**2)`` is normalized immutably to a hyperexponential
+    coordinate.
 
     Terminal simple radicals first use exact power-basis descent. A declined
     direct radical ``z**n = c*L(x)**m`` with one linear factor is then

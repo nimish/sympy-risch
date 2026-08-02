@@ -1,4 +1,4 @@
-from sympy import Add, Rational, exp, log, sin, sqrt, symbols, tan
+from sympy import Add, IndexedBase, Rational, exp, log, sin, sqrt, symbols, tan
 
 from sympy_risch.expression_discovery import (
     ExpressionDiscoveryOutcome,
@@ -118,3 +118,12 @@ def test_treats_other_symbols_as_constants_but_rejects_unsupported_functions() -
     )
     assert unsupported_function.outcome is ExpressionDiscoveryOutcome.UNSUPPORTED
     assert unsupported_function.candidates == ()
+
+
+def test_rejects_non_symbolic_free_parameters() -> None:
+    x = symbols("x")
+
+    discovery = discover_expression_tower(x + IndexedBase("indexed")[0], x)
+
+    assert discovery.outcome is ExpressionDiscoveryOutcome.UNSUPPORTED
+    assert discovery.candidates == ()

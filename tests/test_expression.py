@@ -8,6 +8,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 from sympy import (
     Abs,
+    IndexedBase,
     Poly,
     Rational,
     Symbol,
@@ -213,6 +214,42 @@ def test_compiler_does_not_misclassify_a_declared_algebraic_parameter() -> None:
 
     assert compilation.outcome is ExpressionCompilationOutcome.UNSUPPORTED
     assert compilation.reason is ExpressionUnsupportedReason.CONSTANT_FIELD
+
+
+def test_compiler_rejects_non_symbolic_free_parameters_structurally() -> None:
+    compilation = compile_expression(x + IndexedBase("indexed")[0], x)
+
+    assert compilation.outcome is ExpressionCompilationOutcome.UNSUPPORTED
+    assert compilation.reason is ExpressionUnsupportedReason.CONSTANT_FIELD
+
+
+def test_wide_rational_parameter_source_uses_one_native_compilation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from sympy_risch._expression_compilation import _ExpressionCompiler
+
+    parameters = symbols("a0:8")
+    expression = sum(1 / (x + parameter) for parameter in parameters)
+    converted: list[object] = []
+    original = _ExpressionCompiler._from_sympy
+
+    def counting_conversion(self, source):
+        converted.append(source)
+        return original(self, source)
+
+    def reject_recursive_source_derivative(*_args: object) -> None:
+        raise AssertionError("a rational source should not rebuild its derivative")
+
+    monkeypatch.setattr(_ExpressionCompiler, "_from_sympy", counting_conversion)
+    monkeypatch.setattr(
+        "sympy_risch._expression_compilation.source_value_and_derivative_in_native",
+        reject_recursive_source_derivative,
+    )
+
+    compilation = compile_expression(expression, x)
+
+    assert compilation.compiled
+    assert converted == [expression]
 
 
 @pytest.mark.parametrize(
