@@ -5,7 +5,7 @@ The implemented rational algorithms work over a standard base ``C(x)`` with
 ``QQ`` or a purely transcendental rational-function extension of one. The
 relation algorithms still seek relations with *rational* coefficients; they
 expand finite constants in a fixed ``QQ`` basis and clear transcendental
-constant denominators once before comparing polynomial coefficients.
+constant denominators one variable at a time before comparing coefficients.
 """
 
 from __future__ import annotations
@@ -14,12 +14,14 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 from sympy.core.numbers import I
+from sympy.core.symbol import Symbol
 from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
-from sympy.polys.fields import FracElement
+from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polyerrors import CoercionFailed
+from sympy.polys.polytools import Poly
 
 from ._typing import FieldElement
 
@@ -152,7 +154,7 @@ def rational_constant_relation_rows(
     constants: Domain,
     values: tuple[FieldElement, ...],
 ) -> tuple[tuple[FieldElement, ...], ...]:
-    r"""Expand ``sum(q_i*values[i]) = 0`` into exact rational rows."""
+    r"""Return exact rational rows equivalent to ``sum(q_i*values[i]) = 0``."""
     if not values:
         return ()
     if not isinstance(constants, FractionField):
@@ -165,38 +167,129 @@ def rational_constant_relation_rows(
             if any(entry != QQ.zero for entry in row)
         )
 
+    kernel = _rational_constant_relation_kernel(constants, values)
+    dimension = len(values)
+    if not kernel:
+        return tuple(
+            tuple(QQ.one if row == column else QQ.zero for column in range(dimension))
+            for row in range(dimension)
+        )
+    matrix = DomainMatrix(
+        [list(row) for row in kernel],
+        (len(kernel), dimension),
+        QQ,
+    )
+    return tuple(
+        tuple(QQ.convert(entry) for entry in row)
+        for row in matrix.nullspace(divide_last=True).to_list()
+    )
+
+
+def _rational_constant_relation_kernel(
+    constants: Domain,
+    values: tuple[FieldElement, ...],
+) -> tuple[tuple[FieldElement, ...], ...]:
+    """Return the rational kernel of one finite tuple in ``constants``.
+
+    A rational-function field is handled recursively as ``K(a)``. Coefficient
+    equations in ``a`` restrict the candidate kernel before descending into
+    ``K``, so unrelated parameter denominators never form a Cartesian product.
+    """
+    dimension = len(values)
+    basis = tuple(
+        tuple(QQ.one if row == column else QQ.zero for column in range(dimension))
+        for row in range(dimension)
+    )
+    if all(constants.convert(value) == constants.zero for value in values):
+        return basis
+    if not isinstance(constants, FractionField):
+        coordinate_columns = tuple(
+            rational_constant_coordinates(constants, value) for value in values
+        )
+        rows = tuple(
+            tuple(column[index] for column in coordinate_columns)
+            for index in range(len(coordinate_columns[0]))
+        )
+        matrix = DomainMatrix(
+            [list(row) for row in rows],
+            (len(rows), dimension),
+            QQ,
+        )
+        return tuple(
+            tuple(QQ.convert(entry) for entry in row)
+            for row in matrix.nullspace(divide_last=True).to_list()
+        )
+
     ground = cast(Domain, constants.domain)
-    if not is_supported_finite_constant_field(ground):
+    symbols = cast(tuple[Symbol, ...], constants.symbols)
+    if not symbols or not is_supported_finite_constant_field(ground):
         raise NotImplementedError(
             "rational relation rows require a rational-function field over "
             "supported finite constants"
         )
-    elements = tuple(cast(FracElement, constants.convert(value)) for value in values)
-    denominator = elements[0].denom.ring.one
-    for element in elements:
-        denominator = denominator.lcm(element.denom)
-    numerators = tuple(
-        element.numer * denominator.exquo(element.denom) for element in elements
+    lower = ground if len(symbols) == 1 else ground.frac_field(*symbols[:-1])
+    variable = symbols[-1]
+    fractions = tuple(
+        constants.to_sympy(constants.convert(value)).as_numer_denom()
+        for value in values
     )
-    monomials = sorted(
-        {monomial for numerator in numerators for monomial in numerator.monoms()},
-        reverse=True,
-    )
-    rows: list[tuple[FieldElement, ...]] = []
-    profile = finite_constant_field_profile(ground)
-    if profile is None:
-        raise RuntimeError("validated finite ground field lost its profile")
-    coordinate_count = profile.degree_over_qq
-    for monomial in monomials:
-        columns = tuple(
-            rational_constant_coordinates(
-                ground,
-                ground.convert(numerator.get(monomial, ground.zero)),
-            )
-            for numerator in numerators
+    polynomial_fractions = tuple(
+        (
+            Poly(numerator, variable, domain=lower),
+            Poly(denominator, variable, domain=lower),
         )
-        for coordinate_index in range(coordinate_count):
-            row = tuple(column[coordinate_index] for column in columns)
-            if any(entry != QQ.zero for entry in row):
-                rows.append(row)
-    return tuple(rows)
+        for numerator, denominator in fractions
+    )
+    denominator = polynomial_fractions[0][1]
+    for _, item_denominator in polynomial_fractions[1:]:
+        denominator = denominator.lcm(item_denominator)
+    numerators = tuple(
+        numerator * denominator.exquo(item_denominator)
+        for numerator, item_denominator in polynomial_fractions
+    )
+    maximum_degree = max(
+        (numerator.degree() for numerator in numerators if not numerator.is_zero),
+        default=-1,
+    )
+    rows = tuple(
+        tuple(lower.convert(numerator.nth(degree)) for numerator in numerators)
+        for degree in range(maximum_degree + 1)
+    )
+    return _intersect_rational_kernel(basis, rows, lower)
+
+
+def _intersect_rational_kernel(
+    basis: tuple[tuple[FieldElement, ...], ...],
+    rows: tuple[tuple[FieldElement, ...], ...],
+    field: Domain,
+) -> tuple[tuple[FieldElement, ...], ...]:
+    """Restrict a rational candidate basis by field-valued row equations."""
+    current = basis
+    for row in rows:
+        if not current:
+            break
+        projected = tuple(
+            sum(
+                (
+                    field.convert(coefficient) * field.convert(row[index])
+                    for index, coefficient in enumerate(candidate)
+                ),
+                field.zero,
+            )
+            for candidate in current
+        )
+        constraint_kernel = _rational_constant_relation_kernel(field, projected)
+        current = tuple(
+            tuple(
+                sum(
+                    (
+                        QQ.convert(coefficient) * QQ.convert(current[index][column])
+                        for index, coefficient in enumerate(combination)
+                    ),
+                    QQ.zero,
+                )
+                for column in range(len(current[0]))
+            )
+            for combination in constraint_kernel
+        )
+    return current

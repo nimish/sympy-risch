@@ -5,6 +5,7 @@ from hypothesis import strategies as st
 from sympy import I, Poly, sqrt, symbols
 from sympy.polys.domains import QQ
 from sympy.polys.domains.domain import Domain
+from sympy.polys.matrices import DomainMatrix
 
 from sympy_risch import (
     ConstantFieldStatus,
@@ -20,6 +21,7 @@ from sympy_risch.constant_fields import (
     is_supported_finite_constant_field,
     is_supported_rational_constant_field,
     rational_constant_coordinates,
+    rational_constant_relation_rows,
 )
 from sympy_risch.dependency import (
     MonomialRelationSystemParametricCertificate,
@@ -32,7 +34,7 @@ from sympy_risch.exact import solve_exact_derivative
 from sympy_risch.gaussian import build_hypertangent_gaussian_normal_form
 from sympy_risch.relations import solve_logarithmic_relation_system
 
-x, t, e, u, y = symbols("x t e u y")
+x, t, e, u, y, a, b = symbols("x t e u y a b")
 
 
 def _certified_rational_base(constants: Domain) -> DifferentialTower:
@@ -88,6 +90,36 @@ def test_native_power_basis_coordinates_handle_a_degree_four_number_field() -> N
 
     assert len(coordinates) == 4
     assert constants.new(list(reversed(coordinates))) == value
+
+
+def test_rational_constant_relation_rows_find_a_planted_relation() -> None:
+    constants = QQ.frac_field(a, b)
+    values = tuple(
+        constants.from_sympy(value)
+        for value in (
+            1 / (a + 1),
+            1 / (b + 1),
+            1 / (a + 1) + 2 / (b + 1),
+        )
+    )
+
+    rows = rational_constant_relation_rows(constants, values)
+    matrix = DomainMatrix([list(row) for row in rows], (len(rows), 3), QQ)
+
+    assert matrix.rank() == 2
+    assert all(-row[0] - 2 * row[1] + row[2] == QQ.zero for row in rows)
+
+
+def test_rational_constant_relation_rows_scale_by_candidate_dimension() -> None:
+    parameters = symbols("a0:12")
+    constants = QQ.frac_field(*parameters)
+    values = tuple(
+        constants.from_sympy(1 / (parameter + 1)) for parameter in parameters
+    )
+
+    rows = rational_constant_relation_rows(constants, values)
+
+    assert len(rows) == len(values)
 
 
 @given(
