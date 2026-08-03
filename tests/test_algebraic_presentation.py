@@ -5,6 +5,7 @@ from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 from sympy.polys.matrices import DomainMatrix
 
+import sympy_risch.algebraic.presentation as presentation_module
 from sympy_risch.algebraic.presentation import normalize_primitive_element
 from sympy_risch.tower import (
     AlgebraicExtension,
@@ -12,7 +13,7 @@ from sympy_risch.tower import (
     MonomialExtension,
 )
 
-x, a, b, z = symbols("x a b z")
+x, a, b, c, z = symbols("x a b c z")
 
 
 def rational_function_field():
@@ -64,6 +65,33 @@ def test_primitive_presentation_uses_one_global_characteristic_polynomial(
 
     assert presentation.tensor_rank == 4
     assert calls == 1
+
+
+def test_primitive_presentation_allocates_only_two_full_square_operators(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = rational_function_field()
+    sources = (
+        AlgebraicExtension(Poly(a**2 - x, a, domain=parent)),
+        AlgebraicExtension(Poly(b**2 - x - 1, b, domain=parent)),
+        AlgebraicExtension(Poly(c**2 - x - 2, c, domain=parent)),
+    )
+    shapes: list[tuple[int, int]] = []
+    original = DomainMatrix
+
+    def recording_domain_matrix(rows, shape, domain):
+        shapes.append(shape)
+        return original(rows, shape, domain)
+
+    monkeypatch.setattr(
+        presentation_module,
+        "DomainMatrix",
+        recording_domain_matrix,
+    )
+    presentation = normalize_primitive_element(sources, z)
+
+    assert presentation.tensor_rank == 8
+    assert shapes.count((presentation.tensor_rank, presentation.tensor_rank)) == 2
 
 
 def test_reducible_tensor_presentation_stops_after_one_candidate(

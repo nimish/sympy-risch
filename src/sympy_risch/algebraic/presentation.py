@@ -140,33 +140,32 @@ class PrimitiveElementPresentation:
         return self.target.field.rank
 
 
-def _tensor_generator_matrix(
-    source_index: int,
+def _primitive_sum_matrix(
     sources: tuple[AlgebraicExtension, ...],
     basis: tuple[tuple[int, ...], ...],
     basis_indices: dict[tuple[int, ...], int],
     parent: Domain,
 ) -> DomainMatrix:
-    """Return multiplication by one source generator in the tensor basis."""
+    """Return multiplication by the source-generator sum in the tensor basis."""
     rank = len(basis)
     rows = [[parent.zero for _ in range(rank)] for _ in range(rank)]
-    source = sources[source_index]
-    degree = source.field.rank
     for column, exponents in enumerate(basis):
-        next_power = exponents[source_index] + 1
-        if next_power < degree:
-            target = list(exponents)
-            target[source_index] = next_power
-            rows[basis_indices[tuple(target)]][column] = parent.one
-            continue
-        for power in range(degree):
-            coefficient = -parent.convert(source.minimal_polynomial.nth(power))
-            if coefficient == parent.zero:
+        for source_index, source in enumerate(sources):
+            degree = source.field.rank
+            next_power = exponents[source_index] + 1
+            if next_power < degree:
+                target = list(exponents)
+                target[source_index] = next_power
+                rows[basis_indices[tuple(target)]][column] += parent.one
                 continue
-            target = list(exponents)
-            target[source_index] = power
-            row = basis_indices[tuple(target)]
-            rows[row][column] += coefficient
+            for power in range(degree):
+                coefficient = -parent.convert(source.minimal_polynomial.nth(power))
+                if coefficient == parent.zero:
+                    continue
+                target = list(exponents)
+                target[source_index] = power
+                row = basis_indices[tuple(target)]
+                rows[row][column] += coefficient
     return DomainMatrix(rows, (rank, rank), parent)
 
 
@@ -207,23 +206,13 @@ def normalize_primitive_element(
     basis = tuple(product(*(range(degree) for degree in degrees)))
     basis_indices = {monomial: index for index, monomial in enumerate(basis)}
     rank = len(basis)
-    generator_matrices = tuple(
-        _tensor_generator_matrix(index, sources, basis, basis_indices, parent)
-        for index in range(len(sources))
-    )
-    generator_rows = tuple(matrix.to_list() for matrix in generator_matrices)
     primitive_coefficients = tuple(cast(FieldElement, parent.one) for _ in sources)
-    primitive_rows = [
-        [
-            sum(
-                (matrix[row][column] for matrix in generator_rows),
-                parent.zero,
-            )
-            for column in range(rank)
-        ]
-        for row in range(rank)
-    ]
-    primitive_matrix = DomainMatrix(primitive_rows, (rank, rank), parent)
+    primitive_matrix = _primitive_sum_matrix(
+        sources,
+        basis,
+        basis_indices,
+        parent,
+    )
     modulus = Poly.from_list(
         primitive_matrix.charpoly(),
         generator,

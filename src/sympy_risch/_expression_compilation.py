@@ -86,6 +86,23 @@ class ExpressionUnsupportedReason(Enum):
     INTEGRATION_BACKEND = "integration_backend"
 
 
+def _direct_rational_power_modulus(
+    source: Pow,
+    generator: Symbol,
+    parent: Domain,
+) -> Poly:
+    """Return the exact binomial relation for one direct rational power."""
+    exponent = source.exp
+    if not isinstance(exponent, Rational) or isinstance(exponent, Integer):
+        raise TypeError("a direct algebraic source must be a rational power")
+    base = parent.from_sympy(source.base)
+    return Poly(
+        generator ** int(exponent.q) - parent.to_sympy(base ** int(exponent.p)),
+        generator,
+        domain=parent,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class AlgebraicSourcePresentation:
     """Reversible source mapping for one normalized primitive extension."""
@@ -103,6 +120,31 @@ class AlgebraicSourcePresentation:
             raise ValueError("algebraic presentation sources must be distinct")
         if not isinstance(self.primitive_source, Expr):
             raise TypeError("the primitive source must be a SymPy expression")
+        for source, extension in zip(
+            sources,
+            self.normalization.sources,
+            strict=True,
+        ):
+            if not isinstance(source, Pow):
+                raise TypeError(
+                    "an algebraic presentation source must be a rational power"
+                )
+            parent = extension.parent_field
+            try:
+                expected_modulus = _direct_rational_power_modulus(
+                    source,
+                    extension.generator,
+                    parent,
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "an algebraic presentation source is not defined over its "
+                    "normalized extension parent"
+                ) from exc
+            if extension.minimal_polynomial != expected_modulus:
+                raise ValueError(
+                    "an algebraic source does not match its normalized extension"
+                )
         expected = sum(
             (
                 self.normalization.sources[0].parent_field.to_sympy(coefficient)
@@ -432,16 +474,11 @@ class _ExpressionCompiler:
         parent = self.tower.field()
         source_extensions: list[AlgebraicExtension] = []
         for source in representatives:
-            exponent = source.exp
-            if not isinstance(exponent, Rational) or isinstance(exponent, Integer):
-                raise RuntimeError("a rational-power representative is malformed")
             source_generator = self._fresh_generator("algebraic_source")
-            base = parent.from_sympy(source.base)
-            modulus = Poly(
-                source_generator ** int(exponent.q)
-                - parent.to_sympy(base ** int(exponent.p)),
+            modulus = _direct_rational_power_modulus(
+                source,
                 source_generator,
-                domain=parent,
+                parent,
             )
             try:
                 source_extensions.append(AlgebraicExtension(modulus))

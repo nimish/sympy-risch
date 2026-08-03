@@ -345,6 +345,16 @@ def test_independent_rational_powers_use_one_primitive_extension(
     )
 
 
+def test_algebraic_presentation_rejects_swapped_source_relations() -> None:
+    compilation = compile_expression(sqrt(x) + sqrt(a * x), x)
+    assert compilation.compiled
+    assert len(compilation.algebraic_presentations) == 1
+    presentation = compilation.algebraic_presentations[0]
+
+    with pytest.raises(ValueError, match="normalized extension"):
+        replace(presentation, sources=tuple(reversed(presentation.sources)))
+
+
 @pytest.mark.parametrize(
     "expression",
     (
