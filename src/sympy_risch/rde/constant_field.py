@@ -1,4 +1,4 @@
-r"""Rational Risch differential equations over finite constant extensions."""
+r"""Rational Risch differential equations over exact rational constants."""
 
 from __future__ import annotations
 
@@ -26,19 +26,10 @@ def _as_domain_rational(
     """Return a reduced rational function over an exact constant field."""
     if isinstance(value, Poly):
         value = value.as_expr()
-    field = domain.frac_field(x)
-    element = field.from_sympy(value)
-    numerator_polynomial = Poly.from_dict(
-        element.numer.to_dict(),
-        x,
-        domain=domain,
-    )
-    denominator_polynomial = Poly.from_dict(
-        element.denom.to_dict(),
-        x,
-        domain=domain,
-    )
-    expression = field.to_sympy(element)
+    expression = cancel(value)
+    numerator, denominator = expression.as_numer_denom()
+    numerator_polynomial = Poly(numerator, x, domain=domain)
+    denominator_polynomial = Poly(denominator, x, domain=domain)
     return expression, numerator_polynomial, denominator_polynomial
 
 

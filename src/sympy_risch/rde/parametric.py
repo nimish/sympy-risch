@@ -4,8 +4,8 @@ This module solves
 
 ``D(y) + a*y = c_1*b_1 + ... + c_m*b_m``
 
-in ``C(x)``, where the ``c_i`` belong to a supported finite algebraic
-constant field ``C``.  Bronstein's denominator and degree theorems reduce the
+in ``C(x)``, where the ``c_i`` belong to a supported exact rational constant
+field ``C``. Bronstein's denominator and degree theorems reduce the
 problem to one exact finite-dimensional nullspace.  The matrix is therefore
 the complete terminal algorithm here, not a bounded heuristic.
 """
@@ -25,7 +25,7 @@ from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polytools import Poly, cancel
 
 from .._typing import ExactInput, FieldElement
-from ..constant_fields import is_supported_finite_constant_field
+from ..constant_fields import is_supported_rational_constant_field
 from ._common import _integer_constant
 from .constant_field import (
     _as_domain_rational,
@@ -295,10 +295,10 @@ def solve_rational_parametric_risch_differential_equation(
     """
     if not isinstance(x, Symbol):
         raise TypeError("the differentiation variable must be a Symbol")
-    if not is_supported_finite_constant_field(domain):
+    if not is_supported_rational_constant_field(domain):
         raise ValueError(
-            "a rational parametric RDE requires a supported finite algebraic "
-            "constant field over QQ"
+            "a rational parametric RDE requires a supported exact rational "
+            "constant field"
         )
     right_hand_side_inputs = tuple(right_hand_sides)
     if not right_hand_side_inputs:

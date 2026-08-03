@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import pytest
-from sympy import Rational, cancel, diff, exp, log, sin, sqrt, symbols
+from sympy import Rational, cancel, diff, exp, log, sin, sqrt, symbols, tan
 from sympy.polys.domains import QQ
 
 from sympy_risch import (
@@ -93,6 +93,37 @@ def test_integrate_risch_infers_parameters_for_a_binomial_radical() -> None:
     assert result.certificate.compilation.tower is not None
     assert result.certificate.compilation.tower.constants == QQ.frac_field(a, b)
     assert cancel(diff(result.primitive, x) - integrand) == 0
+
+
+@pytest.mark.parametrize(
+    ("integrand", "primitive"),
+    (
+        (exp(a * x), exp(a * x) / a),
+        (1 / ((x + a) * log(x + a)), log(log(x + a))),
+        (1 / (1 + exp(a * x)), x - log(1 + exp(a * x)) / a),
+        (
+            exp(a * x) * (a * log(x + b) + 1 / (x + b)),
+            exp(a * x) * log(x + b),
+        ),
+    ),
+)
+def test_integrate_risch_supports_parameterized_p_e_towers(
+    integrand,
+    primitive,
+) -> None:
+    result = integrate_risch(integrand, x)
+
+    assert isinstance(result, ElementaryPrimitive)
+    assert result.reconstructs
+    assert cancel(result.primitive - primitive) == 0
+    assert cancel(diff(result.primitive, x) - integrand) == 0
+
+
+def test_parameterized_tangent_requires_certified_real_constants() -> None:
+    result = integrate_risch(tan(a * x), x)
+
+    assert isinstance(result, NotSupported)
+    assert result.reason is ExpressionUnsupportedReason.UNCERTIFIED_EXTENSION
 
 
 def test_integrate_risch_preserves_an_algebraic_liouville_obstruction() -> None:

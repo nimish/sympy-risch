@@ -324,7 +324,7 @@ def _unknown_constant_tower() -> DifferentialTower:
     )
 
 
-def _non_rational_base_field_tower() -> DifferentialTower:
+def _parameterized_rational_base_tower() -> DifferentialTower:
     constants = QQ.frac_field(a)
     return DifferentialTower(constants).extend(
         MonomialExtension(
@@ -386,10 +386,6 @@ def _nonlinear_tower() -> DifferentialTower:
             TowerAdmissionReason.BASE_DERIVATIVE,
         ),
         (
-            _non_rational_base_field_tower,
-            TowerAdmissionReason.BASE_FIELD,
-        ),
-        (
             _enlarged_constant_tower,
             TowerAdmissionReason.CONSTANT_FIELD_ENLARGED,
         ),
@@ -409,7 +405,6 @@ def _nonlinear_tower() -> DifferentialTower:
     ids=(
         "constant-field-only",
         "nonstandard-base",
-        "non-rational-base-field",
         "enlarged-constants",
         "algebraic",
         "linear-polynomial",
@@ -427,6 +422,25 @@ def test_rejected_towers_have_explicit_admission_reasons(
     assert admission.unsupported
     assert not admission.accepted
     assert admission.reason is reason
+
+
+def test_parameterized_rational_constants_admit_p_e_but_not_real_coupled() -> None:
+    base = _parameterized_rational_base_tower()
+    parent = base.field()
+    analysis = certify_hyperexponential_extension(
+        Poly(a * t, t, domain=parent),
+        base.derivation(),
+    )
+    assert analysis.status is ConstantFieldStatus.PRESERVED
+    tower = base.extend(analysis.extension)
+
+    assert assess_elementary_admission(tower.derivation()).accepted
+    coupled = assess_risch_operation(
+        tower.derivation(),
+        RischOperation.COUPLED_RDE,
+    )
+    assert coupled.unsupported
+    assert coupled.reason is TowerAdmissionReason.COUPLED_RDE_BASE
 
 
 def test_admission_uses_only_the_active_tower_prefix() -> None:

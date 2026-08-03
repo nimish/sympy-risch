@@ -14,7 +14,7 @@ from .algebraic.relative import (
     RelativeSimpleRadicalRDEResult,
     solve_relative_simple_radical_exact_derivative,
 )
-from .constant_fields import is_supported_finite_constant_field
+from .constant_fields import is_supported_rational_constant_field
 from .monomial import (
     HyperexponentialMonomialReduction,
     HypertangentMonomialReduction,
@@ -97,7 +97,7 @@ def _standard_rational_constant_field(
 ) -> Domain | None:
     """Return ``C`` for a supported standard rational base ``C(x)``."""
     constant_field = extension.parent_field
-    if not is_supported_finite_constant_field(constant_field):
+    if not is_supported_rational_constant_field(constant_field):
         return None
     if extension.generator_derivative != Poly(
         1,

@@ -7,7 +7,7 @@ from dataclasses import InitVar, dataclass
 
 from .._typing import FieldElement, FieldInput
 from ..admission import RischOperation, assess_risch_operation
-from ..constant_fields import finite_constant_field_profile
+from ..constant_fields import is_supported_rational_constant_field
 from ..gaussian import build_hypertangent_gaussian_normal_form
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._common import _field_elements_equal
@@ -124,10 +124,12 @@ def _solve_nonempty_parametric_rde(
     derivation: Derivation,
 ) -> ParametricRischDifferentialEquationResult:
     """Dispatch one admitted nonempty family."""
-    profile = finite_constant_field_profile(derivation.tower.constants)
-    if profile is not None and _is_standard_rational_derivation_over(
+    constants = derivation.tower.constants
+    if is_supported_rational_constant_field(
+        constants,
+    ) and _is_standard_rational_derivation_over(
         derivation,
-        profile.constants,
+        constants,
     ):
         field = derivation.field
         extension = derivation.tower.levels[0]
@@ -135,18 +137,14 @@ def _solve_nonempty_parametric_rde(
             field.to_sympy(coefficient),
             tuple(field.to_sympy(value) for value in right_hand_sides),
             extension.generator,
-            domain=profile.constants,
+            domain=constants,
         )
-        directions = canonicalize_directions(
-            tuple(
-                ParametricRDESolution(
-                    vector.parameters,
-                    _coerce(field, vector.solution),
-                )
-                for vector in rational_result.basis
-            ),
-            field,
-            profile.constants,
+        directions = tuple(
+            ParametricRDESolution(
+                vector.parameters,
+                _coerce(field, vector.solution),
+            )
+            for vector in rational_result.basis
         )
         return _build_parametric_rde_result(
             coefficient,

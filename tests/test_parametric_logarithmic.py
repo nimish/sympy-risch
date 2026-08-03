@@ -20,7 +20,7 @@ from sympy_risch import (
     verify_parametric_logarithmic_derivative_witness,
 )
 
-x, t, theta = symbols("x t theta")
+x, a, t, theta = symbols("x a t theta")
 
 
 def rational_base() -> DifferentialTower:
@@ -38,6 +38,17 @@ def gaussian_rational_base() -> DifferentialTower:
     return DifferentialTower(QQ_I).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ_I),
+            ConstantFieldStatus.PRESERVED,
+        ),
+    )
+
+
+def parameterized_rational_base(constants=None) -> DifferentialTower:
+    """Return ``QQ(a)(x)``, treating ``a`` as a differential constant."""
+    constants = QQ.frac_field(a) if constants is None else constants
+    return DifferentialTower(constants).extend(
+        MonomialExtension(
+            Poly(1, x, domain=constants),
             ConstantFieldStatus.PRESERVED,
         ),
     )
@@ -88,6 +99,32 @@ def test_gaussian_rational_base_rejects_a_nonrational_parameter() -> None:
     )
 
     assert result.proves_no_solution
+
+
+@pytest.mark.parametrize(
+    "constants",
+    (QQ.frac_field(a), QQ.algebraic_field(2 ** Rational(1, 2)).frac_field(a)),
+)
+def test_parameterized_rational_fallback_distinguishes_constant_residues(
+    constants,
+) -> None:
+    lower = parameterized_rational_base(constants)
+    extension = hyperexponential_extension(lower, a)
+
+    solution = solve_parametric_logarithmic_derivative(
+        1 / (x + a),
+        extension,
+        lower.derivation(),
+    )
+    nonsolution = solve_parametric_logarithmic_derivative(
+        a / x,
+        extension,
+        lower.derivation(),
+    )
+
+    assert solution.has_solution
+    assert solution.reconstructs
+    assert nonsolution.proves_no_solution
 
 
 @pytest.mark.parametrize(

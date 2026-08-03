@@ -5,7 +5,7 @@ from __future__ import annotations
 from sympy.polys.polytools import Poly, cancel
 
 from ..admission import RischOperation, assess_risch_operation
-from ..constant_fields import finite_constant_field_profile
+from ..constant_fields import is_supported_rational_constant_field
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from ._tower_polynomials import (
     _is_standard_rational_derivation,
@@ -77,20 +77,18 @@ def _solve_admitted_risch_differential_equation(
         solution = (
             _coerce(field, certificate.solution) if certificate.has_solution else None
         )
-    elif (
-        constant_profile := finite_constant_field_profile(
-            derivation.tower.constants,
-        )
-    ) is not None and _is_standard_rational_derivation_over(
+    elif is_supported_rational_constant_field(
+        derivation.tower.constants,
+    ) and _is_standard_rational_derivation_over(
         derivation,
-        constant_profile.constants,
+        derivation.tower.constants,
     ):
         extension = derivation.tower.levels[0]
         domain_result = _solve_rde_over_constant_field(
             field.to_sympy(coefficient_element),
             field.to_sympy(rhs_element),
             extension.generator,
-            constant_profile.constants,
+            derivation.tower.constants,
         )
         normalized_rhs = cancel(
             domain_result.normalization_factor.as_expr() * field.to_sympy(rhs_element)

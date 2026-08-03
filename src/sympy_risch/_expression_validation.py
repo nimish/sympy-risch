@@ -340,7 +340,7 @@ def validate_compiled_extension_sources(
         is_supported_function = source.func in {log, exp, tan} and len(source.args) == 1
         if (
             not is_algebraic_power and not is_supported_function
-        ) or source.free_symbols - {compilation.variable}:
+        ) or source.free_symbols - set(rational_generators):
             raise ValueError("a source substitution is outside the accepted grammar")
         if source not in expression_nodes:
             raise ValueError(

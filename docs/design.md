@@ -643,10 +643,11 @@ independent oracle. Algebraic and generalized monomial lower levels remain
 `relations.signature.build_fundamental_signature` owns the certified part of
 that Chapter 9 route; the `relations` facade keeps the public import stable.
 For the standard `C(x)` base over an admitted finite algebraic constant field
-`C/QQ`, it records P/E/T immutable native-field directions in tower order: `Dt` for
-primitive levels, `Dt/t` for hyperexponential levels, and the real `eta` in
-`Dt = eta*(1 + t**2)` for hypertangent levels. Constants are expanded into
-exact `QQ` power-basis coordinates for relation constraints. The rational
+or a purely transcendental extension such as `QQ(a, b)`, it records P/E
+immutable native-field directions in tower order: `Dt` for primitive levels,
+`Dt/t` for hyperexponential levels, and the real `eta` in
+`Dt = eta*(1 + t**2)` for admitted hypertangent levels. Constants are expanded
+into exact rational rows after clearing one common denominator. The rational
 base variable is the initial primitive direction. A supported signature
 requires replayed constant preservation for every non-base active level;
 otherwise it returns an explicit `UNSUPPORTED` boundary result rather than a
@@ -1444,10 +1445,12 @@ boundary:
 | [016](../plans/016-transcendental-risch-completion.md) | Effective constants, structure theorems, scalar/parametric/coupled RDEs, and total explicit transcendental integration |
 | [017](../plans/017-automatic-presentation-and-upstream.md) | Automatic tower construction, reversible compilation, real/complex presentation, completeness evidence, and SymPy upstreaming |
 
-The latest transcendental checkpoints complete the structure, scalar,
-parametric, and required coupled-RDE cells for explicit P/E/T towers over
-standard `C(x)` bases with supported finite algebraic constant fields and
-replay-proved preserved constants. They include direct Chapter 8 cancellation
+The latest transcendental checkpoints complete the structure, scalar, and
+parametric cells for explicit P/E towers over standard `C(x)` bases with
+supported finite algebraic or purely transcendental rational constants and
+replay-proved preserved constants. Required coupled and hypertangent cells
+retain their provably real finite-constant contract. The checkpoints include
+direct Chapter 8 cancellation
 recurrences, immutable exact `C(i)` fallbacks, recursive lower-field
 certificates, domain-generic rational-base integration, worked examples, and
 independent generated matrix-oracle comparisons. Recursive elementary
@@ -1514,7 +1517,7 @@ pure algebraic, algebraic-RDE, and relative mixed-tower program.
   every checked P/E/T ordering.
 - [x] Polynomial and rational Risch differential equations.
 - [x] Complete rational-base parametric RDE over supported finite algebraic
-  constants.
+  and purely transcendental rational constants.
 - [x] Complete recursive parametric RDE over checked primitive levels,
   including normal denominators, SPDE, lower-field cancellation, and the
   homogeneous basis.

@@ -804,7 +804,7 @@ def _integrate_elementary_admitted(
     if derivation.level == 0:
         raise NotImplementedError(
             "elementary integration requires the standard rational base "
-            "C(x) with Dx = 1 over an effective finite algebraic constant field"
+            "C(x) with Dx = 1 over a supported exact rational constant field"
         )
 
     if extension.family is MonomialFamily.PRIMITIVE:

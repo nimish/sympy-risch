@@ -1,4 +1,4 @@
-r"""Finite logarithmic-relation systems for supported monomial towers.
+r"""Exact logarithmic-relation systems for supported monomial towers.
 
 The central object here is the rational relation space
 
@@ -11,7 +11,8 @@ compiler works downward through the tower. At each primitive level it records
 normal-factor valuations; at each hyperexponential level it additionally
 records the special generator valuation; and at each hypertangent level it
 records the real special divisor ``1 + t**2``. Every equality in an
-intermediate field is recursively expanded to rational coordinates.
+intermediate field is recursively expanded to rational coordinates. Purely
+transcendental constants are cleared to polynomial identities first.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from sympy.polys.matrices.normalforms import smith_normal_decomp
 from sympy.polys.polytools import Poly, cancel
 
 from .._typing import FieldElement
-from ..constant_fields import rational_constant_coordinates
+from ..constant_fields import rational_constant_relation_rows
 from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
 from .signature import (
     FundamentalSignature,
@@ -201,24 +202,7 @@ def _field_zero_constraints(
     r"""Compile ``sum(q_i*columns[i])=0`` into rational-coordinate rows."""
     field = derivation.field
     if derivation.level == -1:
-        coordinate_columns = tuple(
-            rational_constant_coordinates(field, column) for column in columns
-        )
-        if not coordinate_columns:
-            return ()
-        coordinate_count = len(coordinate_columns[0])
-        if any(
-            len(coordinates) != coordinate_count for coordinates in coordinate_columns
-        ):
-            raise ValueError("constant coordinates have inconsistent dimensions")
-        rows: list[tuple[FieldElement, ...]] = []
-        for coordinate_index in range(coordinate_count):
-            row = tuple(
-                coordinates[coordinate_index] for coordinates in coordinate_columns
-            )
-            if any(value != QQ.zero for value in row):
-                rows.append(row)
-        return tuple(rows)
+        return rational_constant_relation_rows(field, columns)
 
     extension = derivation.tower.levels[derivation.level]
     if not isinstance(extension, MonomialExtension):
@@ -444,7 +428,7 @@ class _RelationSystemCompiler:
             ):
                 raise NotImplementedError(
                     "logarithmic relation systems require C(x) with Dx = 1 "
-                    "over an effective finite constant field C"
+                    "over a supported exact rational constant field C"
                 )
         else:
             from ..constant_proofs import require_preserved_constant_field

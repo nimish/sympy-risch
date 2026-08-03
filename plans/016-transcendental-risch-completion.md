@@ -37,6 +37,13 @@ elementary dispatchers. General polynomial monomials remain deliberately
 outside that cell: they lack an exhaustive derivation-bound
 special-polynomial decision and the complete special-denominator branch.
 
+Purely transcendental rational constant fields such as `QQ(a, b)` are also
+complete for the rational, primitive, and hyperexponential structure, RDE,
+and integration cells. Their relation equations are compared after one exact
+common-denominator clearing. Hypertangent and real coupled cells remain
+restricted to finite constant fields with certified reality and an effective
+Gaussian compositum.
+
 This plan closes those gaps without rewriting the working rational and P/E/T
 algorithms.
 
@@ -101,7 +108,8 @@ not import the public dispatcher or a global engine to recurse.
 
 ### T0. Define the effective constant-field and solver matrix
 
-**Progress:** complete for the explicit finite-constant transcendental cell.
+**Progress:** complete for the explicit finite-constant transcendental cell
+and the P/E cell over purely transcendental rational constant fields.
 One shared `FiniteConstantFieldProfile` supplies exact arithmetic, rational
 coordinates, degree, reality, and the presence of `i`; `RischOperation` and
 `assess_risch_operation` publish the executable per-operation matrix. The
@@ -138,7 +146,8 @@ operation.
 
 **Progress:** complete for recursively checked P/E/T prefixes over `QQ`,
 `QQ_I`, and native finite algebraic number fields over `QQ`. Tangent replay
-uses the exact `C(i)` compositum when `C` is provably real. General effective
+uses the exact `C(i)` compositum when `C` is provably real. Recursively checked
+P/E prefixes also support `QQ(a_1, ..., a_n)` constants. More general effective
 constant fields and mixed algebraic-function/transcendental levels remain
 owned by Plan 015.
 
@@ -162,13 +171,15 @@ dependency evidence over every constant field admitted by T0.
 ### T2. Complete the complex and real structure-theorem solvers
 
 **Progress:** complete for recursively checked P/E/T towers over every finite
-constant field admitted by T0. The production relation compiler handles the
+constant field admitted by T0 and for P/E towers over purely transcendental
+rational constants. The production relation compiler handles the
 real tangent divisor `1+t**2` directly, uses a saturated Smith kernel for
 minimal radical powers, and retains the Cayley/Gaussian implementation as an
 independent oracle. The public PLogD solver now enforces this operation cell:
 an admitted query returns a witness or a theorem-backed negative result,
-while an unsupported lower family remains explicitly unsupported. General
-effective constants and unknown special-polynomial families remain outside
+while an unsupported lower family remains explicitly unsupported.
+Hypertangent levels over uncertified symbolic constants, more general
+effective constants, and unknown special-polynomial families remain outside
 the declared classical cell.
 
 Turn the existing fundamental signatures into a total recursive structure
@@ -195,11 +206,11 @@ no-new-constants decisions are total on the classical P/E/T cell.
 
 ### T3. Complete scalar RDE recursion on P/E/T towers
 
-**Progress:** complete for the declared finite-constant P/E/T cell. Scalar
-RDE returns a reconstruction-checked solution or theorem-backed obstruction
-for every P/E/T ordering over each supported finite algebraic number field
-`C/QQ`; hypertangent levels require provably real `C` and use the exact
-`C(i)` Gaussian normal form.
+**Progress:** complete for the declared finite-constant P/E/T cell and the
+purely transcendental-constant P/E cell. Scalar RDE returns a
+reconstruction-checked solution or theorem-backed obstruction for every
+admitted ordering; hypertangent levels require provably real finite `C` and
+use the exact `C(i)` Gaussian normal form.
 
 A focused neutral arithmetic seam canonicalizes the nonmonic constant units
 that SymPy `AlgebraicField` fraction coefficients can retain. Polynomial
@@ -234,9 +245,10 @@ P/E/T matrix.
 
 ### T4. Implement parametric RDE and limited integration
 
-**Progress:** complete. The full parametric solution space recurses through every
-checked P/E/T stack over each supported finite algebraic constant field
-`C/QQ`. Primitive and hyperexponential normal denominators and SPDE restrict
+**Progress:** complete. The full parametric solution space recurses through
+checked P/E stacks over supported finite algebraic or purely transcendental
+rational constants, and through P/E/T stacks over supported finite constants.
+Primitive and hyperexponential normal denominators and SPDE restrict
 the live parameter space by exact constant-linear kernels. Primitive
 polynomial recurrences carry parameter lifts through descending powers of the
 top generator; hyperexponential recurrences add the special denominator at
@@ -355,8 +367,9 @@ its special-polynomial family.
 
 ### T8. Make explicit transcendental integration total
 
-**Progress:** complete for the classical finite-constant P/E/T cell. Public
-elementary integration checks its typed operation cell once, then recurses
+**Progress:** complete for the classical finite-constant P/E/T cell and the
+purely transcendental-constant P/E cell. Public elementary integration checks
+its typed operation cell once, then recurses
 through the already-admitted prefix without repeated admission scans.
 Accepted inputs return a reconstruction-checked elementary presentation or a
 theorem-backed Liouville obstruction. General polynomial monomials remain

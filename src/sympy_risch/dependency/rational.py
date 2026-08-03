@@ -11,7 +11,12 @@ from sympy.polys.fields import FracElement
 from sympy.polys.polytools import Poly, invert
 
 from .._typing import FieldElement
-from ..constant_fields import rational_constant_coordinates
+from ..constant_fields import (
+    is_supported_finite_constant_field,
+    is_supported_rational_constant_field,
+    rational_constant_coordinates,
+    rational_constant_relation_rows,
+)
 from ..rational import (
     RationalLogDerivativeResult,
     _solve_rational_logarithmic_derivative_over_domain,
@@ -45,16 +50,9 @@ def _rational_polynomial_parts(
     domain: Domain,
 ) -> tuple[Poly, Poly, Poly]:
     """Return ``p, a, d`` with ``element = p + a/d`` over ``domain(x)``."""
-    numerator = Poly.from_dict(
-        element.numer.to_dict(),
-        variable,
-        domain=domain,
-    )
-    denominator = Poly.from_dict(
-        element.denom.to_dict(),
-        variable,
-        domain=domain,
-    )
+    numerator_expression, denominator_expression = element.as_expr().as_numer_denom()
+    numerator = Poly(numerator_expression, variable, domain=domain)
+    denominator = Poly(denominator_expression, variable, domain=domain)
     polynomial_part, proper_numerator = numerator.div(denominator)
     return polynomial_part, proper_numerator, denominator
 
@@ -389,6 +387,28 @@ def _rational_residue_rationality_constraints(
     """
     if constant_field == QQ:
         return ()
+    if is_supported_rational_constant_field(constant_field) and not (
+        is_supported_finite_constant_field(constant_field)
+    ):
+        rows = rational_constant_relation_rows(
+            constant_field,
+            (f_residue, eta_residue, constant_field.one),
+        )
+        pivot = next((row for row in rows if row[2] != QQ.zero), None)
+        if pivot is None:
+            raise ValueError("the rationality constraint lost the constant direction")
+        return tuple(
+            (
+                row[0] * pivot[2] - pivot[0] * row[2],
+                row[1] * pivot[2] - pivot[1] * row[2],
+            )
+            for row in rows
+            if row is not pivot
+            and (
+                row[0] * pivot[2] - pivot[0] * row[2] != QQ.zero
+                or row[1] * pivot[2] - pivot[1] * row[2] != QQ.zero
+            )
+        )
     f_coordinates = rational_constant_coordinates(constant_field, f_residue)
     eta_coordinates = rational_constant_coordinates(constant_field, eta_residue)
     if len(f_coordinates) != len(eta_coordinates):

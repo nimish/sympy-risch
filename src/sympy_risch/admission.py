@@ -1,4 +1,4 @@
-r"""Operation admission for the certified finite-constant P/E/T cell.
+r"""Operation admission for certified P/E/T cells.
 
 Structural validity and algorithmic support are different questions.  This
 module implements the latter as a small matrix indexed by an active tower
@@ -20,7 +20,10 @@ from enum import Enum
 
 from sympy.polys.polytools import Poly
 
-from .constant_fields import finite_constant_field_profile
+from .constant_fields import (
+    finite_constant_field_profile,
+    is_supported_rational_constant_field,
+)
 from .constant_proofs import replay_constant_field
 from .hyperbolic import is_hyperbolic_mobius_law
 from .tower.core import (
@@ -121,7 +124,7 @@ class TowerAdmission:
 def is_standard_rational_base(extension: MonomialExtension) -> bool:
     """Whether ``extension`` is the standard base ``C(x)``, ``Dx = 1``."""
     constants = extension.parent_field
-    return finite_constant_field_profile(constants) is not None and is_rational_base(
+    return is_supported_rational_constant_field(constants) and is_rational_base(
         extension
     )
 
@@ -201,7 +204,7 @@ def assess_risch_operation(
     r"""Classify one active tower prefix for a selected Risch operation.
 
     The classical accepted cell has a standard rational base ``C(x)``,
-    ``Dx=1``, over an effective finite algebraic extension ``C/QQ``, followed
+    ``Dx=1``, over an effective exact rational constant field ``C``, followed
     by a replay-certified primitive, hyperexponential, or hypertangent prefix.
     Hypertangent and real coupled operations require provably real constants.
 
@@ -239,13 +242,14 @@ def assess_risch_operation(
             "level 0 is not a monomial extension",
             operation=operation,
         )
-    constant_profile = finite_constant_field_profile(base.parent_field)
-    if constant_profile is None:
+    constants = base.parent_field
+    constant_profile = finite_constant_field_profile(constants)
+    if not is_supported_rational_constant_field(constants):
         return _unsupported(
             derivation,
             TowerAdmissionReason.BASE_FIELD,
-            "the rational base must be over an effective finite algebraic "
-            "extension of QQ",
+            "the rational base must be over a supported finite algebraic "
+            "constant field or a rational-function extension of one",
             operation=operation,
         )
     if not is_standard_rational_base(base):
@@ -255,7 +259,9 @@ def assess_risch_operation(
             "the rational base must have derivative Dx = 1",
             operation=operation,
         )
-    if operation is RischOperation.COUPLED_RDE and not constant_profile.is_real:
+    if operation is RischOperation.COUPLED_RDE and (
+        constant_profile is None or not constant_profile.is_real
+    ):
         return _unsupported(
             derivation,
             TowerAdmissionReason.COUPLED_RDE_BASE,
@@ -284,9 +290,8 @@ def assess_risch_operation(
             MonomialFamily.HYPEREXPONENTIAL,
             MonomialFamily.HYPERTANGENT,
         }:
-            if (
-                extension.family is MonomialFamily.HYPERTANGENT
-                and not constant_profile.is_real
+            if extension.family is MonomialFamily.HYPERTANGENT and (
+                constant_profile is None or not constant_profile.is_real
             ):
                 return _unsupported(
                     derivation,
@@ -337,7 +342,7 @@ def assess_risch_operation(
         derivation,
         operation=operation,
         detail=(
-            f"{operation.value} is total on this replay-certified finite "
+            f"{operation.value} is total on this replay-certified "
             "P/E/T tower prefix"
             + (
                 ", including its top-level hyperbolic Möbius normalization"

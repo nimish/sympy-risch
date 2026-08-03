@@ -1,4 +1,4 @@
-r"""Finite constant-linear algebra used by recursive parametric RDEs.
+r"""Exact constant-linear algebra used by recursive parametric RDEs.
 
 Every implemented transcendental tower is represented by a flat SymPy
 fraction field ``C(t_0, ..., t_n)`` while the tower object retains the
@@ -13,10 +13,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import cast
 
+from sympy.core.expr import Expr
+from sympy.core.symbol import Symbol
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.fields import FracElement
 from sympy.polys.matrices import DomainMatrix
+from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
 from ..tower import _coerce
@@ -45,6 +48,66 @@ def _fraction_elements(
     return converted
 
 
+def _cleared_solution_coordinates(
+    elements: Sequence[object],
+    field: Domain,
+    constants: Domain,
+) -> tuple[
+    tuple[dict[tuple[int, ...], FieldElement], ...],
+    tuple[Symbol, ...],
+    Expr,
+]:
+    """Clear tower denominators and expose coefficient dictionaries over ``C``."""
+    if not isinstance(field, FractionField):
+        raise TypeError("parametric tower linear algebra needs a fraction field")
+    converted = _fraction_elements(elements, field)
+    if isinstance(constants, FractionField):
+        constant_symbols = set(constants.symbols or ())
+        generators = tuple(
+            symbol for symbol in (field.symbols or ()) if symbol not in constant_symbols
+        )
+        fractions = tuple(
+            tuple(field.to_sympy(element).as_numer_denom()) for element in converted
+        )
+        polynomial_fractions = tuple(
+            (
+                Poly(numerator, *generators, domain=constants),
+                Poly(denominator, *generators, domain=constants),
+            )
+            for numerator, denominator in fractions
+        )
+        common_denominator = polynomial_fractions[0][1]
+        for _, denominator in polynomial_fractions[1:]:
+            common_denominator = common_denominator.lcm(denominator)
+        numerators = tuple(
+            numerator * common_denominator.exquo(denominator)
+            for numerator, denominator in polynomial_fractions
+        )
+        return (
+            tuple(
+                cast(dict[tuple[int, ...], FieldElement], numerator.as_dict())
+                for numerator in numerators
+            ),
+            cast(tuple[Symbol, ...], generators),
+            common_denominator.as_expr(),
+        )
+
+    denominator = converted[0].denom.ring.one
+    for element in converted:
+        denominator = denominator.lcm(element.denom)
+    numerators = tuple(
+        element.numer * denominator.exquo(element.denom) for element in converted
+    )
+    return (
+        tuple(
+            cast(dict[tuple[int, ...], FieldElement], numerator.to_dict())
+            for numerator in numerators
+        ),
+        cast(tuple[Symbol, ...], tuple(field.symbols or ())),
+        denominator.as_expr(),
+    )
+
+
 def constant_linear_kernel(
     elements: Sequence[object],
     field: Domain,
@@ -53,16 +116,9 @@ def constant_linear_kernel(
     r"""Return a basis of ``c`` satisfying ``sum(c[i]*elements[i]) = 0``."""
     if not elements:
         return ()
-    converted = _fraction_elements(elements, field)
-    denominator = converted[0].denom.ring.one
-    for element in converted:
-        denominator = denominator.lcm(element.denom)
-
-    columns = tuple(
-        element.numer * denominator.exquo(element.denom) for element in converted
-    )
+    columns, _, _ = _cleared_solution_coordinates(elements, field, constants)
     monomials = sorted(
-        {monomial for column in columns for monomial in column.monoms()},
+        {monomial for column in columns for monomial in column},
         reverse=True,
     )
     matrix = DomainMatrix(
@@ -94,18 +150,13 @@ def canonicalize_directions(
     if any(len(direction.parameters) != parameter_count for direction in directions):
         raise ValueError("parametric directions have inconsistent parameter counts")
 
-    solutions = _fraction_elements(
+    numerators, generators, denominator = _cleared_solution_coordinates(
         [direction.solution for direction in directions],
         field,
-    )
-    denominator = solutions[0].denom.ring.one
-    for solution in solutions:
-        denominator = denominator.lcm(solution.denom)
-    numerators = tuple(
-        solution.numer * denominator.exquo(solution.denom) for solution in solutions
+        constants,
     )
     monomials = sorted(
-        {monomial for numerator in numerators for monomial in numerator.monoms()},
+        {monomial for numerator in numerators for monomial in numerator},
         reverse=True,
     )
     rows = [
@@ -125,7 +176,6 @@ def canonicalize_directions(
     )
     reduced, _ = coordinates.rref()
 
-    ring = denominator.ring
     result = []
     for row in reduced.to_list():
         if all(constants.convert(entry) == constants.zero for entry in row):
@@ -134,7 +184,7 @@ def canonicalize_directions(
             cast(FieldElement, constants.convert(entry))
             for entry in row[:parameter_count]
         )
-        numerator = ring.from_dict(
+        numerator = Poly.from_dict(
             {
                 monomial: constants.convert(entry)
                 for monomial, entry in zip(
@@ -143,11 +193,13 @@ def canonicalize_directions(
                     strict=True,
                 )
                 if constants.convert(entry) != constants.zero
-            }
+            },
+            *generators,
+            domain=constants,
         )
         solution = _coerce(
             field,
-            numerator.as_expr() / denominator.as_expr(),
+            numerator.as_expr() / denominator,
         )
         result.append(ParametricRDESolution(parameters, solution))
     return tuple(result)

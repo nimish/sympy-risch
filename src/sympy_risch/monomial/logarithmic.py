@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from sympy.polys.polytools import Poly, cancel
 
 from .._typing import FieldElement
-from ..constant_fields import is_supported_finite_constant_field
+from ..constant_fields import is_supported_rational_constant_field
 from ..rational import (
     RationalLogDerivativeResult,
     _solve_rational_logarithmic_derivative_over_domain,
@@ -82,7 +82,7 @@ def solve_radical_logarithmic_derivative(
     r"""Decide ``n*f = D(v)/v`` recursively in a supported tower.
 
     The base case is the complete rational logarithmic-derivative decision in
-    ``C(x)`` for an admitted finite algebraic constant field ``C/QQ``.
+    ``C(x)`` for an admitted exact rational constant field ``C``.
     Primitive levels use their principal-part signature. A hyperexponential
     level separates normal logarithmic factors and descends through its
     special generator exponent.
@@ -96,7 +96,7 @@ def solve_radical_logarithmic_derivative(
         extension = derivation.tower.levels[0]
         if not isinstance(extension, MonomialExtension):
             raise TypeError("the rational logarithmic base must be monomial")
-        if is_supported_finite_constant_field(
+        if is_supported_rational_constant_field(
             extension.parent_field
         ) and extension.generator_derivative == Poly(
             1,
@@ -107,7 +107,7 @@ def solve_radical_logarithmic_derivative(
         else:
             raise NotImplementedError(
                 "radical logarithmic derivatives require C(x) with Dx = 1 "
-                "over an effective finite constant field C"
+                "over a supported exact rational constant field C"
             )
         rational_result = _solve_rational_logarithmic_derivative_over_domain(
             field.to_sympy(element),

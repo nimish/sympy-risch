@@ -107,7 +107,7 @@ class CoupledHypertangentPolynomialRDEMode(Enum):
 class PolynomialRischDifferentialEquationResult:
     r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``C[x]``.
 
-    ``C`` is any supported exact finite algebraic constant field over ``QQ``.
+    ``C`` is any supported exact rational constant field.
 
     A rational solution cannot have a finite pole: at a pole of ``y``,
     ``Dy`` has strictly higher order than ``a*y`` and cannot be cancelled by
@@ -290,7 +290,7 @@ class PolynomialRischDifferentialEquationResult:
 class RationalRischDifferentialEquationResult:
     r"""Certified result for ``Dy + a*y = b`` with ``a,b`` in ``C(x)``.
 
-    ``C`` is any supported exact finite algebraic constant field over ``QQ``.
+    ``C`` is any supported exact rational constant field.
 
     ``normalization_factor`` records the weak normalization
 

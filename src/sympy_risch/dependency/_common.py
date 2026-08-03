@@ -12,7 +12,7 @@ from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly
 
 from .._typing import FieldElement
-from ..constant_fields import is_supported_finite_constant_field
+from ..constant_fields import is_supported_rational_constant_field
 from ..reduction.polynomials import exact_field_equal
 from ..relations.signature import FundamentalSignature, build_fundamental_signature
 from ..tower.core import (
@@ -140,10 +140,9 @@ def _certified_lower_fundamental_signature(
 def _standard_rational_variable(derivation: Derivation) -> Symbol:
     """Return ``x`` for the standard derivation on a supported ``C(x)``.
 
-    The integer parameters in a parametric logarithmic derivative are still
-    rational when the constants are a finite extension of ``QQ``. Supporting
-    ``C`` is therefore an exact coordinate expansion of the same decision
-    problem, not a relaxation to arbitrary constants.
+    This helper needs only the exact rational algorithms over ``C(x)``. The
+    relation compilers that require rational coordinates keep their stricter
+    finite-constant-field admission.
     """
     if derivation.level != 0:
         raise NotImplementedError(
@@ -153,14 +152,14 @@ def _standard_rational_variable(derivation: Derivation) -> Symbol:
     extension = derivation.tower.levels[0]
     if (
         not isinstance(extension, MonomialExtension)
-        or not is_supported_finite_constant_field(constants)
+        or not is_supported_rational_constant_field(constants)
         or extension.parent_field != constants
         or extension.generator_derivative
         != Poly(1, extension.generator, domain=constants)
     ):
         raise NotImplementedError(
             "rational-base dependency analysis requires C(x) with Dx = 1 "
-            "over an effective finite constant field C",
+            "over a supported exact rational constant field C",
         )
     return extension.generator
 

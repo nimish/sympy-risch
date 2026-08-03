@@ -6,7 +6,7 @@ from sympy.polys.domains import GF, QQ
 
 from sympy_risch import solve_rational_parametric_risch_differential_equation
 
-x = symbols("x")
+x, a = symbols("x a")
 
 
 def test_combination_can_succeed_when_each_rhs_fails_separately() -> None:
@@ -90,10 +90,27 @@ def test_parametric_rde_accepts_native_fraction_field_inputs() -> None:
     assert not result.has_nontrivial_parameter_solution
 
 
+@pytest.mark.parametrize(
+    "constants",
+    (QQ.frac_field(a), QQ.algebraic_field(sqrt(2)).frac_field(a)),
+)
+def test_parametric_rde_over_rational_function_constants(constants) -> None:
+    result = solve_rational_parametric_risch_differential_equation(
+        0,
+        (1 / x + a, 1 / x),
+        x,
+        domain=constants,
+    )
+
+    direction = result.parameter_basis[0]
+    assert direction.parameters == (constants.one, -constants.one)
+    assert direction.solution == a * x
+
+
 def test_parametric_rde_rejects_an_empty_family_or_unsupported_constants() -> None:
     with pytest.raises(ValueError, match="at least one right-hand side"):
         solve_rational_parametric_risch_differential_equation(0, (), x)
-    with pytest.raises(ValueError, match="finite algebraic constant field"):
+    with pytest.raises(ValueError, match="exact rational constant field"):
         solve_rational_parametric_risch_differential_equation(
             0,
             (1,),

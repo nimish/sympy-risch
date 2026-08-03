@@ -1,10 +1,11 @@
-r"""Exact finite constant fields used by the rational Risch kernels.
+r"""Exact constant fields used by the rational Risch kernels.
 
 The implemented rational algorithms work over a standard base ``C(x)`` with
-``Dx = 1`` when ``C`` is ``QQ``, Gaussian rationals, or a native finite
-algebraic number field over ``QQ``.  The relation algorithms still seek
-relations with *rational* coefficients, so they need an exact fixed
-``QQ``-basis for elements of ``C``.
+``Dx = 1`` when ``C`` is a supported finite algebraic number field over
+``QQ`` or a purely transcendental rational-function extension of one. The
+relation algorithms still seek relations with *rational* coefficients; they
+expand finite constants in a fixed ``QQ`` basis and clear transcendental
+constant denominators once before comparing polynomial coefficients.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from sympy.core.numbers import I
 from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
+from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.fields import FracElement
 from sympy.polys.polyerrors import CoercionFailed
 
 from ._typing import FieldElement
@@ -75,6 +78,19 @@ def is_supported_finite_constant_field(constants: Domain) -> bool:
     return finite_constant_field_profile(constants) is not None
 
 
+def is_supported_rational_constant_field(constants: Domain) -> bool:
+    r"""Whether rational kernels support exact arithmetic over ``constants``.
+
+    Besides the finite fields above, this admits one rational-function field
+    over such a field. Its generators are differential constants; no
+    rational-coordinate, ordering, or reality claim is implied.
+    """
+    return is_supported_finite_constant_field(constants) or (
+        isinstance(constants, FractionField)
+        and is_supported_finite_constant_field(cast(Domain, constants.domain))
+    )
+
+
 def gaussian_constant_field(constants: Domain) -> Domain:
     r"""Return the exact compositum ``C(i)`` for a supported real field ``C``."""
     profile = finite_constant_field_profile(constants)
@@ -130,3 +146,57 @@ def rational_constant_coordinates(
         raise ValueError("native algebraic constant exceeds its power-basis degree")
     padded = [QQ.zero] * (degree - len(descending)) + descending
     return tuple(QQ.convert(coefficient) for coefficient in reversed(padded))
+
+
+def rational_constant_relation_rows(
+    constants: Domain,
+    values: tuple[FieldElement, ...],
+) -> tuple[tuple[FieldElement, ...], ...]:
+    r"""Expand ``sum(q_i*values[i]) = 0`` into exact rational rows."""
+    if not values:
+        return ()
+    if not isinstance(constants, FractionField):
+        columns = tuple(
+            rational_constant_coordinates(constants, value) for value in values
+        )
+        return tuple(
+            row
+            for row in zip(*columns, strict=True)
+            if any(entry != QQ.zero for entry in row)
+        )
+
+    ground = cast(Domain, constants.domain)
+    if not is_supported_finite_constant_field(ground):
+        raise NotImplementedError(
+            "rational relation rows require a rational-function field over "
+            "supported finite constants"
+        )
+    elements = tuple(cast(FracElement, constants.convert(value)) for value in values)
+    denominator = elements[0].denom.ring.one
+    for element in elements:
+        denominator = denominator.lcm(element.denom)
+    numerators = tuple(
+        element.numer * denominator.exquo(element.denom) for element in elements
+    )
+    monomials = sorted(
+        {monomial for numerator in numerators for monomial in numerator.monoms()},
+        reverse=True,
+    )
+    rows: list[tuple[FieldElement, ...]] = []
+    profile = finite_constant_field_profile(ground)
+    if profile is None:
+        raise RuntimeError("validated finite ground field lost its profile")
+    coordinate_count = profile.degree_over_qq
+    for monomial in monomials:
+        columns = tuple(
+            rational_constant_coordinates(
+                ground,
+                ground.convert(numerator.get(monomial, ground.zero)),
+            )
+            for numerator in numerators
+        )
+        for coordinate_index in range(coordinate_count):
+            row = tuple(column[coordinate_index] for column in columns)
+            if any(entry != QQ.zero for entry in row):
+                rows.append(row)
+    return tuple(rows)

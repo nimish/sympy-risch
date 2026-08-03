@@ -181,7 +181,7 @@ def solve_parametric_logarithmic_derivative(
 ) -> ParametricLogarithmicDerivativeResult:
     r"""Decide the parametric logarithmic derivative in supported fields.
 
-    Over ``C(x)`` for an admitted finite algebraic constant field ``C/QQ``,
+    Over ``C(x)`` for an admitted exact rational constant field ``C``,
     the Section 7.3 coefficient heuristic is the fast path and a complete
     rational structure fallback handles its inconclusive exit. The integer
     ratio ``m/n`` and all radical-logarithmic valuation relations remain

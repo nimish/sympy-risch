@@ -45,10 +45,28 @@ assert cancel(diff(parameterized.primitive, x) - integrand) == 0
 
 A symbol declared algebraic is not silently treated as transcendental; the
 frontend returns `NotSupported` until its actual algebraic constant field is
-provided. The generic symbolic-constant path currently covers rational
-integration and one-linear-factor rational radicals. Recursive P/E/T and
-global algebraic-geometry admission still require their documented effective
-constant-field certificates.
+provided. Generic symbolic constants now flow through rational, primitive,
+and hyperexponential integration, including mixed P/E towers:
+
+```python
+from sympy import cancel, diff, exp, log, symbols
+
+from sympy_risch import ElementaryPrimitive, integrate_risch
+
+x, a, b = symbols("x a b")
+integrand = exp(a*x) * (a*log(x + b) + 1/(x + b))
+result = integrate_risch(integrand, x)
+
+assert isinstance(result, ElementaryPrimitive)
+assert cancel(result.primitive - exp(a*x)*log(x + b)) == 0
+assert cancel(diff(result.primitive, x) - integrand) == 0
+```
+
+This is an identity over the generic field `QQ(a, b)`; singular
+specializations are not included. Tangent levels still require a constant
+field whose reality and exact Gaussian extension are certified, so an
+unconstrained parameter in `tan(a*x)` remains a structured unsupported case.
+Global algebraic geometry retains its own effective-constant-field boundary.
 
 ```python
 from sympy import log, symbols
@@ -1554,15 +1572,15 @@ boundary, not a mathematical claim about the integral.
 
 | Tower shape or operation | Status |
 | --- | --- |
-| Polynomial integration over `QQ[x]`; rational integration over standard `C(x)` for supported finite algebraic constants | End-to-end |
-| Explicit certified primitive/hyperexponential/hypertangent towers over admitted finite constants | Exact, PLogD, scalar-RDE, parametric-RDE, limited-integration, required coupled-RDE, and elementary-integration operation cells are executable and total across the declared finite-constant P/E/T contract |
+| Polynomial integration over `QQ[x]`; rational integration over standard `C(x)` for supported finite algebraic or purely transcendental rational constants | End-to-end |
+| Explicit certified primitive/hyperexponential towers over admitted finite or purely transcendental rational constants | Exact, PLogD, scalar-RDE, parametric-RDE, limited-integration, and elementary-integration operation cells are executable; hypertangent and real coupled cells retain their finite real-constant contract |
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
-| Conservative automatic P/E/T expression compilation | End-to-end for one variable, `QQ` constants, rational arithmetic, integer powers, and nested `log`/`exp`/`tan`; dependent or branch-sensitive forms return a structured boundary |
+| Conservative automatic P/E/T expression compilation | End-to-end for one variable, rational arithmetic, symbolic rational constants, integer powers, and nested `log`/`exp`; `tan` with uncertified symbolic reality and dependent or branch-sensitive forms return a structured boundary |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_risch_operation` checks a typed operation cell; `assess_elementary_admission` is the elementary-integration convenience wrapper |
-| Scalar-RDE dispatch admission | Checks the complete recursive prefix over every supported finite algebraic `C/QQ`: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
-| Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for the certified finite-constant P/E/T cell |
-| Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over supported finite algebraic constants and recursively checked P/E/T prefixes; tangent results descend exactly to the original real field |
+| Scalar-RDE dispatch admission | Checks the complete recursive prefix over supported finite or purely transcendental rational constants: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
+| Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for certified P/E prefixes over rational constants and for the finite-constant P/E/T cell |
+| Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over admitted rational constants and recursively checked P/E prefixes; tangent remains finite-real and descends exactly to the original real field |
 | Limited integration over recursive P/E/T levels | Complete affine solution family, or a PRDE-backed proof that no solution exists in the current field |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes over provably real finite constants; the scalar fallback uses the exact compositum `C(i)` |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |

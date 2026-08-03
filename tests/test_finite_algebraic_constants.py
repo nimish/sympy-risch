@@ -18,6 +18,7 @@ from sympy_risch.constant_fields import (
     finite_constant_field_profile,
     gaussian_constant_field,
     is_supported_finite_constant_field,
+    is_supported_rational_constant_field,
     rational_constant_coordinates,
 )
 from sympy_risch.dependency import (
@@ -334,7 +335,7 @@ def test_hypertangent_uses_the_exact_gaussian_compositum() -> None:
     )
 
 
-def test_unsupported_constant_fields_and_malformed_bases_remain_explicit() -> None:
+def test_rational_constant_fields_and_malformed_bases_remain_explicit() -> None:
     nonconstant_base = DifferentialTower(QQ.frac_field(y)).extend(
         MonomialExtension(
             Poly(1, x, domain=QQ.frac_field(y)),
@@ -346,8 +347,8 @@ def test_unsupported_constant_fields_and_malformed_bases_remain_explicit() -> No
     )
 
     assert not is_supported_finite_constant_field(QQ.frac_field(y))
-    assert nonconstant_signature.outcome is FundamentalSignatureOutcome.UNSUPPORTED
-    assert nonconstant_signature.reason is FundamentalSignatureReason.BASE_FIELD
+    assert is_supported_rational_constant_field(QQ.frac_field(y))
+    assert nonconstant_signature.outcome is FundamentalSignatureOutcome.SUPPORTED
 
     malformed_constants = QQ.algebraic_field(sqrt(2))
     malformed_base = DifferentialTower(malformed_constants).extend(

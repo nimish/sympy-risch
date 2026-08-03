@@ -16,7 +16,7 @@ from sympy.polys.polytools import Poly
 from .._typing import FieldElement
 from ..constant_fields import (
     finite_constant_field_profile,
-    is_supported_finite_constant_field,
+    is_supported_rational_constant_field,
 )
 from ..tower import (
     AlgebraicExtension,
@@ -219,17 +219,11 @@ class FundamentalSignature:
             ) or not _is_standard_relation_base(base):
                 raise ValueError(
                     "a supported signature requires C(x) with Dx = 1 over an "
-                    "effective finite constant field C"
+                    "supported exact rational constant field C"
                 )
             profile = finite_constant_field_profile(base.parent_field)
-            if profile is None:
-                raise ValueError(
-                    "a supported signature requires effective finite constants",
-                )
-            if (
-                self.hypertangent_directions
-                and not profile.is_real
-                and base.parent_field != QQ_I
+            if self.hypertangent_directions and (
+                profile is None or (not profile.is_real and base.parent_field != QQ_I)
             ):
                 raise ValueError(
                     "hypertangent directions require real constants or QQ_I",
@@ -317,7 +311,7 @@ def _unsupported_fundamental_signature(
 
 def _is_standard_relation_base(extension: MonomialExtension) -> bool:
     """Whether ``extension`` is a supported standard ``C(x)`` base."""
-    return is_supported_finite_constant_field(
+    return is_supported_rational_constant_field(
         extension.parent_field,
     ) and extension.generator_derivative == Poly(
         1, extension.generator, domain=extension.parent_field
@@ -353,12 +347,11 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
             ),
             "level 0 is not a monomial standard rational base",
         )
-    if not is_supported_finite_constant_field(base.parent_field):
+    if not is_supported_rational_constant_field(base.parent_field):
         return _unsupported_fundamental_signature(
             derivation,
             FundamentalSignatureReason.BASE_FIELD,
-            "the supported relation base must be over an effective finite "
-            "constant field over QQ",
+            "the supported relation base must be over an exact rational constant field",
         )
     if not _is_standard_relation_base(base):
         return _unsupported_fundamental_signature(
@@ -383,8 +376,6 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
 
     constant_failure = first_nonpreserved_constant_level(derivation)
     profile = finite_constant_field_profile(base.parent_field)
-    if profile is None:
-        raise ValueError("the validated relation base lost its constant profile")
 
     for level, extension in enumerate(active_levels[1:], start=1):
         if not isinstance(extension, MonomialExtension):
@@ -407,10 +398,8 @@ def build_fundamental_signature(derivation: Derivation) -> FundamentalSignature:
                 FundamentalSignatureReason.UNSUPPORTED_MONOMIAL_FAMILY,
                 f"level {level} has unsupported monomial family {extension.family.value}",
             )
-        if (
-            extension.family is MonomialFamily.HYPERTANGENT
-            and not profile.is_real
-            and base.parent_field != QQ_I
+        if extension.family is MonomialFamily.HYPERTANGENT and (
+            profile is None or (not profile.is_real and base.parent_field != QQ_I)
         ):
             return _unsupported_fundamental_signature(
                 derivation,
