@@ -1379,8 +1379,13 @@ hyperexponential dependency solver can also reclassify a finite-power
 exponential such as `exp(log(x)/2)` as an algebraic level instead of adding a
 false transcendental generator. Before compilation, powers of the same base
 are compared modulo integer exponents. When one source power generates all
-the others, the candidate DAG and compiler reuse that level; no absent common
-root is invented.
+the others, the candidate DAG and compiler reuse that level. For a pure
+algebraic expression with several direct rational-power generators, the
+compiler builds their tensor multiplication operators once. An irreducible
+characteristic polynomial of the generator sum at the full product degree
+certifies the compositum, and one exact change of basis recovers every source
+generator. Failure remains unsupported: another separating combination or
+source-branch evidence may still be required.
 
 The frontend deliberately preserves source syntax. Its substitutions are
 simultaneous mappings from fresh internal generators to source calls, and a
@@ -1394,8 +1399,8 @@ This is not yet complete automatic tower construction. The remaining frontend
 work is to:
 
 1. parse general algebraic `RootOf` and polynomial relations;
-2. construct a compositum or primitive element when several algebraic
-   candidates have no existing common source generator;
+2. select compatible components for dependent algebraic composita whose
+   tensor presentation is reducible;
 3. complete relation-driven reuse for rationally dependent logarithms,
    exponentials, and tangents;
 4. execute monomial-over-algebraic and arbitrarily interleaved towers in the

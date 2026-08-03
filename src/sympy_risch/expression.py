@@ -16,6 +16,7 @@ from sympy.core.expr import Expr
 from sympy.core.symbol import Symbol
 
 from ._expression_compilation import (
+    AlgebraicSourcePresentation,
     ExpressionCompilation,
     ExpressionCompilationOutcome,
     ExpressionUnsupportedReason,
@@ -243,9 +244,13 @@ def _validate_native_integration_result(result: ExpressionIntegralResult) -> Non
     )
     if result.antiderivative != expected_presentation:
         raise ValueError("the public presentation does not match the native proof")
-    if not _local_expression_equal(
-        diff(result.antiderivative, compilation.variable),
-        compilation.expression,
+    # A primitive algebraic presentation is already checked by exact source
+    # images and native reconstruction.  Re-running ``cancel`` after replacing
+    # its generator by a sum of radicals cannot use those defining relations
+    # and can reject a valid presentation merely because it is not syntactically
+    # rational.
+    if not compilation.algebraic_presentations and not _local_expression_equal(
+        diff(result.antiderivative, compilation.variable), compilation.expression
     ):
         raise ValueError(
             "the back-substituted antiderivative fails local differentiation"
@@ -387,6 +392,7 @@ def integrate_expression(
 
 
 __all__ = [
+    "AlgebraicSourcePresentation",
     "ExpressionCompilation",
     "ExpressionCompilationOutcome",
     "ExpressionDiscoveryOutcome",

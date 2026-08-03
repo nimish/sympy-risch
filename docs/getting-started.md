@@ -21,9 +21,11 @@ call becomes a P/E/T level
 only after the existing checked extension factory certifies it. The compiler
 can also reclassify a finite-power exponential dependency as algebraic.
 Dependent powers of one base, such as `sqrt(x)` and `1/sqrt(x)`, share one
-existing source generator. If several powers require a new common root, such
-as `sqrt(x)` together with `x**(1/3)`, compositum construction is still an
-explicit unsupported boundary.
+existing source generator. Several direct rational powers, such as `sqrt(x)`
+together with `x**(1/3)`, use one primitive extension when the sum of their
+source generators certifies the full compositum degree. A different primitive
+combination or compatible component of a reducible tensor presentation remains
+an explicit unsupported boundary.
 
 Other free symbols are interpreted generically as algebraically independent
 differential constants. For example, this computation takes place over
@@ -1577,6 +1579,7 @@ boundary, not a mathematical claim about the integral.
 | Explicit two-factor quadratic/Riccati normalization at the active top level | End-to-end once two checked linear special factors yield a replay-preserved hyperexponential target; ordinary general-polynomial dispatch remains unsupported |
 | Caller-certified linear special-pole reduction | Local exact principal-part reduction over one active linear special factor; unresolved lower RDEs are structured boundaries, not integration verdicts |
 | Conservative automatic P/E/T expression compilation | End-to-end for one variable, rational arithmetic, symbolic rational constants, integer powers, and nested `log`/`exp`; `tan` with uncertified symbolic reality and dependent or branch-sensitive forms return a structured boundary |
+| Direct linearly-disjoint rational-power composita | Compiled to one certified primitive extension with exact recovery maps; reducible tensor presentations and general `RootOf` inputs remain structured boundaries |
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_risch_operation` checks a typed operation cell; `assess_elementary_admission` is the elementary-integration convenience wrapper |
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over supported finite or purely transcendental rational constants: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for certified P/E prefixes over rational constants and for the finite-constant P/E/T cell |
@@ -1607,7 +1610,7 @@ boundary, not a mathematical claim about the integral.
 | Terminal pure simple-radical algebraic level | Constructive positive route in `integrate_elementary`: exact nonconstant power-basis modes descend to lower scalar RDEs, then the lower coordinate is integrated recursively; general algebraic logarithmic/residue cases remain unsupported |
 | Mixed algebraic/monomial prefix representation | `analyze_tower_representation` proves native representability for a monomial prefix plus an optional terminal algebraic level and reports monomial-over-algebraic as a structured backend limitation; nested algebraic extension construction remains rejected by the backend |
 | Hypertangent over hyperexponential or hypertangent lower levels | End-to-end for the documented certified shapes |
-| Automatic expression tower discovery and back-substitution | Candidate DAGs cover rational powers and nested P/E/T calls in either mixed order; the native compiler supports rational-power algebraic levels, terminal algebraic-over-P/E/T towers, and finite-power exponential reclassification. Algebraic `RootOf`, algebraic composita, monomial-over-algebraic execution, full minimization, and branch metadata remain open |
+| Automatic expression tower discovery and back-substitution | Candidate DAGs cover rational powers and nested P/E/T calls in either mixed order; the native compiler supports direct rational-power composita when the generator sum certifies full degree, terminal algebraic-over-P/E/T towers, and finite-power exponential reclassification. Algebraic `RootOf`, dependent-compositum component selection, monomial-over-algebraic execution, full minimization, and branch metadata remain open |
 | Complete global real branch management | Not implemented |
 
 ## Low-level entry points

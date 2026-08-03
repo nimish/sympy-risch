@@ -311,11 +311,38 @@ def test_dependent_rational_powers_share_one_algebraic_level(expression) -> None
     )
 
 
-def test_powers_without_an_existing_common_generator_remain_unsupported() -> None:
-    compilation = compile_expression(sqrt(x) + x ** Rational(1, 3), x)
+@pytest.mark.parametrize(
+    ("expression", "degree"),
+    (
+        (sqrt(x) + x ** Rational(1, 3), 6),
+        (sqrt(x) + sqrt(x + 1), 4),
+    ),
+)
+def test_independent_rational_powers_use_one_primitive_extension(
+    expression,
+    degree,
+) -> None:
+    compilation = compile_expression(expression, x)
 
-    assert compilation.outcome is ExpressionCompilationOutcome.UNSUPPORTED
-    assert compilation.reason is ExpressionUnsupportedReason.UNCERTIFIED_EXTENSION
+    assert compilation.compiled
+    assert compilation.reason is None
+    assert compilation.tower is not None
+    assert compilation.element is not None
+    assert len(compilation.tower.levels) == 2
+    assert isinstance(compilation.tower.levels[-1], AlgebraicExtension)
+    assert compilation.tower.levels[-1].field.rank == degree
+    assert len(compilation.generator_substitutions) == 1
+    assert len(compilation.algebraic_presentations) == 1
+    assert cancel(compilation.reconstructed_expression() - expression) == 0
+    assert (
+        cancel(
+            compilation.back_substitute(
+                compilation.tower.derivation()(compilation.element)
+            )
+            - diff(expression, x)
+        )
+        == 0
+    )
 
 
 @pytest.mark.parametrize(

@@ -91,6 +91,7 @@ def _source_value_and_derivative_in_native(
     expression: Expr,
     compilation: ExpressionCompilation,
     source_generators: dict[Expr, Symbol],
+    algebraic_source_elements: dict[Expr, FieldElement],
     algebraic_representatives: dict[Pow, Pow],
     rational_generators: tuple[Symbol, ...],
     cache: dict[Expr, tuple[FieldElement, FieldElement]],
@@ -128,13 +129,14 @@ def _source_value_and_derivative_in_native(
             expression.base,
             compilation,
             source_generators,
+            algebraic_source_elements,
             algebraic_representatives,
             rational_generators,
             cache,
         )
         if base == field.zero:
             raise ValueError("an algebraic power source has a singular base")
-        value = native_generator
+        value = algebraic_source_elements.get(expression, native_generator)
         if value is None:
             representative = algebraic_representatives.get(expression)
             relation = (
@@ -143,13 +145,16 @@ def _source_value_and_derivative_in_native(
                 else None
             )
             representative_generator = source_generators.get(representative)
-            if relation is None or representative_generator is None:
+            representative_value = algebraic_source_elements.get(representative)
+            if representative_value is None and representative_generator is not None:
+                representative_value = cast(
+                    FieldElement,
+                    field.from_sympy(representative_generator),
+                )
+            if relation is None or representative_value is None:
                 raise ValueError("an algebraic power source has no native generator")
             power, base_power = relation
-            value = cast(
-                FieldElement,
-                base**base_power * field.from_sympy(representative_generator) ** power,
-            )
+            value = base**base_power * representative_value**power
         result = (
             value,
             cast(
@@ -169,6 +174,7 @@ def _source_value_and_derivative_in_native(
                 term,
                 compilation,
                 source_generators,
+                algebraic_source_elements,
                 algebraic_representatives,
                 rational_generators,
                 cache,
@@ -184,6 +190,7 @@ def _source_value_and_derivative_in_native(
                 factor,
                 compilation,
                 source_generators,
+                algebraic_source_elements,
                 algebraic_representatives,
                 rational_generators,
                 cache,
@@ -196,6 +203,7 @@ def _source_value_and_derivative_in_native(
             expression.base,
             compilation,
             source_generators,
+            algebraic_source_elements,
             algebraic_representatives,
             rational_generators,
             cache,
@@ -220,6 +228,7 @@ def _source_value_and_derivative_in_native(
             argument_expression,
             compilation,
             source_generators,
+            algebraic_source_elements,
             algebraic_representatives,
             rational_generators,
             cache,
@@ -252,10 +261,21 @@ def source_value_and_derivative_in_native(
             compilation.variable,
         ),
     )
+    tower, _element = compilation._require_compiled()
+    algebraic_source_elements: dict[Expr, FieldElement] = {
+        source: cast(FieldElement, tower.field().convert(image))
+        for presentation in compilation.algebraic_presentations
+        for source, image in zip(
+            presentation.sources,
+            presentation.normalization.source_images,
+            strict=True,
+        )
+    }
     return _source_value_and_derivative_in_native(
         expression,
         compilation,
         source_generators,
+        algebraic_source_elements,
         algebraic_representatives,
         rational_generators,
         {},
@@ -314,7 +334,29 @@ def validate_compiled_extension_sources(
     if len(source_generators) != len(substitutions):
         raise ValueError("each source call needs at most one native generator")
     expression_nodes = set(preorder_traversal(compilation.expression))
-    lower_replacements: dict[Expr, Symbol] = {}
+    presentations_by_generator = {
+        presentation.normalization.target.generator: presentation
+        for presentation in compilation.algebraic_presentations
+    }
+    if len(presentations_by_generator) != len(compilation.algebraic_presentations):
+        raise ValueError("algebraic presentations must have distinct targets")
+    if not set(presentations_by_generator) <= expected_generators:
+        raise ValueError("an algebraic presentation names a foreign tower generator")
+    algebraic_source_elements: dict[Expr, FieldElement] = {}
+    for presentation in compilation.algebraic_presentations:
+        for source, image in zip(
+            presentation.sources,
+            presentation.normalization.source_images,
+            strict=True,
+        ):
+            if source in algebraic_source_elements:
+                raise ValueError("an algebraic source occurs in several presentations")
+            algebraic_source_elements[source] = cast(
+                FieldElement,
+                tower.field().convert(image),
+            )
+
+    lower_replacements: dict[Expr, Expr] = {}
     source_evaluation_cache: dict[Expr, tuple[FieldElement, FieldElement]] = {}
     rational_generators = (
         compilation.variable,
@@ -330,115 +372,157 @@ def validate_compiled_extension_sources(
     for generator, source in ordered_substitutions:
         index = level_indices[generator]
         extension = tower.levels[index]
+        presentation = presentations_by_generator.get(generator)
         if source.free_symbols & expected_generators:
             raise ValueError("a source substitution cannot contain native generators")
-        is_algebraic_power = (
-            isinstance(source, Pow)
-            and isinstance(source.exp, Rational)
-            and not isinstance(source.exp, Integer)
-        )
-        is_supported_function = source.func in {log, exp, tan} and len(source.args) == 1
-        if (
-            not is_algebraic_power and not is_supported_function
-        ) or source.free_symbols - set(rational_generators):
-            raise ValueError("a source substitution is outside the accepted grammar")
-        if source not in expression_nodes:
-            raise ValueError(
-                "every source substitution must occur in the compiled expression"
-            )
-
-        lower_derivation = tower.derivation(index - 1)
-        native_argument_expression = source.args[0].xreplace(lower_replacements)
-        try:
-            argument = cast(
-                FieldElement,
-                lower_derivation.field.from_sympy(native_argument_expression),
-            )
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                "a source extension argument does not belong to its lower tower"
-            ) from exc
-        argument_derivative = lower_derivation(argument)
-        if isinstance(extension, AlgebraicExtension):
-            if is_algebraic_power:
-                exponent = cast(Rational, source.exp)
-                relation_value = argument ** int(exponent.p)
-                relation_degree = int(exponent.q)
-            elif source.func is exp:
-                relation_degree = extension.minimal_polynomial.degree()
-                powered_source = exp(relation_degree * source.args[0])
-                native_powered_source = powered_source.xreplace(lower_replacements)
-                try:
-                    relation_value = lower_derivation.field.from_sympy(
-                        native_powered_source
-                    )
-                except (TypeError, ValueError) as exc:
-                    raise ValueError(
-                        "an algebraic exponential relation does not belong to "
-                        "its lower tower"
-                    ) from exc
-            else:
+        if presentation is not None:
+            if not isinstance(extension, AlgebraicExtension):
+                raise ValueError("an algebraic presentation needs an algebraic level")
+            if extension != presentation.normalization.target:
+                raise ValueError("an algebraic presentation belongs to another level")
+            if source != presentation.primitive_source:
+                raise ValueError("the primitive substitution does not match its source")
+            if extension.parent_field != tower.field(index - 1):
                 raise ValueError(
-                    "an algebraic compiled level needs a rational-power or "
-                    "finite-power exponential source"
+                    "the primitive presentation has the wrong parent field"
                 )
-            expected_modulus = Poly(
-                generator**relation_degree
-                - lower_derivation.field.to_sympy(relation_value),
-                generator,
-                domain=lower_derivation.field,
-            )
-            if extension.minimal_polynomial != expected_modulus:
+            if any(
+                candidate not in expression_nodes for candidate in presentation.sources
+            ):
+                raise ValueError("every algebraic source must occur in the expression")
+            if any(
+                not isinstance(candidate.exp, Rational)
+                or isinstance(candidate.exp, Integer)
+                or not is_rational_source_expression(
+                    candidate.base,
+                    rational_generators,
+                )
+                for candidate in presentation.sources
+            ):
                 raise ValueError(
-                    "an algebraic source does not match its defining polynomial"
+                    "a direct algebraic presentation needs rational-power sources"
                 )
-        elif not isinstance(extension, MonomialExtension):
-            raise ValueError("the compiled tower contains an unsupported level")
-        elif source.func is log:
-            if argument == lower_derivation.field.zero:
-                raise ValueError("a logarithmic source extension has zero argument")
-            eta = argument_derivative / argument
-            analysis = certify_primitive_extension(
-                Poly(
-                    lower_derivation.field.to_sympy(eta),
-                    generator,
-                    domain=lower_derivation.field,
-                ),
-                lower_derivation,
-            )
-        elif source.func is exp:
-            analysis = certify_hyperexponential_extension(
-                Poly(
-                    lower_derivation.field.to_sympy(argument_derivative) * generator,
-                    generator,
-                    domain=lower_derivation.field,
-                ),
-                lower_derivation,
-            )
+            for candidate, image in zip(
+                presentation.sources,
+                presentation.normalization.source_images,
+                strict=True,
+            ):
+                lower_replacements[candidate] = extension.field.to_sympy(image)
         else:
-            analysis = certify_hypertangent_extension(
-                Poly(
-                    lower_derivation.field.to_sympy(argument_derivative)
-                    * (1 + generator**2),
+            is_algebraic_power = (
+                isinstance(source, Pow)
+                and isinstance(source.exp, Rational)
+                and not isinstance(source.exp, Integer)
+            )
+            is_supported_function = (
+                source.func in {log, exp, tan} and len(source.args) == 1
+            )
+            if (
+                not is_algebraic_power and not is_supported_function
+            ) or source.free_symbols - set(rational_generators):
+                raise ValueError(
+                    "a source substitution is outside the accepted grammar"
+                )
+            if source not in expression_nodes:
+                raise ValueError(
+                    "every source substitution must occur in the compiled expression"
+                )
+
+            lower_derivation = tower.derivation(index - 1)
+            native_argument_expression = source.args[0].xreplace(lower_replacements)
+            try:
+                argument = cast(
+                    FieldElement,
+                    lower_derivation.field.from_sympy(native_argument_expression),
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "a source extension argument does not belong to its lower tower"
+                ) from exc
+            argument_derivative = lower_derivation(argument)
+            if isinstance(extension, AlgebraicExtension):
+                if is_algebraic_power:
+                    exponent = cast(Rational, source.exp)
+                    relation_value = argument ** int(exponent.p)
+                    relation_degree = int(exponent.q)
+                elif source.func is exp:
+                    relation_degree = extension.minimal_polynomial.degree()
+                    powered_source = exp(relation_degree * source.args[0])
+                    native_powered_source = powered_source.xreplace(lower_replacements)
+                    try:
+                        relation_value = lower_derivation.field.from_sympy(
+                            native_powered_source
+                        )
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError(
+                            "an algebraic exponential relation does not belong to "
+                            "its lower tower"
+                        ) from exc
+                else:
+                    raise ValueError(
+                        "an algebraic compiled level needs a rational-power or "
+                        "finite-power exponential source"
+                    )
+                expected_modulus = Poly(
+                    generator**relation_degree
+                    - lower_derivation.field.to_sympy(relation_value),
                     generator,
                     domain=lower_derivation.field,
-                ),
-                lower_derivation,
-            )
-        if isinstance(extension, MonomialExtension) and (
-            analysis.status is not ConstantFieldStatus.PRESERVED
-            or analysis.extension.generator_derivative != extension.generator_derivative
-        ):
-            raise ValueError(
-                "a source extension is not independently certified with "
-                "preserved constants"
-            )
+                )
+                if extension.minimal_polynomial != expected_modulus:
+                    raise ValueError(
+                        "an algebraic source does not match its defining polynomial"
+                    )
+            elif not isinstance(extension, MonomialExtension):
+                raise ValueError("the compiled tower contains an unsupported level")
+            elif source.func is log:
+                if argument == lower_derivation.field.zero:
+                    raise ValueError("a logarithmic source extension has zero argument")
+                eta = argument_derivative / argument
+                analysis = certify_primitive_extension(
+                    Poly(
+                        lower_derivation.field.to_sympy(eta),
+                        generator,
+                        domain=lower_derivation.field,
+                    ),
+                    lower_derivation,
+                )
+            elif source.func is exp:
+                analysis = certify_hyperexponential_extension(
+                    Poly(
+                        lower_derivation.field.to_sympy(argument_derivative)
+                        * generator,
+                        generator,
+                        domain=lower_derivation.field,
+                    ),
+                    lower_derivation,
+                )
+            else:
+                analysis = certify_hypertangent_extension(
+                    Poly(
+                        lower_derivation.field.to_sympy(argument_derivative)
+                        * (1 + generator**2),
+                        generator,
+                        domain=lower_derivation.field,
+                    ),
+                    lower_derivation,
+                )
+            if isinstance(extension, MonomialExtension) and (
+                analysis.status is not ConstantFieldStatus.PRESERVED
+                or analysis.extension.generator_derivative
+                != extension.generator_derivative
+            ):
+                raise ValueError(
+                    "a source extension is not independently certified with "
+                    "preserved constants"
+                )
 
         native_generator = cast(FieldElement, tower.field().from_sympy(generator))
         _source_value, source_derivative = _source_value_and_derivative_in_native(
             source,
             compilation,
             source_generators,
+            algebraic_source_elements,
             algebraic_representatives,
             rational_generators,
             source_evaluation_cache,
@@ -447,17 +531,18 @@ def validate_compiled_extension_sources(
             raise ValueError(
                 "a native generator derivative disagrees with its source function"
             )
-        presented_derivative = compilation.back_substitute_expression(
-            tower.field().to_sympy(tower.derivation()(native_generator)),
-        )
-        if not _locally_equal(
-            presented_derivative,
-            diff(source, compilation.variable),
-        ):
-            raise ValueError(
-                "a native generator derivative fails its back-substituted "
-                "local chain-rule check"
+        if presentation is None:
+            presented_derivative = compilation.back_substitute_expression(
+                tower.field().to_sympy(tower.derivation()(native_generator)),
             )
+            if not _locally_equal(
+                presented_derivative,
+                diff(source, compilation.variable),
+            ):
+                raise ValueError(
+                    "a native generator derivative fails its back-substituted "
+                    "local chain-rule check"
+                )
         lower_replacements[source] = generator
 
 

@@ -46,7 +46,11 @@ algebraic/transcendental orders; the native compiler executes terminal
 algebraic-over-P/E/T towers and reports still-missing opposite-order backends
 separately. Rational powers of the same base reuse one source generator when
 the others differ by an integer power of it and an integer power of the base.
-A direct rational-power extension of `QQ(x)` is now dispatched
+A pure algebraic expression with several direct, linearly-disjoint rational
+powers is normalized to one primitive extension when the generator sum has an
+irreducible full-degree characteristic polynomial; exact recovery maps retain
+every source radical. A direct rational-power extension of `QQ(x)` is now
+dispatched
 through the certified algebraic function-field integrator, including its
 theorem-backed non-elementarity decisions. When the normalized radical has a
 single linear branch, an exact rational parametrization runs the rational
@@ -56,9 +60,9 @@ algebraically independent constants in `QQ(a, b, ...)`. Rational integration
 and the one-linear-factor radical route use that field directly; declared
 algebraic symbols and constant fields needed by the remaining global or P/E/T
 backends stay explicit unsupported boundaries.
-Complete general-polynomial special-factor reduction, algebraic composita
-that require a new common root, and global branch-aware expression
-normalization remain future work.
+Complete general-polynomial special-factor reduction, component selection for
+dependent algebraic composita, general `RootOf` presentations, and global
+branch-aware expression normalization remain future work.
 
 `python-flint` is the required exact-arithmetic backend. The project does not
 support SymPy's slower pure-Python ground types.

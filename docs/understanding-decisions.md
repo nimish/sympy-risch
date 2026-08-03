@@ -110,15 +110,17 @@ certificate.
 | RDE | A Risch differential equation, the structured equation used to decide the remaining coefficient problem. |
 | Certificate | Immutable data that records the reduction, assumptions, and witness or obstruction. |
 
-For algebraic functions, the public dispatcher supports a compiled direct
-extension of `QQ(x)` by one rational-power generator. A one-linear-factor
-simple radical is first converted through a checked rational parametrization;
-other admitted curves construct their function-field model and integral basis
-internally. Both paths preserve exact, elementary, certified non-elementary,
-and incomplete outcomes. General `RootOf` relations, automatic algebraic
-constant base change outside the rationally parametrized cell, a monomial
-level above an algebraic function field, and a second algebraic function-field
-level remain explicit unsupported boundaries.
+For algebraic functions, the public dispatcher supports direct rational-power
+generators over `QQ(x)`. Independent generators are combined into one
+primitive extension when their displayed sum certifies the full compositum
+degree. A one-linear-factor simple radical is first converted through a checked
+rational parametrization; other admitted curves construct their function-field
+model and integral basis internally. These paths preserve exact, elementary,
+certified non-elementary, and incomplete outcomes. General `RootOf` relations,
+component selection for dependent composita, automatic algebraic constant base
+change outside the rationally parametrized cell, a monomial level above an
+algebraic function field, and a second algebraic function-field level remain
+explicit unsupported boundaries.
 
 ## A good debugging order
 

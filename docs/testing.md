@@ -207,6 +207,10 @@ non-rational constants, unsupported algebraic powers, misdeclared algebraic
 parameters, singular calls, branch-sensitive functions, and dependent logarithmic,
 exponential, or tangent calls remain structured `UNSUPPORTED` outcomes rather
 than accidental mathematical conclusions.
+`tests/test_algebraic_presentation.py` checks the reusable primitive-element
+normalizer independently: full tensor degree, exact source recovery, foreign
+parents, forged images, reducible tensor boundaries, and one global
+characteristic-polynomial computation.
 `tests/test_exact.py` checks family dispatch with planted derivatives,
 generated hyperexponential and hypertangent examples, normal and logarithmic
 residues, unsolved special-mode RDEs, recursive lower-field exactness, and

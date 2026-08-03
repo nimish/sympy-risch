@@ -125,6 +125,16 @@ presentation or returns one stable capability boundary.
 
 ### A1. Normalize general algebraic-function-field presentations
 
+**Progress:** the first direct-presentation cell is implemented. Several
+rational-power extensions of the same exact rational-function parent are
+combined in one tensor basis. An irreducible characteristic polynomial of the
+generator sum at the full product degree certifies the field, and one inverse
+power-basis transform recovers every source generator. A failed candidate
+remains unsupported: a different separating combination or selection of a
+compatible component may require additional relation or branch evidence.
+General `RootOf` inputs, separating transcendence elements, constant
+enlargement, and chart normalization remain.
+
 Replace the assumption that every useful curve arrives as one convenient
 monogenic `k(x)[y]/(f)` model with a normalization pipeline:
 

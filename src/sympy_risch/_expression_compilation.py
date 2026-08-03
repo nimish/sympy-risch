@@ -23,6 +23,7 @@ from typing import NoReturn, cast
 from sympy import cancel
 from sympy.core.add import Add
 from sympy.core.expr import Expr
+from sympy.core.function import Function
 from sympy.core.mul import Mul
 from sympy.core.numbers import Integer, Rational
 from sympy.core.power import Pow
@@ -42,6 +43,10 @@ from ._expression_validation import (
     validate_compiled_extension_sources,
 )
 from ._typing import FieldElement, SupportsAsExpr
+from .algebraic.presentation import (
+    PrimitiveElementPresentation,
+    normalize_primitive_element,
+)
 from .dependency import (
     TranscendentalExtensionAnalysis,
     certify_hyperexponential_extension,
@@ -82,6 +87,39 @@ class ExpressionUnsupportedReason(Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class AlgebraicSourcePresentation:
+    """Reversible source mapping for one normalized primitive extension."""
+
+    sources: tuple[Pow, ...]
+    primitive_source: Expr
+    normalization: PrimitiveElementPresentation
+
+    def __post_init__(self) -> None:
+        sources = tuple(self.sources)
+        object.__setattr__(self, "sources", sources)
+        if len(sources) != len(self.normalization.sources):
+            raise ValueError("algebraic sources must align with the normalized fields")
+        if len(set(sources)) != len(sources):
+            raise ValueError("algebraic presentation sources must be distinct")
+        if not isinstance(self.primitive_source, Expr):
+            raise TypeError("the primitive source must be a SymPy expression")
+        expected = sum(
+            (
+                self.normalization.sources[0].parent_field.to_sympy(coefficient)
+                * source
+                for coefficient, source in zip(
+                    self.normalization.primitive_coefficients,
+                    sources,
+                    strict=True,
+                )
+            ),
+            Integer(0),
+        )
+        if self.primitive_source != expected:
+            raise ValueError("the primitive source does not match its coefficients")
+
+
+@dataclass(frozen=True, slots=True)
 class ExpressionCompilation:
     r"""A checked translation from a SymPy expression to one native tower.
 
@@ -99,6 +137,7 @@ class ExpressionCompilation:
     tower: DifferentialTower | None = None
     element: FieldElement | None = None
     generator_substitutions: tuple[tuple[Symbol, Expr], ...] = ()
+    algebraic_presentations: tuple[AlgebraicSourcePresentation, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.expression, Expr):
@@ -123,6 +162,15 @@ class ExpressionCompilation:
 
         substitutions = tuple(self.generator_substitutions)
         object.__setattr__(self, "generator_substitutions", substitutions)
+        presentations = tuple(self.algebraic_presentations)
+        object.__setattr__(self, "algebraic_presentations", presentations)
+        if any(
+            not isinstance(presentation, AlgebraicSourcePresentation)
+            for presentation in presentations
+        ):
+            raise TypeError(
+                "algebraic presentations must be AlgebraicSourcePresentation values"
+            )
         generators: set[Symbol] = set()
         for generator, source in substitutions:
             if not isinstance(generator, Symbol) or not isinstance(source, Expr):
@@ -155,7 +203,12 @@ class ExpressionCompilation:
             raise ValueError(
                 "an integration-backend reason belongs only to an integration result"
             )
-        if self.tower is not None or self.element is not None or substitutions:
+        if (
+            self.tower is not None
+            or self.element is not None
+            or substitutions
+            or presentations
+        ):
             raise ValueError(
                 "an unsupported expression cannot carry a partial tower or rewrite"
             )
@@ -354,6 +407,99 @@ class _ExpressionCompiler:
         self.generator_substitutions: dict[Symbol, Expr] = {}
         self.algebraic_representatives = _rational_power_representatives(expression)
         self.next_generator_index = 0
+        self.algebraic_presentations: list[AlgebraicSourcePresentation] = []
+        self.direct_algebraic_presentation = (
+            self._propose_direct_algebraic_presentation(expression)
+        )
+
+    def _propose_direct_algebraic_presentation(
+        self,
+        expression: Expr,
+    ) -> AlgebraicSourcePresentation | None:
+        """Normalize several direct radicals before nested fields are needed."""
+        if expression.atoms(Function):
+            return None
+        representatives = tuple(dict.fromkeys(self.algebraic_representatives.values()))
+        if len(representatives) < 2 or any(
+            not is_rational_source_expression(
+                representative.base,
+                self.rational_generators,
+            )
+            for representative in representatives
+        ):
+            return None
+
+        parent = self.tower.field()
+        source_extensions: list[AlgebraicExtension] = []
+        for source in representatives:
+            exponent = source.exp
+            if not isinstance(exponent, Rational) or isinstance(exponent, Integer):
+                raise RuntimeError("a rational-power representative is malformed")
+            source_generator = self._fresh_generator("algebraic_source")
+            base = parent.from_sympy(source.base)
+            modulus = Poly(
+                source_generator ** int(exponent.q)
+                - parent.to_sympy(base ** int(exponent.p)),
+                source_generator,
+                domain=parent,
+            )
+            try:
+                source_extensions.append(AlgebraicExtension(modulus))
+            except (NotImplementedError, ValueError):
+                return None
+
+        target_generator = self._fresh_generator("algebraic_composite")
+        try:
+            normalization = normalize_primitive_element(
+                tuple(source_extensions),
+                target_generator,
+            )
+        except NotImplementedError:
+            return None
+        primitive_source = sum(
+            (
+                parent.to_sympy(coefficient) * source
+                for coefficient, source in zip(
+                    normalization.primitive_coefficients,
+                    representatives,
+                    strict=True,
+                )
+            ),
+            Integer(0),
+        )
+        return AlgebraicSourcePresentation(
+            representatives,
+            primitive_source,
+            normalization,
+        )
+
+    def _ensure_direct_algebraic_presentation(
+        self,
+        presentation: AlgebraicSourcePresentation,
+    ) -> None:
+        """Install one prevalidated primitive presentation in the tower."""
+        if presentation in self.algebraic_presentations:
+            return
+        if len(self.tower.levels) != 1 or (
+            presentation.normalization.target.parent_field != self.tower.field()
+        ):
+            self._unsupported(
+                ExpressionUnsupportedReason.UNCERTIFIED_EXTENSION,
+                "the direct algebraic compositum no longer has its certified "
+                "rational parent",
+            )
+        extension = presentation.normalization.target
+        self.tower = self.tower.extend(extension)
+        for source, image in zip(
+            presentation.sources,
+            presentation.normalization.source_images,
+            strict=True,
+        ):
+            self.source_elements[source] = image
+        self.generator_substitutions[extension.generator] = (
+            presentation.primitive_source
+        )
+        self.algebraic_presentations.append(presentation)
 
     def compile(self, expression: Expr) -> FieldElement:
         """Compile one expression, embedding prior results at the current top."""
@@ -542,6 +688,24 @@ class _ExpressionCompiler:
         if not isinstance(exponent, Rational) or isinstance(exponent, Integer):
             raise TypeError("algebraic power compilation needs a rational exponent")
         representative = self.algebraic_representatives.get(expression, expression)
+        presentation = self.direct_algebraic_presentation
+        if presentation is not None and representative in presentation.sources:
+            self._ensure_direct_algebraic_presentation(presentation)
+            representative_value = self._embed_current(
+                self.source_elements[representative]
+            )
+            if representative == expression:
+                return representative_value
+            relation = _rational_power_relation(expression, representative)
+            if relation is None:
+                raise RuntimeError("a planned rational-power relation is invalid")
+            power, base_power = relation
+            base = self._embed_current(self.compile(expression.base))
+            element = self._embed_current(
+                base**base_power * representative_value**power
+            )
+            self.source_elements[expression] = element
+            return element
         if representative != expression:
             relation = _rational_power_relation(expression, representative)
             if relation is None:
@@ -674,10 +838,12 @@ def compile_expression(
         compiler.tower,
         compiler._embed_current(element),
         tuple(compiler.generator_substitutions.items()),
+        tuple(compiler.algebraic_presentations),
     )
 
 
 __all__ = [
+    "AlgebraicSourcePresentation",
     "ExpressionCompilation",
     "ExpressionCompilationOutcome",
     "ExpressionUnsupportedReason",

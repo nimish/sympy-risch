@@ -40,6 +40,7 @@ from .log_derivative import (
     AlgebraicIntegratingFactorStatus,
     find_algebraic_integrating_factor,
 )
+from .presentation import PrimitiveElementPresentation, normalize_primitive_element
 from .rde import (
     AlgebraicIntegratingFactorRDEResult,
     AlgebraicIntegratingFactorRDEStatus,
@@ -102,6 +103,7 @@ __all__ = [
     "AlgebraicResidueProfileFactor",
     "AlgebraicResidueProfileStatus",
     "IntegralBasis",
+    "PrimitiveElementPresentation",
     "RelativeSimpleRadicalData",
     "RelativeSimpleRadicalHermiteMode",
     "RelativeSimpleRadicalHermiteReduction",
@@ -118,6 +120,7 @@ __all__ = [
     "hermite_reduce_algebraic",
     "hermite_reduce_relative_simple_radical",
     "lazy_hermite_reduce_algebraic",
+    "normalize_primitive_element",
     "recognize_relative_simple_radical",
     "recognize_simple_radical",
     "simple_radical_integral_basis",
