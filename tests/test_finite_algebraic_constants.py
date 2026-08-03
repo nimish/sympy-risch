@@ -5,6 +5,7 @@ from hypothesis import strategies as st
 from sympy import I, Poly, sqrt, symbols
 from sympy.polys.domains import QQ
 from sympy.polys.domains.domain import Domain
+from sympy.polys.domains.fractionfield import FractionField
 from sympy.polys.matrices import DomainMatrix
 
 from sympy_risch import (
@@ -34,7 +35,7 @@ from sympy_risch.exact import solve_exact_derivative
 from sympy_risch.gaussian import build_hypertangent_gaussian_normal_form
 from sympy_risch.relations import solve_logarithmic_relation_system
 
-x, t, e, u, y, a, b = symbols("x t e u y a b")
+x, t, e, u, y, a, b, c = symbols("x t e u y a b c")
 
 
 def _certified_rational_base(constants: Domain) -> DifferentialTower:
@@ -120,6 +121,43 @@ def test_rational_constant_relation_rows_scale_by_candidate_dimension() -> None:
     rows = rational_constant_relation_rows(constants, values)
 
     assert len(rows) == len(values)
+
+
+def test_rational_constant_relation_rows_stay_native_over_algebraic_ground(
+    monkeypatch,
+) -> None:
+    constants = QQ.algebraic_field(sqrt(2)).frac_field(a, b, c)
+    expressions = (
+        1 / ((b + 1) * (c + 1)) - sqrt(2) / (a + 1),
+        1 / ((b + 1) * (c + 3)) - sqrt(2) / (a + 1),
+        1 / (b + 2) + sqrt(2) / (a + 1),
+    )
+    values = tuple(constants.from_sympy(expression) for expression in expressions)
+
+    def forbid_expression_round_trip(*_args):
+        raise AssertionError("expression round trip")
+
+    monkeypatch.setattr(FractionField, "to_sympy", forbid_expression_round_trip)
+    rows = rational_constant_relation_rows(constants, values)
+
+    assert DomainMatrix([list(row) for row in rows], (len(rows), 3), QQ).rank() == 3
+
+
+def test_rational_constant_relation_rows_reduce_a_low_rank_family() -> None:
+    parameters = symbols("z0:8")
+    constants = QQ.frac_field(*parameters)
+    base = sum(1 / (parameter + 1) for parameter in parameters)
+    values = tuple(
+        constants.from_sympy((index + 1) * base) for index in range(len(parameters))
+    )
+
+    rows = rational_constant_relation_rows(constants, values)
+
+    assert len(rows) == 1
+    assert rows[0][0] != QQ.zero
+    assert all(
+        rows[0][index] == (index + 1) * rows[0][0] for index in range(len(parameters))
+    )
 
 
 @given(

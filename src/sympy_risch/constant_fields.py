@@ -19,9 +19,11 @@ from sympy.polys.domains import QQ, QQ_I
 from sympy.polys.domains.algebraicfield import AlgebraicField
 from sympy.polys.domains.domain import Domain
 from sympy.polys.domains.fractionfield import FractionField
+from sympy.polys.fields import FracElement
 from sympy.polys.matrices import DomainMatrix
 from sympy.polys.polyerrors import CoercionFailed
 from sympy.polys.polytools import Poly
+from sympy.polys.rings import PolyElement
 
 from ._typing import FieldElement
 
@@ -167,6 +169,10 @@ def rational_constant_relation_rows(
             if any(entry != QQ.zero for entry in row)
         )
 
+    rank_one_rows = _rational_rank_one_rows(constants, values)
+    if rank_one_rows is not None:
+        return rank_one_rows
+
     kernel = _rational_constant_relation_kernel(constants, values)
     dimension = len(values)
     if not kernel:
@@ -183,6 +189,40 @@ def rational_constant_relation_rows(
         tuple(QQ.convert(entry) for entry in row)
         for row in matrix.nullspace(divide_last=True).to_list()
     )
+
+
+def _rational_rank_one_rows(
+    constants: FractionField,
+    values: tuple[FieldElement, ...],
+) -> tuple[tuple[FieldElement, ...], ...] | None:
+    """Return the single constraint row when all values span one QQ-line."""
+    elements = tuple(cast(FracElement, constants.convert(value)) for value in values)
+    pivot = next((element for element in elements if element != constants.zero), None)
+    if pivot is None:
+        return ()
+
+    ground = cast(Domain, constants.domain)
+    scalars: list[FieldElement] = []
+    pivot_leading = ground.convert(pivot.numer.LC) / ground.convert(pivot.denom.LC)
+    for element in elements:
+        if element == constants.zero:
+            scalars.append(QQ.zero)
+            continue
+        # A rational multiple has this leading-coefficient ratio; the exact
+        # field equality below verifies the candidate independently.
+        leading = ground.convert(element.numer.LC) / ground.convert(element.denom.LC)
+        coordinates = rational_constant_coordinates(ground, leading / pivot_leading)
+        if any(coordinate != QQ.zero for coordinate in coordinates[1:]):
+            return None
+        scalar = QQ.convert(coordinates[0])
+        if element.denom == pivot.denom:
+            matches = element.numer == pivot.numer.mul_ground(ground.convert(scalar))
+        else:
+            matches = element == constants.convert(scalar) * pivot
+        if not matches:
+            return None
+        scalars.append(scalar)
+    return (tuple(scalars),)
 
 
 def _rational_constant_relation_kernel(
@@ -229,16 +269,13 @@ def _rational_constant_relation_kernel(
         )
     lower = ground if len(symbols) == 1 else ground.frac_field(*symbols[:-1])
     variable = symbols[-1]
-    fractions = tuple(
-        constants.to_sympy(constants.convert(value)).as_numer_denom()
-        for value in values
-    )
+    elements = tuple(cast(FracElement, constants.convert(value)) for value in values)
     polynomial_fractions = tuple(
         (
-            Poly(numerator, variable, domain=lower),
-            Poly(denominator, variable, domain=lower),
+            _native_univariate_polynomial(element.numer, lower, variable),
+            _native_univariate_polynomial(element.denom, lower, variable),
         )
-        for numerator, denominator in fractions
+        for element in elements
     )
     denominator = polynomial_fractions[0][1]
     for _, item_denominator in polynomial_fractions[1:]:
@@ -252,10 +289,37 @@ def _rational_constant_relation_kernel(
         default=-1,
     )
     rows = tuple(
-        tuple(lower.convert(numerator.nth(degree)) for numerator in numerators)
+        tuple(cast(FieldElement, numerator.rep.nth(degree)) for numerator in numerators)
         for degree in range(maximum_degree + 1)
     )
     return _intersect_rational_kernel(basis, rows, lower)
+
+
+def _native_univariate_polynomial(
+    polynomial: PolyElement,
+    lower: Domain,
+    variable: Symbol,
+) -> Poly:
+    """View a native multivariate polynomial as an element of ``lower[t]``."""
+    coefficient_terms: dict[int, dict[tuple[int, ...], FieldElement]] = {}
+    for monomial, coefficient in polynomial.items():
+        coefficient_terms.setdefault(monomial[-1], {})[monomial[:-1]] = cast(
+            FieldElement,
+            coefficient,
+        )
+
+    if isinstance(lower, FractionField):
+        ground = cast(Domain, lower.domain)
+        coefficients = {
+            (degree,): lower.new(lower.field.ring.from_dict(terms, ground))
+            for degree, terms in coefficient_terms.items()
+        }
+    else:
+        coefficients = {
+            (degree,): lower.convert(next(iter(terms.values())))
+            for degree, terms in coefficient_terms.items()
+        }
+    return Poly.from_dict(coefficients, variable, domain=lower)
 
 
 def _intersect_rational_kernel(

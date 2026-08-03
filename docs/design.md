@@ -648,8 +648,10 @@ immutable native-field directions in tower order: `Dt` for primitive levels,
 `Dt/t` for hyperexponential levels, and the real `eta` in
 `Dt = eta*(1 + t**2)` for admitted hypertangent levels. Constants are expanded
 into exact rational rows by clearing denominators one parameter at a time and
-reducing the candidate relation space immediately. The rational base variable
-is the initial primitive direction. A supported signature
+reducing the candidate relation space immediately. This decomposition stays in
+SymPy's native polynomial domains; it does not convert algebraic coefficients
+back through symbolic expressions. The rational base variable is the initial
+primitive direction. A supported signature
 requires replayed constant preservation for every non-base active level;
 otherwise it returns an explicit `UNSUPPORTED` boundary result rather than a
 mathematical negative. Real finite algebraic constants use the exact
