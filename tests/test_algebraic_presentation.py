@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 import pytest
-from sympy import Poly, symbols
+from sympy import Poly, resultant, symbols
 from sympy.polys.domains import QQ
 from sympy.polys.matrices import DomainMatrix
 
@@ -67,6 +67,45 @@ def test_primitive_presentation_uses_one_global_characteristic_polynomial(
     assert calls == 1
 
 
+def test_primitive_presentation_tries_another_linear_combination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sources = (
+        AlgebraicExtension(Poly(a**2 - 2, a, domain=QQ)),
+        AlgebraicExtension(Poly(b**3 - 3, b, domain=QQ)),
+    )
+    attempts = 0
+    original = presentation_module._try_primitive_target
+
+    def reject_first_candidate(modulus: Poly) -> AlgebraicExtension | None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return None
+        return original(modulus)
+
+    monkeypatch.setattr(
+        presentation_module,
+        "_try_primitive_target",
+        reject_first_candidate,
+    )
+
+    presentation = normalize_primitive_element(sources, z)
+
+    assert attempts == 2
+    assert presentation.primitive_coefficients == (QQ.one, QQ(2))
+    assert presentation.target.field.generator == (
+        presentation.source_images[0] + 2 * presentation.source_images[1]
+    )
+    eliminated_b = resultant(b**3 - 3, z - a - 2 * b, b)
+    expected_modulus = Poly(
+        resultant(a**2 - 2, eliminated_b, a),
+        z,
+        domain=QQ,
+    ).monic()
+    assert presentation.target.minimal_polynomial == expected_modulus
+
+
 def test_primitive_presentation_allocates_only_two_full_square_operators(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -94,13 +133,13 @@ def test_primitive_presentation_allocates_only_two_full_square_operators(
     assert shapes.count((presentation.tensor_rank, presentation.tensor_rank)) == 2
 
 
-def test_reducible_tensor_presentation_stops_after_one_candidate(
+def test_reducible_tensor_presentation_exhausts_the_theorem_bound(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parent = rational_function_field()
     sources = (
         AlgebraicExtension(Poly(a**2 - x, a, domain=parent)),
-        AlgebraicExtension(Poly(b**2 - x, b, domain=parent)),
+        AlgebraicExtension(Poly(b**2 - 4 * x, b, domain=parent)),
     )
 
     calls = 0
@@ -112,9 +151,11 @@ def test_reducible_tensor_presentation_stops_after_one_candidate(
         return original(matrix)
 
     monkeypatch.setattr(DomainMatrix, "charpoly", counting_characteristic_polynomial)
-    with pytest.raises(NotImplementedError, match="does not certify"):
+    with pytest.raises(NotImplementedError, match="tensor product is reducible"):
         normalize_primitive_element(sources, z)
-    assert calls == 1
+    # There are at most binomial(4, 2) = 6 bad parameters if this rank-four
+    # tensor product is a field, so seven exact failures prove that it is not.
+    assert calls == 7
 
 
 def test_primitive_presentation_rejects_a_forged_source_image() -> None:
@@ -145,3 +186,14 @@ def test_primitive_presentation_rejects_a_foreign_parent() -> None:
 
     with pytest.raises(ValueError, match="same parent field"):
         normalize_primitive_element(sources, z)
+
+
+def test_primitive_presentation_rejects_a_parent_generator() -> None:
+    parent = rational_function_field()
+    sources = (
+        AlgebraicExtension(Poly(a**2 - x, a, domain=parent)),
+        AlgebraicExtension(Poly(b**2 - x - 1, b, domain=parent)),
+    )
+
+    with pytest.raises(ValueError, match="already occurs in the parent field"):
+        normalize_primitive_element(sources, x)

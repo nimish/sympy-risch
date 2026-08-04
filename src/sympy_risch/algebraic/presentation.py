@@ -6,15 +6,15 @@ domains.  The tensor-product basis is used only to prove that a displayed
 linear combination is primitive and to recover each source generator in the
 resulting monogenic field.
 
-The current factory admits the useful cell where the displayed generator sum
-has an irreducible full-degree characteristic polynomial.  Failure is reported
-as unsupported: it can mean either that another primitive linear combination
-is needed or that the tensor product is reducible and branch information must
-select a component.
+The current factory admits the useful cell where the tensor product of the
+displayed source fields is itself a field.  It searches a theorem-bounded
+one-parameter family of linear combinations, so failure means that the tensor
+product is reducible and branch information must select a component.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from itertools import product
 from math import prod
@@ -140,26 +140,31 @@ class PrimitiveElementPresentation:
         return self.target.field.rank
 
 
-def _primitive_sum_matrix(
+def _primitive_linear_combination_matrix(
     sources: tuple[AlgebraicExtension, ...],
+    coefficients: tuple[FieldElement, ...],
     basis: tuple[tuple[int, ...], ...],
     basis_indices: dict[tuple[int, ...], int],
     parent: Domain,
 ) -> DomainMatrix:
-    """Return multiplication by the source-generator sum in the tensor basis."""
+    """Return multiplication by a source-generator linear combination."""
     rank = len(basis)
     rows = [[parent.zero for _ in range(rank)] for _ in range(rank)]
     for column, exponents in enumerate(basis):
-        for source_index, source in enumerate(sources):
+        for source_index, (source, scalar) in enumerate(
+            zip(sources, coefficients, strict=True)
+        ):
             degree = source.field.rank
             next_power = exponents[source_index] + 1
             if next_power < degree:
                 target = list(exponents)
                 target[source_index] = next_power
-                rows[basis_indices[tuple(target)]][column] += parent.one
+                rows[basis_indices[tuple(target)]][column] += scalar
                 continue
             for power in range(degree):
-                coefficient = -parent.convert(source.minimal_polynomial.nth(power))
+                coefficient = -scalar * parent.convert(
+                    source.minimal_polynomial.nth(power)
+                )
                 if coefficient == parent.zero:
                     continue
                 target = list(exponents)
@@ -169,21 +174,65 @@ def _primitive_sum_matrix(
     return DomainMatrix(rows, (rank, rank), parent)
 
 
+def _primitive_coefficient_candidates(
+    parent: Domain,
+    source_count: int,
+    tensor_rank: int,
+) -> Iterator[tuple[FieldElement, ...]]:
+    r"""Return a complete finite family of primitive-element candidates.
+
+    For ``theta(c) = a_1 + c*a_2 + ... + c**(r-1)*a_r``, two distinct
+    embeddings agree on ``theta(c)`` only when ``c`` is a root of a nonzero
+    polynomial of degree at most ``r - 1``.  There are ``binomial(n, 2)``
+    embedding pairs for tensor rank ``n``.  Hence at most
+
+    ``(r - 1)*binomial(n, 2)``
+
+    ground-field values can fail when the tensor product is a field.  In
+    characteristic zero, the consecutive positive integers below are
+    distinct, and one more than this bound makes the search complete.
+    """
+    bad_value_bound = (source_count - 1) * tensor_rank * (tensor_rank - 1) // 2
+    for parameter in range(1, bad_value_bound + 2):
+        value = cast(FieldElement, parent.convert(parameter))
+        power = cast(FieldElement, parent.one)
+        coefficients: list[FieldElement] = []
+        for _ in range(source_count):
+            coefficients.append(power)
+            power = power * value
+        yield tuple(coefficients)
+
+
+def _try_primitive_target(modulus: Poly) -> AlgebraicExtension | None:
+    """Construct the candidate field exactly, returning ``None`` if reducible."""
+    try:
+        return AlgebraicExtension(modulus)
+    except ValueError as exc:
+        if str(exc) in {
+            "the minimal polynomial must be square-free",
+            "the minimal polynomial must be irreducible",
+        }:
+            return None
+        raise
+
+
 def normalize_primitive_element(
     sources: tuple[AlgebraicExtension, ...],
     generator: Symbol,
 ) -> PrimitiveElementPresentation:
     r"""Combine linearly-disjoint source fields using a primitive element.
 
-    The characteristic polynomial of multiplication by
-    ``a_1 + ... + a_r`` is computed in the tensor-product basis.  If it is
-    irreducible at the full product degree, it simultaneously proves that the
-    tensor product is a field and that this sum is primitive.  One exact
-    change-of-basis solve then recovers every ``a_i`` as a polynomial in the
-    target generator.
+    For ``c = 1, 2, ...``, the characteristic polynomial of multiplication by
+    ``a_1 + c*a_2 + ... + c**(r-1)*a_r`` is computed in the tensor-product
+    basis.  The primitive-element theorem gives a finite complete bound for
+    this search.  An irreducible polynomial at the full product degree
+    simultaneously proves that the tensor product is a field and that the
+    candidate is primitive.  One exact change-of-basis solve then recovers
+    every ``a_i`` as a polynomial in the target generator.
 
-    A reducible characteristic polynomial is an unsupported presentation, not
-    a claim that no compositum exists.
+    Exhausting the family proves only that the displayed tensor product is not
+    a field.  Its source-compatible irreducible component may still be a valid
+    compositum and remains an unsupported presentation-normalization case.
     """
     sources = tuple(sources)
     if len(sources) < 2:
@@ -201,33 +250,47 @@ def normalize_primitive_element(
         raise ValueError("all source extensions must have the same parent field")
     if generator in {source.generator for source in sources}:
         raise ValueError("the primitive generator must be fresh")
+    if generator in (getattr(parent, "symbols", ()) or ()):
+        raise ValueError(
+            f"primitive generator {generator} already occurs in the parent field"
+        )
 
     degrees = tuple(source.field.rank for source in sources)
     basis = tuple(product(*(range(degree) for degree in degrees)))
     basis_indices = {monomial: index for index, monomial in enumerate(basis)}
     rank = len(basis)
-    primitive_coefficients = tuple(cast(FieldElement, parent.one) for _ in sources)
-    primitive_matrix = _primitive_sum_matrix(
-        sources,
-        basis,
-        basis_indices,
+    primitive_coefficients: tuple[FieldElement, ...] | None = None
+    primitive_matrix: DomainMatrix | None = None
+    target: AlgebraicExtension | None = None
+    for coefficients in _primitive_coefficient_candidates(
         parent,
-    )
-    modulus = Poly.from_list(
-        primitive_matrix.charpoly(),
-        generator,
-        domain=parent,
-    ).monic()
-    if modulus.degree() != rank:
-        raise NotImplementedError(
-            "the displayed generator sum does not certify a primitive compositum"
+        len(sources),
+        rank,
+    ):
+        candidate_matrix = _primitive_linear_combination_matrix(
+            sources,
+            coefficients,
+            basis,
+            basis_indices,
+            parent,
         )
-    try:
-        target = AlgebraicExtension(modulus)
-    except ValueError as exc:
+        modulus = Poly.from_list(
+            candidate_matrix.charpoly(),
+            generator,
+            domain=parent,
+        ).monic()
+        candidate_target = _try_primitive_target(modulus)
+        if candidate_target is None:
+            continue
+        primitive_coefficients = coefficients
+        primitive_matrix = candidate_matrix
+        target = candidate_target
+        break
+    if primitive_coefficients is None or primitive_matrix is None or target is None:
         raise NotImplementedError(
-            "the displayed generator sum does not certify a primitive compositum"
-        ) from exc
+            "the source tensor product is reducible; selecting its "
+            "source-compatible component is not yet implemented"
+        )
 
     unit = [parent.zero for _ in range(rank)]
     unit[basis_indices[(0,) * len(sources)]] = parent.one
