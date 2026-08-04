@@ -141,5 +141,7 @@ supported tower shapes.
   a proposed future real-algebraic branch.
 - [Algebraic function-field infrastructure](docs/algebraic-infrastructure.md):
   exact orders, ideals, places, local expansions, divisors, and differentials.
+- [Checked monogenic extension fields](docs/monogenic-extension-field.md): an
+  exact coefficient-field replacement with checked irreducibility.
 - [Literature archive](references/README.md): locally available primary papers,
   their provenance, and cited works that still need an authorized copy.
