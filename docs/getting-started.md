@@ -56,11 +56,11 @@ from sympy import cancel, diff, exp, log, symbols
 from sympy_risch import ElementaryPrimitive, integrate_risch
 
 x, a, b = symbols("x a b")
-integrand = exp(a*x) * (a*log(x + b) + 1/(x + b))
+integrand = exp(a * x) * (a * log(x + b) + 1 / (x + b))
 result = integrate_risch(integrand, x)
 
 assert isinstance(result, ElementaryPrimitive)
-assert cancel(result.primitive - exp(a*x)*log(x + b)) == 0
+assert cancel(result.primitive - exp(a * x) * log(x + b)) == 0
 assert cancel(diff(result.primitive, x) - integrand) == 0
 ```
 

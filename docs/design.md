@@ -1225,8 +1225,27 @@ retained as a replay-validated Liouville obstruction and produces a distinct
 `NON_ELEMENTARY` algebraic result; unavailable finite data remains
 `UNSUPPORTED`. After all logarithmic residues are removed, a complete
 primitive-space decision likewise promotes a nonexact first- or second-kind
-differential to a distinct Liouville obstruction. The general Risch equation
-on an algebraic curve remains open.
+differential to a distinct Liouville obstruction. The rational-coordinate
+decomposition is also the complete relation criterion on this admitted cell:
+linear independence of the constant basis makes a full-rank logarithmic
+relation lattice equivalent to torsion of every coordinate divisor. Coupled
+relations may shorten a reconstructed answer, but cannot turn a nontorsion
+coordinate class into an elementary integral.
+
+For algebraic Risch equations, a first general finite-dimensional kernel is
+available. Given an explicit effective divisor `E`, it constructs the complete
+Riemann--Roch space `L(E)` once and solves
+
+```text
+D(u) + a*u = b,  u in L(E)
+```
+
+as one exact constant-linear system on the operator images of the certified
+basis. Positive results reconstruct in the native field. An inconsistent
+augmented system proves only that `L(E)` contains no solution; it is kept
+distinct from a global RDE negative. The remaining general RDE step is the
+local valuation and resonance analysis that derives a theorem-complete pole
+bound `E` for every possible solution, followed by the parametric analogue.
 Recursive composition with transcendental levels comes after those field-level
 decisions and an exact backend representation for the mixed tower.
 

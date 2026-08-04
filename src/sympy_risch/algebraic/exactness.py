@@ -15,13 +15,12 @@ from __future__ import annotations
 
 from dataclasses import InitVar, dataclass
 from enum import Enum
-from typing import TypeAlias, cast
+from typing import TypeAlias
 
 from sympy.polys.agca.extensions import ExtensionElement
 from sympy.polys.polyerrors import HeuristicGCDFailed
 
-from .._typing import FieldElement
-from ..algebraic._field import _base_polynomial_ring, _extension_element
+from ..algebraic._field import _extension_element
 from ..algebraic.constant_analysis import (
     AlgebraicConstantFieldAnalysis,
     AlgebraicConstantFieldStatus,
@@ -35,9 +34,9 @@ from ..algebraic_geometry.riemann_roch import (
     CertifiedRiemannRochSpace,
     RiemannRochUnsupported,
     compute_riemann_roch_space,
-    constant_coordinate_matrix,
 )
 from ..tower import Derivation
+from .linear import constant_linear_combination, solve_constant_linear_span
 
 
 class AlgebraicExactnessCertificate(Enum):
@@ -79,29 +78,6 @@ def _has_nonzero_residue(differential: AlgebraicDifferential) -> bool:
     return False
 
 
-def _constant_linear_combination(
-    model: AlgebraicFunctionField,
-    basis: tuple[ExtensionElement, ...],
-    coordinates: tuple[FieldElement, ...],
-) -> ExtensionElement:
-    """Rebuild a constant-linear combination in the native function field."""
-    if len(basis) != len(coordinates):
-        raise ValueError("constant coordinates have the wrong basis dimension")
-    _parent, constants, _variable = _base_polynomial_ring(model.extension)
-    result = model.extension.field.zero
-    for coordinate, element in zip(coordinates, basis, strict=True):
-        coefficient = constants.convert(coordinate)
-        if coefficient != constants.zero:
-            result += (
-                _extension_element(
-                    model.extension,
-                    constants.to_sympy(coefficient),
-                )
-                * element
-            )
-    return cast(ExtensionElement, result)
-
-
 def _solve_constant_derivative_equation(
     model: AlgebraicFunctionField,
     derivation: Derivation,
@@ -113,19 +89,10 @@ def _solve_constant_derivative_equation(
     derivatives = tuple(
         _extension_element(model.extension, derivation(element)) for element in basis
     )
-    augmented = constant_coordinate_matrix(model, (*derivatives, coefficient))
-    reduced, pivots = augmented.rref()
-    right_column = len(basis)
-    if right_column in pivots:
+    solve = solve_constant_linear_span(model, derivatives, coefficient)
+    if solve.coordinates is None:
         return None
-
-    _parent, constants, _variable = _base_polynomial_ring(model.extension)
-    coordinates: list[FieldElement] = [constants.zero for _ in basis]
-    reduced_rows = reduced.to_list()
-    for row, pivot in enumerate(pivots):
-        if pivot < right_column:
-            coordinates[pivot] = constants.convert(reduced_rows[row][right_column])
-    primitive = _constant_linear_combination(model, basis, tuple(coordinates))
+    primitive = constant_linear_combination(model, basis, solve.coordinates)
     if derivation(primitive) - coefficient != model.extension.field.zero:
         raise ValueError("the exact constant derivative solve did not reconstruct")
     return primitive

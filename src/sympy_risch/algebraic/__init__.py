@@ -51,6 +51,14 @@ from .rde import (
     AlgebraicIntegratingFactorRDEStatus,
     solve_algebraic_integrating_factor_rde,
 )
+from .rde_space import (
+    AlgebraicRDEInSpaceProblem,
+    AlgebraicRDEInSpaceResult,
+    AlgebraicRDEInSpaceSolution,
+    AlgebraicRDEInSpaceUnsupported,
+    AlgebraicRDENoSolutionInSpace,
+    solve_algebraic_rde_in_space,
+)
 from .relative import (
     RelativeSimpleRadicalData,
     RelativeSimpleRadicalRDEComponent,
@@ -103,6 +111,11 @@ __all__ = [
     "AlgebraicLocalDifferentialResidue",
     "AlgebraicNoPrimitive",
     "AlgebraicPlaceResidue",
+    "AlgebraicRDEInSpaceProblem",
+    "AlgebraicRDEInSpaceResult",
+    "AlgebraicRDEInSpaceSolution",
+    "AlgebraicRDEInSpaceUnsupported",
+    "AlgebraicRDENoSolutionInSpace",
     "AlgebraicResidueCoordinateCertificate",
     "AlgebraicResidueProfile",
     "AlgebraicResidueProfileFactor",
@@ -133,6 +146,7 @@ __all__ = [
     "simple_radical_integral_basis",
     "solve_algebraic_exactness",
     "solve_algebraic_integrating_factor_rde",
+    "solve_algebraic_rde_in_space",
     "solve_relative_simple_radical_exact_derivative",
     "solve_relative_simple_radical_rde",
     "trager_algebraic_place_residues",

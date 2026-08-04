@@ -408,8 +408,15 @@ genus-one order-two regression over `QQ(sqrt(2))` reconstructs
 `log(x - sqrt(2))/2` without an order hint. Conversely, an elliptic
 rational-coordinate divisor certified nontorsion now produces a sealed
 Liouville `NON_ELEMENTARY` obstruction; bounded exhaustion remains
-unsupported. Curve arithmetic over non-prime
-`GF(p^f)` and the complete positive-genus combination solver remain open.
+unsupported. Curve arithmetic over non-prime `GF(p^f)` remains open. No
+additional coupled positive-genus decision is required after
+rational-coordinate descent: if
+`r_P = sum_i q_(i,P)*beta_i` in a rational basis of the common constant field,
+then any logarithmic representation makes every coordinate divisor
+`sum_P q_(i,P)*P` a rational combination of principal divisors, hence torsion.
+Conversely, torsion witnesses for all coordinate divisors reconstruct a
+full-rank relation lattice. A coupled lattice reduction remains useful only
+for presenting shorter logarithmic answers.
 General splitting fields over `QQ` or displayed algebraic number fields are
 constructed by successive exact root adjunctions; every step retains the
 source embedding and its new root through a resultant primitive element, and
@@ -427,9 +434,11 @@ Generalize the current displayed-constant path:
 6. decide principality/torsion of those combinations; and
 7. reconstruct logarithmic arguments in the common target field.
 
-The combination step is essential: individual residue divisors can be
-nontorsion even when the constant-linear combination required by Liouville's
-theorem is torsion.
+The combination step is essential before the torsion decisions: raw divisors
+attached to individual residue values can be nontorsion even when the
+rational-coordinate combination required by Liouville's theorem is torsion.
+Once those coordinate divisors have been formed, however, their individual
+torsion is the complete criterion described above.
 
 Use Trager's thesis, Miller's logarithmic-part treatment, and Schultz's
 curve-based reconstruction as mutually checking formulations. Independent
@@ -480,6 +489,15 @@ automatically, including high-degree nonradical relations and positive-genus
 curves.
 
 ### A9. Solve scalar and parametric RDEs on algebraic curves
+
+**Progress:** the finite-dimensional scalar kernel is complete. For a supplied
+effective divisor `E`, the solver constructs a certified complete `L(E)`,
+forms the operator columns `D(v_i) + a*v_i` once, and solves the resulting
+constant-linear system exactly. It returns either a reconstructible solution,
+a factory-owned proof that this particular `L(E)` has no solution, or an
+explicit unsupported boundary. The negative result is intentionally not a
+global RDE obstruction. Local valuation/resonance bounds at every finite and
+infinite place, and the parametric extension, remain open.
 
 Use the geometry engine to implement the algebraic-curve Risch differential
 equation:
