@@ -468,6 +468,17 @@ ramification index one. The preceding differential is embedded and collected
 again at every target place. Recollecting is required: transported source
 finite residues alone would miss target infinity and other descendants.
 
+Direct algebraic expression sources over the same exact parent use the same
+resultant idea without assuming linear disjointness. The Trager compositum
+normalizer merges sources pairwise, searches for a square-free norm of
+`a + s*b`, factors that norm into all finite-etale field components, and uses
+the resultant's linear subresultant modulo each factor to reconstruct both
+source generators. A single component is installed as the primitive algebraic
+tower level. If there are several components, the exact decomposition is
+retained but the expression frontend currently returns an unsupported
+boundary: selecting one requires a source relation or branch certificate, not
+an arbitrary factor ordering.
+
 The result keeps both fields visible. Its `source_result` records why the
 source needed a base change; when present, `target_result` and
 `antiderivative` belong to the target field, never silently to the source.

@@ -71,6 +71,7 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "AlgebraicAllPlacesCollected",
         "AlgebraicAllPlacesUnsupported",
         "AlgebraicAllPlaceResidueResult",
+        "AmbiguousCompositumError",
         "AlgebraicConstantEmbedding",
         "AlgebraicConstantFieldAnalysis",
         "AlgebraicConstantFieldStatus",
@@ -95,6 +96,7 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "AlgebraicResidueProfileFactor",
         "AlgebraicResidueProfileStatus",
         "IntegralBasis",
+        "EtaleCompositumPresentation",
         "PrimitiveElementPresentation",
         "RelativeSimpleRadicalData",
         "RelativeSimpleRadicalHermiteMode",
@@ -122,6 +124,7 @@ def test_algebraic_facade_has_an_intentional_advanced_surface() -> None:
         "simple_radical_integral_basis",
         "trager_algebraic_place_residues",
         "trager_algebraic_residue_polynomial",
+        "trager_compositum",
     }
     assert all(hasattr(algebraic, name) for name in algebraic.__all__)
     assert not hasattr(algebraic, "UnramifiedFinitePlace")

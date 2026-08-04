@@ -1,12 +1,17 @@
 from dataclasses import replace
+from itertools import product
 
 import pytest
-from sympy import Poly, resultant, symbols
+from sympy import Poly, symbols
 from sympy.polys.domains import QQ
 from sympy.polys.matrices import DomainMatrix
 
-import sympy_risch.algebraic.presentation as presentation_module
-from sympy_risch.algebraic.presentation import normalize_primitive_element
+import sympy_risch.algebraic.compositum as compositum_module
+from sympy_risch.algebraic.compositum import (
+    normalize_primitive_element,
+    trager_compositum,
+)
+from sympy_risch.algebraic.presentation import AmbiguousCompositumError
 from sympy_risch.tower import (
     AlgebraicExtension,
     DifferentialTower,
@@ -20,6 +25,35 @@ def rational_function_field():
     return (
         DifferentialTower(QQ).extend(MonomialExtension(Poly(1, x, domain=QQ))).field()
     )
+
+
+def tensor_characteristic_polynomial(sources, coefficients, generator):
+    """Independent dense-matrix oracle for small compositum examples."""
+    parent = sources[0].parent_field
+    degrees = tuple(source.field.rank for source in sources)
+    basis = tuple(product(*(range(degree) for degree in degrees)))
+    indices = {monomial: index for index, monomial in enumerate(basis)}
+    rows = [[parent.zero for _ in basis] for _ in basis]
+    for column, exponents in enumerate(basis):
+        for source_index, (source, scalar) in enumerate(
+            zip(sources, coefficients, strict=True)
+        ):
+            next_power = exponents[source_index] + 1
+            if next_power < source.field.rank:
+                target = list(exponents)
+                target[source_index] = next_power
+                rows[indices[tuple(target)]][column] += scalar
+                continue
+            for power in range(source.field.rank):
+                coefficient = -scalar * parent.convert(
+                    source.minimal_polynomial.nth(power)
+                )
+                if coefficient != parent.zero:
+                    target = list(exponents)
+                    target[source_index] = power
+                    rows[indices[tuple(target)]][column] += coefficient
+    matrix = DomainMatrix(rows, (len(basis), len(basis)), parent)
+    return Poly.from_list(matrix.charpoly(), generator, domain=parent).monic()
 
 
 def test_primitive_presentation_recovers_independent_radicals() -> None:
@@ -43,7 +77,7 @@ def test_primitive_presentation_recovers_independent_radicals() -> None:
     assert presentation.source_images[1] ** 3 == embedded_x
 
 
-def test_primitive_presentation_uses_one_global_characteristic_polynomial(
+def test_primitive_presentation_uses_one_trager_norm(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parent = rational_function_field()
@@ -53,60 +87,55 @@ def test_primitive_presentation_uses_one_global_characteristic_polynomial(
     )
 
     calls = 0
-    original = DomainMatrix.charpoly
+    original = compositum_module._trager_norm
 
-    def counting_characteristic_polynomial(matrix: DomainMatrix):
+    def counting_trager_norm(*args, **kwargs):
         nonlocal calls
         calls += 1
-        return original(matrix)
+        return original(*args, **kwargs)
 
-    monkeypatch.setattr(DomainMatrix, "charpoly", counting_characteristic_polynomial)
+    monkeypatch.setattr(compositum_module, "_trager_norm", counting_trager_norm)
     presentation = normalize_primitive_element(sources, z)
 
     assert presentation.tensor_rank == 4
     assert calls == 1
 
 
-def test_primitive_presentation_tries_another_linear_combination(
+def test_trager_compositum_naturally_tries_a_second_separator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sources = (
         AlgebraicExtension(Poly(a**2 - 2, a, domain=QQ)),
-        AlgebraicExtension(Poly(b**3 - 3, b, domain=QQ)),
+        AlgebraicExtension(Poly(b**2 - 2, b, domain=QQ)),
     )
     attempts = 0
-    original = presentation_module._try_primitive_target
+    original = compositum_module._trager_norm
 
-    def reject_first_candidate(modulus: Poly) -> AlgebraicExtension | None:
+    def counting_trager_norm(*args, **kwargs):
         nonlocal attempts
         attempts += 1
-        if attempts == 1:
-            return None
-        return original(modulus)
+        return original(*args, **kwargs)
 
     monkeypatch.setattr(
-        presentation_module,
-        "_try_primitive_target",
-        reject_first_candidate,
+        compositum_module,
+        "_trager_norm",
+        counting_trager_norm,
     )
 
-    presentation = normalize_primitive_element(sources, z)
+    decomposition = trager_compositum(sources, z)
 
     assert attempts == 2
-    assert presentation.primitive_coefficients == (QQ.one, QQ(2))
-    assert presentation.target.field.generator == (
-        presentation.source_images[0] + 2 * presentation.source_images[1]
+    assert len(decomposition.components) == 2
+    assert all(
+        component.primitive_coefficients == (QQ.one, QQ(2))
+        for component in decomposition.components
     )
-    eliminated_b = resultant(b**3 - 3, z - a - 2 * b, b)
-    expected_modulus = Poly(
-        resultant(a**2 - 2, eliminated_b, a),
-        z,
-        domain=QQ,
-    ).monic()
-    assert presentation.target.minimal_polynomial == expected_modulus
+    assert {
+        component.target.minimal_polynomial for component in decomposition.components
+    } == {Poly(z**2 - 18, z, domain=QQ), Poly(z**2 - 2, z, domain=QQ)}
 
 
-def test_primitive_presentation_allocates_only_two_full_square_operators(
+def test_trager_compositum_merges_sources_pairwise(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parent = rational_function_field()
@@ -115,25 +144,25 @@ def test_primitive_presentation_allocates_only_two_full_square_operators(
         AlgebraicExtension(Poly(b**2 - x - 1, b, domain=parent)),
         AlgebraicExtension(Poly(c**2 - x - 2, c, domain=parent)),
     )
-    shapes: list[tuple[int, int]] = []
-    original = DomainMatrix
+    ranks: list[tuple[int, int]] = []
+    original = compositum_module._trager_norm
 
-    def recording_domain_matrix(rows, shape, domain):
-        shapes.append(shape)
-        return original(rows, shape, domain)
+    def recording_trager_norm(left, right, generator, scalar):
+        ranks.append((left.field.rank, right.field.rank))
+        return original(left, right, generator, scalar)
 
     monkeypatch.setattr(
-        presentation_module,
-        "DomainMatrix",
-        recording_domain_matrix,
+        compositum_module,
+        "_trager_norm",
+        recording_trager_norm,
     )
     presentation = normalize_primitive_element(sources, z)
 
     assert presentation.tensor_rank == 8
-    assert shapes.count((presentation.tensor_rank, presentation.tensor_rank)) == 2
+    assert ranks == [(2, 2), (4, 2)]
 
 
-def test_reducible_tensor_presentation_exhausts_the_theorem_bound(
+def test_trager_compositum_exposes_dependent_field_components(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parent = rational_function_field()
@@ -143,19 +172,49 @@ def test_reducible_tensor_presentation_exhausts_the_theorem_bound(
     )
 
     calls = 0
-    original = DomainMatrix.charpoly
+    original = compositum_module._trager_norm
 
-    def counting_characteristic_polynomial(matrix: DomainMatrix):
+    def counting_trager_norm(*args, **kwargs):
         nonlocal calls
         calls += 1
-        return original(matrix)
+        return original(*args, **kwargs)
 
-    monkeypatch.setattr(DomainMatrix, "charpoly", counting_characteristic_polynomial)
-    with pytest.raises(NotImplementedError, match="tensor product is reducible"):
+    monkeypatch.setattr(compositum_module, "_trager_norm", counting_trager_norm)
+    decomposition = trager_compositum(sources, z)
+
+    assert calls == 1
+    assert not decomposition.is_field
+    assert decomposition.tensor_rank == 4
+    assert len(decomposition.components) == 2
+    assert {
+        component.target.minimal_polynomial for component in decomposition.components
+    } == {
+        Poly(z**2 - 9 * x, z, domain=parent),
+        Poly(z**2 - x, z, domain=parent),
+    }
+    for component in decomposition.components:
+        first, second = component.source_images
+        assert second == 2 * first or second == -2 * first
+
+    with pytest.raises(AmbiguousCompositumError) as exc_info:
         normalize_primitive_element(sources, z)
-    # There are at most binomial(4, 2) = 6 bad parameters if this rank-four
-    # tensor product is a field, so seven exact failures prove that it is not.
-    assert calls == 7
+    assert exc_info.value.decomposition == decomposition
+
+
+def test_trager_modulus_agrees_with_dense_tensor_oracle() -> None:
+    sources = (
+        AlgebraicExtension(Poly(a**2 - 2, a, domain=QQ)),
+        AlgebraicExtension(Poly(b**3 - 3, b, domain=QQ)),
+    )
+
+    presentation = normalize_primitive_element(sources, z)
+
+    expected_modulus = tensor_characteristic_polynomial(
+        sources,
+        presentation.primitive_coefficients,
+        z,
+    )
+    assert presentation.target.minimal_polynomial == expected_modulus
 
 
 def test_primitive_presentation_rejects_a_forged_source_image() -> None:

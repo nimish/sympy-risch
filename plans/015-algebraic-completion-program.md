@@ -125,17 +125,21 @@ presentation or returns one stable capability boundary.
 
 ### A1. Normalize general algebraic-function-field presentations
 
-**Progress:** the linearly-disjoint direct-presentation cell is implemented.
-Several rational-power extensions of the same exact rational-function parent
-are combined in one tensor basis. The normalizer searches
-``a_1 + c*a_2 + ... + c**(r-1)*a_r`` over one more than the theorem-bounded
-number of bad characteristic-zero parameters. An irreducible characteristic
-polynomial at the full tensor degree certifies the field, and one inverse
-power-basis transform recovers every source generator. Exhaustion therefore
-proves that the displayed tensor product is reducible, but remains an
-unsupported normalization result rather than a negative integration result:
-selection of the source-compatible component still requires relation or
-branch evidence. General `RootOf` inputs, dependent composita, separating
+**Progress:** the direct finite-separable compositum cell is implemented over
+an exact characteristic-zero parent with univariate factorization. Sources are
+merged pairwise by Trager's square-free-norm algorithm. For
+``z = a + s*b``, an exact resultant computes the norm without constructing a
+dense tensor multiplication matrix; the first square-free norm is factored
+into every field component, and the resultant's linear subresultant modulo
+each factor recovers both source embeddings. Pairwise merging carries those
+embeddings through any number of direct sources.
+
+The public etale presentation proves completeness by checking that component
+degrees sum to the tensor-product degree. A unique component yields the former
+primitive-field result. Several components are retained as exact ambiguity:
+the normalizer does not guess a branch, and expression compilation currently
+declines the presentation until source-relation evidence selects a component.
+General `RootOf` inputs, automatic component selection, separating
 transcendence elements, constant enlargement, and chart normalization remain.
 
 Replace the assumption that every useful curve arrives as one convenient

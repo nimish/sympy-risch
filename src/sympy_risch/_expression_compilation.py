@@ -43,10 +43,8 @@ from ._expression_validation import (
     validate_compiled_extension_sources,
 )
 from ._typing import FieldElement, SupportsAsExpr
-from .algebraic.presentation import (
-    PrimitiveElementPresentation,
-    normalize_primitive_element,
-)
+from .algebraic.compositum import normalize_primitive_element
+from .algebraic.presentation import PrimitiveElementPresentation
 from .dependency import (
     TranscendentalExtensionAnalysis,
     certify_hyperexponential_extension,

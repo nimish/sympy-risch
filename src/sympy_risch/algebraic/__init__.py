@@ -15,6 +15,7 @@ from .basis import (
     recognize_simple_radical,
     simple_radical_integral_basis,
 )
+from .compositum import normalize_primitive_element, trager_compositum
 from .constant_analysis import (
     AlgebraicConstantEmbedding,
     AlgebraicConstantFieldAnalysis,
@@ -40,7 +41,11 @@ from .log_derivative import (
     AlgebraicIntegratingFactorStatus,
     find_algebraic_integrating_factor,
 )
-from .presentation import PrimitiveElementPresentation, normalize_primitive_element
+from .presentation import (
+    AmbiguousCompositumError,
+    EtaleCompositumPresentation,
+    PrimitiveElementPresentation,
+)
 from .rde import (
     AlgebraicIntegratingFactorRDEResult,
     AlgebraicIntegratingFactorRDEStatus,
@@ -102,6 +107,8 @@ __all__ = [
     "AlgebraicResidueProfile",
     "AlgebraicResidueProfileFactor",
     "AlgebraicResidueProfileStatus",
+    "AmbiguousCompositumError",
+    "EtaleCompositumPresentation",
     "IntegralBasis",
     "PrimitiveElementPresentation",
     "RelativeSimpleRadicalData",
@@ -130,4 +137,5 @@ __all__ = [
     "solve_relative_simple_radical_rde",
     "trager_algebraic_place_residues",
     "trager_algebraic_residue_polynomial",
+    "trager_compositum",
 ]
