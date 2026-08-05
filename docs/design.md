@@ -1241,7 +1241,9 @@ D(u) + a*u = b,  u in L(E)
 ```
 
 as one exact constant-linear system on the operator images of the certified
-basis. Positive results reconstruct in the native field. An inconsistent
+basis. Positive results reconstruct in the native field. The homogeneous
+equation returns its unconditional zero witness before requesting a full
+constant-field proof or constructing `L(E)`. An inconsistent
 augmented system proves only that `L(E)` contains no solution; it is kept
 distinct from a global RDE negative. The remaining general RDE step is the
 local valuation and resonance analysis that derives a theorem-complete pole

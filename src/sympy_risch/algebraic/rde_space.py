@@ -98,6 +98,41 @@ def _validate_space(
         raise ValueError("the certified space belongs to another RDE problem")
 
 
+@dataclass(frozen=True, slots=True)
+class AlgebraicRDEZeroSolution:
+    r"""The unconditional solution ``u = 0`` of a homogeneous RDE.
+
+    This positive witness needs neither a full-constant-field proof nor a
+    constructed Riemann--Roch space: zero belongs to ``L(E)`` for every
+    effective divisor ``E``.
+    """
+
+    problem: AlgebraicRDEInSpaceProblem
+    detail: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.problem, AlgebraicRDEInSpaceProblem):
+            raise TypeError("a zero algebraic RDE solution needs a problem")
+        if self.problem.right_hand_side != self.problem.model.extension.field.zero:
+            raise ValueError("the zero function solves only a homogeneous RDE")
+        if not isinstance(self.detail, str) or not self.detail:
+            raise ValueError("a zero algebraic RDE solution needs a nonempty detail")
+
+    @property
+    def solution(self) -> ExtensionElement:
+        """Return the zero element of the problem's function field."""
+        return self.problem.model.extension.field.zero
+
+    @property
+    def reconstructs(self) -> bool:
+        """Whether zero satisfies the requested homogeneous RDE."""
+        return (
+            self.problem.derivation(self.solution)
+            + self.problem.coefficient * self.solution
+            == self.problem.right_hand_side
+        )
+
+
 @dataclass(frozen=True, slots=True, init=False)
 class AlgebraicRDEInSpaceSolution:
     """A verified solution of the RDE belonging to the requested ``L(E)``."""
@@ -117,14 +152,17 @@ class AlgebraicRDEInSpaceSolution:
         problem: AlgebraicRDEInSpaceProblem,
         space: CertifiedRiemannRochSpace,
         coordinates: tuple[FieldElement, ...],
-        solution: ExtensionElement,
         detail: str,
     ) -> AlgebraicRDEInSpaceSolution:
         result = object.__new__(cls)
         object.__setattr__(result, "problem", problem)
         object.__setattr__(result, "space", space)
         object.__setattr__(result, "coordinates", coordinates)
-        object.__setattr__(result, "solution", solution)
+        object.__setattr__(
+            result,
+            "solution",
+            constant_linear_combination(problem.model, space.basis, coordinates),
+        )
         object.__setattr__(result, "detail", detail)
         result._validate()
         return result
@@ -135,12 +173,7 @@ class AlgebraicRDEInSpaceSolution:
             raise ValueError("the algebraic RDE coordinates have the wrong dimension")
         if not isinstance(self.detail, str) or not self.detail:
             raise ValueError("an algebraic RDE solution needs a nonempty detail")
-        expected = constant_linear_combination(
-            self.problem.model,
-            self.space.basis,
-            self.coordinates,
-        )
-        if self.solution != expected or not self.reconstructs:
+        if not self.reconstructs:
             raise ValueError("the algebraic RDE solution does not reconstruct")
 
     @property
@@ -225,7 +258,8 @@ class AlgebraicRDEInSpaceUnsupported:
 
 
 AlgebraicRDEInSpaceResult: TypeAlias = (
-    AlgebraicRDEInSpaceSolution
+    AlgebraicRDEZeroSolution
+    | AlgebraicRDEInSpaceSolution
     | AlgebraicRDENoSolutionInSpace
     | AlgebraicRDEInSpaceUnsupported
 )
@@ -255,6 +289,11 @@ def solve_algebraic_rde_in_space(
         constant_field_analysis,
         pole_divisor,
     )
+    if problem.right_hand_side == model.extension.field.zero:
+        return AlgebraicRDEZeroSolution(
+            problem,
+            "the zero function solves the homogeneous algebraic RDE",
+        )
     if constant_field_analysis.status is not AlgebraicConstantFieldStatus.PRESERVED:
         return AlgebraicRDEInSpaceUnsupported(
             problem,
@@ -306,12 +345,10 @@ def solve_algebraic_rde_in_space(
             "the augmented constant-linear system proves that this complete "
             "Riemann--Roch space contains no solution",
         )
-    solution = constant_linear_combination(model, space.basis, solve.coordinates)
     return AlgebraicRDEInSpaceSolution._create(
         problem,
         space,
         solve.coordinates,
-        solution,
         "an exact constant-linear solve found a solution in the certified "
         "Riemann--Roch space",
     )
@@ -323,5 +360,6 @@ __all__ = [
     "AlgebraicRDEInSpaceSolution",
     "AlgebraicRDEInSpaceUnsupported",
     "AlgebraicRDENoSolutionInSpace",
+    "AlgebraicRDEZeroSolution",
     "solve_algebraic_rde_in_space",
 ]

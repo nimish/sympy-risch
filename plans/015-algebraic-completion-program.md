@@ -496,7 +496,9 @@ forms the operator columns `D(v_i) + a*v_i` once, and solves the resulting
 constant-linear system exactly. It returns either a reconstructible solution,
 a factory-owned proof that this particular `L(E)` has no solution, or an
 explicit unsupported boundary. The negative result is intentionally not a
-global RDE obstruction. Local valuation/resonance bounds at every finite and
+global RDE obstruction. A homogeneous equation returns the unconditional zero
+solution without requiring constant-field or Riemann--Roch completeness.
+Local valuation/resonance bounds at every finite and
 infinite place, and the parametric extension, remain open.
 
 Use the geometry engine to implement the algebraic-curve Risch differential

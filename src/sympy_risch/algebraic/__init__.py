@@ -57,6 +57,7 @@ from .rde_space import (
     AlgebraicRDEInSpaceSolution,
     AlgebraicRDEInSpaceUnsupported,
     AlgebraicRDENoSolutionInSpace,
+    AlgebraicRDEZeroSolution,
     solve_algebraic_rde_in_space,
 )
 from .relative import (
@@ -116,6 +117,7 @@ __all__ = [
     "AlgebraicRDEInSpaceSolution",
     "AlgebraicRDEInSpaceUnsupported",
     "AlgebraicRDENoSolutionInSpace",
+    "AlgebraicRDEZeroSolution",
     "AlgebraicResidueCoordinateCertificate",
     "AlgebraicResidueProfile",
     "AlgebraicResidueProfileFactor",

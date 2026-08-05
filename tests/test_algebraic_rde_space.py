@@ -21,6 +21,7 @@ from sympy_risch.algebraic.rde_space import (
     AlgebraicRDEInSpaceSolution,
     AlgebraicRDEInSpaceUnsupported,
     AlgebraicRDENoSolutionInSpace,
+    AlgebraicRDEZeroSolution,
     solve_algebraic_rde_in_space,
 )
 from sympy_risch.algebraic_geometry.function_field import (
@@ -177,25 +178,62 @@ def test_unproved_constants_and_foreign_divisors_are_not_admitted() -> None:
         )
 
 
+def test_homogeneous_rde_keeps_zero_without_constant_field_proof() -> None:
+    extension, derivation, model, analysis = algebraic_model(y**2 - x)
+    unsupported_analysis = replace(
+        analysis,
+        status=AlgebraicConstantFieldStatus.UNSUPPORTED,
+        embedding=None,
+        detail="forced unsupported constant-field boundary",
+    )
+
+    result = solve_algebraic_rde_in_space(
+        extension.field.generator,
+        extension.field.zero,
+        derivation,
+        model,
+        unsupported_analysis,
+        AlgebraicDivisor(model),
+    )
+
+    assert isinstance(result, AlgebraicRDEZeroSolution)
+    assert result.solution == extension.field.zero
+    assert result.reconstructs
+    assert not hasattr(result, "space")
+
+
 def test_solver_builds_one_constant_linear_system(monkeypatch) -> None:
     """Increasing the space dimension does not rebuild the global matrix."""
+    import sympy_risch.algebraic.linear as linear_module
     import sympy_risch.algebraic.rde_space as rde_space_module
 
     extension, derivation, model, analysis = algebraic_model(y**2 - x)
     solution = extension.field.generator
     pole_divisor = model.principal_divisor(solution).negative_part.scale(3)
-    original = rde_space_module.solve_constant_linear_span
-    calls = 0
+    original_matrix = linear_module.constant_coordinate_matrix
+    original_combination = rde_space_module.constant_linear_combination
+    matrix_calls = 0
+    combination_calls = 0
 
-    def counted_solve(*args, **kwargs):
-        nonlocal calls
-        calls += 1
-        return original(*args, **kwargs)
+    def counted_matrix(*args, **kwargs):
+        nonlocal matrix_calls
+        matrix_calls += 1
+        return original_matrix(*args, **kwargs)
+
+    def counted_combination(*args, **kwargs):
+        nonlocal combination_calls
+        combination_calls += 1
+        return original_combination(*args, **kwargs)
 
     monkeypatch.setattr(
+        linear_module,
+        "constant_coordinate_matrix",
+        counted_matrix,
+    )
+    monkeypatch.setattr(
         rde_space_module,
-        "solve_constant_linear_span",
-        counted_solve,
+        "constant_linear_combination",
+        counted_combination,
     )
     result = solve_algebraic_rde_in_space(
         solution,
@@ -208,4 +246,5 @@ def test_solver_builds_one_constant_linear_system(monkeypatch) -> None:
 
     assert isinstance(result, AlgebraicRDEInSpaceSolution)
     assert len(result.space.basis) == 4
-    assert calls == 1
+    assert matrix_calls == 1
+    assert combination_calls == 1
