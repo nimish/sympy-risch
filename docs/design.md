@@ -1232,24 +1232,29 @@ relation lattice equivalent to torsion of every coordinate divisor. Coupled
 relations may shorten a reconstructed answer, but cannot turn a nontorsion
 coordinate class into an elementary integral.
 
-For algebraic Risch equations, a first general finite-dimensional kernel is
-available. Given an explicit effective divisor `E`, it constructs the complete
-Riemann--Roch space `L(E)` once and solves
+For algebraic Risch equations, the scalar direct-curve decision is complete on
+the admitted full-constant cell. Given
 
 ```text
-D(u) + a*u = b,  u in L(E)
+D(u) + a*u = b
 ```
 
-as one exact constant-linear system on the operator images of the certified
-basis. Positive results reconstruct in the native field. The homogeneous
-equation returns its unconditional zero witness before requesting a full
-constant-field proof or constructing `L(E)`. An inconsistent
-augmented system proves only that `L(E)` contains no solution; it is kept
-distinct from a global RDE negative. The remaining general RDE step is the
-local valuation and resonance analysis that derives a theorem-complete pole
-bound `E` for every possible solution, followed by the parametric analogue.
-Recursive composition with transcendental levels comes after those field-level
-decisions and an exact backend representation for the mixed tower.
+it forms `A = a*dx` and `B = b*dx`. At each place, dominant balance between
+`du` and `A*u` bounds the valuation of `u`; when `A` has a simple pole, the
+single possible exceptional order is the negative integral residue of `A`.
+The union of `div(A)` and `div(B)` is complete because both orders are zero
+outside it. These local facts produce a factory-owned effective pole divisor
+`E` containing every solution.
+
+The solver then constructs the complete Riemann--Roch space `L(E)` once and
+solves one exact constant-linear system on the operator images of its certified
+basis. Positive results reconstruct in the native field. An inconsistent
+system is promoted to a global no-solution result only while carrying both the
+all-place pole proof and the bounded rank obstruction. The homogeneous equation
+returns its unconditional zero witness before requesting a full constant field
+or constructing `L(E)`. The parametric analogue remains; recursive composition
+with transcendental levels follows that field-level decision and an exact mixed
+tower backend.
 
 The global-space service computes complete `L(D)` spaces by Hess's
 finite/infinite ideal intersection, with smaller theorem-backed shortcuts for
@@ -1707,8 +1712,10 @@ divisor stage; they are not yet a logarithmic answer.
 - [x] Add good-prime finite Jacobian reductions over `QQ`, reconcile two
   reduced orders, and replay the unique torsion candidate in characteristic
   zero.
-- [ ] Implement exactness testing for differentials of the second kind.
-- [ ] Solve the Risch differential equation on an algebraic curve.
+- [x] Implement exactness testing for differentials of the second kind.
+- [x] Solve the scalar Risch differential equation on an admitted algebraic
+  curve using automatic all-place pole bounds.
+- [ ] Extend the algebraic-curve RDE to the parametric case.
 - [ ] Generalize algebraic Hermite reduction to monomial parent fields.
 - [ ] Compose algebraic levels below, above, and between transcendental
   levels.

@@ -52,6 +52,7 @@ class AlgebraicFunctionField:
         self._finite_cache: dict[Poly, tuple[FiniteAlgebraicPlace, ...]] = {}
         self._reciprocal_chart: ReciprocalFunctionField | None = None
         self._infinite_cache: tuple[InfiniteAlgebraicPlace, ...] | None = None
+        self._canonical_divisor_cache: AlgebraicDivisor | None = None
 
     def finite_places(
         self,
@@ -171,6 +172,8 @@ class AlgebraicFunctionField:
 
     def canonical_divisor(self) -> AlgebraicDivisor:
         r"""Return the divisor of ``dx`` via the relative different."""
+        if self._canonical_divisor_cache is not None:
+            return self._canonical_divisor_cache
         terms: list[tuple[AlgebraicPlace, int]] = []
         _, factors = self.order.discriminant.factor_list()
         for prime, _ in factors:
@@ -182,7 +185,9 @@ class AlgebraicFunctionField:
             exponent = place.different_exponent - 2 * place.ramification_index
             if exponent:
                 terms.append((place, exponent))
-        return AlgebraicDivisor(self, tuple(terms))
+        divisor = AlgebraicDivisor(self, tuple(terms))
+        self._canonical_divisor_cache = divisor
+        return divisor
 
     @cached_property
     def genus(self) -> int:

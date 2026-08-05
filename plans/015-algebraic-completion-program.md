@@ -490,16 +490,17 @@ curves.
 
 ### A9. Solve scalar and parametric RDEs on algebraic curves
 
-**Progress:** the finite-dimensional scalar kernel is complete. For a supplied
-effective divisor `E`, the solver constructs a certified complete `L(E)`,
-forms the operator columns `D(v_i) + a*v_i` once, and solves the resulting
-constant-linear system exactly. It returns either a reconstructible solution,
-a factory-owned proof that this particular `L(E)` has no solution, or an
-explicit unsupported boundary. The negative result is intentionally not a
-global RDE obstruction. A homogeneous equation returns the unconditional zero
-solution without requiring constant-field or Riemann--Roch completeness.
-Local valuation/resonance bounds at every finite and
-infinite place, and the parametric extension, remain open.
+**Progress:** the unrestricted scalar direct-curve solver is complete on the
+admitted full-constant cell. It computes `div(a*dx)` and `div(b*dx)` once,
+applies exact dominant balance at every support place, and retains the unique
+possible simple-pole resonance when the local residue is a positive integer.
+The resulting factory-owned divisor bounds every solution, including at
+infinity and higher-degree closed places. The solver constructs its certified
+`L(E)` once, forms the columns `D(v_i) + a*v_i` once, and solves one exact
+constant-linear system. A bounded inconsistency is promoted to a global
+negative only with that complete pole proof. The homogeneous equation still
+returns zero without constant-field or Riemann--Roch work. The parametric
+extension remains open.
 
 Use the geometry engine to implement the algebraic-curve Risch differential
 equation:
@@ -510,15 +511,17 @@ D(y) + a*y = b
 
 and its parametric form. Include:
 
-- local valuation bounds at all places;
-- infinity bounds;
-- reduction to a finite Riemann--Roch space;
-- the residual constant-field linear system;
-- integrating-factor and logarithmic-derivative cases; and
-- exact reconstruction and obstruction certificates.
+- [x] scalar local valuation bounds at all places;
+- [x] scalar infinity bounds;
+- [x] reduction to a finite Riemann--Roch space;
+- [x] the residual scalar constant-field linear system;
+- [x] integrating-factor and logarithmic-derivative cases;
+- [x] exact scalar reconstruction and obstruction certificates; and
+- [ ] the shared parametric local analysis and residual linear system.
 
-The current `a = 0` exactness solver and verified integrating-factor route are
-base cases and oracles, not evidence that the general RDE is complete.
+The `a = 0` exactness solver and verified integrating-factor route remain
+independent semantic oracles for the scalar implementation; neither substitutes
+for the still-open parametric decision.
 
 **Exit gate:** the scalar and parametric algebraic RDEs are total on the
 admitted curve cell and satisfy substitution-based reconstruction tests.

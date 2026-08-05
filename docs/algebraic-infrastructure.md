@@ -258,7 +258,7 @@ correction after its logarithmic term is reconstructed. On an elliptic curve,
 a nonzero holomorphic differential such as `dx / y` returns `NON_ELEMENTARY`
 with its complete residue-free exactness obstruction.
 
-## Integrating-factor algebraic RDEs
+## Scalar algebraic RDEs
 
 `find_algebraic_integrating_factor` recognizes the restricted but useful
 coefficient shape
@@ -272,17 +272,47 @@ decides the corresponding principal residue divisor, and verifies the field
 identity after finding a witness. A coefficient that is not a logarithmic
 derivative is a complete negative only for this factor-recognition question.
 
-`solve_algebraic_integrating_factor_rde` then solves
+`solve_algebraic_integrating_factor_rde` is an independent constructive oracle
+for the recognized case. It solves
 
 ```text
 D(u) + a*u = b
 ```
 
-by converting it to `D(h*u) = h*b` and invoking the certified exactness
-solver. Thus it can return a constructive solution or a complete no-solution
-certificate when the transformed exactness decision is complete. It does not
-claim to solve a general algebraic RDE: arbitrary coefficients require local
-resonance analysis and a global pole bound for `u`.
+by converting it to `D(h*u) = h*b` and invoking the certified exactness solver.
+
+The general direct-curve entry point is `solve_algebraic_rde`. It writes the
+equation invariantly as
+
+```text
+du + A*u = B,  A = a*dx,  B = b*dx.
+```
+
+At a closed place `P`, put `m = ord_P(u)`, `alpha = ord_P(A)`, and
+`beta = ord_P(B)`. For a pole of `u`, `ord_P(du) = m - 1`. Therefore:
+
+```text
+alpha < -1:  multiplication dominates, m = beta - alpha
+alpha > -1:  differentiation dominates, m = beta + 1
+alpha = -1:  either m = beta + 1, or m = -res_P(A)
+```
+
+The final alternative is possible only when `res_P(A)` is a positive rational
+integer in the exact closed-place residue field. This is the sole resonant
+order for a first-order scalar equation; no bounded Laurent search is needed.
+`certify_algebraic_rde_pole_bound` applies these alternatives on the complete
+support of `div(A)` and `div(B)`. Outside that finite support both orders are
+zero, which excludes further poles. It returns an effective divisor `E`
+containing every possible solution.
+
+`solve_algebraic_rde` constructs `L(E)` once and invokes the existing exact
+constant-linear solver. A successful result reconstructs in the native field.
+An inconsistent system becomes a global `AlgebraicScalarRDENoSolution` only
+because its factory-owned pole certificate proves that every solution would
+belong to that exact space. Missing full-constant evidence or unavailable
+Riemann--Roch data remains `AlgebraicScalarRDEUnsupported`. The homogeneous
+equation returns `u = 0` before either requirement. Parametric algebraic RDEs
+remain the next A9 checkpoint.
 
 ## Relative simple-radical RDE descent
 
@@ -723,6 +753,8 @@ override.
 | `integrate_algebraic` | Current displayed-constant algebraic integration slice |
 | `AlgebraicExactnessResult` | Verified primitive, complete in-field no-primitive decision, or unsupported AFF boundary |
 | `solve_algebraic_exactness` | Low-level residue-free exactness decision in a direct algebraic function field |
+| `AlgebraicRDEPoleBoundCertificate` | All-place proof that every scalar RDE solution belongs to one effective pole space |
+| `solve_algebraic_rde` | Global scalar RDE decision on the admitted direct algebraic-curve cell |
 | `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus an explicit chain of target-field continuations |
 | `integrate_algebraic_with_constant_base_change` | Build common supported residue constants, then recollect and integrate in each target |
 
