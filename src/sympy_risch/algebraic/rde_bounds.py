@@ -173,12 +173,11 @@ def _local_bound(
     model: AlgebraicFunctionField,
     place: AlgebraicPlace,
     coefficient_differential: AlgebraicDifferential | None,
-    right_hand_side_differential: AlgebraicDifferential,
+    coefficient_order: int | None,
+    right_hand_side_order: int,
 ) -> AlgebraicRDELocalBound:
     """Apply the exact dominant-balance alternatives at one relevant place."""
-    beta = right_hand_side_differential.order_at(place)
-    if not isinstance(beta, int):
-        raise ValueError("a nonzero RDE right-hand side had infinite local order")
+    beta = right_hand_side_order
     if coefficient_differential is None:
         return AlgebraicRDELocalBound(
             model,
@@ -191,9 +190,9 @@ def _local_bound(
             None,
         )
 
-    alpha = coefficient_differential.order_at(place)
-    if not isinstance(alpha, int):
-        raise ValueError("a nonzero RDE coefficient had infinite local order")
+    if coefficient_order is None:
+        raise ValueError("a nonzero RDE coefficient needs a local order")
+    alpha = coefficient_order
     if alpha < -1:
         return AlgebraicRDELocalBound(
             model,
@@ -322,11 +321,15 @@ class AlgebraicRDEPoleBoundCertificate:
                 if coefficient_divisor is None
                 else coefficient_divisor.coefficient(bound.place)
             )
-            if bound.coefficient_order != coefficient_order or (
-                bound.right_hand_side_order
-                != right_hand_side_divisor.coefficient(bound.place)
-            ):
-                raise ValueError("an algebraic RDE local bound has inconsistent orders")
+            expected_bound = _local_bound(
+                self.model,
+                bound.place,
+                self.coefficient_differential,
+                coefficient_order,
+                right_hand_side_divisor.coefficient(bound.place),
+            )
+            if bound != expected_bound:
+                raise ValueError("an algebraic RDE local bound is inconsistent")
 
         expected_divisor = AlgebraicDivisor(
             self.model,
@@ -379,7 +382,12 @@ def certify_algebraic_rde_pole_bound(
             model,
             place,
             coefficient_differential,
-            right_hand_side_differential,
+            (
+                None
+                if coefficient_divisor is None
+                else coefficient_divisor.coefficient(place)
+            ),
+            right_hand_side_divisor.coefficient(place),
         )
         for place in places
     )

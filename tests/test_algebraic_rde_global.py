@@ -30,6 +30,7 @@ from sympy_risch.algebraic.rde_global import (
     solve_algebraic_rde,
 )
 from sympy_risch.algebraic_geometry.function_field import (
+    AlgebraicDifferential,
     AlgebraicDivisor,
     AlgebraicFunctionField,
 )
@@ -106,11 +107,12 @@ def test_positive_integer_residue_retains_the_resonant_pole(
 ) -> None:
     extension, derivation, model, analysis = sqrt_x_model
     place = finite_place_above_x(model)
-    coefficient = extension.field.from_sympy(1 / x)
+    coefficient = extension.field.from_sympy(1 + 1 / x)
+    right_hand_side = extension.field.from_sympy(1 / x)
 
     pole_bound = certify_algebraic_rde_pole_bound(
         coefficient,
-        coefficient,
+        right_hand_side,
         derivation,
         model,
     )
@@ -124,16 +126,17 @@ def test_positive_integer_residue_retains_the_resonant_pole(
 
     result = solve_algebraic_rde(
         coefficient,
-        coefficient,
+        right_hand_side,
         derivation,
         model,
         analysis,
     )
     assert isinstance(result, AlgebraicScalarRDESolution)
     assert result.reconstructs
-    # 1 + 1/x is a solution whose pole would be lost without resonance.
-    witness = extension.field.one + extension.field.from_sympy(1 / x)
-    assert derivation(witness) + coefficient * witness == coefficient
+    # This solution cannot be replaced by a regular solution at x = 0.
+    witness = extension.field.from_sympy(1 / x)
+    assert result.solution == witness
+    assert derivation(witness) + coefficient * witness == right_hand_side
     assert result.pole_bound.pole_divisor.coefficient(place) == 2
 
 
@@ -287,17 +290,71 @@ def test_global_negative_and_pole_certificate_are_factory_owned(
         AlgebraicScalarRDENoSolution()
 
 
+def test_pole_certificate_replays_the_actual_resonance(sqrt_x_model) -> None:
+    extension, derivation, model, _analysis = sqrt_x_model
+    coefficient = extension.field.from_sympy(1 + 1 / x)
+    right_hand_side = extension.field.from_sympy(1 / x)
+    certificate = certify_algebraic_rde_pole_bound(
+        coefficient,
+        right_hand_side,
+        derivation,
+        model,
+    )
+    place = finite_place_above_x(model)
+    local = next(bound for bound in certificate.local_bounds if bound.place is place)
+    forged_local = replace(
+        local,
+        residue=place.residue_field.zero,
+        resonant_order=None,
+        lower_bound=0,
+    )
+    forged_bounds = tuple(
+        forged_local if bound.place is place else bound
+        for bound in certificate.local_bounds
+    )
+    forged_divisor = AlgebraicDivisor(
+        model,
+        tuple(
+            (bound.place, bound.pole_order)
+            for bound in forged_bounds
+            if bound.pole_order
+        ),
+    )
+
+    with pytest.raises(ValueError, match="local bound is inconsistent"):
+        AlgebraicRDEPoleBoundCertificate._create(
+            model,
+            derivation,
+            coefficient,
+            right_hand_side,
+            certificate.coefficient_differential,
+            certificate.right_hand_side_differential,
+            forged_bounds,
+            forged_divisor,
+            "forged resonance",
+        )
+
+
 def test_pole_bound_reuses_global_divisors_and_canonical_data(monkeypatch) -> None:
     extension, derivation, model, _analysis = algebraic_model(y**2 - x)
     original_principal_divisor = model.principal_divisor
     principal_calls = 0
+    order_calls = 0
 
     def counted_principal_divisor(element):
         nonlocal principal_calls
         principal_calls += 1
         return original_principal_divisor(element)
 
+    original_order_at = AlgebraicDifferential.order_at
+
+    def counted_order_at(differential, place):
+        nonlocal order_calls
+        order_calls += 1
+        return original_order_at(differential, place)
+
     monkeypatch.setattr(model, "principal_divisor", counted_principal_divisor)
+    monkeypatch.setattr(AlgebraicDifferential, "order_at", counted_order_at)
     small = certify_algebraic_rde_pole_bound(
         extension.field.from_sympy(1 / x),
         extension.field.from_sympy(1 / x),
@@ -305,6 +362,7 @@ def test_pole_bound_reuses_global_divisors_and_canonical_data(monkeypatch) -> No
         model,
     )
     assert principal_calls == 2
+    assert order_calls == 0
 
     wider_value = extension.field.from_sympy(1 / (x * (x - 1) * (x + 1) * (x**2 + 1)))
     wider = certify_algebraic_rde_pole_bound(
@@ -316,4 +374,5 @@ def test_pole_bound_reuses_global_divisors_and_canonical_data(monkeypatch) -> No
 
     assert len(wider.local_bounds) > len(small.local_bounds)
     assert principal_calls == 4
+    assert order_calls == 0
     assert model.canonical_divisor() is model.canonical_divisor()
