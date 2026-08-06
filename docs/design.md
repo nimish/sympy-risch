@@ -1604,7 +1604,9 @@ parametric RDE, and limited integration are complete over recursively checked
 rational, primitive, hyperexponential, and hypertangent prefixes.
 Parametric RDE additionally supports one terminal pure simple radical whose
 generator derivative is diagonal and whose coefficient lies in the lower
-field; its power-basis modes are intersected on a shared parameter vector.
+field. Complete lower homogeneous RDEs first prove that its nontrivial modes
+introduce no new constants; the problem modes are then intersected on a shared
+parameter vector.
 See [mixed transcendental towers](mixed-transcendental-towers.md) for the
 precise contract and its deliberate boundaries.
 

@@ -183,6 +183,22 @@ def _solve_nonempty_parametric_rde(
         modes = relative_simple_radical_parametric_modes(
             coefficient, right_hand_sides, derivation
         )
+        # A nonzero q*theta**j is a new constant exactly when
+        # D(q) + j*eta*q = 0.  Exclude those modes before claiming that the
+        # lower constant-vector basis is complete over the algebraic field.
+        base_mode_coefficient = modes[0][0]
+        for power, (mode_coefficient, _) in enumerate(modes[1:], start=1):
+            constant_mode = _solve_parametric_rde_basis(
+                mode_coefficient - base_mode_coefficient,
+                (),
+                lower_derivation,
+            )
+            if constant_mode:
+                raise NotImplementedError(
+                    "the terminal simple radical enlarges the constant field "
+                    f"through power-basis mode {power}; rebase the algebraic "
+                    "constant field before solving its parametric RDE"
+                )
         mode_bases = tuple(
             _solve_nonempty_parametric_rde(
                 mode_coefficient,

@@ -1317,8 +1317,9 @@ assert direction.solution == mixed.field().from_sympy(x - theta)
 This terminal tower has `Dt = 1/x` and `theta**2 = t`. The lower field is used
 only for the scalar or shared-parameter coordinate equations; the library does
 not treat it as `C(x)`. Non-radical terminal extensions, non-lower
-coefficients, relative Hermite/residue work, and recursive elementary
-integration remain explicit boundaries. See
+coefficients, radicals that require algebraic constant-field rebasing,
+relative Hermite/residue work, and recursive elementary integration remain
+explicit boundaries. See
 [the algebraic infrastructure contract](algebraic-infrastructure.md#relative-simple-radical-rde-descent)
 for the complete current scope and a nonzero-coefficient example.
 
@@ -1597,7 +1598,7 @@ boundary, not a mathematical claim about the integral.
 | Admission of the certified P/E/T contract and top-level hyperbolic Möbius normalization | `assess_risch_operation` checks a typed operation cell; `assess_elementary_admission` is the elementary-integration convenience wrapper |
 | Scalar-RDE dispatch admission | Checks the complete recursive prefix over supported finite or purely transcendental rational constants: P/E levels generally, plus hypertangent levels when `C` is provably real, with replay-proved preserved constants above the base |
 | Scalar RDE over recursive P/E/T levels, general rational coefficient and right-hand side | Complete for certified P/E prefixes over rational constants and for the finite-constant P/E/T cell |
-| Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over admitted rational constants and recursively checked P/E/T prefixes; a terminal diagonal pure radical also descends through the complete lower PRDE solver |
+| Rational, primitive, hyperexponential, and hypertangent parametric RDE | Complete full constant-vector solution space over admitted rational constants and recursively checked P/E/T prefixes; a terminal diagonal pure radical also descends after complete lower homogeneous RDEs prove that it preserves constants |
 | Limited integration over recursive P/E/T levels | Complete affine solution family, or a PRDE-backed proof that no solution exists in the current field |
 | Coupled RDE in the explicit certified P/E/T contract | Complete for the documented dispatch shapes over provably real finite constants; the scalar fallback uses the exact compositum `C(i)` |
 | Coupled RDE over a hyperexponential level, lower-field matrix and Laurent right-hand sides | Complete terminal decision |

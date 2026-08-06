@@ -112,6 +112,48 @@ def test_relative_parametric_can_prove_the_shared_space_is_zero() -> None:
     assert not result.has_nontrivial_parameter_solution
 
 
+def test_relative_parametric_rejects_a_new_algebraic_constant() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = base.extend(AlgebraicExtension(Poly(y**2 - 2, y, domain=base.field())))
+
+    with pytest.raises(NotImplementedError, match="enlarges the constant field"):
+        solve_parametric_risch_differential_equation(
+            tower.field().zero,
+            (tower.field().one,),
+            tower.derivation(),
+        )
+
+
+def test_relative_parametric_detects_a_mixed_new_constant() -> None:
+    base = DifferentialTower(QQ).extend(
+        MonomialExtension(
+            Poly(1, x, domain=QQ),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    lower = base.extend(
+        MonomialExtension(
+            Poly(t, t, domain=base.field()),
+            ConstantFieldStatus.PRESERVED,
+        )
+    )
+    tower = lower.extend(
+        AlgebraicExtension(Poly(y**2 - 2 * t**2, y, domain=lower.field()))
+    )
+
+    with pytest.raises(NotImplementedError, match="enlarges the constant field"):
+        solve_parametric_risch_differential_equation(
+            tower.field().zero,
+            (tower.field().one,),
+            tower.derivation(),
+        )
+
+
 def test_relative_parametric_batches_all_parameters_per_power_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -143,4 +185,4 @@ def test_relative_parametric_batches_all_parameters_per_power_mode(
         derivation,
     )
 
-    assert lower_batches == [len(right_hand_sides)] * 4
+    assert lower_batches == [1] * 3 + [len(right_hand_sides)] * 4
