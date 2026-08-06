@@ -13,7 +13,7 @@ whole parametric problem at once.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import TypeAlias
 
@@ -46,12 +46,26 @@ from .rde_bounds import (
 )
 
 
-def _right_hand_side_order(
-    divisors: tuple[AlgebraicDivisor, ...] | list[AlgebraicDivisor],
-    place: AlgebraicPlace,
-) -> int:
-    """Least local order in a parameter span, or zero outside its support."""
-    return min((divisor.coefficient(place) for divisor in divisors), default=0)
+def _right_hand_side_orders(
+    divisors: Sequence[AlgebraicDivisor],
+    places: Sequence[AlgebraicPlace],
+) -> dict[AlgebraicPlace, int]:
+    """Least span order at every place, including implicit zero coefficients."""
+    minima: dict[AlgebraicPlace, int] = {}
+    support_counts: dict[AlgebraicPlace, int] = {}
+    for divisor in divisors:
+        for place, order in divisor.terms:
+            minima[place] = min(minima.get(place, order), order)
+            support_counts[place] = support_counts.get(place, 0) + 1
+    count = len(divisors)
+    return {
+        place: (
+            minima[place]
+            if support_counts.get(place) == count
+            else min(0, minima.get(place, 0))
+        )
+        for place in places
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +187,10 @@ class AlgebraicParametricRDEPoleBoundCertificate:
         )
         if tuple(bound.place for bound in self.local_bounds) != tuple(support):
             raise ValueError("the parametric local bounds do not cover exact support")
+        right_orders = _right_hand_side_orders(
+            right_divisors,
+            tuple(support),
+        )
         for bound in self.local_bounds:
             expected = _local_bound(
                 model,
@@ -183,7 +201,7 @@ class AlgebraicParametricRDEPoleBoundCertificate:
                     if coefficient_divisor is None
                     else coefficient_divisor.coefficient(bound.place)
                 ),
-                _right_hand_side_order(right_divisors, bound.place),
+                right_orders[bound.place],
             )
             if bound != expected:
                 raise ValueError("a parametric local bound is inconsistent")
@@ -229,6 +247,7 @@ def _certify_parametric_pole_bound(
             + tuple(place for divisor in right_divisors for place in divisor.support)
         )
     )
+    right_orders = _right_hand_side_orders(right_divisors, places)
     local_bounds = tuple(
         _local_bound(
             model,
@@ -239,7 +258,7 @@ def _certify_parametric_pole_bound(
                 if coefficient_divisor is None
                 else coefficient_divisor.coefficient(place)
             ),
-            _right_hand_side_order(right_divisors, place),
+            right_orders[place],
         )
         for place in places
     )

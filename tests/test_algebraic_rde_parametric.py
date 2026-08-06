@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 from sympy import Poly, symbols
 from sympy.polys.domains import QQ
+from sympy.polys.matrices import DomainMatrix
 
 from sympy_risch import (
     AlgebraicConstantFieldStatus,
@@ -24,7 +25,10 @@ from sympy_risch.algebraic.rde_parametric import (
     certify_algebraic_parametric_rde_pole_bound,
     solve_algebraic_parametric_rde,
 )
-from sympy_risch.algebraic_geometry.function_field import AlgebraicFunctionField
+from sympy_risch.algebraic_geometry.function_field import (
+    AlgebraicDivisor,
+    AlgebraicFunctionField,
+)
 
 x, y = symbols("x y")
 
@@ -66,6 +70,12 @@ def test_two_parameter_family_is_reconstructed_completely(sqrt_x_model) -> None:
     assert isinstance(result, AlgebraicParametricRDESolutionSpace)
     assert result.complete
     assert len(result.basis) == 2
+    parameter_rows = DomainMatrix(
+        [list(vector.parameters) for vector in result.basis],
+        (len(result.basis), len(right_hand_sides)),
+        QQ,
+    )
+    assert parameter_rows.rank() == len(right_hand_sides)
     assert {vector.parameters for vector in result.basis} == {
         (QQ.one, QQ.zero),
         (QQ.zero, QQ.one),
@@ -223,3 +233,36 @@ def test_parametric_solver_builds_one_space_and_one_kernel(
     assert isinstance(result, AlgebraicParametricRDESolutionSpace)
     assert space_calls == 1
     assert matrix_calls == 1
+
+
+def test_shared_order_aggregation_does_not_rescan_every_parameter(
+    sqrt_x_model,
+    monkeypatch,
+) -> None:
+    extension, derivation, model, analysis = sqrt_x_model
+    original_coefficient = AlgebraicDivisor.coefficient
+    coefficient_calls = 0
+
+    def counted_coefficient(divisor, place):
+        nonlocal coefficient_calls
+        coefficient_calls += 1
+        return original_coefficient(divisor, place)
+
+    monkeypatch.setattr(AlgebraicDivisor, "coefficient", counted_coefficient)
+    for parameter_count in (2, 8):
+        coefficient_calls = 0
+        right_hand_sides = tuple(
+            extension.field.from_sympy(1 / (x - index))
+            for index in range(1, parameter_count + 1)
+        )
+        certificate = certify_algebraic_parametric_rde_pole_bound(
+            extension.field.one,
+            right_hand_sides,
+            derivation,
+            model,
+            analysis,
+        )
+
+        # Only the coefficient divisor is queried once in construction and replay;
+        # right-hand-side minima are aggregated directly from sparse divisor terms.
+        assert coefficient_calls == 2 * len(certificate.local_bounds)
