@@ -84,8 +84,21 @@ def solve_constant_linear_span(
     return ConstantLinearSolve(tuple(coordinates), operator_rank, augmented_rank)
 
 
+def constant_linear_kernel(
+    model: AlgebraicFunctionField,
+    columns: tuple[ExtensionElement, ...],
+) -> tuple[tuple[FieldElement, ...], ...]:
+    """Return a basis for all constant-linear relations among ``columns``."""
+    matrix = constant_coordinate_matrix(model, columns)
+    return tuple(
+        tuple(cast(FieldElement, entry) for entry in row)
+        for row in matrix.nullspace().to_list()
+    )
+
+
 __all__ = [
     "ConstantLinearSolve",
     "constant_linear_combination",
+    "constant_linear_kernel",
     "solve_constant_linear_span",
 ]

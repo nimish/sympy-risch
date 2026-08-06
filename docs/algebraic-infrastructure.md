@@ -311,8 +311,20 @@ An inconsistent system becomes a global `AlgebraicScalarRDENoSolution` only
 because its factory-owned pole certificate proves that every solution would
 belong to that exact space. Missing full-constant evidence or unavailable
 Riemann--Roch data remains `AlgebraicScalarRDEUnsupported`. The homogeneous
-equation returns `u = 0` before either requirement. Parametric algebraic RDEs
-remain the next A9 checkpoint.
+equation returns `u = 0` before either requirement.
+
+`solve_algebraic_parametric_rde` solves the complete constant-linear family
+
+```text
+D(u) + a*u = c_1*b_1 + ... + c_r*b_r.
+```
+
+At each place it uses the least order among the `b_i*dx`; cancellation can
+only raise that order, so the scalar dominant-balance theorem gives one pole
+divisor valid for every parameter vector. The implementation constructs this
+divisor and `L(E)` once, then takes one exact kernel whose rows are a basis of
+all pairs `(u, c)`. A missing full-constant proof or unavailable complete
+Riemann--Roch space remains `AlgebraicParametricRDEUnsupported`.
 
 ## Relative simple-radical RDE descent
 
@@ -755,6 +767,8 @@ override.
 | `solve_algebraic_exactness` | Low-level residue-free exactness decision in a direct algebraic function field |
 | `AlgebraicRDEPoleBoundCertificate` | All-place proof that every scalar RDE solution belongs to one effective pole space |
 | `solve_algebraic_rde` | Global scalar RDE decision on the admitted direct algebraic-curve cell |
+| `AlgebraicParametricRDESolutionSpace` | Complete constant basis of all parametric algebraic RDE solutions |
+| `solve_algebraic_parametric_rde` | One-bound, one-space parametric RDE decision on the admitted direct curve |
 | `AlgebraicConstantBaseChangeIntegrationResult` | Source boundary plus an explicit chain of target-field continuations |
 | `integrate_algebraic_with_constant_base_change` | Build common supported residue constants, then recollect and integrate in each target |
 

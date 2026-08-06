@@ -500,7 +500,8 @@ infinity and higher-degree closed places. The solver constructs its certified
 constant-linear system. A bounded inconsistency is promoted to a global
 negative only with that complete pole proof. The homogeneous equation still
 returns zero without constant-field or Riemann--Roch work. The parametric
-extension remains open.
+solver now derives one bound from the least local order in the right-hand-side
+span, constructs one `L(E)`, and computes the complete `(u, c)` kernel.
 
 Use the geometry engine to implement the algebraic-curve Risch differential
 equation:
@@ -517,11 +518,10 @@ and its parametric form. Include:
 - [x] the residual scalar constant-field linear system;
 - [x] integrating-factor and logarithmic-derivative cases;
 - [x] exact scalar reconstruction and obstruction certificates; and
-- [ ] the shared parametric local analysis and residual linear system.
+- [x] the shared parametric local analysis and residual linear system.
 
 The `a = 0` exactness solver and verified integrating-factor route remain
-independent semantic oracles for the scalar implementation; neither substitutes
-for the still-open parametric decision.
+independent semantic oracles for the scalar implementation.
 
 **Exit gate:** the scalar and parametric algebraic RDEs are total on the
 admitted curve cell and satisfy substitution-based reconstruction tests.
