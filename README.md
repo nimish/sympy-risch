@@ -1,147 +1,122 @@
 # sympy-risch
 
-`sympy-risch` is an experimental, upstream-oriented implementation of the
-Risch algorithm built directly on SymPy's exact domains. It is not yet a
-drop-in replacement for `sympy.integrate`. The narrow one-variable grammar of
-rational arithmetic, rational powers, and nested `log`/`exp`/`tan` calls can
-use `integrate_risch`; `integrate_expression` exposes the lower-level compiler
-decision, while other callers construct the differential tower explicitly.
+[![Quality](https://github.com/nimish/sympy-risch/actions/workflows/ruff.yml/badge.svg)](https://github.com/nimish/sympy-risch/actions/workflows/ruff.yml)
 
-The implemented end-to-end dispatcher handles rational functions and explicit
-finite towers of primitive, hyperexponential, and hypertangent extensions
-over `QQ(x)`, in any order when their constant fields have been certified as
-preserved. It also normalizes the exact hyperbolic law
-`Dt = eta*(1 - t**2)` to an isomorphic hyperexponential coordinate. When a
-caller supplies two checked linear special-factor certificates, it can also
-normalize a preserved-constants quadratic/Riccati top level explicitly and
-integrate through its hyperexponential coordinate when the transformed target
-is admitted by the P/E/T contract, via
-`build_riccati_mobius_normal_form` and
-`integrate_riccati_mobius_normal_form`. It does not yet search for those
-factors automatically. A separate local API,
-`reduce_certified_linear_special_poles`, consumes one checked linear special
-factor to cancel a currently exposed principal part when its lower-field RDE
-has a solution; an unsolved local RDE remains an explicit boundary, not a
-non-elementarity claim.
-Lower-level modules also provide
-recursive radical and parametric logarithmic-derivative decisions over
-primitive towers, primitive RDE weak normalization and cancellation,
-algebraic Hermite reduction, certified algebraic maximal orders and
-fractional ideals, ramified and infinite places, exact valuations and
-divisors, good-prime finite Jacobian torsion decisions over `QQ`, Trager
-finite-residue polynomials for supported algebraic models,
-an independent Czichowski Gröbner-basis checker for rational LRT logarithmic
-parts, generalized monomial residue reduction, family-aware
-exact-derivative decisions, and Risch differential-equation solvers.
-Hyperexponential RDEs include general weak normalization, normal and special
-denominator reduction, SPDE, and the Laurent recurrence core. Real coupled
-RDEs include Gaussian scalar certificates over primitive towers and direct
-Chapter 8 cancellation recurrences for hyperexponential Laurent modes and
-hypertangent polynomial systems. Together with the immutable Gaussian Cayley
-normal form, those solvers close the declared explicit P/E/T tower contract.
-The expression frontend reuses its checked extension factories and returns
-only local, branch-preserving presentations. Its separate candidate-DAG pass
-now recognizes rational-power algebraic levels and both mixed
-algebraic/transcendental orders; the native compiler executes terminal
-algebraic-over-P/E/T towers and reports still-missing opposite-order backends
-separately. Rational powers of the same base reuse one source generator when
-the others differ by an integer power of it and an integer power of the base.
-A pure algebraic expression with several direct, linearly-disjoint rational
-powers is normalized to one primitive extension when the generator sum has an
-irreducible full-degree characteristic polynomial; exact recovery maps retain
-every source radical. A direct rational-power extension of `QQ(x)` is now
-dispatched
-through the certified algebraic function-field integrator, including its
-theorem-backed non-elementarity decisions. When the normalized radical has a
-single linear branch, an exact rational parametrization runs the rational
-integrator first and avoids constructing maximal orders and places entirely.
-Free symbols other than the integration variable are inferred as generic,
-algebraically independent constants in `QQ(a, b, ...)`. Rational integration
-and the one-linear-factor radical route use that field directly; declared
-algebraic symbols and constant fields needed by the remaining global or P/E/T
-backends stay explicit unsupported boundaries.
-Complete general-polynomial special-factor reduction, component selection for
-dependent algebraic composita, general `RootOf` presentations, and global
-branch-aware expression normalization remain future work.
+An experimental implementation of the Risch algorithm built on SymPy's exact
+domains.
 
-`python-flint` is the required exact-arithmetic backend. The project does not
-support SymPy's slower pure-Python ground types.
+The project is research software, not a drop-in replacement for
+`sympy.integrate`. Its goal is a complete, upstreamable implementation that
+distinguishes three outcomes:
 
-## Install and test
+- `ElementaryPrimitive`: a reconstructible elementary antiderivative;
+- `NonElementary`: a theorem-backed Liouville obstruction; and
+- `NotSupported`: an expression or algorithm outside the implemented cell.
 
-From a checkout:
+An unsupported computation is never reported as a proof of
+non-elementarity.
+
+## Quick start
+
+The project currently requires Python 3.13 or newer, SymPy 1.14, and
+`python-flint`. It is not yet released on PyPI, so install it from a checkout:
 
 ```console
-uv sync --no-editable
-uv run --no-sync ruff check .
-uv run --no-sync ruff format --check .
-uv run --no-sync ty check
-uv run --no-sync pytest -q -n auto --dist worksteal
+git clone https://github.com/nimish/sympy-risch.git
+cd sympy-risch
+uv sync --locked --all-groups
 ```
 
-The non-editable install avoids an editable-install issue on Python versions
-that ignore hidden `.pth` files. If the environment already contains an
-editable installation, add `--reinstall-package sympy-risch` to the sync
-command when switching it to a non-editable install. Pytest still reads the
-current source tree through the configured `src` path. Ruff checks the complete
-checkout, while ty checks the production package under `src`.
-
-The automatic worker count was fastest on the development machine. Use plain
-`pytest -q` when debugging a failure serially.
-
-## Minimal example
+`integrate_risch` is the public expression-level entry point:
 
 ```python
-from sympy import Poly, log, symbols
-from sympy.polys.domains import QQ
+from sympy import diff, exp, log, sin, symbols
 
 from sympy_risch import (
-    DifferentialTower,
-    certify_primitive_extension,
-    integrate_elementary,
+    ElementaryPrimitive,
+    NonElementary,
+    NotSupported,
+    integrate_risch,
 )
 
 x = symbols("x")
 
-# Certify QQ < QQ(x), with Dx = 1, before adjoining x.
-constants = DifferentialTower(QQ)
-base_analysis = certify_primitive_extension(
-    Poly(1, x, domain=QQ),
-    constants.derivation(),
-)
-tower = constants.extend(base_analysis.extension)
-field = tower.field()
-integrand = field.from_sympy(-1 / (x - 1) ** 2 + 3 / x)
+result = integrate_risch(1 / (x * log(x)), x)
+assert isinstance(result, ElementaryPrimitive)
+assert result.primitive == log(log(x))
+assert diff(result.primitive, x) == 1 / (x * log(x))
 
-result = integrate_elementary(integrand, tower.derivation())
+non_elementary = integrate_risch(exp(x**2), x)
+assert isinstance(non_elementary, NonElementary)
 
-assert result.is_elementary
-assert result.reconstructs
-assert result.antiderivative == 1 / (x - 1) + 3 * log(x)
+unsupported = integrate_risch(sin(x), x)
+assert isinstance(unsupported, NotSupported)
 ```
 
-See the [getting-started guide](docs/getting-started.md) for nested logarithms,
-non-elementarity obstructions, the narrow automatic frontend, and the
-supported tower shapes.
+The returned primitive is a local differential identity. The frontend does
+not silently apply branch-sensitive identities such as
+`log(a*b) = log(a) + log(b)`.
+
+## Current scope
+
+The automatic frontend accepts a one-variable grammar of rational arithmetic,
+rational powers, and nested `log`, `exp`, and `tan` calls. Other free symbols
+are treated as generic algebraically independent constants where the selected
+backend supports them.
+
+The implemented mathematical core includes:
+
+- rational integration, including Hermite reduction and independent LRT
+  implementations;
+- complete explicit primitive, hyperexponential, and hypertangent towers over
+  supported exact finite constant fields;
+- exact derivative, logarithmic derivative, scalar and parametric RDE,
+  limited integration, and the coupled systems required for real tangent
+  integration on that P/E/T cell;
+- algebraic Hermite reduction, maximal orders, places, valuations, divisors,
+  Riemann--Roch spaces, residue reconstruction, and exactness decisions for
+  admitted direct algebraic curves;
+- scalar and parametric RDEs on admitted algebraic curves; and
+- a first mixed-tower cell for terminal diagonal simple radicals over P/E/T
+  towers.
+
+Important remaining boundaries include general `RootOf` presentations,
+automatic algebraic composita, algebraic constant-field rebasing in mixed
+towers, monomial-over-algebraic execution, arbitrary algebraic/transcendental
+interleavings, and global branch-aware real presentation.
+
+The low-level APIs also allow callers to construct immutable differential
+towers and algebraic function-field models explicitly. See the documentation
+for their admission and certificate requirements.
+
+## Development
+
+Run the same main checks used by CI:
+
+```console
+uv run ruff check .
+uv run ruff format --check .
+uv run ty check
+uv run pytest -q -n auto --dist worksteal
+uv build
+```
+
+The codebase targets exact arithmetic. `python-flint` is required; the slower
+pure-Python SymPy ground types are not supported.
 
 ## Documentation
 
-- [Getting started](docs/getting-started.md): construct towers, integrate, and
-  interpret results.
-- [Understanding solver decisions](docs/understanding-decisions.md): tell a
-  constructive answer from a proved obstruction or an unsupported input.
-- [Architecture and roadmap](docs/design.md): mathematical design, implemented
-  algorithms, and remaining work.
-- [Mixed transcendental towers](docs/mixed-transcendental-towers.md): the
-  explicit P/E/T tower contract.
-- [Testing contract](docs/testing.md): correctness criteria and test commands.
-- [Tutoring notes](docs/tutoring-notes.md): a guided introduction to the
-  mathematics.
-- [Algebraic-over-hypertangent research note](docs/algebraic-hypertangent.md):
-  a proposed future real-algebraic branch.
-- [Algebraic function-field infrastructure](docs/algebraic-infrastructure.md):
-  exact orders, ideals, places, local expansions, divisors, and differentials.
-- [Checked monogenic extension fields](docs/monogenic-extension-field.md): an
-  exact coefficient-field replacement with checked irreducibility.
-- [Literature archive](references/README.md): locally available primary papers,
-  their provenance, and cited works that still need an authorized copy.
+- [Getting started](docs/getting-started.md) introduces the public API and
+  explicit tower construction.
+- [Understanding decisions](docs/understanding-decisions.md) explains
+  constructive, non-elementary, and unsupported results.
+- [Design](docs/design.md) connects the implementation to the mathematical
+  algorithms.
+- [Algebraic infrastructure](docs/algebraic-infrastructure.md) documents the
+  function-field engine.
+- [Testing contract](docs/testing.md) states the correctness and performance
+  requirements.
+- [Full roadmap](plans/001-full-risch-roadmap.md) tracks the path to arbitrary
+  algebraic/transcendental towers and eventual SymPy upstreaming.
+- [Documentation index](docs/README.md) links the remaining guides and
+  research notes.
