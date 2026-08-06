@@ -189,7 +189,7 @@ def _unsupported(
 
 def _lower_scalar(
     extension: AlgebraicExtension,
-    value: ExtensionElement,
+    value: object,
 ) -> FieldElement | None:
     """Return ``value`` when it belongs to the relative lower field ``K``."""
     coordinates = extension.power_basis_coordinates(value)

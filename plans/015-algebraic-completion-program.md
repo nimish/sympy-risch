@@ -528,6 +528,14 @@ admitted curve cell and satisfy substitution-based reconstruction tests.
 
 ### A10. Generalize geometry and integration to mixed towers
 
+**Progress:** terminal pure simple radicals with diagonal generator derivative
+now support both scalar and parametric RDE descent over an admitted P/E/T lower
+tower. The parametric path solves every power-basis mode once with all
+right-hand sides batched, then intersects the complete lower solution spaces
+on their one shared constant-parameter vector. Non-lower coefficients and
+nonradical algebraic relations still require the general coupled-system step
+below.
+
 Lift A1-A9 from `k = C(x)` to the relative setting used by the full Risch
 algorithm:
 

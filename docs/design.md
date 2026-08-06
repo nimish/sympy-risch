@@ -1602,6 +1602,9 @@ relations are solved directly over the real tower, with immutable Gaussian
 Cayley normalization retained as an independent oracle. Scalar RDE,
 parametric RDE, and limited integration are complete over recursively checked
 rational, primitive, hyperexponential, and hypertangent prefixes.
+Parametric RDE additionally supports one terminal pure simple radical whose
+generator derivative is diagonal and whose coefficient lies in the lower
+field; its power-basis modes are intersected on a shared parameter vector.
 See [mixed transcendental towers](mixed-transcendental-towers.md) for the
 precise contract and its deliberate boundaries.
 

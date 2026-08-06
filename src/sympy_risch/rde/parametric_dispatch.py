@@ -9,7 +9,13 @@ from .._typing import FieldElement, FieldInput
 from ..admission import RischOperation, assess_risch_operation
 from ..constant_fields import is_supported_rational_constant_field
 from ..gaussian import build_hypertangent_gaussian_normal_form
-from ..tower import Derivation, MonomialExtension, MonomialFamily, _coerce
+from ..tower import (
+    AlgebraicExtension,
+    Derivation,
+    MonomialExtension,
+    MonomialFamily,
+    _coerce,
+)
 from ._common import _field_elements_equal
 from ._parametric_linear import (
     ParametricRDESolution,
@@ -18,6 +24,10 @@ from ._parametric_linear import (
 from ._tower_polynomials import _is_standard_rational_derivation_over
 from .hypertangent_parametric import descend_hypertangent_parametric_basis
 from .parametric import solve_rational_parametric_risch_differential_equation
+from .relative_parametric import (
+    intersect_relative_parametric_modes,
+    relative_simple_radical_parametric_modes,
+)
 
 _RESULT_CONSTRUCTION_TOKEN = object()
 
@@ -154,6 +164,44 @@ def _solve_nonempty_parametric_rde(
         )
 
     extension = derivation.tower.levels[derivation.level]
+    if isinstance(extension, AlgebraicExtension):
+        lower_derivation = derivation.lower()
+        lower_admission = assess_risch_operation(
+            lower_derivation,
+            RischOperation.PARAMETRIC_RDE,
+        )
+        if not lower_admission.accepted:
+            if lower_admission.reason is None:
+                raise RuntimeError(
+                    "unsupported lower PRDE admission omitted its reason"
+                )
+            raise NotImplementedError(
+                "relative parametric RDE descent is unsupported for its lower "
+                f"tower prefix: {lower_admission.reason.value}: "
+                f"{lower_admission.detail}"
+            )
+        modes = relative_simple_radical_parametric_modes(
+            coefficient, right_hand_sides, derivation
+        )
+        mode_bases = tuple(
+            _solve_nonempty_parametric_rde(
+                mode_coefficient,
+                mode_right_hand_sides,
+                lower_derivation,
+            ).basis
+            for mode_coefficient, mode_right_hand_sides in modes
+        )
+        return _build_parametric_rde_result(
+            coefficient,
+            right_hand_sides,
+            derivation,
+            intersect_relative_parametric_modes(
+                mode_bases,
+                len(right_hand_sides),
+                extension,
+                derivation,
+            ),
+        )
     if not isinstance(extension, MonomialExtension):
         raise NotImplementedError(
             "parametric RDE dispatch does not yet support algebraic tower levels"
@@ -243,6 +291,18 @@ def solve_parametric_risch_differential_equation(
     right_hand_side_inputs = tuple(right_hand_sides)
     if not right_hand_side_inputs:
         raise ValueError("a parametric RDE needs at least one right-hand side")
+    if not isinstance(derivation, Derivation):
+        raise TypeError("parametric RDE solving requires a Derivation")
+    extension = (
+        derivation.tower.levels[derivation.level] if derivation.level >= 0 else None
+    )
+    if isinstance(extension, AlgebraicExtension):
+        return _solve_admitted_parametric_risch_differential_equation(
+            coefficient,
+            right_hand_side_inputs,
+            derivation,
+        )
+
     admission = assess_risch_operation(derivation, RischOperation.PARAMETRIC_RDE)
     if not admission.accepted:
         if admission.reason is None:
